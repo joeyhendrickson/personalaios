@@ -112,8 +112,8 @@ export default function AdminDashboard() {
     // Check authentication and admin status
     if (!userLoading && !adminLoading) {
       if (!user) {
-        // User not logged in, redirect to admin login
-        router.push('/admin/login');
+        // User not logged in, redirect to main login
+        router.push('/login');
         return;
       }
       

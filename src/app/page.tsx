@@ -20,10 +20,12 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 export default function HomePage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const { isAdmin } = useAdminAuth();
 
   // Redirect authenticated users to dashboard
   useEffect(() => {
@@ -153,6 +155,19 @@ export default function HomePage() {
                   </Button>
                 </Link>
               </div>
+            </div>
+          )}
+
+          {/* Admin Button - Show when user is logged in and is admin */}
+          {user && isAdmin && (
+            <div className="mt-6 text-center">
+              <Link href="/admin">
+                <Button size="lg" className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700">
+                  <Settings className="mr-2 h-5 w-5" />
+                  Admin Dashboard
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
             </div>
           )}
           
