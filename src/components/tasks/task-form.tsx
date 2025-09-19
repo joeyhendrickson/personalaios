@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { PointSuggestion } from './point-suggestion'
 
 interface TaskFormProps {
   goalId: string
@@ -92,7 +93,7 @@ export function TaskForm({ goalId, goalTitle, onSuccess }: TaskFormProps) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="points_value">Points Value</Label>
               <Input
@@ -106,6 +107,18 @@ export function TaskForm({ goalId, goalTitle, onSuccess }: TaskFormProps) {
                 disabled={isLoading}
               />
             </div>
+            
+            {/* Point Suggestion Component */}
+            <PointSuggestion
+              title={formData.title}
+              description={formData.description}
+              onSuggestionAccepted={(points) => 
+                setFormData({ ...formData, points_value: points })
+              }
+            />
+          </div>
+
+          <div className="space-y-2">
             <div className="space-y-2">
               <Label htmlFor="money_value">Money Value ($)</Label>
               <Input

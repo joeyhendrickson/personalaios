@@ -20,7 +20,20 @@ interface GoalFormProps {
 }
 
 const goalCategories = [
+  { value: 'quick_money', label: 'Quick Money' },
+  { value: 'save_money', label: 'Save Money' },
   { value: 'health', label: 'Health' },
+  { value: 'network_expansion', label: 'Network Expansion' },
+  { value: 'business_growth', label: 'Business Growth' },
+  { value: 'fires', label: 'Fires' },
+  { value: 'good_living', label: 'Good Living' },
+  { value: 'big_vision', label: 'Big Vision' },
+  { value: 'job', label: 'Job' },
+  { value: 'organization', label: 'Organization' },
+  { value: 'tech_issues', label: 'Tech Issues' },
+  { value: 'business_launch', label: 'Business Launch' },
+  { value: 'future_planning', label: 'Future Planning' },
+  { value: 'innovation', label: 'Innovation' },
   { value: 'productivity', label: 'Productivity' },
   { value: 'learning', label: 'Learning' },
   { value: 'financial', label: 'Financial' },
@@ -32,7 +45,7 @@ export function GoalForm({ weekId, onSuccess }: GoalFormProps) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    category: 'other' as const,
+    category: 'other' as 'quick_money' | 'save_money' | 'health' | 'network_expansion' | 'business_growth' | 'fires' | 'good_living' | 'big_vision' | 'job' | 'organization' | 'tech_issues' | 'business_launch' | 'future_planning' | 'innovation' | 'productivity' | 'learning' | 'financial' | 'personal' | 'other',
     target_points: 0,
     target_money: 0,
   })
@@ -119,7 +132,20 @@ export function GoalForm({ weekId, onSuccess }: GoalFormProps) {
                 setFormData({
                   ...formData,
                   category: value as
+                    | 'quick_money'
+                    | 'save_money'
                     | 'health'
+                    | 'network_expansion'
+                    | 'business_growth'
+                    | 'fires'
+                    | 'good_living'
+                    | 'big_vision'
+                    | 'job'
+                    | 'organization'
+                    | 'tech_issues'
+                    | 'business_launch'
+                    | 'future_planning'
+                    | 'innovation'
                     | 'productivity'
                     | 'learning'
                     | 'financial'

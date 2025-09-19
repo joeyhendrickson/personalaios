@@ -1,137 +1,131 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { z } from 'zod'
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { z } from 'zod';
 
 const updateGoalSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   description: z.string().optional(),
-  category: z
-    .enum(['health', 'productivity', 'learning', 'financial', 'personal', 'other'])
-    .optional(),
-  target_points: z.number().int().min(0).optional(),
-  target_money: z.number().min(0).optional(),
-  is_completed: z.boolean().optional(),
-})
-
-// GET /api/goals/[id] - Get a specific goal
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const supabase = await createClient()
-
-    // Get current user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: goal, error } = await supabase
-      .from('weekly_goals')
-      .select(
-        `
-        *,
-        week:weeks(*),
-        tasks(*)
-      `
-      )
-      .eq('id', params.id)
-      .eq('user_id', user.id)
-      .single()
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Goal not found' }, { status: 404 })
-      }
-      console.error('Error fetching goal:', error)
-      return NextResponse.json({ error: 'Failed to fetch goal' }, { status: 500 })
-    }
-
-    return NextResponse.json({ goal })
-  } catch (error) {
-    console.error('Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
+  goal_type: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']).optional(),
+  target_value: z.number().min(0).optional(),
+  target_unit: z.string().max(50).optional(),
+  current_value: z.number().min(0).optional(),
+  status: z.enum(['active', 'completed', 'paused', 'cancelled']).optional(),
+  priority_level: z.number().int().min(1).max(5).optional(),
+  start_date: z.string().optional(),
+  target_date: z.string().optional(),
+});
 
 // PATCH /api/goals/[id] - Update a specific goal
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const supabase = await createClient()
+    const supabase = await createClient();
 
-    // Get current user
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser()
+    } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json()
-    const validatedData = updateGoalSchema.parse(body)
+    const { id: goalId } = await params;
+    const body = await request.json();
+    const validatedData = updateGoalSchema.parse(body);
 
-    const { data: goal, error } = await supabase
-      .from('weekly_goals')
-      .update(validatedData)
-      .eq('id', params.id)
+    // Verify the goal exists and belongs to the user
+    const { data: existingGoal, error: fetchError } = await supabase
+      .from('goals')
+      .select('id')
+      .eq('id', goalId)
       .eq('user_id', user.id)
-      .select(
-        `
-        *,
-        week:weeks(*),
-        tasks(*)
-      `
-      )
-      .single()
+      .single();
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Goal not found' }, { status: 404 })
-      }
-      console.error('Error updating goal:', error)
-      return NextResponse.json({ error: 'Failed to update goal' }, { status: 500 })
+    if (fetchError || !existingGoal) {
+      return NextResponse.json({ error: 'Goal not found or access denied' }, { status: 404 });
     }
 
-    return NextResponse.json({ goal })
+    const { data: goal, error: updateError } = await supabase
+      .from('goals')
+      .update({
+        ...validatedData,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', goalId)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Error updating goal:', updateError);
+      return NextResponse.json({ error: 'Failed to update goal' }, { status: 500 });
+    }
+
+    return NextResponse.json({ goal }, { status: 200 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid input', details: error.errors }, { status: 400 })
+      return NextResponse.json({ 
+        error: 'Invalid input', 
+        details: error.issues 
+      }, { status: 400 });
     }
-    console.error('Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Unexpected error:', error);
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 }
 
 // DELETE /api/goals/[id] - Delete a specific goal
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const supabase = await createClient()
+    const supabase = await createClient();
 
-    // Get current user
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser()
+    } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { error } = await supabase
-      .from('weekly_goals')
-      .delete()
-      .eq('id', params.id)
+    const goalId = params.id;
+
+    // Verify the goal exists and belongs to the user
+    const { data: existingGoal, error: fetchError } = await supabase
+      .from('goals')
+      .select('id')
+      .eq('id', goalId)
       .eq('user_id', user.id)
+      .single();
 
-    if (error) {
-      console.error('Error deleting goal:', error)
-      return NextResponse.json({ error: 'Failed to delete goal' }, { status: 500 })
+    if (fetchError || !existingGoal) {
+      return NextResponse.json({ error: 'Goal not found or access denied' }, { status: 404 });
     }
 
-    return NextResponse.json({ message: 'Goal deleted successfully' })
+    const { error: deleteError } = await supabase
+      .from('goals')
+      .delete()
+      .eq('id', goalId)
+      .eq('user_id', user.id);
+
+    if (deleteError) {
+      console.error('Error deleting goal:', deleteError);
+      return NextResponse.json({ error: 'Failed to delete goal' }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: 'Goal deleted successfully' }, { status: 200 });
   } catch (error) {
-    console.error('Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Unexpected error:', error);
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 }

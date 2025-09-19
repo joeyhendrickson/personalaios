@@ -2,16 +2,16 @@ import { z } from 'zod'
 
 const envSchema = z.object({
   // Supabase Configuration
-  NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url('Must be a valid Supabase URL'),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, 'Supabase anon key is required'),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'Supabase service role key is required').optional(),
 
   // OpenAI Configuration
-  OPENAI_API_KEY: z.string().min(1),
+  OPENAI_API_KEY: z.string().min(1, 'OpenAI API key is required').optional(),
 
   // Next.js Configuration
-  NEXTAUTH_SECRET: z.string().min(1),
-  NEXTAUTH_URL: z.string().url(),
+  NEXTAUTH_SECRET: z.string().min(1, 'NextAuth secret is required').optional(),
+  NEXTAUTH_URL: z.string().url('Must be a valid URL').optional(),
 })
 
 export const env = envSchema.parse({
