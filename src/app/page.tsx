@@ -127,20 +127,32 @@ export default function HomePage() {
 
           {/* Action Buttons */}
           {!user && !loading && (
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/login">
-                <Button size="lg" className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
-                  <LogIn className="mr-2 h-5 w-5" />
-                  Sign In
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/login">
-                <Button size="lg" variant="outline">
-                  <UserPlus className="mr-2 h-5 w-5" />
-                  Create Account
-                </Button>
-              </Link>
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link href="/login">
+                  <Button size="lg" className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+                    <LogIn className="mr-2 h-5 w-5" />
+                    Sign In
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/login">
+                  <Button size="lg" variant="outline">
+                    <UserPlus className="mr-2 h-5 w-5" />
+                    Create Account
+                  </Button>
+                </Link>
+              </div>
+              
+              {/* Admin Access Link */}
+              <div className="mt-4">
+                <Link href="/admin/login">
+                  <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Admin Access
+                  </Button>
+                </Link>
+              </div>
             </div>
           )}
           

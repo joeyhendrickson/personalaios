@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,10 +12,7 @@ import {
   Activity, 
   Target, 
   CheckCircle, 
-  Clock, 
-  TrendingUp,
   Eye,
-  Calendar,
   ArrowLeft,
   RefreshCw
 } from 'lucide-react';
@@ -55,7 +54,7 @@ interface ActivityLog {
   id: string;
   user_id: string;
   activity_type: string;
-  activity_data: any;
+  activity_data: Record<string, unknown>;
   page_url: string;
   created_at: string;
   auth: {
@@ -67,6 +66,8 @@ interface ActivityLog {
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { user, loading: userLoading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useAdminAuth();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityLog[]>([]);
@@ -108,8 +109,24 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    // Check authentication and admin status
+    if (!userLoading && !adminLoading) {
+      if (!user) {
+        // User not logged in, redirect to admin login
+        router.push('/admin/login');
+        return;
+      }
+      
+      if (!isAdmin) {
+        // User logged in but not admin, redirect to regular dashboard
+        router.push('/dashboard');
+        return;
+      }
+      
+      // User is admin, fetch dashboard data
+      fetchDashboardData();
+    }
+  }, [user, isAdmin, userLoading, adminLoading, router]);
 
   const formatTime = (seconds: number) => {
     if (seconds < 60) return `${seconds}s`;
@@ -150,7 +167,7 @@ export default function AdminDashboard() {
     }
   };
 
-  if (loading) {
+  if (loading || userLoading || adminLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -271,7 +288,7 @@ export default function AdminDashboard() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">New Users (24h)</h3>
             <div className="space-y-3">
               {newUsers.length > 0 ? (
-                newUsers.slice(0, 5).map((user, index) => (
+                newUsers.slice(0, 5).map((user) => (
                   <div key={user.user_id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
