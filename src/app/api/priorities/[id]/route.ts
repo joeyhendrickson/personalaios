@@ -86,7 +86,7 @@ export async function PATCH(
 // DELETE /api/priorities/[id] - Delete a specific priority
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
@@ -99,7 +99,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const priorityId = params.id;
+    const { id: priorityId } = await params;
 
     // Verify the priority exists and belongs to the user
     const { data: existingPriority, error: fetchError } = await supabase

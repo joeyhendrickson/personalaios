@@ -24,6 +24,8 @@ interface DashboardData {
   total_goals_created: number;
   total_tasks_completed: number;
   total_goals_completed: number;
+  total_points_earned: number;
+  total_points_today: number;
   average_session_duration: number;
   top_active_users: Array<{
     email: string;
@@ -32,6 +34,8 @@ interface DashboardData {
     last_visit: string;
     tasks_created: number;
     goals_created: number;
+    total_points: number;
+    today_points: number;
   }>;
 }
 
@@ -46,6 +50,9 @@ interface User {
   total_goals_created: number;
   total_tasks_completed: number;
   total_goals_completed: number;
+  total_points: number;
+  today_points: number;
+  weekly_points: number;
   last_visit: string;
   first_visit: string;
 }

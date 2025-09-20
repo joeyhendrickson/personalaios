@@ -82,7 +82,7 @@ export async function PATCH(
 // DELETE /api/goals/[id] - Delete a specific goal
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
@@ -95,7 +95,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const goalId = params.id;
+    const { id: goalId } = await params;
 
     // Verify the goal exists and belongs to the user
     const { data: existingGoal, error: fetchError } = await supabase
