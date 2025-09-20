@@ -39,15 +39,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    // Get real data from the user_dashboard_data view
-    const { data: allUsers, error: usersError } = await supabase
-      .from('user_dashboard_data')
-      .select('*');
-
-    console.log('User dashboard data:', { users: allUsers?.length, usersError });
+    // Get users from auth.users (this should work)
+    const { data: allUsers, error: usersError } = await supabase.auth.admin.listUsers();
+    
+    console.log('Auth users data:', { users: allUsers?.users?.length, usersError });
     
     if (usersError) {
-      console.error('Error fetching user dashboard data:', usersError);
+      console.error('Error fetching auth users:', usersError);
     }
 
     // Get user emails by querying the admin_users table and any other sources
@@ -95,21 +93,46 @@ export async function GET(request: NextRequest) {
       // Don't fail, just use empty analytics
     }
 
-    // The user_dashboard_data view already has all the data we need
-    // Just convert it to the format we need
-    const userAnalyticsArray = allUsers?.map(user => ({
-      user_id: user.user_id,
-      email: user.email,
-      total_points: user.total_points || 0,
-      today_points: 0, // We'll calculate this separately if needed
-      weekly_points: 0, // We'll calculate this separately if needed
-      total_tasks_created: user.total_tasks || 0,
-      total_tasks_completed: user.completed_tasks || 0,
-      total_goals_created: user.total_goals || 0,
-      total_goals_completed: user.completed_goals || 0,
-      last_activity: new Date().toISOString(), // We'll get this from activity logs
-      first_visit: new Date().toISOString() // We'll get this from auth.users if needed
-    })) || [];
+    // Get real data from original tables
+    const { data: pointsData, error: pointsError } = await supabase
+      .from('points_ledger')
+      .select('user_id, points, created_at');
+
+    const { data: tasksData, error: tasksError } = await supabase
+      .from('tasks')
+      .select('user_id, status, created_at, updated_at');
+
+    const { data: goalsData, error: goalsError } = await supabase
+      .from('weekly_goals')
+      .select('user_id, is_completed, created_at, updated_at');
+
+    console.log('Real data counts:', {
+      users: allUsers?.users?.length,
+      points: pointsData?.length,
+      tasks: tasksData?.length,
+      goals: goalsData?.length
+    });
+
+    // Calculate analytics for each user
+    const userAnalyticsArray = allUsers?.users?.map(user => {
+      const userPoints = pointsData?.filter(p => p.user_id === user.id) || [];
+      const userTasks = tasksData?.filter(t => t.user_id === user.id) || [];
+      const userGoals = goalsData?.filter(g => g.user_id === user.id) || [];
+
+      return {
+        user_id: user.id,
+        email: user.email,
+        total_points: userPoints.reduce((sum, p) => sum + (p.points || 0), 0),
+        today_points: 0, // We'll calculate this if needed
+        weekly_points: 0, // We'll calculate this if needed
+        total_tasks_created: userTasks.length,
+        total_tasks_completed: userTasks.filter(t => t.status === 'completed').length,
+        total_goals_created: userGoals.length,
+        total_goals_completed: userGoals.filter(g => g.is_completed).length,
+        last_activity: user.created_at,
+        first_visit: user.created_at
+      };
+    }) || [];
 
     // Email map is already created above
     
