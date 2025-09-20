@@ -39,14 +39,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    // Get users from auth.users (this should work)
-    const { data: allUsers, error: usersError } = await supabase.auth.admin.listUsers();
-    
-    console.log('Auth users data:', { users: allUsers?.users?.length, usersError });
-    
-    if (usersError) {
-      console.error('Error fetching auth users:', usersError);
-    }
+    // Get users from the tasks table (this should work)
+    const { data: tasksData, error: tasksError } = await supabase
+      .from('tasks')
+      .select('user_id, status, created_at, updated_at');
+
+    const { data: goalsData, error: goalsError } = await supabase
+      .from('weekly_goals')
+      .select('user_id, is_completed, created_at, updated_at');
+
+    const { data: pointsData, error: pointsError } = await supabase
+      .from('points_ledger')
+      .select('user_id, points, created_at');
+
+    console.log('Data counts:', {
+      tasks: tasksData?.length,
+      goals: goalsData?.length,
+      points: pointsData?.length
+    });
+
+    if (tasksError) console.error('Error fetching tasks:', tasksError);
+    if (goalsError) console.error('Error fetching goals:', goalsError);
+    if (pointsError) console.error('Error fetching points:', pointsError);
 
     // Get user emails by querying the admin_users table and any other sources
     // Since we can't directly query auth.users, let's get emails from admin_users first
@@ -93,46 +107,34 @@ export async function GET(request: NextRequest) {
       // Don't fail, just use empty analytics
     }
 
-    // Get real data from original tables
-    const { data: pointsData, error: pointsError } = await supabase
-      .from('points_ledger')
-      .select('user_id, points, created_at');
+    // Get unique user IDs from the data
+    const userIds = new Set();
+    if (tasksData) tasksData.forEach(t => userIds.add(t.user_id));
+    if (goalsData) goalsData.forEach(g => userIds.add(g.user_id));
+    if (pointsData) pointsData.forEach(p => userIds.add(p.user_id));
 
-    const { data: tasksData, error: tasksError } = await supabase
-      .from('tasks')
-      .select('user_id, status, created_at, updated_at');
-
-    const { data: goalsData, error: goalsError } = await supabase
-      .from('weekly_goals')
-      .select('user_id, is_completed, created_at, updated_at');
-
-    console.log('Real data counts:', {
-      users: allUsers?.users?.length,
-      points: pointsData?.length,
-      tasks: tasksData?.length,
-      goals: goalsData?.length
-    });
+    console.log('Unique user IDs:', Array.from(userIds));
 
     // Calculate analytics for each user
-    const userAnalyticsArray = allUsers?.users?.map(user => {
-      const userPoints = pointsData?.filter(p => p.user_id === user.id) || [];
-      const userTasks = tasksData?.filter(t => t.user_id === user.id) || [];
-      const userGoals = goalsData?.filter(g => g.user_id === user.id) || [];
+    const userAnalyticsArray = Array.from(userIds).map(userId => {
+      const userPoints = pointsData?.filter(p => p.user_id === userId) || [];
+      const userTasks = tasksData?.filter(t => t.user_id === userId) || [];
+      const userGoals = goalsData?.filter(g => g.user_id === userId) || [];
 
       return {
-        user_id: user.id,
-        email: user.email,
+        user_id: userId,
+        email: `User ${userId.substring(0, 8)}`, // We'll get real emails later
         total_points: userPoints.reduce((sum, p) => sum + (p.points || 0), 0),
-        today_points: 0, // We'll calculate this if needed
-        weekly_points: 0, // We'll calculate this if needed
+        today_points: 0,
+        weekly_points: 0,
         total_tasks_created: userTasks.length,
         total_tasks_completed: userTasks.filter(t => t.status === 'completed').length,
         total_goals_created: userGoals.length,
         total_goals_completed: userGoals.filter(g => g.is_completed).length,
-        last_activity: user.created_at,
-        first_visit: user.created_at
+        last_activity: new Date().toISOString(),
+        first_visit: new Date().toISOString()
       };
-    }) || [];
+    });
 
     // Email map is already created above
     
