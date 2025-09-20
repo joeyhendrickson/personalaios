@@ -58,6 +58,10 @@ export async function GET(request: NextRequest) {
       points: pointsData?.length
     });
 
+    console.log('Sample tasks data:', tasksData?.slice(0, 3));
+    console.log('Sample goals data:', goalsData?.slice(0, 3));
+    console.log('Sample points data:', pointsData?.slice(0, 3));
+
     if (tasksError) console.error('Error fetching tasks:', tasksError);
     if (goalsError) console.error('Error fetching goals:', goalsError);
     if (pointsError) console.error('Error fetching points:', pointsError);
@@ -109,6 +113,9 @@ export async function GET(request: NextRequest) {
     if (pointsData) pointsData.forEach(p => userIds.add(p.user_id));
 
     console.log('Unique user IDs:', Array.from(userIds));
+    console.log('User IDs from tasks:', tasksData?.map(t => t.user_id));
+    console.log('User IDs from goals:', goalsData?.map(g => g.user_id));
+    console.log('User IDs from points:', pointsData?.map(p => p.user_id));
 
     // Calculate analytics for each user
     const userAnalyticsArray = Array.from(userIds).map(userId => {
