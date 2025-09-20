@@ -7,10 +7,9 @@ export async function middleware(request: NextRequest) {
     request,
   })
 
-  // Skip middleware for static files and API routes first
+  // Skip middleware for static files only
   if (
     request.nextUrl.pathname.startsWith('/_next') ||
-    request.nextUrl.pathname.startsWith('/api') ||
     request.nextUrl.pathname.includes('.') // Skip files with extensions
   ) {
     return supabaseResponse
