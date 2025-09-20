@@ -24,6 +24,14 @@ export async function GET(request: NextRequest) {
 
     console.log('Admin verified, fetching all table data...');
 
+    // Test a simple query first
+    const { data: testData, error: testError } = await supabase
+      .from('tasks')
+      .select('*')
+      .limit(1);
+    
+    console.log('Test query result:', { testData, testError });
+
     // Fetch all table data
     const [
       { data: tasks, error: tasksError },
@@ -62,17 +70,17 @@ export async function GET(request: NextRequest) {
       analytics: analytics?.length || 0
     });
 
-    // Log any errors
-    if (tasksError) console.error('Tasks error:', tasksError);
-    if (goalsError) console.error('Goals error:', goalsError);
-    if (pointsError) console.error('Points error:', pointsError);
-    if (activitiesError) console.error('Activities error:', activitiesError);
-    if (prioritiesError) console.error('Priorities error:', prioritiesError);
-    if (habitsError) console.error('Habits error:', habitsError);
-    if (educationError) console.error('Education error:', educationError);
-    if (weeksError) console.error('Weeks error:', weeksError);
-    if (adminUsersError) console.error('Admin users error:', adminUsersError);
-    if (analyticsError) console.error('Analytics error:', analyticsError);
+    // Log any errors with detailed information
+    if (tasksError) console.error('Tasks error:', { error: tasksError, data: tasks });
+    if (goalsError) console.error('Goals error:', { error: goalsError, data: goals });
+    if (pointsError) console.error('Points error:', { error: pointsError, data: points });
+    if (activitiesError) console.error('Activities error:', { error: activitiesError, data: activities });
+    if (prioritiesError) console.error('Priorities error:', { error: prioritiesError, data: priorities });
+    if (habitsError) console.error('Habits error:', { error: habitsError, data: habits });
+    if (educationError) console.error('Education error:', { error: educationError, data: education });
+    if (weeksError) console.error('Weeks error:', { error: weeksError, data: weeks });
+    if (adminUsersError) console.error('Admin users error:', { error: adminUsersError, data: adminUsers });
+    if (analyticsError) console.error('Analytics error:', { error: analyticsError, data: analytics });
 
     return NextResponse.json({
       success: true,
