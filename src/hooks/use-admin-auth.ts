@@ -25,19 +25,19 @@ export function useAdminAuth() {
     const checkAdminStatus = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/admin/users');
+        const response = await fetch('/api/admin/check-status');
         
         if (response.status === 403) {
           setAdminUser(null);
           setError('Admin access required');
         } else if (response.ok) {
-          // If we can access admin users API, we're an admin
+          const data = await response.json();
           setAdminUser({
-            id: user.id,
-            email: user.email || '',
-            name: user.email || '',
-            role: 'super_admin',
-            is_active: true
+            id: data.adminUser.id || user.id,
+            email: data.adminUser.email,
+            name: data.adminUser.name || '',
+            role: data.adminUser.role,
+            is_active: data.adminUser.is_active
           });
           setError(null);
         } else {
