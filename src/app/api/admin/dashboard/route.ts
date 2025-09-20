@@ -1,19 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    console.log('Admin dashboard auth check:', { user: user?.email, authError });
+    // Try to get user from session first
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    console.log('Session check:', { session: session?.user?.email, sessionError });
     
-    if (authError || !user) {
-      console.log('Auth failed:', authError);
+    let user = session?.user;
+    
+    // If no session, try getUser
+    if (!user) {
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      console.log('Auth user check:', { user: authUser?.email, authError });
+      user = authUser;
+    }
+    
+    if (!user) {
+      console.log('No user found in session or auth');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is admin
+    console.log('User found:', user.email);
+
+    // Check if user is admin - simplified check
     const { data: adminUser, error: adminError } = await supabase
       .from('admin_users')
       .select('id, email, role')
@@ -27,8 +39,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    // Get admin dashboard data with user emails and points
-    // Join user_analytics_summary with auth.users to get email addresses
+    // Get admin dashboard data - simplified without joins first
     const { data: allUsers, error: usersError } = await supabase
       .from('user_analytics_summary')
       .select(`
@@ -40,8 +51,7 @@ export async function GET() {
         total_tasks_completed,
         total_goals_completed,
         last_visit, 
-        first_visit,
-        auth.users!inner(email, created_at)
+        first_visit
       `);
 
     // Get points data for all users
@@ -54,6 +64,16 @@ export async function GET() {
       console.error('Error fetching points data:', pointsError);
     }
 
+    // Get user emails separately to avoid complex joins
+    const { data: authUsers, error: authUsersError } = await supabase.auth.admin.listUsers();
+    console.log('Auth users fetch:', { authUsers: authUsers?.users?.length, authUsersError });
+
+    if (authUsersError) {
+      console.error('Error fetching auth users:', authUsersError);
+    }
+
+    console.log('Users data:', { allUsers: allUsers?.length, usersError });
+    
     if (usersError) {
       console.error('Error fetching users:', usersError);
       // Don't fail completely, just use empty data
@@ -101,6 +121,14 @@ export async function GET() {
       });
     }
 
+    // Create email lookup map
+    const emailMap = new Map();
+    if (authUsers?.users) {
+      authUsers.users.forEach(authUser => {
+        emailMap.set(authUser.id, authUser.email);
+      });
+    }
+
     // Build dashboard data manually from analytics data
     const dashboardData = {
       total_users: allUsers?.length || 0,
@@ -115,7 +143,7 @@ export async function GET() {
       top_active_users: allUsers?.slice(0, 5).map(a => {
         const userPoints = userPointsMap.get(a.user_id) || { total_points: 0, today_points: 0, weekly_points: 0 };
         return {
-          email: a.auth?.users?.email || `User ${a.user_id.substring(0, 8)}`,
+          email: emailMap.get(a.user_id) || `User ${a.user_id.substring(0, 8)}`,
           total_visits: a.total_visits || 0,
           total_time_spent: a.total_time_spent || 0,
           last_visit: a.last_visit,
@@ -131,8 +159,8 @@ export async function GET() {
       const userPoints = userPointsMap.get(analytics.user_id) || { total_points: 0, today_points: 0, weekly_points: 0 };
       return {
         user_id: analytics.user_id,
-        email: analytics.auth?.users?.email || `User ${analytics.user_id.substring(0, 8)}`,
-        created_at: analytics.auth?.users?.created_at || analytics.first_visit,
+        email: emailMap.get(analytics.user_id) || `User ${analytics.user_id.substring(0, 8)}`,
+        created_at: analytics.first_visit,
         last_sign_in_at: analytics.last_visit,
         total_visits: analytics.total_visits || 0,
         total_time_spent: analytics.total_time_spent || 0,
@@ -148,7 +176,7 @@ export async function GET() {
       };
     }) || [];
 
-    // Get recent activity logs with user emails
+    // Get recent activity logs
     const { data: recentActivity, error: activityError } = await supabase
       .from('user_activity_logs')
       .select(`
@@ -157,12 +185,13 @@ export async function GET() {
         activity_type,
         activity_data,
         page_url,
-        created_at,
-        auth.users!inner(email)
+        created_at
       `)
       .order('created_at', { ascending: false })
       .limit(50);
 
+    console.log('Activity data:', { recentActivity: recentActivity?.length, activityError });
+    
     if (activityError) {
       console.error('Error fetching recent activity:', activityError);
       // Don't fail completely, just use empty data
