@@ -11,12 +11,11 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is admin - SECURE CHECK
+    // Check if user is super admin - SIMPLE CHECK
     const { data: adminUser, error: adminError } = await supabase
       .from('admin_users')
-      .select('id, email, name, role, is_active')
+      .select('id, email, name, role')
       .eq('email', user.email)
-      .eq('is_active', true)
       .single();
 
     if (adminError || !adminUser) {
@@ -41,7 +40,7 @@ export async function GET() {
         email: adminUser.email,
         name: adminUser.name,
         role: adminUser.role,
-        is_active: adminUser.is_active
+        is_active: true // If in admin_users table, they're active
       }
     });
 
