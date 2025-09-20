@@ -58,16 +58,16 @@ export function AccomplishmentsHistory() {
 
   const getFilteredAccomplishments = () => {
     if (!accomplishments.length) return []
-    
+
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const weekStart = new Date(today)
     weekStart.setDate(today.getDate() - today.getDay())
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
-    return accomplishments.filter(acc => {
+    return accomplishments.filter((acc) => {
       const accDate = new Date(acc.created_at)
-      
+
       switch (filter) {
         case 'today':
           return accDate >= today
@@ -84,23 +84,38 @@ export function AccomplishmentsHistory() {
   const getIcon = (accomplishment: Accomplishment) => {
     const isGoalProgress = accomplishment.type === 'goal_progress'
     const isTaskCompletion = accomplishment.type === 'task_completion'
-    
+
     if (isGoalProgress) {
       const category = accomplishment.details.goal?.category
-      return category === 'quick_money' ? '⚡' : 
-             category === 'save_money' ? '💳' : 
-             category === 'health' ? '💪' : 
-             category === 'network_expansion' ? '🤝' : 
-             category === 'business_growth' ? '📈' : 
-             category === 'fires' ? '🔥' : 
-             category === 'good_living' ? '🌟' : 
-             category === 'big_vision' ? '🎯' : 
-             category === 'job' ? '💼' : 
-             category === 'organization' ? '📁' : 
-             category === 'tech_issues' ? '🔧' : 
-             category === 'business_launch' ? '🚀' : 
-             category === 'future_planning' ? '🗺️' : 
-             category === 'innovation' ? '💡' : '📋'
+      return category === 'quick_money'
+        ? '⚡'
+        : category === 'save_money'
+          ? '💳'
+          : category === 'health'
+            ? '💪'
+            : category === 'network_expansion'
+              ? '🤝'
+              : category === 'business_growth'
+                ? '📈'
+                : category === 'fires'
+                  ? '🔥'
+                  : category === 'good_living'
+                    ? '🌟'
+                    : category === 'big_vision'
+                      ? '🎯'
+                      : category === 'job'
+                        ? '💼'
+                        : category === 'organization'
+                          ? '📁'
+                          : category === 'tech_issues'
+                            ? '🔧'
+                            : category === 'business_launch'
+                              ? '🚀'
+                              : category === 'future_planning'
+                                ? '🗺️'
+                                : category === 'innovation'
+                                  ? '💡'
+                                  : '📋'
     } else if (isTaskCompletion) {
       return '✅'
     }
@@ -110,7 +125,7 @@ export function AccomplishmentsHistory() {
   const getTitle = (accomplishment: Accomplishment) => {
     const isGoalProgress = accomplishment.type === 'goal_progress'
     const isTaskCompletion = accomplishment.type === 'task_completion'
-    
+
     if (isGoalProgress) {
       return `Progress on "${accomplishment.details.goal?.title}"`
     } else if (isTaskCompletion) {
@@ -122,7 +137,7 @@ export function AccomplishmentsHistory() {
   const getTypeLabel = (accomplishment: Accomplishment) => {
     const isGoalProgress = accomplishment.type === 'goal_progress'
     const isTaskCompletion = accomplishment.type === 'task_completion'
-    
+
     if (isGoalProgress) {
       return 'Goal Progress'
     } else if (isTaskCompletion) {
@@ -138,7 +153,7 @@ export function AccomplishmentsHistory() {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     })
   }
 
@@ -168,7 +183,7 @@ export function AccomplishmentsHistory() {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-green-50 rounded-lg p-4 border border-green-200">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
@@ -180,7 +195,7 @@ export function AccomplishmentsHistory() {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
@@ -192,7 +207,7 @@ export function AccomplishmentsHistory() {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
@@ -213,11 +228,11 @@ export function AccomplishmentsHistory() {
           { key: 'all', label: 'All Time' },
           { key: 'today', label: 'Today' },
           { key: 'week', label: 'This Week' },
-          { key: 'month', label: 'This Month' }
+          { key: 'month', label: 'This Month' },
         ].map(({ key, label }) => (
           <button
             key={key}
-            onClick={() => setFilter(key as any)}
+            onClick={() => setFilter(key as 'all' | 'today' | 'week' | 'month')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               filter === key
                 ? 'bg-blue-500 text-white'
@@ -236,22 +251,24 @@ export function AccomplishmentsHistory() {
             <CheckCircle className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No accomplishments found</h3>
             <p className="text-gray-600">
-              {filter === 'all' 
-                ? "Start completing goals and tasks to see your accomplishments here!"
-                : `No accomplishments found for ${filter === 'today' ? 'today' : filter === 'week' ? 'this week' : 'this month'}.`
-              }
+              {filter === 'all'
+                ? 'Start completing goals and tasks to see your accomplishments here!'
+                : `No accomplishments found for ${filter === 'today' ? 'today' : filter === 'week' ? 'this week' : 'this month'}.`}
             </p>
           </div>
         ) : (
           filteredAccomplishments.map((accomplishment) => (
-            <div key={accomplishment.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+            <div
+              key={accomplishment.id}
+              className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow"
+            >
               <div className="flex items-start space-x-4">
                 <div className="flex-shrink-0">
                   <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
                     <span className="text-xl">{getIcon(accomplishment)}</span>
                   </div>
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <div>
@@ -260,12 +277,11 @@ export function AccomplishmentsHistory() {
                     </div>
                     <div className="text-right">
                       <span className="inline-flex items-center rounded-full bg-green-100 text-green-800 px-3 py-1 text-sm font-medium">
-                        <Star className="h-4 w-4 mr-1" />
-                        +{accomplishment.points}
+                        <Star className="h-4 w-4 mr-1" />+{accomplishment.points}
                       </span>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center space-x-4 text-sm text-gray-500">
                       <span className="inline-flex items-center">

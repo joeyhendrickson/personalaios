@@ -1,202 +1,208 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
-import { useAdminAuth } from '@/hooks/use-admin-auth';
-import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Users, 
-  Activity, 
-  Target, 
-  CheckCircle, 
-  Eye,
-  ArrowLeft,
-  RefreshCw
-} from 'lucide-react';
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/auth-context'
+import { useAdminAuth } from '@/hooks/use-admin-auth'
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Users, Activity, Target, CheckCircle, Eye, ArrowLeft, RefreshCw } from 'lucide-react'
 
 interface DashboardData {
-  total_users: number;
-  active_users_today: number;
-  total_tasks_created: number;
-  total_goals_created: number;
-  total_tasks_completed: number;
-  total_goals_completed: number;
-  total_points_earned: number;
-  total_points_today: number;
-  average_session_duration: number;
+  total_users: number
+  active_users_today: number
+  total_tasks_created: number
+  total_goals_created: number
+  total_tasks_completed: number
+  total_goals_completed: number
+  total_points_earned: number
+  total_points_today: number
+  average_session_duration: number
   top_active_users: Array<{
-    email: string;
-    total_visits: number;
-    total_time_spent: number;
-    last_visit: string;
-    tasks_created: number;
-    goals_created: number;
-    total_points: number;
-    today_points: number;
-  }>;
+    email: string
+    total_visits: number
+    total_time_spent: number
+    last_visit: string
+    tasks_created: number
+    goals_created: number
+    total_points: number
+    today_points: number
+  }>
 }
 
 interface User {
-  user_id: string;
-  email: string;
-  created_at: string;
-  last_sign_in_at: string;
-  total_visits: number;
-  total_time_spent: number;
-  total_tasks_created: number;
-  total_goals_created: number;
-  total_tasks_completed: number;
-  total_goals_completed: number;
-  total_points: number;
-  today_points: number;
-  weekly_points: number;
-  last_visit: string;
-  first_visit: string;
+  user_id: string
+  email: string
+  created_at: string
+  last_sign_in_at: string
+  total_visits: number
+  total_time_spent: number
+  total_tasks_created: number
+  total_goals_created: number
+  total_tasks_completed: number
+  total_goals_completed: number
+  total_points: number
+  today_points: number
+  weekly_points: number
+  last_visit: string
+  first_visit: string
 }
 
 interface ActivityLog {
-  id: string;
-  user_id: string;
-  activity_type: string;
-  activity_data: Record<string, unknown>;
-  page_url: string;
-  created_at: string;
+  id: string
+  user_id: string
+  activity_type: string
+  activity_data: Record<string, unknown>
+  page_url: string
+  created_at: string
   auth: {
     users: {
-      email: string;
-    };
-  };
+      email: string
+    }
+  }
 }
 
 export default function AdminDashboard() {
-  const router = useRouter();
-  const { user, loading: userLoading } = useAuth();
-  const { isAdmin, loading: adminLoading } = useAdminAuth();
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
-  const [recentActivity, setRecentActivity] = useState<ActivityLog[]>([]);
-  const [newUsers, setNewUsers] = useState<User[]>([]);
-  const [rawData, setRawData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const router = useRouter()
+  const { user, loading: userLoading } = useAuth()
+  const { isAdmin, loading: adminLoading } = useAdminAuth()
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
+  const [users, setUsers] = useState<User[]>([])
+  const [recentActivity, setRecentActivity] = useState<ActivityLog[]>([])
+  const [newUsers, setNewUsers] = useState<User[]>([])
+  const [rawData, setRawData] = useState<Record<string, unknown> | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchDashboardData = async () => {
     try {
-      setLoading(true);
-      const response = await fetch('/api/admin/dashboard');
-      
+      setLoading(true)
+      const response = await fetch('/api/admin/dashboard')
+
       if (!response.ok) {
         if (response.status === 403) {
-          setError('Admin access required');
-          return;
+          setError('Admin access required')
+          return
         }
-        throw new Error('Failed to fetch dashboard data');
+        throw new Error('Failed to fetch dashboard data')
       }
 
-      const data = await response.json();
-      console.log('Admin dashboard API response:', data);
-      console.log('Dashboard data:', data.dashboard);
-      console.log('Users data:', data.users);
-      console.log('Recent activity:', data.recentActivity);
-      
+      const data = await response.json()
+      console.log('Admin dashboard API response:', data)
+      console.log('Dashboard data:', data.dashboard)
+      console.log('Users data:', data.users)
+      console.log('Recent activity:', data.recentActivity)
+
       // Check if the response contains an error
       if (data.error) {
-        throw new Error(data.error);
+        throw new Error(data.error)
       }
-      
-      setDashboardData(data.dashboard || {});
-      setUsers(data.users || []);
-      setRecentActivity(data.recentActivity || []);
-      setError(null);
+
+      setDashboardData(data.dashboard || {})
+      setUsers(data.users || [])
+      setRecentActivity(data.recentActivity || [])
+      setError(null)
 
       // Fetch new users (last 24 hours)
-      const newUsersResponse = await fetch('/api/admin/new-users?hours=24');
+      const newUsersResponse = await fetch('/api/admin/new-users?hours=24')
       if (newUsersResponse.ok) {
-        const newUsersData = await newUsersResponse.json();
-        setNewUsers(newUsersData.newUsers);
+        const newUsersData = await newUsersResponse.json()
+        setNewUsers(newUsersData.newUsers)
       }
     } catch (err) {
-      console.error('Error fetching dashboard data:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      console.error('Error fetching dashboard data:', err)
+      setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const fetchRawData = async () => {
     try {
-      const response = await fetch('/api/admin/raw-data');
+      const response = await fetch('/api/admin/raw-data')
       if (response.ok) {
-        const data = await response.json();
-        setRawData(data);
+        const data = await response.json()
+        setRawData(data)
       }
     } catch (err) {
-      console.error('Error fetching raw data:', err);
+      console.error('Error fetching raw data:', err)
     }
-  };
+  }
 
   useEffect(() => {
     // Check authentication and admin status
     if (!userLoading && !adminLoading) {
       if (!user) {
         // User not logged in, redirect to main login
-        router.push('/login');
-        return;
+        router.push('/login')
+        return
       }
-      
+
       if (!isAdmin) {
         // User logged in but not admin, redirect to regular dashboard
-        router.push('/dashboard');
-        return;
+        router.push('/dashboard')
+        return
       }
-      
+
       // User is admin, fetch dashboard data
-      fetchDashboardData();
-      fetchRawData();
+      fetchDashboardData()
+      fetchRawData()
     }
-  }, [user, isAdmin, userLoading, adminLoading, router]);
+  }, [user, isAdmin, userLoading, adminLoading, router])
 
   const formatTime = (seconds: number) => {
-    if (seconds < 60) return `${seconds}s`;
-    if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
-    return `${Math.round(seconds / 3600)}h`;
-  };
+    if (seconds < 60) return `${seconds}s`
+    if (seconds < 3600) return `${Math.round(seconds / 60)}m`
+    return `${Math.round(seconds / 3600)}h`
+  }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+      minute: '2-digit',
+    })
+  }
 
   const getActivityIcon = (activityType: string) => {
     switch (activityType) {
-      case 'login': return <Users className="h-4 w-4" />;
-      case 'task_created': return <Target className="h-4 w-4" />;
-      case 'goal_created': return <Target className="h-4 w-4" />;
-      case 'task_completed': return <CheckCircle className="h-4 w-4" />;
-      case 'goal_completed': return <CheckCircle className="h-4 w-4" />;
-      case 'page_visit': return <Eye className="h-4 w-4" />;
-      default: return <Activity className="h-4 w-4" />;
+      case 'login':
+        return <Users className="h-4 w-4" />
+      case 'task_created':
+        return <Target className="h-4 w-4" />
+      case 'goal_created':
+        return <Target className="h-4 w-4" />
+      case 'task_completed':
+        return <CheckCircle className="h-4 w-4" />
+      case 'goal_completed':
+        return <CheckCircle className="h-4 w-4" />
+      case 'page_visit':
+        return <Eye className="h-4 w-4" />
+      default:
+        return <Activity className="h-4 w-4" />
     }
-  };
+  }
 
   const getActivityColor = (activityType: string) => {
     switch (activityType) {
-      case 'login': return 'bg-blue-100 text-blue-800';
-      case 'task_created': return 'bg-green-100 text-green-800';
-      case 'goal_created': return 'bg-purple-100 text-purple-800';
-      case 'task_completed': return 'bg-emerald-100 text-emerald-800';
-      case 'goal_completed': return 'bg-emerald-100 text-emerald-800';
-      case 'page_visit': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'login':
+        return 'bg-blue-100 text-blue-800'
+      case 'task_created':
+        return 'bg-green-100 text-green-800'
+      case 'goal_created':
+        return 'bg-purple-100 text-purple-800'
+      case 'task_completed':
+        return 'bg-emerald-100 text-emerald-800'
+      case 'goal_completed':
+        return 'bg-emerald-100 text-emerald-800'
+      case 'page_visit':
+        return 'bg-gray-100 text-gray-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
     }
-  };
+  }
 
   if (loading || userLoading || adminLoading) {
     return (
@@ -206,7 +212,7 @@ export default function AdminDashboard() {
           <p className="text-gray-600">Loading admin dashboard...</p>
         </div>
       </div>
-    );
+    )
   }
 
   if (error) {
@@ -222,7 +228,7 @@ export default function AdminDashboard() {
           </Button>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -232,11 +238,7 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <Button 
-                onClick={() => router.push('/dashboard')} 
-                variant="outline" 
-                size="sm"
-              >
+              <Button onClick={() => router.push('/dashboard')} variant="outline" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Dashboard
               </Button>
@@ -320,16 +322,17 @@ export default function AdminDashboard() {
             <div className="space-y-3">
               {newUsers.length > 0 ? (
                 newUsers.slice(0, 5).map((user) => (
-                  <div key={user.user_id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div
+                    key={user.user_id}
+                    className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200"
+                  >
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                         <span className="text-sm font-medium text-green-600">+</span>
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{user.email}</p>
-                        <p className="text-sm text-gray-600">
-                          {formatDate(user.created_at)}
-                        </p>
+                        <p className="text-sm text-gray-600">{formatDate(user.created_at)}</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -353,7 +356,10 @@ export default function AdminDashboard() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Active Users</h3>
             <div className="space-y-4">
               {dashboardData?.top_active_users?.slice(0, 5).map((user, index) => (
-                <div key={user.email} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div
+                  key={user.email}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                >
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                       <span className="text-sm font-medium text-blue-600">{index + 1}</span>
@@ -366,17 +372,11 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">
-                      {user.total_points} points
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      {user.today_points} today
-                    </p>
+                    <p className="text-sm font-medium text-gray-900">{user.total_points} points</p>
+                    <p className="text-xs text-gray-600">{user.today_points} today</p>
                   </div>
                 </div>
-              )) || (
-                <p className="text-gray-500 text-center py-4">No user data available</p>
-              )}
+              )) || <p className="text-gray-500 text-center py-4">No user data available</p>}
             </div>
           </Card>
 
@@ -386,7 +386,10 @@ export default function AdminDashboard() {
             <div className="space-y-3">
               {recentActivity && recentActivity.length > 0 ? (
                 recentActivity.slice(0, 8).map((activity) => (
-                  <div key={activity.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+                  <div
+                    key={activity.id}
+                    className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded"
+                  >
                     <div className={`p-1 rounded ${getActivityColor(activity.activity_type)}`}>
                       {getActivityIcon(activity.activity_type)}
                     </div>
@@ -399,9 +402,7 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-gray-500">
-                        {formatDate(activity.created_at)}
-                      </p>
+                      <p className="text-xs text-gray-500">{formatDate(activity.created_at)}</p>
                     </div>
                   </div>
                 ))
@@ -432,7 +433,7 @@ export default function AdminDashboard() {
                     Total Points
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Today's Points
+                    Today&apos;s Points
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Last Visit
@@ -440,51 +441,48 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {users && users.length > 0 ? users.map((user) => (
-                  <tr key={user.user_id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{user.email}</p>
-                        <p className="text-sm text-gray-500">
-                          Joined {formatDate(user.created_at)}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">
-                        {user.total_visits}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">
-                        {formatTime(user.total_time_spent)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex space-x-2">
-                        <Badge variant="outline" className="bg-purple-50 text-purple-700">
-                          {user.total_points} total
-                        </Badge>
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                          {user.weekly_points} this week
-                        </Badge>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex space-x-2">
-                        <Badge variant="outline" className="bg-orange-50 text-orange-700">
-                          {user.today_points} today
-                        </Badge>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.last_visit 
-                        ? formatDate(user.last_visit)
-                        : 'Never'
-                      }
-                    </td>
-                  </tr>
-                )) : (
+                {users && users.length > 0 ? (
+                  users.map((user) => (
+                    <tr key={user.user_id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{user.email}</p>
+                          <p className="text-sm text-gray-500">
+                            Joined {formatDate(user.created_at)}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-900">{user.total_visits}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-900">
+                          {formatTime(user.total_time_spent)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex space-x-2">
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                            {user.total_points} total
+                          </Badge>
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                            {user.weekly_points} this week
+                          </Badge>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex space-x-2">
+                          <Badge variant="outline" className="bg-orange-50 text-orange-700">
+                            {user.today_points} today
+                          </Badge>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.last_visit ? formatDate(user.last_visit) : 'Never'}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
                   <tr>
                     <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                       No users found
@@ -506,13 +504,13 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <span className="text-lg">Tasks</span>
-                <Badge variant="outline">{rawData?.counts?.tasks || 0}</Badge>
+                <Badge variant="outline">{(rawData as any)?.counts?.tasks || 0}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="max-h-64 overflow-y-auto">
                 <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify(rawData?.data?.tasks || [], null, 2)}
+                  {JSON.stringify((rawData as any)?.data?.tasks || [], null, 2)}
                 </pre>
               </div>
             </CardContent>
@@ -523,13 +521,13 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <span className="text-lg">Goals</span>
-                <Badge variant="outline">{rawData?.counts?.goals || 0}</Badge>
+                <Badge variant="outline">{(rawData as any)?.counts?.goals || 0}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="max-h-64 overflow-y-auto">
                 <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify(rawData?.data?.goals || [], null, 2)}
+                  {JSON.stringify((rawData as any)?.data?.goals || [], null, 2)}
                 </pre>
               </div>
             </CardContent>
@@ -540,13 +538,13 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <span className="text-lg">Points Ledger</span>
-                <Badge variant="outline">{rawData?.counts?.points || 0}</Badge>
+                <Badge variant="outline">{(rawData as any)?.counts?.points || 0}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="max-h-64 overflow-y-auto">
                 <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify(rawData?.data?.points || [], null, 2)}
+                  {JSON.stringify((rawData as any)?.data?.points || [], null, 2)}
                 </pre>
               </div>
             </CardContent>
@@ -557,13 +555,13 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <span className="text-lg">User Activities</span>
-                <Badge variant="outline">{rawData?.counts?.activities || 0}</Badge>
+                <Badge variant="outline">{(rawData as any)?.counts?.activities || 0}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="max-h-64 overflow-y-auto">
                 <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify(rawData?.data?.activities?.slice(0, 10) || [], null, 2)}
+                  {JSON.stringify((rawData as any)?.data?.activities?.slice(0, 10) || [], null, 2)}
                 </pre>
               </div>
             </CardContent>
@@ -574,13 +572,13 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <span className="text-lg">Priorities</span>
-                <Badge variant="outline">{rawData?.counts?.priorities || 0}</Badge>
+                <Badge variant="outline">{(rawData as any)?.counts?.priorities || 0}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="max-h-64 overflow-y-auto">
                 <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify(rawData?.data?.priorities || [], null, 2)}
+                  {JSON.stringify((rawData as any)?.data?.priorities || [], null, 2)}
                 </pre>
               </div>
             </CardContent>
@@ -591,13 +589,13 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <span className="text-lg">Daily Habits</span>
-                <Badge variant="outline">{rawData?.counts?.habits || 0}</Badge>
+                <Badge variant="outline">{(rawData as any)?.counts?.habits || 0}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="max-h-64 overflow-y-auto">
                 <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify(rawData?.data?.habits || [], null, 2)}
+                  {JSON.stringify((rawData as any)?.data?.habits || [], null, 2)}
                 </pre>
               </div>
             </CardContent>
@@ -608,13 +606,13 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <span className="text-lg">Education Items</span>
-                <Badge variant="outline">{rawData?.counts?.education || 0}</Badge>
+                <Badge variant="outline">{(rawData as any)?.counts?.education || 0}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="max-h-64 overflow-y-auto">
                 <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify(rawData?.data?.education || [], null, 2)}
+                  {JSON.stringify((rawData as any)?.data?.education || [], null, 2)}
                 </pre>
               </div>
             </CardContent>
@@ -625,13 +623,13 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <span className="text-lg">Weeks</span>
-                <Badge variant="outline">{rawData?.counts?.weeks || 0}</Badge>
+                <Badge variant="outline">{(rawData as any)?.counts?.weeks || 0}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="max-h-64 overflow-y-auto">
                 <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify(rawData?.data?.weeks || [], null, 2)}
+                  {JSON.stringify((rawData as any)?.data?.weeks || [], null, 2)}
                 </pre>
               </div>
             </CardContent>
@@ -642,13 +640,13 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <span className="text-lg">Admin Users</span>
-                <Badge variant="outline">{rawData?.counts?.adminUsers || 0}</Badge>
+                <Badge variant="outline">{(rawData as any)?.counts?.adminUsers || 0}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="max-h-64 overflow-y-auto">
                 <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify(rawData?.data?.adminUsers || [], null, 2)}
+                  {JSON.stringify((rawData as any)?.data?.adminUsers || [], null, 2)}
                 </pre>
               </div>
             </CardContent>
@@ -659,13 +657,13 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <span className="text-lg">Analytics Summary</span>
-                <Badge variant="outline">{rawData?.counts?.analytics || 0}</Badge>
+                <Badge variant="outline">{(rawData as any)?.counts?.analytics || 0}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="max-h-64 overflow-y-auto">
                 <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify(rawData?.data?.analytics || [], null, 2)}
+                  {JSON.stringify((rawData as any)?.data?.analytics || [], null, 2)}
                 </pre>
               </div>
             </CardContent>
@@ -673,5 +671,5 @@ export default function AdminDashboard() {
         </div>
       </div>
     </div>
-  );
+  )
 }

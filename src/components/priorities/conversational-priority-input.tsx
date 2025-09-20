@@ -1,27 +1,30 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { Brain, X, Zap, Clock, Target } from 'lucide-react';
+import { useState } from 'react'
+import { Brain, X, Zap, Clock, Target } from 'lucide-react'
 
 interface ConversationalPriorityInputProps {
-  onClose: () => void;
-  onSuccess: () => void;
+  onClose: () => void
+  onSuccess: () => void
 }
 
-export default function ConversationalPriorityInput({ onClose, onSuccess }: ConversationalPriorityInputProps) {
+export default function ConversationalPriorityInput({
+  onClose,
+  onSuccess,
+}: ConversationalPriorityInputProps) {
   const [formData, setFormData] = useState({
     daily_intention: '',
     energy_level: 'medium' as 'high' | 'medium' | 'low',
     time_available: 'full_day' as 'full_day' | 'half_day' | 'few_hours',
-    focus_area: ''
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+    focus_area: '',
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.daily_intention.trim()) return;
+    e.preventDefault()
+    if (!formData.daily_intention.trim()) return
 
-    setIsSubmitting(true);
+    setIsSubmitting(true)
     try {
       const response = await fetch('/api/ai/recommend-priorities-conversational', {
         method: 'POST',
@@ -32,37 +35,39 @@ export default function ConversationalPriorityInput({ onClose, onSuccess }: Conv
           daily_intention: formData.daily_intention.trim(),
           energy_level: formData.energy_level,
           time_available: formData.time_available,
-          focus_area: formData.focus_area.trim() || undefined
+          focus_area: formData.focus_area.trim() || undefined,
         }),
-      });
+      })
 
       if (response.ok) {
-        const data = await response.json();
-        console.log('AI priorities generated:', data.message);
-        onSuccess();
-        onClose();
+        const data = await response.json()
+        console.log('AI priorities generated:', data.message)
+        onSuccess()
+        onClose()
       } else {
-        const errorData = await response.json();
-        console.error('Error generating AI priorities:', errorData);
-        const errorMessage = errorData.details || errorData.error || 'Unknown error';
-        alert(`Failed to generate AI priorities: ${errorMessage}`);
+        const errorData = await response.json()
+        console.error('Error generating AI priorities:', errorData)
+        const errorMessage = errorData.details || errorData.error || 'Unknown error'
+        alert(`Failed to generate AI priorities: ${errorMessage}`)
       }
     } catch (error) {
-      console.error('Error generating AI priorities:', error);
-      alert(`Failed to generate AI priorities: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Error generating AI priorities:', error)
+      alert(
+        `Failed to generate AI priorities: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   const quickIntentionExamples = [
-    "I want to focus on saving money today",
-    "I need a rest day focused on health",
-    "I want to make progress on my business goals",
-    "I need to catch up on organization tasks",
-    "I want to focus on learning and personal development",
-    "I need to tackle urgent work projects"
-  ];
+    'I want to focus on saving money today',
+    'I need a rest day focused on health',
+    'I want to make progress on my business goals',
+    'I need to catch up on organization tasks',
+    'I want to focus on learning and personal development',
+    'I need to tackle urgent work projects',
+  ]
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -72,17 +77,17 @@ export default function ConversationalPriorityInput({ onClose, onSuccess }: Conv
             <Brain className="h-6 w-6 text-purple-500" />
             <h2 className="text-lg font-semibold">AI Priority Advisor</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div>
-            <label htmlFor="daily_intention" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="daily_intention"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               What do you want to focus on today? *
             </label>
             <textarea
@@ -110,7 +115,7 @@ export default function ConversationalPriorityInput({ onClose, onSuccess }: Conv
                   onClick={() => setFormData({ ...formData, daily_intention: example })}
                   className="text-left p-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded border border-gray-200 transition-colors"
                 >
-                  "{example}"
+                  &ldquo;{example}&rdquo;
                 </button>
               ))}
             </div>
@@ -118,14 +123,22 @@ export default function ConversationalPriorityInput({ onClose, onSuccess }: Conv
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="energy_level" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="energy_level"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 <Zap className="h-4 w-4 inline mr-1" />
                 Energy Level
               </label>
               <select
                 id="energy_level"
                 value={formData.energy_level}
-                onChange={(e) => setFormData({ ...formData, energy_level: e.target.value as 'high' | 'medium' | 'low' })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    energy_level: e.target.value as 'high' | 'medium' | 'low',
+                  })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               >
                 <option value="high">High - Ready for challenging tasks</option>
@@ -135,14 +148,22 @@ export default function ConversationalPriorityInput({ onClose, onSuccess }: Conv
             </div>
 
             <div>
-              <label htmlFor="time_available" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="time_available"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 <Clock className="h-4 w-4 inline mr-1" />
                 Time Available
               </label>
               <select
                 id="time_available"
                 value={formData.time_available}
-                onChange={(e) => setFormData({ ...formData, time_available: e.target.value as 'full_day' | 'half_day' | 'few_hours' })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    time_available: e.target.value as 'full_day' | 'half_day' | 'few_hours',
+                  })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               >
                 <option value="full_day">Full Day - 6+ hours available</option>
@@ -199,5 +220,5 @@ export default function ConversationalPriorityInput({ onClose, onSuccess }: Conv
         </form>
       </div>
     </div>
-  );
+  )
 }

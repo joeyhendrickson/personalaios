@@ -8,7 +8,7 @@ const importGoalSchema = z.object({
   category: z
     .enum([
       'quick_money',
-      'save_money', 
+      'save_money',
       'health',
       'network_expansion',
       'business_growth',
@@ -25,7 +25,7 @@ const importGoalSchema = z.object({
       'learning',
       'financial',
       'personal',
-      'other'
+      'other',
     ])
     .default('other'),
   target_points: z.number().int().min(0).default(0),
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     console.log('Received import request body:', body)
-    
+
     const { goals, tasks } = importDataSchema.parse(body)
     console.log('Parsed goals:', goals)
     console.log('Parsed tasks:', tasks)
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     const today = new Date()
     const weekStart = new Date(today)
     weekStart.setDate(today.getDate() - today.getDay()) // Start of week (Sunday)
-    
+
     const weekEnd = new Date(weekStart)
     weekEnd.setDate(weekStart.getDate() + 6) // End of week (Saturday)
 
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     const weekEndStr = weekEnd.toISOString().split('T')[0]
 
     // Check if week already exists
-    let { data: existingWeek } = await supabase
+    const { data: existingWeek } = await supabase
       .from('weeks')
       .select('id')
       .eq('week_start', weekStartStr)
@@ -132,10 +132,13 @@ export async function POST(request: NextRequest) {
 
       if (goalError) {
         console.error('Error creating goal:', goalError)
-        return NextResponse.json({ 
-          error: `Failed to import goal: ${goalData.title}`,
-          details: goalError.message 
-        }, { status: 500 })
+        return NextResponse.json(
+          {
+            error: `Failed to import goal: ${goalData.title}`,
+            details: goalError.message,
+          },
+          { status: 500 }
+        )
       }
 
       importedGoals.push(goal)
@@ -160,38 +163,49 @@ export async function POST(request: NextRequest) {
 
         if (taskError) {
           console.error('Error creating task:', taskError)
-          return NextResponse.json({ 
-            error: `Failed to import task: ${taskData.title}`,
-            details: taskError.message 
-          }, { status: 500 })
+          return NextResponse.json(
+            {
+              error: `Failed to import task: ${taskData.title}`,
+              details: taskError.message,
+            },
+            { status: 500 }
+          )
         }
 
         importedTasks.push(task)
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      imported: {
-        goals: importedGoals.length,
-        tasks: importedTasks.length,
+    return NextResponse.json(
+      {
+        success: true,
+        imported: {
+          goals: importedGoals.length,
+          tasks: importedTasks.length,
+        },
+        weekId,
+        message: `Successfully imported ${importedGoals.length} goals and ${importedTasks.length} tasks`,
       },
-      weekId,
-      message: `Successfully imported ${importedGoals.length} goals and ${importedTasks.length} tasks`
-    }, { status: 201 })
-
+      { status: 201 }
+    )
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error('Validation error:', error.issues)
-      return NextResponse.json({ 
-        error: 'Invalid input', 
-        details: error.issues 
-      }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: 'Invalid input',
+          details: error.issues,
+        },
+        { status: 400 }
+      )
     }
     console.error('Unexpected error:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
   }
 }

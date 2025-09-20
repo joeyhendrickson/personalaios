@@ -22,7 +22,8 @@ export async function GET(request: NextRequest) {
     // Fetch points ledger entries (goal progress and task completions)
     const { data: pointsEntries, error: pointsError } = await supabase
       .from('points_ledger')
-      .select(`
+      .select(
+        `
         id,
         points,
         description,
@@ -39,7 +40,8 @@ export async function GET(request: NextRequest) {
           title,
           status
         )
-      `)
+      `
+      )
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(type === 'all' ? 1000 : limit)
@@ -50,35 +52,40 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform the data into a unified accomplishments format
-    const accomplishments = pointsEntries?.map(entry => {
-      const isGoalProgress = entry.weekly_goal_id && entry.weekly_goals
-      const isTaskCompletion = entry.task_id && entry.tasks
+    const accomplishments =
+      pointsEntries?.map((entry) => {
+        const isGoalProgress = entry.weekly_goal_id && entry.weekly_goals
+        const isTaskCompletion = entry.task_id && entry.tasks
 
-      return {
-        id: entry.id,
-        type: isGoalProgress ? 'goal_progress' : isTaskCompletion ? 'task_completion' : 'other',
-        points: entry.points,
-        description: entry.description,
-        created_at: entry.created_at,
-        details: {
-          goal: isGoalProgress ? {
-            id: entry.weekly_goals.id,
-            title: entry.weekly_goals.title,
-            category: entry.weekly_goals.category
-          } : null,
-          task: isTaskCompletion ? {
-            id: entry.tasks.id,
-            title: entry.tasks.title,
-            status: entry.tasks.status
-          } : null
+        return {
+          id: entry.id,
+          type: isGoalProgress ? 'goal_progress' : isTaskCompletion ? 'task_completion' : 'other',
+          points: entry.points,
+          description: entry.description,
+          created_at: entry.created_at,
+          details: {
+            goal: isGoalProgress
+              ? {
+                  id: (entry as any).weekly_goals.id,
+                  title: (entry as any).weekly_goals.title,
+                  category: (entry as any).weekly_goals.category,
+                }
+              : null,
+            task: isTaskCompletion
+              ? {
+                  id: (entry as any).tasks.id,
+                  title: (entry as any).tasks.title,
+                  status: (entry as any).tasks.status,
+                }
+              : null,
+          },
         }
-      }
-    }) || []
+      }) || []
 
     // Calculate summary statistics
     const totalPoints = accomplishments.reduce((sum, acc) => sum + acc.points, 0)
     const todayPoints = accomplishments
-      .filter(acc => {
+      .filter((acc) => {
         const today = new Date()
         const accDate = new Date(acc.created_at)
         return accDate.toDateString() === today.toDateString()
@@ -86,7 +93,7 @@ export async function GET(request: NextRequest) {
       .reduce((sum, acc) => sum + acc.points, 0)
 
     const thisWeekPoints = accomplishments
-      .filter(acc => {
+      .filter((acc) => {
         const now = new Date()
         const weekStart = new Date(now)
         weekStart.setDate(now.getDate() - now.getDay())
@@ -101,16 +108,17 @@ export async function GET(request: NextRequest) {
         totalPoints,
         todayPoints,
         thisWeekPoints,
-        totalAccomplishments: accomplishments.length
-      }
+        totalAccomplishments: accomplishments.length,
+      },
     })
-
   } catch (error) {
     console.error('Unexpected error:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
   }
 }
-

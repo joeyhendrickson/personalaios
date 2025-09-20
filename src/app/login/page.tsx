@@ -46,11 +46,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Back Button */}
-        <Button
-          variant="ghost"
-          onClick={() => router.push('/')}
-          className="mb-6"
-        >
+        <Button variant="ghost" onClick={() => router.push('/')} className="mb-6">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Home
         </Button>
@@ -69,10 +65,9 @@ export default function LoginPage() {
               {isSignUp ? 'Create Account' : 'Welcome Back'}
             </CardTitle>
             <CardDescription>
-              {isSignUp 
+              {isSignUp
                 ? 'Create your Personal AI OS account to start tracking your goals and tasks'
-                : 'Sign in to access your Personal AI OS dashboard'
-              }
+                : 'Sign in to access your Personal AI OS dashboard'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -102,20 +97,21 @@ export default function LoginPage() {
                   minLength={6}
                 />
               </div>
-              
+
               {error && (
                 <Alert className="border-red-200 bg-red-50">
-                  <AlertDescription className="text-red-800">
-                    {error}
-                  </AlertDescription>
+                  <AlertDescription className="text-red-800">{error}</AlertDescription>
                 </Alert>
               )}
 
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading 
-                  ? (isSignUp ? 'Creating Account...' : 'Signing In...') 
-                  : (isSignUp ? 'Create Account' : 'Sign In')
-                }
+                {isLoading
+                  ? isSignUp
+                    ? 'Creating Account...'
+                    : 'Signing In...'
+                  : isSignUp
+                    ? 'Create Account'
+                    : 'Sign In'}
               </Button>
             </form>
 
@@ -141,7 +137,7 @@ export default function LoginPage() {
         {/* Features Preview */}
         <div className="mt-8 text-center">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            What you'll get with your account:
+            What you&apos;ll get with your account:
           </h3>
           <div className="grid grid-cols-1 gap-3 text-sm text-gray-600">
             <div className="flex items-center justify-center space-x-2">
@@ -166,5 +162,3 @@ export default function LoginPage() {
     </div>
   )
 }
-
-
