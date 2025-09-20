@@ -13,8 +13,9 @@ export async function GET() {
     // Check if user is admin
     const { data: adminUser, error: adminError } = await supabase
       .from('admin_users')
-      .select('id, email, role')
+      .select('id, email, role, is_active')
       .eq('email', user.email)
+      .eq('is_active', true)
       .single();
 
     if (adminError || !adminUser) {

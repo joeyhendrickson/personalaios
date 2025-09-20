@@ -14,8 +14,9 @@ export async function GET() {
     // Check if user is admin - SECURE CHECK
     const { data: adminUser, error: adminError } = await supabase
       .from('admin_users')
-      .select('id, email, name, role')
+      .select('id, email, name, role, is_active')
       .eq('email', user.email)
+      .eq('is_active', true)
       .single();
 
     if (adminError || !adminUser) {
@@ -40,7 +41,7 @@ export async function GET() {
         email: adminUser.email,
         name: adminUser.name,
         role: adminUser.role,
-        is_active: true // All users in admin_users table are active
+        is_active: adminUser.is_active
       }
     });
 
