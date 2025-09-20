@@ -89,9 +89,16 @@ export default function AdminDashboard() {
       }
 
       const data = await response.json();
-      setDashboardData(data.dashboard);
-      setUsers(data.users);
-      setRecentActivity(data.recentActivity);
+      console.log('Admin dashboard API response:', data);
+      
+      // Check if the response contains an error
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      setDashboardData(data.dashboard || {});
+      setUsers(data.users || []);
+      setRecentActivity(data.recentActivity || []);
       setError(null);
 
       // Fetch new users (last 24 hours)

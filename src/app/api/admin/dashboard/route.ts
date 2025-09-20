@@ -29,7 +29,8 @@ export async function GET() {
 
     if (usersError) {
       console.error('Error fetching users:', usersError);
-      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+      // Don't fail completely, just use empty data
+      console.log('Continuing with empty users data');
     }
 
     // Get analytics data
@@ -93,11 +94,12 @@ export async function GET() {
 
     if (activityError) {
       console.error('Error fetching recent activity:', activityError);
-      return NextResponse.json({ error: 'Failed to fetch recent activity' }, { status: 500 });
+      // Don't fail completely, just use empty data
+      console.log('Continuing with empty activity data');
     }
 
     return NextResponse.json({
-      dashboard: dashboardData,
+      dashboard: dashboardData || {},
       users: users || [],
       recentActivity: recentActivity || [],
       adminUser: {
