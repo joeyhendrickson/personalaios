@@ -266,9 +266,9 @@ export default function AdminDashboard() {
                 <Target className="h-6 w-6 text-purple-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Tasks Created</p>
+                <p className="text-sm font-medium text-gray-600">Total Points Earned</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {dashboardData?.total_tasks_created || 0}
+                  {dashboardData?.total_points_earned || 0}
                 </p>
               </div>
             </div>
@@ -280,9 +280,9 @@ export default function AdminDashboard() {
                 <CheckCircle className="h-6 w-6 text-orange-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Tasks Completed</p>
+                <p className="text-sm font-medium text-gray-600">Points Today</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {dashboardData?.total_tasks_completed || 0}
+                  {dashboardData?.total_points_today || 0}
                 </p>
               </div>
             </div>
@@ -343,10 +343,10 @@ export default function AdminDashboard() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium text-gray-900">
-                      {user.tasks_created + user.goals_created} items
+                      {user.total_points} points
                     </p>
                     <p className="text-xs text-gray-600">
-                      {formatDate(user.last_visit)}
+                      {user.today_points} today
                     </p>
                   </div>
                 </div>
@@ -405,10 +405,10 @@ export default function AdminDashboard() {
                     Time Spent
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tasks
+                    Total Points
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Goals
+                    Today's Points
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Last Visit
@@ -438,21 +438,18 @@ export default function AdminDashboard() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
-                        <Badge variant="outline">
-                          {user.total_tasks_created} created
+                        <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                          {user.total_points} total
                         </Badge>
-                        <Badge variant="outline" className="bg-green-50 text-green-700">
-                          {user.total_tasks_completed} completed
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                          {user.weekly_points} this week
                         </Badge>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
-                        <Badge variant="outline">
-                          {user.total_goals_created} created
-                        </Badge>
-                        <Badge variant="outline" className="bg-green-50 text-green-700">
-                          {user.total_goals_completed} completed
+                        <Badge variant="outline" className="bg-orange-50 text-orange-700">
+                          {user.today_points} today
                         </Badge>
                       </div>
                     </td>
