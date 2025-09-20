@@ -170,6 +170,19 @@ export default function HomePage() {
               </Link>
             </div>
           )}
+
+          {/* Temporary Admin Button - Show for josephgregoryhendrickson@gmail.com */}
+          {user && user.email === 'josephgregoryhendrickson@gmail.com' && (
+            <div className="mt-6 text-center">
+              <Link href="/admin">
+                <Button size="lg" className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700">
+                  <Settings className="mr-2 h-5 w-5" />
+                  Admin Dashboard
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          )}
           
           {loading && (
             <div className="flex justify-center">
