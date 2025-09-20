@@ -86,16 +86,11 @@ export async function GET(request: NextRequest) {
     emailMap.set('94a93832-0000-0000-0000-000000000000', 'joeyhendrickson@gmail.com');
     emailMap.set('90779c8f-0000-0000-0000-000000000000', 'test@example.com');
 
-    console.log('Users data:', { allUsers: allUsers?.length, usersError });
-    console.log('Points data:', { pointsData: pointsData?.length, pointsError });
-    console.log('Sample user analytics:', allUsers?.[0]);
-    console.log('Sample points:', pointsData?.slice(0, 3));
-    
-    if (usersError) {
-      console.error('Error fetching users:', usersError);
-      // Don't fail completely, just use empty data
-      console.log('Continuing with empty users data');
-    }
+    console.log('Data fetched successfully:', {
+      tasks: tasksData?.length || 0,
+      goals: goalsData?.length || 0,
+      points: pointsData?.length || 0
+    });
 
     // Get analytics data
     const { data: analyticsData, error: analyticsError } = await supabase
