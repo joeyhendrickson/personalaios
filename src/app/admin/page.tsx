@@ -360,14 +360,14 @@ export default function AdminDashboard() {
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
             <div className="space-y-3">
-              {recentActivity.slice(0, 8).map((activity) => (
+              {recentActivity && recentActivity.length > 0 ? recentActivity.slice(0, 8).map((activity) => (
                 <div key={activity.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
                   <div className={`p-1 rounded ${getActivityColor(activity.activity_type)}`}>
                     {getActivityIcon(activity.activity_type)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">
-                      {activity.auth.users.email}
+                      {activity.auth?.users?.email || `User ${activity.user_id?.substring(0, 8)}`}
                     </p>
                     <p className="text-xs text-gray-600">
                       {activity.activity_type.replace('_', ' ')}
@@ -379,7 +379,7 @@ export default function AdminDashboard() {
                     </p>
                   </div>
                 </div>
-              )) || (
+              )) : (
                 <p className="text-gray-500 text-center py-4">No recent activity</p>
               )}
             </div>
@@ -414,7 +414,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((user) => (
+                {users && users.length > 0 ? users.map((user) => (
                   <tr key={user.user_id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
@@ -461,7 +461,13 @@ export default function AdminDashboard() {
                       }
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                      No users found
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
