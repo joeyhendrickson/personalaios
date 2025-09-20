@@ -64,15 +64,9 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching points data:', pointsError);
     }
 
-    // Get user emails from a simple query instead of admin API
-    const { data: authUsers, error: authUsersError } = await supabase
-      .from('auth.users')
-      .select('id, email, created_at');
-    console.log('Auth users fetch:', { authUsers: authUsers?.length, authUsersError });
-
-    if (authUsersError) {
-      console.error('Error fetching auth users:', authUsersError);
-    }
+    // For now, let's skip the email lookup and just use user IDs
+    // We'll add emails back once we get the basic data working
+    console.log('Skipping email lookup for now to focus on data issues');
 
     console.log('Users data:', { allUsers: allUsers?.length, usersError });
     console.log('Points data:', { pointsData: pointsData?.length, pointsError });
@@ -126,13 +120,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Create email lookup map
+    // Create email lookup map - for now just use user IDs
     const emailMap = new Map();
-    if (authUsers) {
-      authUsers.forEach(authUser => {
-        emailMap.set(authUser.id, authUser.email);
-      });
-    }
+    // We'll add real emails later once we get the basic data working
 
     // Build dashboard data manually from analytics data
     const dashboardData = {
