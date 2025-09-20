@@ -22,9 +22,10 @@ export async function GET() {
     }
 
     // Get admin dashboard data - simplified approach
+    // For now, let's just get basic user count and analytics data
     const { data: allUsers, error: usersError } = await supabase
-      .from('admin_users_view')
-      .select('id, email, created_at, last_sign_in_at');
+      .from('user_analytics_summary')
+      .select('user_id, total_visits, total_time_spent, total_tasks_created, total_goals_created, last_visit, first_visit');
 
     if (usersError) {
       console.error('Error fetching users:', usersError);
@@ -41,17 +42,17 @@ export async function GET() {
       // Don't fail, just use empty analytics
     }
 
-    // Build dashboard data manually
+    // Build dashboard data manually from analytics data
     const dashboardData = {
       total_users: allUsers?.length || 0,
-      active_users_today: analyticsData?.filter(a => a.last_visit && new Date(a.last_visit) >= new Date(new Date().setHours(0,0,0,0))).length || 0,
-      total_tasks_created: analyticsData?.reduce((sum, a) => sum + (a.total_tasks_created || 0), 0) || 0,
-      total_goals_created: analyticsData?.reduce((sum, a) => sum + (a.total_goals_created || 0), 0) || 0,
-      total_tasks_completed: analyticsData?.reduce((sum, a) => sum + (a.total_tasks_completed || 0), 0) || 0,
-      total_goals_completed: analyticsData?.reduce((sum, a) => sum + (a.total_goals_completed || 0), 0) || 0,
+      active_users_today: allUsers?.filter(a => a.last_visit && new Date(a.last_visit) >= new Date(new Date().setHours(0,0,0,0))).length || 0,
+      total_tasks_created: allUsers?.reduce((sum, a) => sum + (a.total_tasks_created || 0), 0) || 0,
+      total_goals_created: allUsers?.reduce((sum, a) => sum + (a.total_goals_created || 0), 0) || 0,
+      total_tasks_completed: allUsers?.reduce((sum, a) => sum + (a.total_tasks_completed || 0), 0) || 0,
+      total_goals_completed: allUsers?.reduce((sum, a) => sum + (a.total_goals_completed || 0), 0) || 0,
       average_session_duration: 0,
-      top_active_users: analyticsData?.slice(0, 5).map(a => ({
-        email: allUsers?.find(u => u.id === a.user_id)?.email || 'Unknown',
+      top_active_users: allUsers?.slice(0, 5).map(a => ({
+        email: `User ${a.user_id.substring(0, 8)}`, // Use user ID since we don't have email
         total_visits: a.total_visits || 0,
         total_time_spent: a.total_time_spent || 0,
         last_visit: a.last_visit,
@@ -61,23 +62,20 @@ export async function GET() {
     };
 
     // Build users data manually
-    const users = allUsers?.map(user => {
-      const analytics = analyticsData?.find(a => a.user_id === user.id);
-      return {
-        user_id: user.id,
-        email: user.email,
-        created_at: user.created_at,
-        last_sign_in_at: user.last_sign_in_at,
-        total_visits: analytics?.total_visits || 0,
-        total_time_spent: analytics?.total_time_spent || 0,
-        total_tasks_created: analytics?.total_tasks_created || 0,
-        total_goals_created: analytics?.total_goals_created || 0,
-        total_tasks_completed: analytics?.total_tasks_completed || 0,
-        total_goals_completed: analytics?.total_goals_completed || 0,
-        last_visit: analytics?.last_visit,
-        first_visit: analytics?.first_visit
-      };
-    }) || [];
+    const users = allUsers?.map(analytics => ({
+      user_id: analytics.user_id,
+      email: `User ${analytics.user_id.substring(0, 8)}`, // Use user ID since we don't have email
+      created_at: analytics.first_visit,
+      last_sign_in_at: analytics.last_visit,
+      total_visits: analytics.total_visits || 0,
+      total_time_spent: analytics.total_time_spent || 0,
+      total_tasks_created: analytics.total_tasks_created || 0,
+      total_goals_created: analytics.total_goals_created || 0,
+      total_tasks_completed: analytics.total_tasks_completed || 0,
+      total_goals_completed: analytics.total_goals_completed || 0,
+      last_visit: analytics.last_visit,
+      first_visit: analytics.first_visit
+    })) || [];
 
     // Get recent activity logs
     const { data: recentActivity, error: activityError } = await supabase
