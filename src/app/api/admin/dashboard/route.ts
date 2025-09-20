@@ -24,7 +24,7 @@ export async function GET() {
 
     // Get admin dashboard data - simplified approach
     const { data: allUsers, error: usersError } = await supabase
-      .from('auth.users')
+      .from('admin_users_view')
       .select('id, email, created_at, last_sign_in_at');
 
     if (usersError) {
