@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -72,6 +72,7 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<User[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityLog[]>([]);
   const [newUsers, setNewUsers] = useState<User[]>([]);
+  const [rawData, setRawData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -118,6 +119,18 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchRawData = async () => {
+    try {
+      const response = await fetch('/api/admin/raw-data');
+      if (response.ok) {
+        const data = await response.json();
+        setRawData(data);
+      }
+    } catch (err) {
+      console.error('Error fetching raw data:', err);
+    }
+  };
+
   useEffect(() => {
     // Check authentication and admin status
     if (!userLoading && !adminLoading) {
@@ -135,6 +148,7 @@ export default function AdminDashboard() {
       
       // User is admin, fetch dashboard data
       fetchDashboardData();
+      fetchRawData();
     }
   }, [user, isAdmin, userLoading, adminLoading, router]);
 
@@ -474,6 +488,182 @@ export default function AdminDashboard() {
             </table>
           </div>
         </Card>
+      </div>
+
+      {/* Raw Data Section */}
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Raw Database Data</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Tasks */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-lg">Tasks</span>
+                <Badge variant="outline">{rawData?.counts?.tasks || 0}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-64 overflow-y-auto">
+                <pre className="text-xs bg-gray-50 p-3 rounded">
+                  {JSON.stringify(rawData?.data?.tasks || [], null, 2)}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Goals */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-lg">Goals</span>
+                <Badge variant="outline">{rawData?.counts?.goals || 0}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-64 overflow-y-auto">
+                <pre className="text-xs bg-gray-50 p-3 rounded">
+                  {JSON.stringify(rawData?.data?.goals || [], null, 2)}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Points */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-lg">Points Ledger</span>
+                <Badge variant="outline">{rawData?.counts?.points || 0}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-64 overflow-y-auto">
+                <pre className="text-xs bg-gray-50 p-3 rounded">
+                  {JSON.stringify(rawData?.data?.points || [], null, 2)}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Activities */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-lg">User Activities</span>
+                <Badge variant="outline">{rawData?.counts?.activities || 0}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-64 overflow-y-auto">
+                <pre className="text-xs bg-gray-50 p-3 rounded">
+                  {JSON.stringify(rawData?.data?.activities?.slice(0, 10) || [], null, 2)}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Priorities */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-lg">Priorities</span>
+                <Badge variant="outline">{rawData?.counts?.priorities || 0}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-64 overflow-y-auto">
+                <pre className="text-xs bg-gray-50 p-3 rounded">
+                  {JSON.stringify(rawData?.data?.priorities || [], null, 2)}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Habits */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-lg">Daily Habits</span>
+                <Badge variant="outline">{rawData?.counts?.habits || 0}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-64 overflow-y-auto">
+                <pre className="text-xs bg-gray-50 p-3 rounded">
+                  {JSON.stringify(rawData?.data?.habits || [], null, 2)}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Education */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-lg">Education Items</span>
+                <Badge variant="outline">{rawData?.counts?.education || 0}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-64 overflow-y-auto">
+                <pre className="text-xs bg-gray-50 p-3 rounded">
+                  {JSON.stringify(rawData?.data?.education || [], null, 2)}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Weeks */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-lg">Weeks</span>
+                <Badge variant="outline">{rawData?.counts?.weeks || 0}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-64 overflow-y-auto">
+                <pre className="text-xs bg-gray-50 p-3 rounded">
+                  {JSON.stringify(rawData?.data?.weeks || [], null, 2)}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Admin Users */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-lg">Admin Users</span>
+                <Badge variant="outline">{rawData?.counts?.adminUsers || 0}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-64 overflow-y-auto">
+                <pre className="text-xs bg-gray-50 p-3 rounded">
+                  {JSON.stringify(rawData?.data?.adminUsers || [], null, 2)}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Analytics Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-lg">Analytics Summary</span>
+                <Badge variant="outline">{rawData?.counts?.analytics || 0}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-64 overflow-y-auto">
+                <pre className="text-xs bg-gray-50 p-3 rounded">
+                  {JSON.stringify(rawData?.data?.analytics || [], null, 2)}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
