@@ -360,26 +360,28 @@ export default function AdminDashboard() {
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
             <div className="space-y-3">
-              {recentActivity && recentActivity.length > 0 ? recentActivity.slice(0, 8).map((activity) => (
-                <div key={activity.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
-                  <div className={`p-1 rounded ${getActivityColor(activity.activity_type)}`}>
-                    {getActivityIcon(activity.activity_type)}
+              {recentActivity && recentActivity.length > 0 ? (
+                recentActivity.slice(0, 8).map((activity) => (
+                  <div key={activity.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+                    <div className={`p-1 rounded ${getActivityColor(activity.activity_type)}`}>
+                      {getActivityIcon(activity.activity_type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {activity.auth?.users?.email || `User ${activity.user_id?.substring(0, 8)}`}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        {activity.activity_type.replace('_', ' ')}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500">
+                        {formatDate(activity.created_at)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {activity.auth?.users?.email || `User ${activity.user_id?.substring(0, 8)}`}
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      {activity.activity_type.replace('_', ' ')}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">
-                      {formatDate(activity.created_at)}
-                    </p>
-                  </div>
-                </div>
-              )) : (
+                ))
+              ) : (
                 <p className="text-gray-500 text-center py-4">No recent activity</p>
               )}
             </div>
