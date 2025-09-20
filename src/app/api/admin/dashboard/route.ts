@@ -6,7 +6,10 @@ export async function GET() {
     const supabase = await createClient();
     
     const { data: { user }, error: authError } = await supabase.auth.getUser();
+    console.log('Admin dashboard auth check:', { user: user?.email, authError });
+    
     if (authError || !user) {
+      console.log('Auth failed:', authError);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -17,7 +20,10 @@ export async function GET() {
       .eq('email', user.email)
       .single();
 
+    console.log('Admin check:', { adminUser, adminError, userEmail: user.email });
+
     if (adminError || !adminUser) {
+      console.log('Admin access denied:', adminError);
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
