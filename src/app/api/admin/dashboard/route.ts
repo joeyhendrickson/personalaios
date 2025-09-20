@@ -86,8 +86,7 @@ export async function GET() {
         activity_type,
         activity_data,
         page_url,
-        created_at,
-        auth.users!inner(email)
+        created_at
       `)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -98,7 +97,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      dashboard: dashboardData[0] || {},
+      dashboard: dashboardData,
       users: users || [],
       recentActivity: recentActivity || [],
       adminUser: {
