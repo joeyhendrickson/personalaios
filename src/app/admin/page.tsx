@@ -90,6 +90,9 @@ export default function AdminDashboard() {
 
       const data = await response.json();
       console.log('Admin dashboard API response:', data);
+      console.log('Dashboard data:', data.dashboard);
+      console.log('Users data:', data.users);
+      console.log('Recent activity:', data.recentActivity);
       
       // Check if the response contains an error
       if (data.error) {
