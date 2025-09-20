@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
+  console.log('🚀 ADMIN DASHBOARD API CALLED - STARTING EXECUTION');
   try {
     const supabase = await createClient();
     
