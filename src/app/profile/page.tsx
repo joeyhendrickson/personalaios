@@ -18,7 +18,7 @@ export default function ProfilePage() {
     totalGoals: 0,
     totalTasks: 0,
     completedTasks: 0,
-    totalPoints: 0
+    totalPoints: 0,
   })
   const [loading, setLoading] = useState(true)
 
@@ -34,7 +34,7 @@ export default function ProfilePage() {
   const fetchUserStats = async () => {
     try {
       const supabase = createClient()
-      
+
       // Fetch goals count
       const { count: goalsCount } = await supabase
         .from('weekly_goals')
@@ -55,7 +55,7 @@ export default function ProfilePage() {
       const { data: pointsData } = await supabase
         .from('points_ledger')
         .select('points')
-        .eq('user_id', user.id)
+        .eq('user_id', user?.id)
 
       const totalPoints = pointsData?.reduce((sum, entry) => sum + (entry.points || 0), 0) || 0
 
@@ -63,7 +63,7 @@ export default function ProfilePage() {
         totalGoals: goalsCount || 0,
         totalTasks: tasksCount || 0,
         completedTasks: completedTasksCount || 0,
-        totalPoints
+        totalPoints,
       })
     } catch (error) {
       console.error('Error fetching user stats:', error)
@@ -83,26 +83,21 @@ export default function ProfilePage() {
     )
   }
 
-  const completionRate = stats.totalTasks > 0 ? Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0
+  const completionRate =
+    stats.totalTasks > 0 ? Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => router.back()}
-            className="mb-4"
-          >
+          <Button variant="ghost" onClick={() => router.back()} className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          
+
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">
-              Your Profile
-            </h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Your Profile</h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Manage your account and view your productivity statistics
             </p>
@@ -127,7 +122,7 @@ export default function ProfilePage() {
                     <span className="text-sm">{user.email}</span>
                   </div>
                 </div>
-                
+
                 <div>
                   <Label className="text-sm font-medium text-gray-500">Member Since</Label>
                   <div className="flex items-center mt-1">
@@ -139,11 +134,7 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="pt-4 border-t">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => signOut()}
-                    className="w-full"
-                  >
+                  <Button variant="outline" onClick={() => signOut()} className="w-full">
                     Sign Out
                   </Button>
                 </div>
@@ -159,9 +150,7 @@ export default function ProfilePage() {
                   <BarChart3 className="h-5 w-5 mr-2" />
                   Your Productivity Stats
                 </CardTitle>
-                <CardDescription>
-                  Track your progress and achievements
-                </CardDescription>
+                <CardDescription>Track your progress and achievements</CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -176,21 +165,23 @@ export default function ProfilePage() {
                       <div className="text-2xl font-bold text-blue-900">{stats.totalGoals}</div>
                       <div className="text-sm text-blue-700">Total Goals</div>
                     </div>
-                    
+
                     <div className="text-center p-4 bg-green-50 rounded-lg">
                       <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
                       <div className="text-2xl font-bold text-green-900">{stats.totalTasks}</div>
                       <div className="text-sm text-green-700">Total Tasks</div>
                     </div>
-                    
+
                     <div className="text-center p-4 bg-purple-50 rounded-lg">
                       <div className="h-8 w-8 bg-purple-600 rounded-full mx-auto mb-2 flex items-center justify-center">
                         <span className="text-white text-sm font-bold">{completionRate}%</span>
                       </div>
-                      <div className="text-2xl font-bold text-purple-900">{stats.completedTasks}</div>
+                      <div className="text-2xl font-bold text-purple-900">
+                        {stats.completedTasks}
+                      </div>
                       <div className="text-sm text-purple-700">Completed</div>
                     </div>
-                    
+
                     <div className="text-center p-4 bg-orange-50 rounded-lg">
                       <div className="h-8 w-8 bg-orange-600 rounded-full mx-auto mb-2 flex items-center justify-center">
                         <span className="text-white text-sm font-bold">★</span>
@@ -207,23 +198,21 @@ export default function ProfilePage() {
             <Card>
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>
-                  Manage your productivity system
-                </CardDescription>
+                <CardDescription>Manage your productivity system</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => router.push('/dashboard')}
                     className="h-20 flex flex-col items-center justify-center"
                   >
                     <Target className="h-6 w-6 mb-2" />
                     <span>Go to Dashboard</span>
                   </Button>
-                  
-                  <Button 
-                    variant="outline" 
+
+                  <Button
+                    variant="outline"
                     onClick={() => router.push('/import')}
                     className="h-20 flex flex-col items-center justify-center"
                   >
@@ -239,5 +228,3 @@ export default function ProfilePage() {
     </div>
   )
 }
-
-

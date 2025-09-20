@@ -342,8 +342,11 @@ export default function DashboardPage() {
   }
 
   // Calculate progress metrics
-  const totalTargetPoints = goals.reduce((sum, goal) => sum + goal.target_points, 0)
-  const totalCurrentPoints = goals.reduce((sum, goal) => sum + (goal.current_points || 0), 0)
+  const totalTargetPoints = goals.reduce((sum, goal) => sum + (goal as any).target_points, 0)
+  const totalCurrentPoints = goals.reduce(
+    (sum, goal) => sum + ((goal as any).current_points || 0),
+    0
+  )
   const progressPercentage =
     totalTargetPoints > 0 ? Math.round((totalCurrentPoints / totalTargetPoints) * 100) : 0
 
@@ -459,7 +462,7 @@ export default function DashboardPage() {
               body: JSON.stringify({
                 task_id: taskId,
                 points: task.points_value,
-                description: `Completed "${task.title}"`,
+                description: `Completed "${(task as any).title}"`,
               }),
             })
           } catch (pointsError) {
@@ -531,9 +534,9 @@ export default function DashboardPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          title: goal.title,
-          description: goal.description || '',
-          points_value: goal.target_points,
+          title: (goal as any).title,
+          description: (goal as any).description || '',
+          points_value: (goal as any).target_points,
           money_value: 0,
           // Don't set weekly_goal_id since we're converting the goal to a task
         }),
@@ -598,7 +601,7 @@ export default function DashboardPage() {
       }
 
       const goalData = {
-        title: task.title,
+        title: (task as any).title,
         description: task.description || '',
         category: 'other', // Default category, will be sorted later with AI button
         target_points: task.points_value,
@@ -615,7 +618,7 @@ export default function DashboardPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          title: task.title,
+          title: (task as any).title,
           description: task.description || '',
           category: 'other', // Default category, will be sorted later with AI button
           target_points: task.points_value,
@@ -1224,10 +1227,10 @@ export default function DashboardPage() {
                                   : 'Manual'}
                             </span>
                             <span className="text-xs text-gray-500">
-                              Score: {priority.priority_score}
+                              Score: {(priority as any).priority_score}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-600">{priority.description}</p>
+                          <p className="text-sm text-gray-600">{(priority as any).description}</p>
                         </div>
 
                         <div className="flex items-center space-x-1">
@@ -1286,18 +1289,22 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {highLevelGoals.map((goal) => (
                       <div
-                        key={goal.id}
+                        key={(goal as any).id}
                         className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900 mb-1">{goal.title}</h3>
-                            <p className="text-sm text-gray-600 mb-2">{goal.description}</p>
+                            <h3 className="font-semibold text-gray-900 mb-1">
+                              {(goal as any).title}
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-2">
+                              {(goal as any).description}
+                            </p>
                             <div className="flex items-center space-x-2 text-xs text-gray-500">
                               <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
-                                {goal.goal_type}
+                                {(goal as any).goal_type}
                               </span>
-                              <span>Priority: {goal.priority_level}/5</span>
+                              <span>Priority: {(goal as any).priority_level}/5</span>
                             </div>
                           </div>
                           <div className="flex space-x-1">
@@ -1309,7 +1316,7 @@ export default function DashboardPage() {
                               <Settings className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => deleteHighLevelGoal(goal.id)}
+                              onClick={() => deleteHighLevelGoal((goal as any).id)}
                               className="text-gray-400 hover:text-red-600"
                               title="Delete Goal"
                             >
@@ -1318,19 +1325,20 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        {goal.target_value && (
+                        {(goal as any).target_value && (
                           <div className="mb-3">
                             <div className="flex justify-between text-sm text-gray-600 mb-1">
                               <span>Progress</span>
                               <span>
-                                {goal.current_value}/{goal.target_value} {goal.target_unit || ''}
+                                {(goal as any).current_value}/{(goal as any).target_value}{' '}
+                                {(goal as any).target_unit || ''}
                               </span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-2">
                               <div
                                 className="bg-black h-2 rounded-full transition-all duration-300"
                                 style={{
-                                  width: `${Math.min(100, (goal.current_value / goal.target_value) * 100)}%`,
+                                  width: `${Math.min(100, ((goal as any).current_value / (goal as any).target_value) * 100)}%`,
                                 }}
                               ></div>
                             </div>
@@ -1338,8 +1346,8 @@ export default function DashboardPage() {
                         )}
 
                         <div className="text-xs text-gray-500">
-                          {goal.target_date &&
-                            `Target: ${new Date(goal.target_date).toLocaleDateString()}`}
+                          {(goal as any).target_date &&
+                            `Target: ${new Date((goal as any).target_date).toLocaleDateString()}`}
                         </div>
                       </div>
                     ))}
@@ -1398,8 +1406,11 @@ export default function DashboardPage() {
                   ) : (
                     goals.map((goal) => {
                       const baseProgress =
-                        goal.target_points && goal.target_points > 0
-                          ? Math.round(((goal.current_points || 0) / goal.target_points) * 100)
+                        (goal as any).target_points && (goal as any).target_points > 0
+                          ? Math.round(
+                              (((goal as any).current_points || 0) / (goal as any).target_points) *
+                                100
+                            )
                           : 0
                       const goalProgress =
                         localProgress[goal.id] !== undefined ? localProgress[goal.id] : baseProgress
@@ -1428,46 +1439,49 @@ export default function DashboardPage() {
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex items-center space-x-3">
                               <span className="text-2xl">
-                                {goal.category === 'quick_money'
+                                {(goal as any).category === 'quick_money'
                                   ? '⚡'
-                                  : goal.category === 'save_money'
+                                  : (goal as any).category === 'save_money'
                                     ? '💳'
-                                    : goal.category === 'health'
+                                    : (goal as any).category === 'health'
                                       ? '💪'
-                                      : goal.category === 'network_expansion'
+                                      : (goal as any).category === 'network_expansion'
                                         ? '🤝'
-                                        : goal.category === 'business_growth'
+                                        : (goal as any).category === 'business_growth'
                                           ? '📈'
-                                          : goal.category === 'fires'
+                                          : (goal as any).category === 'fires'
                                             ? '🔥'
-                                            : goal.category === 'good_living'
+                                            : (goal as any).category === 'good_living'
                                               ? '🌟'
-                                              : goal.category === 'big_vision'
+                                              : (goal as any).category === 'big_vision'
                                                 ? '🎯'
-                                                : goal.category === 'job'
+                                                : (goal as any).category === 'job'
                                                   ? '💼'
-                                                  : goal.category === 'organization'
+                                                  : (goal as any).category === 'organization'
                                                     ? '📁'
-                                                    : goal.category === 'tech_issues'
+                                                    : (goal as any).category === 'tech_issues'
                                                       ? '🔧'
-                                                      : goal.category === 'business_launch'
+                                                      : (goal as any).category === 'business_launch'
                                                         ? '🚀'
-                                                        : goal.category === 'future_planning'
+                                                        : (goal as any).category ===
+                                                            'future_planning'
                                                           ? '🗺️'
-                                                          : goal.category === 'innovation'
+                                                          : (goal as any).category === 'innovation'
                                                             ? '💡'
                                                             : '📋'}
                               </span>
                               <div>
-                                <h3 className="font-semibold text-gray-900">{goal.title}</h3>
+                                <h3 className="font-semibold text-gray-900">
+                                  {(goal as any).title}
+                                </h3>
                                 <p className="text-sm text-gray-600">
-                                  {goal.description || 'No description'}
+                                  {(goal as any).description || 'No description'}
                                 </p>
                               </div>
                             </div>
                             <div className="flex items-center space-x-2">
                               <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-blue-200 text-blue-700">
-                                {goal.category}
+                                {(goal as any).category}
                               </span>
                               <button
                                 onClick={() => convertGoalToTask(goal)}
@@ -1489,7 +1503,8 @@ export default function DashboardPage() {
                           <div className="space-y-4">
                             <div className="flex items-center justify-between text-sm">
                               <span className="text-gray-600">
-                                {goal.current_points || 0}/{goal.target_points || 0} points
+                                {(goal as any).current_points || 0}/
+                                {(goal as any).target_points || 0} points
                               </span>
                               <div className="flex items-center space-x-2">
                                 <span className="font-medium text-gray-900">{goalProgress}%</span>
@@ -1523,8 +1538,9 @@ export default function DashboardPage() {
 
                             <div className="flex items-center justify-between">
                               <span className="text-xs text-gray-500">
-                                {(goal.target_points || 0) - (goal.current_points || 0)} points
-                                remaining
+                                {((goal as any).target_points || 0) -
+                                  ((goal as any).current_points || 0)}{' '}
+                                points remaining
                               </span>
                               <button
                                 onClick={() => openEditGoal(goal)}
@@ -1608,14 +1624,14 @@ export default function DashboardPage() {
                                 <h4
                                   className={`font-medium ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'}`}
                                 >
-                                  {task.title}
+                                  {(task as any).title}
                                 </h4>
                                 <p className="text-sm text-gray-600 mt-1">
                                   {task.description || 'No description'}
                                 </p>
-                                {task.weekly_goal && (
+                                {(task as any).weekly_goal && (
                                   <p className="text-xs text-blue-600 mt-1">
-                                    📋 {task.weekly_goal.title}
+                                    📋 {(task as any).weekly_goal.title}
                                   </p>
                                 )}
                               </div>
@@ -1635,7 +1651,7 @@ export default function DashboardPage() {
                                   onClick={() => {
                                     console.log(
                                       'Convert to goal button clicked for task:',
-                                      task.title
+                                      (task as any).title
                                     )
                                     convertTaskToGoal(task)
                                   }}
@@ -1736,7 +1752,7 @@ export default function DashboardPage() {
 
                       const getIcon = () => {
                         if (isGoalProgress) {
-                          const category = accomplishment.details.goal?.category
+                          const category = (accomplishment as any).details.goal?.category
                           return category === 'quick_money'
                             ? '⚡'
                             : category === 'save_money'
@@ -1774,9 +1790,9 @@ export default function DashboardPage() {
 
                       const getTitle = () => {
                         if (isGoalProgress) {
-                          return `Progress on "${accomplishment.details.goal?.title}"`
+                          return `Progress on "${(accomplishment as any).details.goal?.title}"`
                         } else if (isTaskCompletion) {
-                          return `Completed "${accomplishment.details.task?.title}"`
+                          return `Completed "${(accomplishment as any).details.task?.title}"`
                         }
                         return accomplishment.description
                       }
@@ -1796,20 +1812,20 @@ export default function DashboardPage() {
 
                       return (
                         <div
-                          key={accomplishment.id}
+                          key={(accomplishment as any).id}
                           className="flex items-center space-x-3 p-3 bg-white/50 rounded-lg border border-gray-200 hover:bg-white/70 transition-colors"
                         >
                           <span className="text-lg">{getIcon()}</span>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-900 text-sm truncate">
-                              {getTitle()}
+                              {getTitle() as any}
                             </p>
                             <p className="text-xs text-gray-600">
-                              {getTimeAgo(accomplishment.created_at)}
+                              {getTimeAgo((accomplishment as any).created_at)}
                             </p>
                           </div>
                           <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-green-100 text-green-700">
-                            <Star className="h-3 w-3 mr-1" />+{accomplishment.points}
+                            <Star className="h-3 w-3 mr-1" />+{(accomplishment as any).points}
                           </span>
                         </div>
                       )
@@ -2084,7 +2100,7 @@ export default function DashboardPage() {
                   <option value="">Select a project</option>
                   {goals.map((goal) => (
                     <option key={goal.id} value={goal.id}>
-                      {goal.title}
+                      {(goal as any).title}
                     </option>
                   ))}
                 </select>
@@ -2641,7 +2657,7 @@ export default function DashboardPage() {
                   <option value="">Select a project</option>
                   {goals.map((goal) => (
                     <option key={goal.id} value={goal.id}>
-                      {goal.title}
+                      {(goal as any).title}
                     </option>
                   ))}
                 </select>
@@ -2823,9 +2839,9 @@ export default function DashboardPage() {
                             <div className="flex items-center space-x-3">
                               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                               <div>
-                                <p className="font-medium text-sm">{entry.description}</p>
+                                <p className="font-medium text-sm">{(entry as any).description}</p>
                                 <p className="text-xs text-gray-500">
-                                  {new Date(entry.created_at).toLocaleString('en-US', {
+                                  {new Date((entry as any).created_at).toLocaleString('en-US', {
                                     timeZone: userTimezone,
                                     year: 'numeric',
                                     month: 'short',
@@ -2836,7 +2852,9 @@ export default function DashboardPage() {
                                 </p>
                               </div>
                             </div>
-                            <span className="font-bold text-green-600">+{entry.points}</span>
+                            <span className="font-bold text-green-600">
+                              +{(entry as any).points}
+                            </span>
                           </div>
                         ))}
                       </div>

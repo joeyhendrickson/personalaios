@@ -42,7 +42,7 @@ export default function ImportPage() {
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      setUser(user)
+      setUser(user as any)
       setLoading(false)
 
       if (!user) {
