@@ -19,7 +19,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const validatedData = logActivitySchema.parse(body);
+    
+    // Handle Zod validation with better error handling
+    let validatedData;
+    try {
+      validatedData = logActivitySchema.parse(body);
+    } catch (zodError) {
+      console.error('Zod validation error:', zodError);
+      return NextResponse.json({ 
+        error: 'Invalid input data', 
+        details: zodError instanceof Error ? zodError.message : 'Unknown validation error'
+      }, { status: 400 });
+    }
 
     // Log the activity
     const { error: logError } = await supabase
