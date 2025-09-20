@@ -20,7 +20,18 @@ export async function GET() {
       .single();
 
     if (adminError || !adminUser) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+      console.error('Admin check failed:', {
+        userEmail: user.email,
+        adminError: adminError,
+        adminUser: adminUser
+      });
+      return NextResponse.json({ 
+        error: 'Admin access required',
+        debug: {
+          userEmail: user.email,
+          adminError: adminError?.message
+        }
+      }, { status: 403 });
     }
 
     // Return admin user data
