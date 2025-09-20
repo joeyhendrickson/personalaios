@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: projects, error: projectsError } = await supabase
-      .from('weekly_goals')
+      .from('goals')
       .select('*')
       .eq('user_id', user.id)
       .eq('week_id', currentWeek.id)
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { data: project, error: projectError } = await supabase
-      .from('weekly_goals')
+      .from('goals')
       .insert({
         user_id: user.id,
         week_id: currentWeek.id,

@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       .select('user_id, status, created_at, updated_at');
 
     const { data: goalsData, error: goalsError } = await supabase
-      .from('weekly_goals')
+      .from('goals')
       .select('user_id, is_completed, created_at, updated_at');
 
     const { data: pointsData, error: pointsError } = await supabase
