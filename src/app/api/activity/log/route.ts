@@ -44,14 +44,15 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Log the activity
+    // Log the activity directly to the table
     const { error: logError } = await supabase
-      .rpc('log_user_activity', {
-        p_user_id: user.id,
-        p_activity_type: validatedData.activity_type,
-        p_activity_data: validatedData.activity_data || null,
-        p_page_url: validatedData.page_url || null,
-        p_session_id: validatedData.session_id || null
+      .from('user_activity_logs')
+      .insert({
+        user_id: user.id,
+        activity_type: validatedData.activity_type,
+        activity_data: validatedData.activity_data,
+        page_url: validatedData.page_url,
+        session_id: validatedData.session_id
       });
 
     if (logError) {
@@ -59,11 +60,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to log activity' }, { status: 500 });
     }
 
-    // Update analytics summary
+    // Update analytics summary directly
     const { error: analyticsError } = await supabase
-      .rpc('update_user_analytics', {
-        p_user_id: user.id,
-        p_activity_type: validatedData.activity_type
+      .from('user_analytics_summary')
+      .upsert({
+        user_id: user.id,
+        total_visits: validatedData.activity_type === 'page_visit' ? 1 : 0,
+        total_tasks_created: validatedData.activity_type === 'task_created' ? 1 : 0,
+        total_goals_created: validatedData.activity_type === 'goal_created' ? 1 : 0,
+        total_tasks_completed: validatedData.activity_type === 'task_completed' ? 1 : 0,
+        total_goals_completed: validatedData.activity_type === 'goal_completed' ? 1 : 0,
+        last_visit: validatedData.activity_type === 'page_visit' ? new Date().toISOString() : null,
+        first_visit: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id',
+        ignoreDuplicates: false
       });
 
     if (analyticsError) {
@@ -74,13 +86,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ 
-        error: 'Invalid input', 
-        details: error.issues 
-      }, { status: 400 });
-    }
-    
     console.error('Unexpected error in activity logging:', error);
     return NextResponse.json({
       error: 'Internal server error',
