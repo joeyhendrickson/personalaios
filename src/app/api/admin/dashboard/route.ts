@@ -21,11 +21,22 @@ export async function GET() {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    // Get admin dashboard data - simplified approach
-    // For now, let's just get basic user count and analytics data
+    // Get admin dashboard data with user emails
+    // Join user_analytics_summary with auth.users to get email addresses
     const { data: allUsers, error: usersError } = await supabase
       .from('user_analytics_summary')
-      .select('user_id, total_visits, total_time_spent, total_tasks_created, total_goals_created, last_visit, first_visit');
+      .select(`
+        user_id, 
+        total_visits, 
+        total_time_spent, 
+        total_tasks_created, 
+        total_goals_created, 
+        total_tasks_completed,
+        total_goals_completed,
+        last_visit, 
+        first_visit,
+        auth.users!inner(email, created_at)
+      `);
 
     if (usersError) {
       console.error('Error fetching users:', usersError);
@@ -53,7 +64,7 @@ export async function GET() {
       total_goals_completed: allUsers?.reduce((sum, a) => sum + (a.total_goals_completed || 0), 0) || 0,
       average_session_duration: 0,
       top_active_users: allUsers?.slice(0, 5).map(a => ({
-        email: `User ${a.user_id.substring(0, 8)}`, // Use user ID since we don't have email
+        email: a.auth?.users?.email || `User ${a.user_id.substring(0, 8)}`,
         total_visits: a.total_visits || 0,
         total_time_spent: a.total_time_spent || 0,
         last_visit: a.last_visit,
@@ -65,8 +76,8 @@ export async function GET() {
     // Build users data manually
     const users = allUsers?.map(analytics => ({
       user_id: analytics.user_id,
-      email: `User ${analytics.user_id.substring(0, 8)}`, // Use user ID since we don't have email
-      created_at: analytics.first_visit,
+      email: analytics.auth?.users?.email || `User ${analytics.user_id.substring(0, 8)}`,
+      created_at: analytics.auth?.users?.created_at || analytics.first_visit,
       last_sign_in_at: analytics.last_visit,
       total_visits: analytics.total_visits || 0,
       total_time_spent: analytics.total_time_spent || 0,
@@ -78,7 +89,7 @@ export async function GET() {
       first_visit: analytics.first_visit
     })) || [];
 
-    // Get recent activity logs
+    // Get recent activity logs with user emails
     const { data: recentActivity, error: activityError } = await supabase
       .from('user_activity_logs')
       .select(`
@@ -87,7 +98,8 @@ export async function GET() {
         activity_type,
         activity_data,
         page_url,
-        created_at
+        created_at,
+        auth.users!inner(email)
       `)
       .order('created_at', { ascending: false })
       .limit(50);
