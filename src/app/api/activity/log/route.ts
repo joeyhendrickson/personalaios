@@ -60,23 +60,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to log activity' }, { status: 500 });
     }
 
-    // Update analytics summary directly
-    const { error: analyticsError } = await supabase
-      .from('user_analytics_summary')
-      .upsert({
-        user_id: user.id,
-        total_visits: validatedData.activity_type === 'page_visit' ? 1 : 0,
-        total_tasks_created: validatedData.activity_type === 'task_created' ? 1 : 0,
-        total_goals_created: validatedData.activity_type === 'goal_created' ? 1 : 0,
-        total_tasks_completed: validatedData.activity_type === 'task_completed' ? 1 : 0,
-        total_goals_completed: validatedData.activity_type === 'goal_completed' ? 1 : 0,
-        last_visit: validatedData.activity_type === 'page_visit' ? new Date().toISOString() : null,
-        first_visit: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'user_id',
-        ignoreDuplicates: false
-      });
+    // Update analytics summary using the proper function
+    const { error: analyticsError } = await supabase.rpc('update_user_analytics', {
+      p_user_id: user.id,
+      p_activity_type: validatedData.activity_type
+    });
 
     if (analyticsError) {
       console.error('Error updating analytics:', analyticsError);
