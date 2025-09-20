@@ -64,15 +64,20 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching points data:', pointsError);
     }
 
-    // Get user emails separately to avoid complex joins
-    const { data: authUsers, error: authUsersError } = await supabase.auth.admin.listUsers();
-    console.log('Auth users fetch:', { authUsers: authUsers?.users?.length, authUsersError });
+    // Get user emails from a simple query instead of admin API
+    const { data: authUsers, error: authUsersError } = await supabase
+      .from('auth.users')
+      .select('id, email, created_at');
+    console.log('Auth users fetch:', { authUsers: authUsers?.length, authUsersError });
 
     if (authUsersError) {
       console.error('Error fetching auth users:', authUsersError);
     }
 
     console.log('Users data:', { allUsers: allUsers?.length, usersError });
+    console.log('Points data:', { pointsData: pointsData?.length, pointsError });
+    console.log('Sample user analytics:', allUsers?.[0]);
+    console.log('Sample points:', pointsData?.slice(0, 3));
     
     if (usersError) {
       console.error('Error fetching users:', usersError);
@@ -123,8 +128,8 @@ export async function GET(request: NextRequest) {
 
     // Create email lookup map
     const emailMap = new Map();
-    if (authUsers?.users) {
-      authUsers.users.forEach(authUser => {
+    if (authUsers) {
+      authUsers.forEach(authUser => {
         emailMap.set(authUser.id, authUser.email);
       });
     }
