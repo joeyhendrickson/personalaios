@@ -7,3 +7,4 @@ ALTER TABLE tasks ADD COLUMN category goal_category NOT NULL DEFAULT 'other';
 -- Create index for better performance on category queries
 CREATE INDEX idx_tasks_category ON tasks(category);
 
+

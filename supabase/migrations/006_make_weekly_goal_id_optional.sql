@@ -13,3 +13,4 @@ ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_weekly_goal_id_fkey;
 ALTER TABLE tasks ADD CONSTRAINT tasks_weekly_goal_id_fkey 
     FOREIGN KEY (weekly_goal_id) REFERENCES weekly_goals(id) ON DELETE CASCADE;
 
+

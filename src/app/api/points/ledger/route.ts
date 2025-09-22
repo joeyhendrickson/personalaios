@@ -28,7 +28,10 @@ export async function POST(request: NextRequest) {
 
     // Ensure at least one of goal_id or task_id is provided
     if (!validatedData.goal_id && !validatedData.task_id) {
-      return NextResponse.json({ error: 'Either goal_id or task_id must be provided' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Either goal_id or task_id must be provided' },
+        { status: 400 }
+      )
     }
 
     // Add points to the ledger
@@ -40,7 +43,7 @@ export async function POST(request: NextRequest) {
         task_id: validatedData.task_id,
         points: validatedData.points,
         description: validatedData.description,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       })
       .select()
       .single()
@@ -52,22 +55,19 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      ledgerEntry
+      ledgerEntry,
     })
-
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid input', details: error.issues },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invalid input', details: error.issues }, { status: 400 })
     }
     console.error('Unexpected error:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
   }
 }
-
-

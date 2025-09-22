@@ -18,3 +18,4 @@ LIMIT 3;
 -- 4. Check user_id format (to see if it matches auth.users)
 SELECT DISTINCT user_id FROM weekly_goals LIMIT 5;
 
+

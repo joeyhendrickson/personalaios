@@ -43,3 +43,4 @@ CREATE POLICY "Users can update their own goals" ON goals
 CREATE POLICY "Users can delete their own goals" ON goals
     FOR DELETE USING (auth.uid() = user_id);
 
+
