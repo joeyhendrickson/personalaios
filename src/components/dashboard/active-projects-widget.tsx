@@ -1,29 +1,20 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import {
-  Target,
-  Clock,
-  TrendingUp,
-  AlertCircle,
-  CheckCircle,
-  Lightbulb,
-  RotateCcw,
-} from 'lucide-react'
-
-interface ProjectRecommendation {
-  title: string
-  description: string
-  priority: 'high' | 'medium' | 'low'
-  impact: 'quick_win' | 'high_impact' | 'strategic'
-  estimated_time: string
-}
+import { Target, Lightbulb, RotateCcw, TrendingUp } from 'lucide-react'
 
 interface ProjectData {
   overallCompletionRate: number
   totalProjects: number
   totalTasks: number
-  recommendations: ProjectRecommendation[]
+}
+
+interface StrategicRecommendation {
+  recommendation: string
+  focusArea: string
+  completionRate: number
+  taskCompletionRate: number
+  timestamp: string
 }
 
 interface ActiveProjectsWidgetProps {
@@ -33,10 +24,13 @@ interface ActiveProjectsWidgetProps {
 export default function ActiveProjectsWidget({ goals }: ActiveProjectsWidgetProps) {
   const [projectData, setProjectData] = useState<ProjectData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showRecommendations, setShowRecommendations] = useState(true)
+  const [strategicRecommendation, setStrategicRecommendation] =
+    useState<StrategicRecommendation | null>(null)
+  const [strategicLoading, setStrategicLoading] = useState(false)
 
   useEffect(() => {
     fetchProjectRecommendations()
+    fetchStrategicRecommendations()
   }, [goals])
 
   const fetchProjectRecommendations = async () => {
@@ -58,78 +52,34 @@ export default function ActiveProjectsWidget({ goals }: ActiveProjectsWidgetProp
     }
   }
 
-  const handleAddToTasks = async (recommendation: ProjectRecommendation) => {
+  const fetchStrategicRecommendations = async () => {
     try {
-      const response = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: recommendation.title,
-          description: recommendation.description,
-          category: 'other', // Default category
-          points_value:
-            recommendation.priority === 'high' ? 10 : recommendation.priority === 'medium' ? 5 : 3,
-          money_value: 0,
-        }),
-      })
+      setStrategicLoading(true)
+      console.log('Fetching strategic recommendations...')
+      // Add cache-busting parameter to ensure fresh recommendations
+      const timestamp = Date.now()
+      const response = await fetch(
+        `/api/projects/strategic-completion-recommendations-simple?t=${timestamp}`
+      )
+      console.log('Strategic recommendations response status:', response.status)
 
       if (response.ok) {
-        alert('Task added successfully!')
-        // Optionally refresh the page or update the UI
-        window.location.reload()
+        const data = await response.json()
+        console.log('Strategic recommendations data received:', data)
+        setStrategicRecommendation(data)
       } else {
         const errorData = await response.json()
-        alert(`Failed to add task: ${errorData.error || 'Unknown error'}`)
+        console.error('Failed to fetch strategic recommendations:', errorData)
       }
     } catch (error) {
-      console.error('Error adding task:', error)
-      alert(`Error adding task: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Error fetching strategic recommendations:', error)
+    } finally {
+      setStrategicLoading(false)
     }
   }
 
-  const handleRefreshRecommendations = () => {
-    fetchProjectRecommendations()
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'text-red-600 bg-red-50'
-      case 'medium':
-        return 'text-yellow-600 bg-yellow-50'
-      case 'low':
-        return 'text-green-600 bg-green-50'
-      default:
-        return 'text-gray-600 bg-gray-50'
-    }
-  }
-
-  const getImpactIcon = (impact: string) => {
-    switch (impact) {
-      case 'quick_win':
-        return <CheckCircle className="h-4 w-4 text-green-500" />
-      case 'high_impact':
-        return <TrendingUp className="h-4 w-4 text-blue-500" />
-      case 'strategic':
-        return <Target className="h-4 w-4 text-purple-500" />
-      default:
-        return <Lightbulb className="h-4 w-4 text-gray-500" />
-    }
-  }
-
-  const getImpactLabel = (impact: string) => {
-    switch (impact) {
-      case 'quick_win':
-        return 'Quick Win'
-      case 'high_impact':
-        return 'High Impact'
-      case 'strategic':
-        return 'Strategic'
-      default:
-        return 'General'
-    }
+  const handleRefreshStrategicRecommendations = () => {
+    fetchStrategicRecommendations()
   }
 
   // Calculate radial progress
@@ -143,7 +93,7 @@ export default function ActiveProjectsWidget({ goals }: ActiveProjectsWidgetProp
       <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-sm font-medium text-gray-600">Active Projects</p>
+            <p className="text-sm font-medium text-gray-600">Project Recommendations</p>
             <p className="text-2xl font-bold text-gray-900">{goals.length}</p>
           </div>
 
@@ -175,76 +125,56 @@ export default function ActiveProjectsWidget({ goals }: ActiveProjectsWidgetProp
           </div>
         </div>
 
-        {/* Task Recommendations - Always Visible */}
-        {showRecommendations && (
-          <div className="mt-4 space-y-3">
-            {loading ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-600 mx-auto"></div>
-                <p className="text-sm text-gray-500 mt-2">Loading recommendations...</p>
-              </div>
-            ) : projectData?.recommendations ? (
-              <>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-semibold text-gray-800">Priority Project Tasks</h4>
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center space-x-2 text-xs text-gray-500">
-                      <Target className="h-3 w-3" />
-                      <span>Based on highest priority projects</span>
-                    </div>
-                    <button
-                      onClick={handleRefreshRecommendations}
-                      className="text-gray-400 hover:text-gray-600 transition-colors"
-                      title="Refresh recommendations"
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-                {projectData.recommendations.map((rec, index) => (
-                  <div
-                    key={index}
-                    className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-sm transition-shadow"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        {getImpactIcon(rec.impact)}
-                        <span className="text-sm font-medium text-gray-800">{rec.title}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(rec.priority)}`}
-                        >
-                          {rec.priority}
-                        </span>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                          {rec.estimated_time}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-600 mb-2">{rec.description}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500 bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                        {getImpactLabel(rec.impact)}
-                      </span>
-                      <button
-                        onClick={() => handleAddToTasks(rec)}
-                        className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
-                      >
-                        Add to Tasks →
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <div className="text-center py-4">
-                <AlertCircle className="h-6 w-6 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">No recommendations available</p>
-              </div>
-            )}
+        {/* Strategic Recommendations */}
+        <div className="mt-6 pt-4 border-t border-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <Lightbulb className="h-5 w-5 text-yellow-500" />
+              <h4 className="text-sm font-semibold text-gray-800">Strategic Insights</h4>
+            </div>
+            <button
+              onClick={handleRefreshStrategicRecommendations}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              title="Refresh strategic recommendations"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
           </div>
-        )}
+
+          {strategicLoading ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-600 mx-auto"></div>
+              <p className="text-sm text-gray-500 mt-2">Analyzing your projects...</p>
+            </div>
+          ) : strategicRecommendation ? (
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border border-blue-200">
+              <div className="flex items-start space-x-3">
+                <div className="bg-blue-500 rounded-full p-2 flex-shrink-0">
+                  <TrendingUp className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded">
+                      {strategicRecommendation.focusArea}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {strategicRecommendation.completionRate}% project completion
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-800 leading-relaxed">
+                    {strategicRecommendation.recommendation}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <Lightbulb className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">No strategic insights available</p>
+              <p className="text-xs text-gray-400 mt-1">Click refresh to generate insights</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

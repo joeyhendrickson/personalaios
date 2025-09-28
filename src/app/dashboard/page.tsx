@@ -35,6 +35,7 @@ import ConversationalPriorityInput from '@/components/priorities/conversational-
 import HabitsSection from '@/components/habits/habits-section'
 import EducationSection from '@/components/education/education-section'
 import ActiveProjectsWidget from '@/components/dashboard/active-projects-widget'
+import TaskAdvisor from '@/components/dashboard/task-advisor'
 import { useActivityTracking } from '@/hooks/use-activity-tracking'
 import { useAdminAuth } from '@/hooks/use-admin-auth'
 
@@ -148,6 +149,12 @@ export default function DashboardPage() {
   const [showPointsDetails, setShowPointsDetails] = useState(false)
   const [userTimezone, setUserTimezone] = useState<string>('America/New_York') // Default to Eastern
   const [pointsHistory, setPointsHistory] = useState<Record<string, unknown>[]>([])
+  const [strategicRecommendation, setStrategicRecommendation] = useState<{
+    recommendation: string
+    focusArea: string
+    timestamp: string
+  } | null>(null)
+  const [strategicLoading, setStrategicLoading] = useState(false)
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({})
   const [highLevelGoals, setHighLevelGoals] = useState<Record<string, unknown>[]>([])
   const [priorities, setPriorities] = useState<Record<string, unknown>[]>([])
@@ -953,6 +960,12 @@ export default function DashboardPage() {
                   Import Excel
                 </button>
               </Link>
+              <Link href="/life-hacks">
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-green-300 bg-green-50 hover:bg-green-100 text-green-700 h-9 rounded-md px-3">
+                  <Brain className="h-4 w-4" />
+                  Life Hacks
+                </button>
+              </Link>
               <Link href="/profile">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3">
                   <Settings className="h-4 w-4" />
@@ -1087,6 +1100,64 @@ export default function DashboardPage() {
                   Daily & Weekly Points ({userTimezone.split('/')[1]})
                 </p>
               </div>
+
+              {/* Motivational Message */}
+              {(() => {
+                const dailyPoints = pointsData?.dailyPoints || 0
+                let motivation
+                if (dailyPoints >= 500) {
+                  motivation = {
+                    message:
+                      "🔥 INCREDIBLE! You're crushing it today! Keep this momentum going and push even higher!",
+                    emoji: '🚀',
+                    color: 'text-green-600 bg-green-50 border-green-200',
+                  }
+                } else if (dailyPoints >= 300) {
+                  motivation = {
+                    message:
+                      "💪 Excellent progress! You're on fire today. Let's push for 500+ points!",
+                    emoji: '⚡',
+                    color: 'text-blue-600 bg-blue-50 border-blue-200',
+                  }
+                } else if (dailyPoints >= 200) {
+                  motivation = {
+                    message:
+                      "🎯 Great momentum! You're building serious progress. Keep attacking those projects!",
+                    emoji: '🎯',
+                    color: 'text-purple-600 bg-purple-50 border-purple-200',
+                  }
+                } else if (dailyPoints >= 100) {
+                  motivation = {
+                    message:
+                      "🌟 Good start! You're building momentum. Let's push for 300+ points today!",
+                    emoji: '⭐',
+                    color: 'text-yellow-600 bg-yellow-50 border-yellow-200',
+                  }
+                } else if (dailyPoints > 0) {
+                  motivation = {
+                    message:
+                      "🚀 You've started! Every point counts. Let's build this into a productive day!",
+                    emoji: '💫',
+                    color: 'text-orange-600 bg-orange-50 border-orange-200',
+                  }
+                } else {
+                  motivation = {
+                    message:
+                      '🎯 Ready to make today count? Pick a project and start building momentum!',
+                    emoji: '🎯',
+                    color: 'text-gray-600 bg-gray-50 border-gray-200',
+                  }
+                }
+
+                return (
+                  <div className={`mt-4 p-3 rounded-lg border ${motivation.color}`}>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">{motivation.emoji}</span>
+                      <p className="text-sm font-medium">{motivation.message}</p>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           </div>
 
@@ -1126,6 +1197,9 @@ export default function DashboardPage() {
               <div className="flex justify-center">
                 <ProgressRing percentage={taskCompletionRate} size={80} color="#8B5CF6" />
               </div>
+
+              {/* Task Advisor */}
+              <TaskAdvisor goals={goals as any} />
             </div>
           </div>
         </div>
