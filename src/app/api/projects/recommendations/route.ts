@@ -53,18 +53,41 @@ export async function GET(request: NextRequest) {
     const overallCompletionRate =
       totalTargetPoints > 0 ? Math.round((totalCurrentPoints / totalTargetPoints) * 100) : 0
 
-    // Get top 3 highest priority projects for focused recommendations
+    // Get projects for focused recommendations with some randomization
     const topPriorityProjects = goals.slice(0, 3)
     const highPriorityProjects = goals.filter(
       (goal) => goal.priority === 'high' || goal.priority === 1
     )
+
+    // Add randomization to focus projects selection
+    const allProjects = goals.length > 0 ? goals : []
+    const shuffledProjects = [...allProjects].sort(() => Math.random() - 0.5)
+    const randomFocusProjects = shuffledProjects.slice(0, Math.min(2, shuffledProjects.length))
+
     const focusProjects =
-      highPriorityProjects.length > 0 ? highPriorityProjects : topPriorityProjects
+      highPriorityProjects.length > 0
+        ? [...highPriorityProjects, ...randomFocusProjects].slice(0, 3)
+        : randomFocusProjects.length > 0
+          ? randomFocusProjects
+          : topPriorityProjects
 
-    // Generate AI recommendations focused on highest priority projects
-    const prompt = `You are a productivity expert analyzing a user's highest priority projects. Focus specifically on their most important projects and provide exactly 1 specific, actionable task recommendation.
+    // Add timestamp and random elements for variety
+    const currentTime = new Date().toISOString()
+    const randomSeed = Math.floor(Math.random() * 1000)
+    const focusAreas = [
+      'planning',
+      'execution',
+      'review',
+      'optimization',
+      'communication',
+      'research',
+    ]
+    const randomFocusArea = focusAreas[Math.floor(Math.random() * focusAreas.length)]
 
-HIGHEST PRIORITY PROJECTS (Focus on these):
+    // Generate AI recommendations with randomization
+    const prompt = `You are a productivity expert analyzing a user's projects. Generate a fresh, specific task recommendation. Current time: ${currentTime}. Focus area: ${randomFocusArea}.
+
+FOCUS PROJECTS (Prioritize these):
 ${focusProjects.map((goal) => `- ${goal.title} (${goal.category}) - Progress: ${goal.current_points || 0}/${goal.target_points || 0} points - Priority: ${goal.priority || 'Medium'} - Deadline: ${goal.deadline || 'No deadline'}`).join('\n')}
 
 ALL ACTIVE PROJECTS (${goals.length} total):
@@ -78,16 +101,16 @@ ${tasks
 
 OVERALL COMPLETION RATE: ${overallCompletionRate}%
 
-Provide recommendations that:
-1. PRIORITIZE the highest priority projects listed above
-2. Focus on specific next steps for those top projects
-3. Address urgent deadlines and high-priority items first
-4. Suggest concrete, actionable tasks that advance those projects
-5. Consider what would have the biggest impact on project completion
+Generate a DIFFERENT recommendation this time. Consider:
+1. Focus on the ${randomFocusArea} aspect of the priority projects
+2. Think about what would be most valuable RIGHT NOW
+3. Consider both quick wins and strategic moves
+4. Vary your approach - don't repeat previous suggestions
+5. Be creative and specific about the next actionable step
 
-Respond with a JSON array of recommendations, each with:
-- title: Short, actionable task title
-- description: Brief explanation of why this task is important for the priority projects
+Respond with a JSON array of exactly 1 recommendation:
+- title: Short, actionable task title (be specific and varied)
+- description: Brief explanation of why this task is important NOW
 - priority: "high", "medium", or "low"
 - impact: "quick_win", "high_impact", or "strategic"
 - estimated_time: "15min", "30min", "1hour", "2hours", or "half_day"
@@ -95,10 +118,10 @@ Respond with a JSON array of recommendations, each with:
 Example format:
 [
   {
-    "title": "Review and prioritize project deadlines",
-    "description": "Several projects have approaching deadlines that need attention",
+    "title": "Draft initial outline for [specific project]",
+    "description": "Creating a structured plan will accelerate progress on this high-priority project",
     "priority": "high",
-    "impact": "strategic",
+    "impact": "high_impact",
     "estimated_time": "30min"
   }
 ]`
@@ -110,14 +133,14 @@ Example format:
           {
             role: 'system',
             content:
-              'You are a productivity expert who provides specific, actionable task recommendations. Always respond with valid JSON.',
+              'You are a productivity expert who provides specific, actionable task recommendations. Always respond with valid JSON. Be creative and varied in your suggestions - avoid repeating similar recommendations.',
           },
           {
             role: 'user',
             content: prompt,
           },
         ],
-        temperature: 0.7,
+        temperature: 0.9, // Higher temperature for more creative/varied responses
       })
 
       let recommendations

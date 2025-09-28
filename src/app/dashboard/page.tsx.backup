@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import {
-  Target,
-  CheckCircle,
-  TrendingUp,
+import { 
+  Target, 
+  CheckCircle, 
+  TrendingUp, 
   Plus,
   Calendar,
   BarChart3,
@@ -198,7 +198,7 @@ export default function DashboardPage() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true)
-
+      
       // Fetch current week
       const weekResponse = await fetch('/api/weeks')
       if (weekResponse.ok) {
@@ -237,7 +237,7 @@ export default function DashboardPage() {
       setPointsLoading(true)
       const pointsResponse = await fetch('/api/points')
       console.log('Points response status:', pointsResponse.status)
-
+      
       if (pointsResponse.ok) {
         const pointsData = await pointsResponse.json()
         console.log('Points data received:', pointsData)
@@ -255,7 +255,7 @@ export default function DashboardPage() {
 
       // Fetch accomplishments
       await fetchAccomplishments()
-
+      
       // Fetch goals and priorities
       await fetchHighLevelGoals()
       await fetchPriorities()
@@ -366,36 +366,35 @@ export default function DashboardPage() {
   )
   const progressPercentage =
     totalTargetPoints > 0 ? Math.round((totalCurrentPoints / totalTargetPoints) * 100) : 0
-
+  
   // Calculate points by category (from both goals and tasks)
   const categoryPoints = [...goals, ...tasks].reduce(
     (acc, item) => {
       const category = item.category
-      if (!acc[category]) {
+    if (!acc[category]) {
         acc[category] = { current: 0, target: 0 }
-      }
-
-      if ('current_points' in item) {
-        // This is a goal
+    }
+    
+    if ('current_points' in item) {
+      // This is a goal
         acc[category].current += item.current_points || 0
         acc[category].target += item.target_points
-      } else if ('status' in item) {
-        // This is a task
-        if (item.status === 'completed') {
+    } else if ('status' in item) {
+      // This is a task
+      if (item.status === 'completed') {
           acc[category].current += item.points_value
-        }
-        // Tasks don't have target points, so we don't add to target
       }
-
+      // Tasks don't have target points, so we don't add to target
+    }
+    
       return acc
     },
     {} as Record<string, { current: number; target: number }>
   )
 
-  const completedTasksCount = tasks.filter((t) => t.status === 'completed').length
+  const completedTasks = tasks.filter((t) => t.status === 'completed').length
   const totalTasks = tasks.length
-  const taskCompletionRate =
-    totalTasks > 0 ? Math.round((completedTasksCount / totalTasks) * 100) : 0
+  const taskCompletionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
   const handleAddGoal = async () => {
     if (newGoal.title.trim() && currentWeek) {
@@ -410,7 +409,7 @@ export default function DashboardPage() {
             target_points: newGoal.target_points,
             target_money: 0,
           }),
-        })
+          })
 
         if (response.ok) {
           await fetchDashboardData() // Refresh data
@@ -437,7 +436,7 @@ export default function DashboardPage() {
             points_value: newTask.points_value,
             money_value: 0,
           }),
-        })
+          })
 
         if (response.ok) {
           await fetchDashboardData() // Refresh data
@@ -487,7 +486,7 @@ export default function DashboardPage() {
             console.error('Error adding points to ledger:', pointsError)
           }
         }
-
+        
         await fetchDashboardData() // Refresh data
       }
     } catch (error) {
@@ -544,7 +543,7 @@ export default function DashboardPage() {
   const convertGoalToTask = async (goal: Goal) => {
     try {
       console.log('Converting goal to task:', goal)
-
+      
       // Create a task from the goal first
       const response = await fetch('/api/tasks', {
         method: 'POST',
@@ -593,11 +592,11 @@ export default function DashboardPage() {
   const convertTaskToGoal = async (task: Task) => {
     try {
       console.log('Converting task to goal:', task)
-
+      
       // Use the current week or get the first available week
       let weekId = currentWeek?.id
       console.log('Current week ID:', weekId)
-
+      
       if (!weekId) {
         console.log('No current week, fetching available weeks...')
         // Get the first available week
@@ -810,7 +809,7 @@ export default function DashboardPage() {
       alert(
         `Error updating goal progress: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
-
+      
       // Clear local progress state on error
       setLocalProgress((prev) => {
         const newState = { ...prev }
@@ -954,8 +953,8 @@ export default function DashboardPage() {
                 </button>
               </Link>
               <Link href="/profile">
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3">
-                  <Settings className="h-4 w-4" />
+              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3">
+                <Settings className="h-4 w-4" />
                   Profile
                 </button>
               </Link>
@@ -967,7 +966,7 @@ export default function DashboardPage() {
                   </button>
                 </Link>
               )}
-              <button
+              <button 
                 onClick={() => signOut()}
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 h-9 rounded-md px-3"
               >
@@ -1036,16 +1035,16 @@ export default function DashboardPage() {
                     )
                   }) ||
                     [0, 0, 0, 0, 0, 0, 0].map((_, index) => (
-                      <div
-                        key={index}
-                        className="bg-gray-300 rounded-t"
-                        style={{
-                          width: '8px',
-                          height: '10%',
+                    <div
+                      key={index}
+                      className="bg-gray-300 rounded-t"
+                      style={{
+                        width: '8px',
+                        height: '10%',
                           opacity: 0.3,
-                        }}
-                      />
-                    ))}
+                      }}
+                    />
+                  ))}
                 </div>
               </div>
               <div className="flex justify-between text-xs text-gray-500 mt-2">
@@ -1072,15 +1071,15 @@ export default function DashboardPage() {
                         weekday: 'short',
                         timeZone: userTimezone,
                       })
-                    return (
+                  return (
                       <span
                         key={index}
                         className={`text-center ${isToday ? 'font-bold text-orange-600' : ''}`}
                       >
-                        {day}
-                      </span>
+                      {day}
+                    </span>
                     )
-                  })}
+                })}
               </div>
               <div className="text-center mt-2">
                 <p className="text-sm text-gray-600">
@@ -1118,7 +1117,7 @@ export default function DashboardPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Tasks Done</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {completedTasksCount}/{totalTasks}
+                    {completedTasks}/{totalTasks}
                   </p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-purple-500" />
@@ -1183,11 +1182,11 @@ export default function DashboardPage() {
                 ) : (
                   <div className="space-y-3">
                     {priorities.map((priority, index) => (
-                      <div
+                      <div 
                         key={(priority as any).id}
                         className={`flex items-center space-x-3 p-3 rounded-lg border transition-all ${
-                          priority.is_completed
-                            ? 'bg-green-50 border-green-200'
+                          priority.is_completed 
+                            ? 'bg-green-50 border-green-200' 
                             : 'bg-white border-gray-200 hover:border-blue-200'
                         }`}
                       >
@@ -1221,7 +1220,7 @@ export default function DashboardPage() {
                             )}
                           </button>
                         </div>
-
+                        
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-1">
                             <h4
@@ -1231,11 +1230,11 @@ export default function DashboardPage() {
                             </h4>
                             <span
                               className={`text-xs px-2 py-1 rounded ${
-                                priority.priority_type === 'ai_recommended'
+                              priority.priority_type === 'ai_recommended' 
                                   ? 'bg-gray-100 text-gray-800'
-                                  : priority.priority_type === 'fire_auto'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-gray-100 text-gray-800'
+                                : priority.priority_type === 'fire_auto'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-gray-100 text-gray-800'
                               }`}
                             >
                               {priority.priority_type === 'ai_recommended'
@@ -1250,40 +1249,12 @@ export default function DashboardPage() {
                           </div>
                           <p className="text-sm text-gray-600">{(priority as any).description}</p>
                         </div>
-
+                        
                         <div className="flex items-center space-x-1">
                           <button className="text-gray-400 hover:text-gray-600">
                             <Settings className="h-4 w-4" />
                           </button>
-                          <button
-                            onClick={async () => {
-                              if (confirm('Are you sure you want to delete this priority?')) {
-                                try {
-                                  const response = await fetch(
-                                    `/api/priorities/${(priority as any).id}`,
-                                    {
-                                      method: 'DELETE',
-                                    }
-                                  )
-                                  if (response.ok) {
-                                    await fetchPriorities()
-                                  } else {
-                                    const errorData = await response.json()
-                                    alert(
-                                      `Failed to delete priority: ${errorData.error || 'Unknown error'}`
-                                    )
-                                  }
-                                } catch (error) {
-                                  console.error('Error deleting priority:', error)
-                                  alert(
-                                    `Error deleting priority: ${error instanceof Error ? error.message : 'Unknown error'}`
-                                  )
-                                }
-                              }
-                            }}
-                            className="text-gray-400 hover:text-red-600"
-                            title="Delete Priority"
-                          >
+                          <button className="text-gray-400 hover:text-red-600">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
@@ -1307,7 +1278,7 @@ export default function DashboardPage() {
                       High-level weekly and monthly objectives
                     </p>
                   </div>
-                  <button
+                  <button 
                     onClick={() => setShowAddHighLevelGoal(true)}
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                   >
@@ -1354,14 +1325,14 @@ export default function DashboardPage() {
                             </div>
                           </div>
                           <div className="flex space-x-1">
-                            <button
+                            <button 
                               onClick={() => openEditHighLevelGoal(goal)}
                               className="text-gray-400 hover:text-gray-600"
                               title="Edit Goal"
                             >
                               <Settings className="h-4 w-4" />
                             </button>
-                            <button
+                            <button 
                               onClick={() => deleteHighLevelGoal((goal as any).id)}
                               className="text-gray-400 hover:text-red-600"
                               title="Delete Goal"
@@ -1370,7 +1341,7 @@ export default function DashboardPage() {
                             </button>
                           </div>
                         </div>
-
+                        
                         {(goal as any).target_value && (
                           <div className="mb-3">
                             <div className="flex justify-between text-sm text-gray-600 mb-1">
@@ -1381,7 +1352,7 @@ export default function DashboardPage() {
                               </span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div
+                              <div 
                                 className="bg-black h-2 rounded-full transition-all duration-300"
                                 style={{
                                   width: `${Math.min(100, ((goal as any).current_value / (goal as any).target_value) * 100)}%`,
@@ -1390,7 +1361,7 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         )}
-
+                        
                         <div className="text-xs text-gray-500">
                           {(goal as any).target_date &&
                             `Target: ${new Date((goal as any).target_date).toLocaleDateString()}`}
@@ -1416,7 +1387,7 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <button
+                    <button 
                       onClick={categorizeGoalsWithAI}
                       disabled={isCategorizing || goals.length === 0}
                       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 h-10 px-4 py-2"
@@ -1428,21 +1399,21 @@ export default function DashboardPage() {
                     <button
                       onClick={() => setShowCompleted(!showCompleted)}
                       className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-10 px-4 py-2 ${
-                        showCompleted
-                          ? 'bg-green-600 text-white hover:bg-green-700'
+                        showCompleted 
+                          ? 'bg-green-600 text-white hover:bg-green-700' 
                           : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700'
                       }`}
                     >
                       <History className="h-4 w-4 mr-2" />
                       {showCompleted ? 'Active' : 'Completed'}
                     </button>
-                    <button
-                      onClick={() => setShowAddGoal(true)}
+                  <button 
+                    onClick={() => setShowAddGoal(true)}
                       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-white hover:bg-gray-800 h-10 px-4 py-2 bg-black"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Project
-                    </button>
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Project
+                  </button>
                   </div>
                 </div>
               </div>
@@ -1467,8 +1438,7 @@ export default function DashboardPage() {
                         const baseProgress =
                           (goal as any).target_points && (goal as any).target_points > 0
                             ? Math.round(
-                                (((goal as any).current_points || 0) /
-                                  (goal as any).target_points) *
+                                (((goal as any).current_points || 0) / (goal as any).target_points) *
                                   100
                               )
                             : 100 // Completed projects show 100%
@@ -1520,14 +1490,11 @@ export default function DashboardPage() {
                                                       ? '📁'
                                                       : (goal as any).category === 'tech_issues'
                                                         ? '🔧'
-                                                        : (goal as any).category ===
-                                                            'business_launch'
+                                                        : (goal as any).category === 'business_launch'
                                                           ? '🚀'
-                                                          : (goal as any).category ===
-                                                              'future_planning'
+                                                          : (goal as any).category === 'future_planning'
                                                             ? '🗺️'
-                                                            : (goal as any).category ===
-                                                                'innovation'
+                                                            : (goal as any).category === 'innovation'
                                                               ? '💡'
                                                               : '📋'}
                                 </span>
@@ -1538,24 +1505,20 @@ export default function DashboardPage() {
                                   <div className="space-y-2">
                                     <p className="text-sm text-gray-600 leading-relaxed">
                                       {(() => {
-                                        const description =
-                                          (goal as any).description || 'No description'
+                                        const description = (goal as any).description || 'No description'
                                         const shouldTruncate = description.length > 120
-                                        const displayDescription =
-                                          shouldTruncate && !expandedDescriptions[goal.id]
-                                            ? description.substring(0, 120).trim() + '...'
-                                            : description
+                                        const displayDescription = shouldTruncate && !expandedDescriptions[goal.id] 
+                                          ? description.substring(0, 120).trim() + '...'
+                                          : description
                                         return displayDescription
                                       })()}
                                     </p>
                                     {((goal as any).description || '').length > 120 && (
                                       <button
-                                        onClick={() =>
-                                          setExpandedDescriptions((prev) => ({
-                                            ...prev,
-                                            [goal.id]: !prev[goal.id],
-                                          }))
-                                        }
+                                        onClick={() => setExpandedDescriptions(prev => ({
+                                          ...prev,
+                                          [goal.id]: !prev[goal.id]
+                                        }))}
                                         className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
                                       >
                                         {expandedDescriptions[goal.id] ? (
@@ -1590,30 +1553,25 @@ export default function DashboardPage() {
                                   <span>100%</span>
                                 </div>
                                 <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className="bg-green-500 h-2 rounded-full"
-                                    style={{ width: '100%' }}
-                                  ></div>
+                                  <div className="bg-green-500 h-2 rounded-full" style={{ width: '100%' }}></div>
                                 </div>
                               </div>
                               <div className="text-sm text-gray-600">
-                                Completed on:{' '}
-                                {new Date(
-                                  (goal as any).updated_at || (goal as any).created_at
-                                ).toLocaleDateString()}
+                                Completed on: {new Date((goal as any).updated_at || (goal as any).created_at).toLocaleDateString()}
                               </div>
                             </div>
                           </div>
                         )
                       })
                     )
-                  ) : // Show active projects
-                  goals.length === 0 ? (
+                  ) : (
+                    // Show active projects
+                    goals.length === 0 ? (
                     <div className="col-span-2 text-center py-8">
                       <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">
-                        No active projects yet. Create your first project to get started!
-                      </p>
+                        <p className="text-gray-600">
+                          No active projects yet. Create your first project to get started!
+                        </p>
                     </div>
                   ) : (
                     goals.map((goal) => {
@@ -1644,12 +1602,12 @@ export default function DashboardPage() {
                         other: '#6B7280',
                       }
                       return (
-                        <div
-                          key={goal.id}
-                          className="bg-white/50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-all duration-200"
-                        >
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center space-x-3">
+                          <div
+                            key={goal.id}
+                            className="bg-white/50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-all duration-200"
+                          >
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center space-x-3">
                               <span className="text-2xl">
                                 {(goal as any).category === 'quick_money'
                                   ? '⚡'
@@ -1689,24 +1647,20 @@ export default function DashboardPage() {
                                 <div className="space-y-2">
                                   <p className="text-sm text-gray-600 leading-relaxed">
                                     {(() => {
-                                      const description =
-                                        (goal as any).description || 'No description'
+                                      const description = (goal as any).description || 'No description'
                                       const shouldTruncate = description.length > 120
-                                      const displayDescription =
-                                        shouldTruncate && !expandedDescriptions[goal.id]
-                                          ? description.substring(0, 120).trim() + '...'
-                                          : description
+                                      const displayDescription = shouldTruncate && !expandedDescriptions[goal.id] 
+                                        ? description.substring(0, 120).trim() + '...'
+                                        : description
                                       return displayDescription
                                     })()}
                                   </p>
                                   {((goal as any).description || '').length > 120 && (
                                     <button
-                                      onClick={() =>
-                                        setExpandedDescriptions((prev) => ({
-                                          ...prev,
-                                          [goal.id]: !prev[goal.id],
-                                        }))
-                                      }
+                                      onClick={() => setExpandedDescriptions(prev => ({
+                                        ...prev,
+                                        [goal.id]: !prev[goal.id]
+                                      }))}
                                       className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
                                     >
                                       {expandedDescriptions[goal.id] ? (
@@ -1723,43 +1677,43 @@ export default function DashboardPage() {
                                     </button>
                                   )}
                                 </div>
-                              </div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-blue-200 text-blue-700">
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-blue-200 text-blue-700">
                                 {(goal as any).category}
-                              </span>
-                              <button
+                            </span>
+                              <button 
                                 onClick={() => convertGoalToTask(goal)}
                                 className="text-green-500 hover:text-green-700"
                                 title="Convert to Task"
                               >
                                 <CheckCircle className="h-4 w-4" />
                               </button>
-                              <button
-                                onClick={() => deleteGoal(goal.id)}
-                                className="text-red-500 hover:text-red-700"
+                            <button 
+                              onClick={() => deleteGoal(goal.id)}
+                              className="text-red-500 hover:text-red-700"
                                 title="Delete Goal"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           </div>
-
+                        </div>
+                        
                           <div className="space-y-4">
-                            <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center justify-between text-sm">
                               <span className="text-gray-600">
                                 {(goal as any).current_points || 0}/
                                 {(goal as any).target_points || 0} points
                               </span>
                               <div className="flex items-center space-x-2">
-                                <span className="font-medium text-gray-900">{goalProgress}%</span>
+                            <span className="font-medium text-gray-900">{goalProgress}%</span>
                                 {updatingProgress === goal.id && (
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                                 )}
-                              </div>
+                          </div>
                             </div>
-
+                            
                             {/* Interactive Progress Slider */}
                             <div className="space-y-2">
                               <div className="flex items-center justify-between text-xs text-gray-500">
@@ -1779,26 +1733,27 @@ export default function DashboardPage() {
                               <div className="flex items-center justify-between text-xs text-gray-500">
                                 <span>0%</span>
                                 <span>100%</span>
-                              </div>
+                          </div>
                             </div>
 
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-gray-500">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500">
                                 {((goal as any).target_points || 0) -
                                   ((goal as any).current_points || 0)}{' '}
                                 points remaining
-                              </span>
-                              <button
+                            </span>
+                              <button 
                                 onClick={() => openEditGoal(goal)}
                                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 rounded-md px-3 text-xs"
                               >
-                                View Details <ChevronRight className="h-3 w-3 ml-1" />
-                              </button>
-                            </div>
+                              View Details <ChevronRight className="h-3 w-3 ml-1" />
+                            </button>
                           </div>
                         </div>
-                      )
-                    })
+                      </div>
+                        )
+                      })
+                    )
                   )}
                 </div>
               </div>
@@ -1821,21 +1776,21 @@ export default function DashboardPage() {
                     <button
                       onClick={() => setShowCompleted(!showCompleted)}
                       className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-10 px-4 py-2 ${
-                        showCompleted
-                          ? 'bg-green-600 text-white hover:bg-green-700'
+                        showCompleted 
+                          ? 'bg-green-600 text-white hover:bg-green-700' 
                           : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700'
                       }`}
                     >
                       <History className="h-4 w-4 mr-2" />
                       {showCompleted ? 'Active' : 'Completed'}
                     </button>
-                    <button
-                      onClick={() => setShowAddTask(true)}
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Task
-                    </button>
+                  <button 
+                    onClick={() => setShowAddTask(true)}
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Task
+                  </button>
                   </div>
                 </div>
               </div>
@@ -1887,10 +1842,7 @@ export default function DashboardPage() {
                                   <span>${(task as any).money_value || 0}</span>
                                 </div>
                                 <span className="text-xs text-gray-500">
-                                  Completed:{' '}
-                                  {new Date(
-                                    (task as any).updated_at || (task as any).created_at
-                                  ).toLocaleDateString()}
+                                  Completed: {new Date((task as any).updated_at || (task as any).created_at).toLocaleDateString()}
                                 </span>
                               </div>
                             </div>
@@ -1898,68 +1850,69 @@ export default function DashboardPage() {
                         </div>
                       ))
                     )
-                  ) : // Show active tasks
-                  tasks.length === 0 ? (
+                  ) : (
+                    // Show active tasks
+                    tasks.length === 0 ? (
                     <div className="text-center py-8">
                       <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">
-                        No active tasks yet. Create your first task to get started!
-                      </p>
+                        <p className="text-gray-600">
+                          No active tasks yet. Create your first task to get started!
+                        </p>
                     </div>
                   ) : (
                     tasks.map((task) => (
-                      <div
-                        key={task.id}
-                        className={`bg-white/50 rounded-lg p-4 border transition-all duration-200 hover:shadow-sm ${
+                    <div 
+                      key={task.id} 
+                      className={`bg-white/50 rounded-lg p-4 border transition-all duration-200 hover:shadow-sm ${
                           task.status === 'completed'
                             ? 'border-green-200 bg-green-50/50'
                             : 'border-gray-200 hover:border-blue-200'
-                        }`}
-                      >
-                        <div className="flex items-start space-x-4">
-                          <button
-                            onClick={() => toggleTask(task.id)}
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mt-0.5 transition-all duration-200 ${
+                      }`}
+                    >
+                      <div className="flex items-start space-x-4">
+                        <button 
+                          onClick={() => toggleTask(task.id)}
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mt-0.5 transition-all duration-200 ${
                               task.status === 'completed'
-                                ? 'bg-green-500 border-green-500 hover:bg-green-600'
+                              ? 'bg-green-500 border-green-500 hover:bg-green-600' 
                                 : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-                            }`}
-                          >
+                          }`}
+                        >
                             {task.status === 'completed' && (
                               <CheckCircle className="h-4 w-4 text-white" />
                             )}
-                          </button>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between">
-                              <div>
+                        </button>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between">
+                            <div>
                                 <h4
                                   className={`font-medium ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'}`}
                                 >
                                   {(task as any).title}
-                                </h4>
+                              </h4>
                                 <p className="text-sm text-gray-600 mt-1">
                                   {task.description || 'No description'}
                                 </p>
-                                {(task as any).weekly_goal && (task as any).weekly_goal.title && (
+                                {(task as any).weekly_goal && (
                                   <p className="text-xs text-blue-600 mt-1">
                                     📋 {(task as any).weekly_goal.title}
                                   </p>
                                 )}
-                              </div>
-                              <div className="flex items-center space-x-2 ml-4">
+                            </div>
+                            <div className="flex items-center space-x-2 ml-4">
                                 <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gray-100 text-gray-700">
-                                  <Star className="h-3 w-3 mr-1" />
-                                  {task.points_value || 0}
-                                </span>
-                                <button
+                                <Star className="h-3 w-3 mr-1" />
+                                  {task.points_value}
+                              </span>
+                                <button 
                                   onClick={() => openEditTask(task)}
                                   className="text-gray-500 hover:text-gray-700"
                                   title="Edit Task"
                                 >
                                   <Settings className="h-4 w-4" />
                                 </button>
-                                <button
+                                <button 
                                   onClick={() => {
                                     console.log(
                                       'Convert to goal button clicked for task:',
@@ -1972,20 +1925,20 @@ export default function DashboardPage() {
                                 >
                                   <Target className="h-4 w-4" />
                                 </button>
-                                <button
-                                  onClick={() => deleteTask(task.id)}
-                                  className="text-red-500 hover:text-red-700"
+                              <button 
+                                onClick={() => deleteTask(task.id)}
+                                className="text-red-500 hover:text-red-700"
                                   title="Delete Task"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                             </div>
                           </div>
                         </div>
                       </div>
+                    </div>
                     ))
-                  )}
+                  )
                 </div>
               </div>
             </div>
@@ -2016,7 +1969,7 @@ export default function DashboardPage() {
                         </p>
                       </div>
                     </div>
-                    <button
+                    <button 
                       onClick={() => setTriggerChatOpen(true)}
                       className="w-full bg-black hover:bg-gray-800 text-white font-medium py-2 px-4 rounded-md transition-all duration-200"
                     >
@@ -2033,13 +1986,13 @@ export default function DashboardPage() {
               <div className="p-6 pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="font-semibold tracking-tight flex items-center text-xl">
-                      <Activity className="h-6 w-6 mr-2 text-orange-500" />
+                <h2 className="font-semibold tracking-tight flex items-center text-xl">
+                  <Activity className="h-6 w-6 mr-2 text-orange-500" />
                       Recent Accomplishments
-                    </h2>
+                </h2>
                     <p className="text-sm text-gray-600">Your latest progress and achievements</p>
                   </div>
-                  <button
+                  <button 
                     onClick={() => setShowAccomplishmentsHistory(true)}
                     className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                   >
@@ -2061,7 +2014,7 @@ export default function DashboardPage() {
                     accomplishments.map((accomplishment) => {
                       const isGoalProgress = accomplishment.type === 'goal_progress'
                       const isTaskCompletion = accomplishment.type === 'task_completion'
-
+                      
                       const getIcon = () => {
                         if (isGoalProgress) {
                           const category = (accomplishment as any).details.goal?.category
@@ -2128,18 +2081,18 @@ export default function DashboardPage() {
                           className="flex items-center space-x-3 p-3 bg-white/50 rounded-lg border border-gray-200 hover:bg-white/70 transition-colors"
                         >
                           <span className="text-lg">{getIcon()}</span>
-                          <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-900 text-sm truncate">
                               {getTitle() as any}
                             </p>
                             <p className="text-xs text-gray-600">
                               {getTimeAgo((accomplishment as any).created_at)}
                             </p>
-                          </div>
-                          <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-green-100 text-green-700">
+                      </div>
+                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-green-100 text-green-700">
                             <Star className="h-3 w-3 mr-1" />+{(accomplishment as any).points}
-                          </span>
-                        </div>
+                      </span>
+                    </div>
                       )
                     })
                   )}
@@ -2190,7 +2143,7 @@ export default function DashboardPage() {
                           personal: 'bg-pink-500',
                           other: 'bg-gray-400',
                         }
-
+                        
                         const categoryLabels = {
                           quick_money: 'Quick Money',
                           save_money: 'Save Money',
@@ -2212,10 +2165,10 @@ export default function DashboardPage() {
                           personal: 'Personal',
                           other: 'Other',
                         }
-
+                        
                         return (
                           <div key={category} className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2">
                               <div
                                 className={`w-3 h-3 rounded-full ${categoryColors[category as keyof typeof categoryColors] || 'bg-gray-400'}`}
                               />
@@ -2223,13 +2176,13 @@ export default function DashboardPage() {
                                 {categoryLabels[category as keyof typeof categoryLabels] ||
                                   category}
                               </span>
-                            </div>
+                      </div>
                             <div className="text-right">
                               <span className="text-sm font-bold text-gray-900">
                                 {points.current} pts
                               </span>
                               <span className="text-xs text-gray-500 ml-1">/ {points.target}</span>
-                            </div>
+                    </div>
                           </div>
                         )
                       })
@@ -2417,18 +2370,18 @@ export default function DashboardPage() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Points</label>
-                <input
-                  type="number"
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Points</label>
+                  <input
+                    type="number"
                   value={newTask.points_value}
                   onChange={(e) =>
                     setNewTask({ ...newTask, points_value: parseInt(e.target.value) })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="1"
-                />
-              </div>
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="1"
+                  />
+                </div>
               <div className="flex space-x-3">
                 <button
                   onClick={handleAddTask}
@@ -2546,7 +2499,7 @@ export default function DashboardPage() {
                       (document.getElementById('add-goal-priority') as HTMLInputElement)?.value ||
                         '3'
                     )
-
+                    
                     if (title?.trim()) {
                       try {
                         const response = await fetch('/api/goals', {
@@ -2560,7 +2513,7 @@ export default function DashboardPage() {
                             target_unit,
                             priority_level,
                           }),
-                        })
+                          })
 
                         if (response.ok) {
                           await fetchDashboardData()
@@ -2734,7 +2687,7 @@ export default function DashboardPage() {
                       (document.getElementById('edit-high-level-goal-priority') as HTMLInputElement)
                         ?.value || '3'
                     )
-
+                    
                     updateHighLevelGoal({
                       title,
                       description,
@@ -2775,7 +2728,7 @@ export default function DashboardPage() {
               </button>
             </div>
             <div className="space-y-4">
-              <div>
+                <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
                 <input
                   type="text"
@@ -2797,11 +2750,11 @@ export default function DashboardPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select
+                  <select
                   defaultValue={editingGoal.category}
                   id="edit-goal-category"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
                   <option value="quick_money">⚡ Quick Money</option>
                   <option value="save_money">💳 Save Money</option>
                   <option value="health">💪 Health</option>
@@ -2817,8 +2770,8 @@ export default function DashboardPage() {
                   <option value="future_planning">🗺️ Future Planning</option>
                   <option value="innovation">💡 Innovation</option>
                   <option value="other">📋 Other</option>
-                </select>
-              </div>
+                  </select>
+                </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Target Points
@@ -2870,7 +2823,7 @@ export default function DashboardPage() {
                         '0'
                     )
                     const current_points = Math.round((progress / 100) * target_points)
-
+                    
                     updateGoal({
                       title,
                       description,
@@ -3017,7 +2970,7 @@ export default function DashboardPage() {
                     const status = (
                       document.getElementById('edit-task-status') as HTMLSelectElement
                     )?.value as 'pending' | 'in_progress' | 'completed'
-
+                    
                     updateTask({
                       title,
                       description,
@@ -3055,8 +3008,8 @@ export default function DashboardPage() {
                     Complete history of your progress and achievements
                   </p>
                 </div>
-                <button
-                  onClick={() => setShowAccomplishmentsHistory(false)}
+                <button 
+                  onClick={() => setShowAccomplishmentsHistory(false)} 
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <X className="h-6 w-6" />
@@ -3082,15 +3035,15 @@ export default function DashboardPage() {
                     Manage your timezone and view points history
                   </p>
                 </div>
-                <button
-                  onClick={() => setShowPointsDetails(false)}
+                <button 
+                  onClick={() => setShowPointsDetails(false)} 
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <X className="h-6 w-6" />
                 </button>
               </div>
             </div>
-
+            
             <div className="p-6 overflow-y-auto max-h-[60vh]">
               <div className="space-y-6">
                 {/* Timezone Settings */}
@@ -3198,7 +3151,7 @@ export default function DashboardPage() {
       )}
 
       {/* Chat Interface */}
-      <ChatInterface
+      <ChatInterface 
         onGoalCreated={fetchDashboardData}
         onTaskCreated={fetchDashboardData}
         onTaskCompleted={fetchDashboardData}

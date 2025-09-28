@@ -122,12 +122,58 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = createProjectSchema.parse(body)
 
-    // Create project directly without week dependency
+    // Get current week - try to find existing week or create one
+    const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
 
+    // First, try to find an existing week that contains today
+    const { data: existingWeeks, error: weekError } = await supabase
+      .from('weeks')
+      .select('id, week_start, week_end')
+      .lte('week_start', today)
+      .gte('week_end', today)
+      .order('week_start', { ascending: false })
+      .limit(1)
+
+    let currentWeek
+
+    if (weekError) {
+      console.error('Error fetching weeks:', weekError)
+      return NextResponse.json({ error: 'Failed to get current week' }, { status: 500 })
+    }
+
+    if (existingWeeks && existingWeeks.length > 0) {
+      // Use existing week
+      currentWeek = existingWeeks[0]
+    } else {
+      // Create a new week for the current date
+      const startOfWeek = new Date()
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
+      const endOfWeek = new Date(startOfWeek)
+      endOfWeek.setDate(startOfWeek.getDate() + 6)
+
+      const { data: newWeek, error: createError } = await supabase
+        .from('weeks')
+        .insert({
+          week_start: startOfWeek.toISOString().split('T')[0],
+          week_end: endOfWeek.toISOString().split('T')[0],
+        })
+        .select('id, week_start, week_end')
+        .single()
+
+      if (createError || !newWeek) {
+        console.error('Error creating new week:', createError)
+        return NextResponse.json({ error: 'Failed to create current week' }, { status: 500 })
+      }
+
+      currentWeek = newWeek
+    }
+
+    // Create project with current week
     const { data: project, error: projectError } = await supabase
       .from('weekly_goals')
       .insert({
         user_id: user.id,
+        week_id: currentWeek.id,
         ...validatedData,
       })
       .select()

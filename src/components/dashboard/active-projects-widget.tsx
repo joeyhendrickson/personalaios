@@ -1,7 +1,15 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Target, Clock, TrendingUp, AlertCircle, CheckCircle, Lightbulb } from 'lucide-react'
+import {
+  Target,
+  Clock,
+  TrendingUp,
+  AlertCircle,
+  CheckCircle,
+  Lightbulb,
+  RotateCcw,
+} from 'lucide-react'
 
 interface ProjectRecommendation {
   title: string
@@ -34,7 +42,9 @@ export default function ActiveProjectsWidget({ goals }: ActiveProjectsWidgetProp
   const fetchProjectRecommendations = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/projects/recommendations')
+      // Add cache-busting parameter to ensure fresh recommendations
+      const timestamp = Date.now()
+      const response = await fetch(`/api/projects/recommendations?t=${timestamp}`)
       if (response.ok) {
         const data = await response.json()
         setProjectData(data)
@@ -46,6 +56,41 @@ export default function ActiveProjectsWidget({ goals }: ActiveProjectsWidgetProp
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleAddToTasks = async (recommendation: ProjectRecommendation) => {
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: recommendation.title,
+          description: recommendation.description,
+          category: 'other', // Default category
+          points_value:
+            recommendation.priority === 'high' ? 10 : recommendation.priority === 'medium' ? 5 : 3,
+          money_value: 0,
+        }),
+      })
+
+      if (response.ok) {
+        alert('Task added successfully!')
+        // Optionally refresh the page or update the UI
+        window.location.reload()
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to add task: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error adding task:', error)
+      alert(`Error adding task: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  const handleRefreshRecommendations = () => {
+    fetchProjectRecommendations()
   }
 
   const getPriorityColor = (priority: string) => {
@@ -142,9 +187,18 @@ export default function ActiveProjectsWidget({ goals }: ActiveProjectsWidgetProp
               <>
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-semibold text-gray-800">Priority Project Tasks</h4>
-                  <div className="flex items-center space-x-2 text-xs text-gray-500">
-                    <Target className="h-3 w-3" />
-                    <span>Based on highest priority projects</span>
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2 text-xs text-gray-500">
+                      <Target className="h-3 w-3" />
+                      <span>Based on highest priority projects</span>
+                    </div>
+                    <button
+                      onClick={handleRefreshRecommendations}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Refresh recommendations"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
                 {projectData.recommendations.map((rec, index) => (
@@ -173,7 +227,10 @@ export default function ActiveProjectsWidget({ goals }: ActiveProjectsWidgetProp
                       <span className="text-xs text-gray-500 bg-blue-50 text-blue-700 px-2 py-1 rounded">
                         {getImpactLabel(rec.impact)}
                       </span>
-                      <button className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                      <button
+                        onClick={() => handleAddToTasks(rec)}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                      >
                         Add to Tasks →
                       </button>
                     </div>

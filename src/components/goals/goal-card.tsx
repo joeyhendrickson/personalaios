@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState } from 'react'
 
 interface Goal {
   id: string
@@ -44,6 +45,8 @@ const categoryColors = {
 }
 
 export function GoalCard({ goal, onDelete, onAddTask }: GoalCardProps) {
+  const [showFullDescription, setShowFullDescription] = useState(false)
+
   const pointsProgress =
     goal.target_points > 0 ? (goal.current_points / goal.target_points) * 100 : 0
   const moneyProgress = goal.target_money > 0 ? (goal.current_money / goal.target_money) * 100 : 0
@@ -51,15 +54,53 @@ export function GoalCard({ goal, onDelete, onAddTask }: GoalCardProps) {
   const completedTasks = goal.tasks?.filter((task) => task.status === 'completed').length || 0
   const totalTasks = goal.tasks?.length || 0
 
+  // Truncate description to first 2 lines (approximately 120 characters)
+  const truncateDescription = (text: string, maxLength: number = 120) => {
+    if (text.length <= maxLength) return text
+    return text.substring(0, maxLength).trim() + '...'
+  }
+
+  const shouldTruncate = goal.description && goal.description.length > 120
+  const displayDescription =
+    shouldTruncate && !showFullDescription
+      ? truncateDescription(goal.description)
+      : goal.description
+
   return (
     <Card className={`w-full ${goal.is_completed ? 'border-green-200 bg-green-50' : ''}`}>
       <CardHeader>
         <div className="flex items-start justify-between">
-          <div className="space-y-1">
+          <div className="space-y-1 flex-1">
             <CardTitle className="text-lg">{goal.title}</CardTitle>
-            {goal.description && <CardDescription>{goal.description}</CardDescription>}
+            {goal.description && (
+              <div className="space-y-2">
+                <CardDescription className="text-sm leading-relaxed">
+                  {displayDescription}
+                </CardDescription>
+                {shouldTruncate && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowFullDescription(!showFullDescription)}
+                    className="h-auto p-0 text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    {showFullDescription ? (
+                      <>
+                        <ChevronUp className="w-3 h-3 mr-1" />
+                        Show Less
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-3 h-3 mr-1" />
+                        View Details
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-4">
             <Badge className={categoryColors[goal.category as keyof typeof categoryColors]}>
               {goal.category}
             </Badge>

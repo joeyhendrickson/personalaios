@@ -40,7 +40,9 @@ export function ChatInterface({
   void onTaskCompleted
   const [isExpanded, setIsExpanded] = useState(false)
   const [dimensions, setDimensions] = useState({ width: 384, height: 600 }) // w-96 = 384px
+  const [position, setPosition] = useState({ x: 16, y: 16 }) // Default position (top-4 right-4 = 16px)
   const [isResizing, setIsResizing] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
 
   // Voice-related state
   const [isListening, setIsListening] = useState(false)
@@ -495,6 +497,42 @@ What would you like to focus on today? Try asking me about having a "happy day" 
     }
   }
 
+  // Drag handlers
+  const handleDragStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+
+    const startX = e.clientX
+    const startY = e.clientY
+    const startPositionX = position.x
+    const startPositionY = position.y
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - startX
+      const deltaY = e.clientY - startY
+
+      const newX = Math.max(
+        0,
+        Math.min(window.innerWidth - dimensions.width, startPositionX + deltaX)
+      )
+      const newY = Math.max(
+        0,
+        Math.min(window.innerHeight - dimensions.height, startPositionY + deltaY)
+      )
+
+      setPosition({ x: newX, y: newY })
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
   // Resize handlers
   const handleMouseDown = (
     e: React.MouseEvent,
@@ -620,16 +658,21 @@ What would you like to focus on today? Try asking me about having a "happy day" 
 
   return (
     <div
-      className={`fixed top-4 right-4 z-50 bg-white rounded-lg shadow-xl border flex flex-col ${isResizing ? 'select-none' : ''}`}
+      className={`fixed z-50 bg-white rounded-lg shadow-xl border flex flex-col ${isResizing || isDragging ? 'select-none' : ''}`}
       style={{
+        left: `${position.x}px`,
+        top: `${position.y}px`,
         width: `${dimensions.width}px`,
         height: `${dimensions.height}px`,
         maxWidth: '80vw',
         maxHeight: 'calc(100vh - 2rem)',
       }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-black text-white rounded-t-lg">
+      {/* Header - Draggable */}
+      <div
+        className="flex items-center justify-between p-4 border-b bg-black text-white rounded-t-lg cursor-move"
+        onMouseDown={handleDragStart}
+      >
         <h3 className="font-semibold">Productivity Advisor</h3>
         <Button
           variant="ghost"
