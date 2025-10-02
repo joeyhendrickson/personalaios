@@ -107,6 +107,14 @@ export async function POST(request: NextRequest) {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(20),
+
+      // Fetch installed modules/lifehacks for context
+      supabase
+        .from('installed_modules')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('last_accessed', { ascending: false }),
     ])
 
     const goals = goalsResult.data || []
@@ -119,6 +127,7 @@ export async function POST(request: NextRequest) {
     const education = educationResult.data || []
     const accomplishments = accomplishmentsResult.data || []
     const pointsHistory = pointsHistoryResult.data || []
+    const installedModules = installedModulesResult.data || []
 
     if (goals.length === 0) {
       return NextResponse.json(
@@ -203,6 +212,7 @@ DASHBOARD OVERVIEW:
 - Education Items: ${education.length} learning items
 - Recent Accomplishments: ${accomplishments.length} recent wins
 - Points Earned: ${pointsHistory.length} recent point activities
+- Installed Life Hacks: ${installedModules.length} active modules
 
 GOALS (in priority order):
 ${goals.map((goal, i) => `${i + 1}. ${goal.title} (${goal.goal_type}) - Target: ${goal.target_value} ${goal.target_unit || ''} - Current: ${goal.current_value} - Priority: ${goal.priority_level}/5`).join('\n')}
@@ -239,6 +249,9 @@ ${
     : 'No recent point activity'
 }
 
+INSTALLED LIFE HACKS/MODULES (for context - consider how priorities can leverage these tools):
+${installedModules.length > 0 ? `ACTIVE MODULES:\n${installedModules.map((module) => `- ${module.module_id} (Last used: ${new Date(module.last_accessed).toLocaleDateString()})`).join('\n')}\n` : 'No modules installed'}
+
 DAILY CONTEXT RULES:
 - Weekdays: Prioritize work-related, high-impact tasks that advance major goals
 - Weekends: Focus on personal development, health, learning, or relationship-building
@@ -255,7 +268,7 @@ CATEGORY MAPPINGS:
 STRATEGIC PRIORITY RECOMMENDATIONS:
 Using the COMPLETE DASHBOARD CONTEXT above, recommend 3-5 strategic priorities for TODAY that will:
 
-1. **HOLISTIC APPROACH**: Consider the entire dashboard - goals, projects, tasks, habits, education, and recent activity
+1. **HOLISTIC APPROACH**: Consider the entire dashboard - goals, projects, tasks, habits, education, modules, and recent activity
 2. **STRATEGIC FOCUS**: Choose priorities that create the most impact across multiple areas
 3. **COMPLEMENTARY**: Work WITH existing priorities, not against them - build momentum
 4. **REALISTIC SCOPE**: Be appropriate for a ${dayOfWeek}${isWeekend ? ' (weekend)' : ' (workday)'}
@@ -264,6 +277,7 @@ Using the COMPLETE DASHBOARD CONTEXT above, recommend 3-5 strategic priorities f
 7. **GOAL-ALIGNED**: Directly advance the highest-priority goals from the list above
 8. **HABIT-SUPPORTING**: Consider how priorities can support or complement daily habits
 9. **LEARNING-ENHANCED**: Factor in education goals and recent accomplishments for motivation
+10. **MODULE-LEVERAGING**: Consider how installed life hacks can help accomplish priorities more efficiently
 
 AVOID:
 - Duplicating existing priorities (check EXISTING PRIORITIES list)

@@ -1413,11 +1413,16 @@ export default function DashboardPage() {
                             <button
                               onClick={async () => {
                                 try {
-                                  const response = await fetch(`/api/priorities/${priority.id}`, {
-                                    method: 'PATCH',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ is_completed: !priority.is_completed }),
-                                  })
+                                  const response = await fetch(
+                                    `/api/priorities/${(priority as any).id}`,
+                                    {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        is_completed: !priority.is_completed,
+                                      }),
+                                    }
+                                  )
                                   if (response.ok) {
                                     await fetchPriorities()
                                   }
