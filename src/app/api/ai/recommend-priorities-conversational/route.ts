@@ -35,9 +35,15 @@ export async function POST(request: NextRequest) {
       daily_intention
     )
 
-    // Fetch user's goals, projects, and tasks
+    // Fetch user's goals, projects, and tasks (including completed items for context)
     console.log('Fetching user data...')
-    const [goalsResult, projectsResult, tasksResult] = await Promise.all([
+    const [
+      goalsResult,
+      projectsResult,
+      tasksResult,
+      completedProjectsResult,
+      completedTasksResult,
+    ] = await Promise.all([
       supabase
         .from('goals')
         .select('*')
@@ -49,6 +55,7 @@ export async function POST(request: NextRequest) {
         .from('weekly_goals')
         .select('*')
         .eq('user_id', user.id)
+        .neq('status', 'completed')
         .order('created_at', { ascending: false }),
 
       supabase
@@ -57,11 +64,31 @@ export async function POST(request: NextRequest) {
         .eq('user_id', user.id)
         .eq('status', 'pending')
         .order('created_at', { ascending: false }),
+
+      // Fetch completed projects for context
+      supabase
+        .from('weekly_goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('updated_at', { ascending: false })
+        .limit(10), // Recent completed projects
+
+      // Fetch completed tasks for context
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('updated_at', { ascending: false })
+        .limit(20), // Recent completed tasks
     ])
 
     const goals = goalsResult.data || []
     const projects = projectsResult.data || []
     const tasks = tasksResult.data || []
+    const completedProjects = completedProjectsResult.data || []
+    const completedTasks = completedTasksResult.data || []
 
     console.log(
       'Data fetched - Goals:',
@@ -69,7 +96,11 @@ export async function POST(request: NextRequest) {
       'Projects:',
       projects.length,
       'Tasks:',
-      tasks.length
+      tasks.length,
+      'Completed Projects:',
+      completedProjects.length,
+      'Completed Tasks:',
+      completedTasks.length
     )
 
     // Check for errors in data fetching
@@ -139,15 +170,20 @@ CONTEXT:
 - Today is ${dayOfWeek}${isWeekend ? ' (weekend)' : ' (workday)'}
 - Focus on 3-5 actionable priorities that align with the user's stated intention
 - FIRES items are URGENT and should be prioritized appropriately based on the user's intention
+- IMPORTANT: Do NOT recommend priorities for completed items - they are already done
 
 GOALS (in priority order):
 ${goals.map((goal, i) => `${i + 1}. ${goal.title} (${goal.goal_type}) - Target: ${goal.target_value} ${goal.target_unit || ''} - Current: ${goal.current_value} - Priority: ${goal.priority_level}/5`).join('\n')}
 
-PROJECTS (excluding fires):
+ACTIVE PROJECTS (excluding fires):
 ${nonFiresProjects.map((project) => `- ${project.title} (${project.category}) - ${project.current_points}/${project.target_points} points`).join('\n')}
 
-TASKS (excluding fires):
+ACTIVE TASKS (excluding fires):
 ${nonFiresTasks.map((task) => `- ${task.title} (${task.category}) - ${task.points_value} points - Project: ${task.project_title || 'Standalone'}`).join('\n')}
+
+RECENTLY COMPLETED ITEMS (for context - DO NOT include these in recommendations):
+${completedProjects.length > 0 ? `COMPLETED PROJECTS:\n${completedProjects.map((project) => `✅ ${project.title} (${project.category}) - Completed`).join('\n')}\n` : 'No recently completed projects'}
+${completedTasks.length > 0 ? `COMPLETED TASKS:\n${completedTasks.map((task) => `✅ ${task.title} (${task.category}) - Completed`).join('\n')}\n` : 'No recently completed tasks'}
 
 🔥 FIRES (URGENT - Handle these first):
 ${firesProjects.length > 0 ? `FIRE PROJECTS:\n${firesProjects.map((project) => `- ${project.title} - ${project.current_points}/${project.target_points} points`).join('\n')}` : 'No fire projects'}
@@ -160,6 +196,8 @@ Analyze the user's daily intention "${daily_intention}" and recommend 3-5 specif
 3. Are appropriate for their energy level and time available
 4. Are realistically completable today
 5. Have clear, actionable next steps
+6. ONLY include items from the ACTIVE PROJECTS and ACTIVE TASKS lists above
+7. DO NOT recommend anything from the COMPLETED ITEMS - acknowledge them in your reasoning but don't suggest them as priorities
 
 🔥 FIRES HANDLING STRATEGY:
 - If user wants to REST/RELAX: Remind them about fires first, encourage quick completion before rest

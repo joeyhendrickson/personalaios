@@ -19,8 +19,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch user's goals, projects, and tasks
-    const [goalsResult, projectsResult, tasksResult] = await Promise.all([
+    // Fetch user's goals, projects, and tasks (including completed items for context)
+    const [
+      goalsResult,
+      projectsResult,
+      tasksResult,
+      completedProjectsResult,
+      completedTasksResult,
+    ] = await Promise.all([
       supabase
         .from('goals')
         .select('*')
@@ -32,6 +38,7 @@ export async function POST(request: NextRequest) {
         .from('weekly_goals')
         .select('*')
         .eq('user_id', user.id)
+        .neq('status', 'completed')
         .order('created_at', { ascending: false }),
 
       supabase
@@ -40,11 +47,31 @@ export async function POST(request: NextRequest) {
         .eq('user_id', user.id)
         .eq('status', 'pending')
         .order('created_at', { ascending: false }),
+
+      // Fetch completed projects for context
+      supabase
+        .from('weekly_goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('updated_at', { ascending: false })
+        .limit(10), // Recent completed projects
+
+      // Fetch completed tasks for context
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('updated_at', { ascending: false })
+        .limit(20), // Recent completed tasks
     ])
 
     const goals = goalsResult.data || []
     const projects = projectsResult.data || []
     const tasks = tasksResult.data || []
+    const completedProjects = completedProjectsResult.data || []
+    const completedTasks = completedTasksResult.data || []
 
     if (goals.length === 0) {
       return NextResponse.json(
@@ -106,15 +133,20 @@ CONTEXT:
 - Today is ${dayOfWeek}${isWeekend ? ' (weekend - focus on personal development, health, or low-pressure tasks)' : ' (workday - focus on high-impact professional tasks)'}
 - Fires category items are handled separately and will be auto-included
 - Focus on 3-5 actionable priorities for today
+- IMPORTANT: Do NOT recommend priorities for completed items - they are already done
 
 GOALS (in priority order):
 ${goals.map((goal, i) => `${i + 1}. ${goal.title} (${goal.goal_type}) - Target: ${goal.target_value} ${goal.target_unit || ''} - Current: ${goal.current_value} - Priority: ${goal.priority_level}/5`).join('\n')}
 
-PROJECTS (excluding fires - they're handled separately):
+ACTIVE PROJECTS (excluding fires - they're handled separately):
 ${nonFiresProjects.map((project) => `- ${project.title} (${project.category}) - ${project.current_points}/${project.target_points} points`).join('\n')}
 
-TASKS (excluding fires - they're handled separately):
+ACTIVE TASKS (excluding fires - they're handled separately):
 ${nonFiresTasks.map((task) => `- ${task.title} (${task.category}) - ${task.points_value} points - Project: ${task.project_title || 'Standalone'}`).join('\n')}
+
+RECENTLY COMPLETED ITEMS (for context - DO NOT include these in recommendations):
+${completedProjects.length > 0 ? `COMPLETED PROJECTS:\n${completedProjects.map((project) => `✅ ${project.title} (${project.category}) - Completed`).join('\n')}\n` : 'No recently completed projects'}
+${completedTasks.length > 0 ? `COMPLETED TASKS:\n${completedTasks.map((task) => `✅ ${task.title} (${task.category}) - Completed`).join('\n')}\n` : 'No recently completed tasks'}
 
 DAILY CONTEXT RULES:
 - Weekdays: Prioritize work-related, high-impact tasks that advance major goals
@@ -134,6 +166,8 @@ Please recommend 3-5 specific priorities for TODAY that will:
 2. Be appropriate for a ${dayOfWeek}${isWeekend ? ' (weekend)' : ' (workday)'}
 3. Be realistically completable today
 4. Have clear, actionable next steps
+5. ONLY include items from the ACTIVE PROJECTS and ACTIVE TASKS lists above
+6. DO NOT recommend anything from the COMPLETED ITEMS - acknowledge them in your reasoning but don't suggest them as priorities
 
 For each priority:
 1. Give it a clear, actionable title (start with action verb)
