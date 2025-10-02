@@ -107,14 +107,12 @@ export function TaskForm({ goalId, goalTitle, onSuccess }: TaskFormProps) {
                 disabled={isLoading}
               />
             </div>
-            
+
             {/* Point Suggestion Component */}
             <PointSuggestion
               title={formData.title}
               description={formData.description}
-              onSuggestionAccepted={(points) => 
-                setFormData({ ...formData, points_value: points })
-              }
+              onSuggestionAccepted={(points) => setFormData({ ...formData, points_value: points })}
             />
           </div>
 

@@ -1,146 +1,139 @@
-'use client';
+'use client'
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { 
+import React, { useState, useEffect, useCallback } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { 
-  History, 
-  Search, 
-  Calendar,
-  User,
-  Database,
-  ChevronDown,
-  ChevronRight
-} from 'lucide-react';
+} from '@/components/ui/select'
+import { History, Search, Calendar, User, Database, ChevronDown, ChevronRight } from 'lucide-react'
 
 interface AuditLog {
-  id: string;
-  table_name: string;
-  operation: 'INSERT' | 'UPDATE' | 'DELETE';
-  record_id: string;
-  old_data?: unknown;
-  new_data?: unknown;
-  metadata?: unknown;
-  created_at: string;
+  id: string
+  table_name: string
+  operation: 'INSERT' | 'UPDATE' | 'DELETE'
+  record_id: string
+  old_data?: unknown
+  new_data?: unknown
+  metadata?: unknown
+  created_at: string
 }
 
 interface AuditLogViewerProps {
-  limit?: number;
-  showFilters?: boolean;
+  limit?: number
+  showFilters?: boolean
 }
 
 export function AuditLogViewer({ limit = 50, showFilters = true }: AuditLogViewerProps) {
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [filteredLogs, setFilteredLogs] = useState<AuditLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [operationFilter, setOperationFilter] = useState<string>('all');
-  const [tableFilter, setTableFilter] = useState<string>('all');
-  const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
+  const [logs, setLogs] = useState<AuditLog[]>([])
+  const [filteredLogs, setFilteredLogs] = useState<AuditLog[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [operationFilter, setOperationFilter] = useState<string>('all')
+  const [tableFilter, setTableFilter] = useState<string>('all')
+  const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set())
 
   const fetchAuditLogs = useCallback(async () => {
     try {
-      setIsLoading(true);
-      const response = await fetch(`/api/audit-logs?limit=${limit}`);
-      
+      setIsLoading(true)
+      const response = await fetch(`/api/audit-logs?limit=${limit}`)
+
       if (!response.ok) {
-        throw new Error('Failed to fetch audit logs');
+        throw new Error('Failed to fetch audit logs')
       }
 
-      const data = await response.json();
-      setLogs(data.logs || []);
+      const data = await response.json()
+      setLogs(data.logs || [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  }, [limit]);
+  }, [limit])
 
   const filterLogs = useCallback(() => {
-    let filtered = [...logs];
+    let filtered = [...logs]
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(log => 
-        log.table_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.operation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.record_id.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      filtered = filtered.filter(
+        (log) =>
+          log.table_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          log.operation.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          log.record_id.toLowerCase().includes(searchTerm.toLowerCase())
+      )
     }
 
     // Operation filter
     if (operationFilter !== 'all') {
-      filtered = filtered.filter(log => log.operation === operationFilter);
+      filtered = filtered.filter((log) => log.operation === operationFilter)
     }
 
     // Table filter
     if (tableFilter !== 'all') {
-      filtered = filtered.filter(log => log.table_name === tableFilter);
+      filtered = filtered.filter((log) => log.table_name === tableFilter)
     }
 
-    setFilteredLogs(filtered);
-  }, [logs, searchTerm, operationFilter, tableFilter]);
+    setFilteredLogs(filtered)
+  }, [logs, searchTerm, operationFilter, tableFilter])
 
   useEffect(() => {
-    fetchAuditLogs();
-  }, [fetchAuditLogs]);
+    fetchAuditLogs()
+  }, [fetchAuditLogs])
 
   useEffect(() => {
-    filterLogs();
-  }, [filterLogs]);
+    filterLogs()
+  }, [filterLogs])
 
   const toggleLogExpansion = (logId: string) => {
-    const newExpanded = new Set(expandedLogs);
+    const newExpanded = new Set(expandedLogs)
     if (newExpanded.has(logId)) {
-      newExpanded.delete(logId);
+      newExpanded.delete(logId)
     } else {
-      newExpanded.add(logId);
+      newExpanded.add(logId)
     }
-    setExpandedLogs(newExpanded);
-  };
+    setExpandedLogs(newExpanded)
+  }
 
   const getOperationColor = (operation: string) => {
     switch (operation) {
       case 'INSERT':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-green-100 text-green-800 border-green-200'
       case 'UPDATE':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
       case 'DELETE':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-red-100 text-red-800 border-red-200'
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-gray-100 text-gray-800 border-gray-200'
     }
-  };
+  }
 
   const getTableIcon = (tableName: string) => {
     switch (tableName) {
       case 'weeks':
-        return Calendar;
+        return Calendar
       case 'weekly_goals':
-        return User;
+        return User
       case 'tasks':
-        return Database;
+        return Database
       default:
-        return Database;
+        return Database
     }
-  };
+  }
 
   const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString();
-  };
+    return new Date(timestamp).toLocaleString()
+  }
 
   const renderDataDiff = (oldData: unknown, newData: unknown): React.ReactNode => {
-    if (!oldData && !newData) return null;
+    if (!oldData && !newData) return null
 
     return (
       <div className="space-y-4">
@@ -161,8 +154,8 @@ export function AuditLogViewer({ limit = 50, showFilters = true }: AuditLogViewe
           </div>
         ) : null}
       </div>
-    );
-  };
+    )
+  }
 
   if (isLoading) {
     return (
@@ -180,7 +173,7 @@ export function AuditLogViewer({ limit = 50, showFilters = true }: AuditLogViewe
           </div>
         </CardContent>
       </Card>
-    );
+    )
   }
 
   if (error) {
@@ -201,7 +194,7 @@ export function AuditLogViewer({ limit = 50, showFilters = true }: AuditLogViewe
           </div>
         </CardContent>
       </Card>
-    );
+    )
   }
 
   return (
@@ -265,8 +258,8 @@ export function AuditLogViewer({ limit = 50, showFilters = true }: AuditLogViewe
             </div>
           ) : (
             filteredLogs.map((log) => {
-              const isExpanded = expandedLogs.has(log.id);
-              const TableIcon = getTableIcon(log.table_name);
+              const isExpanded = expandedLogs.has(log.id)
+              const TableIcon = getTableIcon(log.table_name)
 
               return (
                 <div key={log.id} className="border rounded-lg p-4">
@@ -285,11 +278,7 @@ export function AuditLogViewer({ limit = 50, showFilters = true }: AuditLogViewe
                         </p>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleLogExpansion(log.id)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => toggleLogExpansion(log.id)}>
                       {isExpanded ? (
                         <ChevronDown className="h-4 w-4" />
                       ) : (
@@ -312,7 +301,7 @@ export function AuditLogViewer({ limit = 50, showFilters = true }: AuditLogViewe
                     </div>
                   )}
                 </div>
-              );
+              )
             })
           )}
         </div>
@@ -326,5 +315,5 @@ export function AuditLogViewer({ limit = 50, showFilters = true }: AuditLogViewe
         )}
       </CardContent>
     </Card>
-  );
+  )
 }

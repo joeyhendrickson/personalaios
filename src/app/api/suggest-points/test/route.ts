@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server'
 
 export async function GET() {
   return NextResponse.json({
@@ -8,7 +8,7 @@ export async function GET() {
       title: 'Go for a 30-minute run',
       description: 'Morning jog around the neighborhood',
       category: 'health',
-      expected_suggestion: 'Based on similar completed tasks or category defaults'
-    }
-  });
+      expected_suggestion: 'Based on similar completed tasks or category defaults',
+    },
+  })
 }

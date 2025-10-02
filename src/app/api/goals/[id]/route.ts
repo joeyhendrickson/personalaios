@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { z } from 'zod'
 
 const updateGoalSchema = z.object({
   title: z.string().min(1).max(255).optional(),
@@ -13,27 +13,24 @@ const updateGoalSchema = z.object({
   priority_level: z.number().int().min(1).max(5).optional(),
   start_date: z.string().optional(),
   target_date: z.string().optional(),
-});
+})
 
 // PATCH /api/goals/[id] - Update a specific goal
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const supabase = await createClient();
+    const supabase = await createClient()
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: goalId } = await params;
-    const body = await request.json();
-    const validatedData = updateGoalSchema.parse(body);
+    const { id: goalId } = await params
+    const body = await request.json()
+    const validatedData = updateGoalSchema.parse(body)
 
     // Verify the goal exists and belongs to the user
     const { data: existingGoal, error: fetchError } = await supabase
@@ -41,10 +38,10 @@ export async function PATCH(
       .select('id')
       .eq('id', goalId)
       .eq('user_id', user.id)
-      .single();
+      .single()
 
     if (fetchError || !existingGoal) {
-      return NextResponse.json({ error: 'Goal not found or access denied' }, { status: 404 });
+      return NextResponse.json({ error: 'Goal not found or access denied' }, { status: 404 })
     }
 
     const { data: goal, error: updateError } = await supabase
@@ -56,26 +53,32 @@ export async function PATCH(
       .eq('id', goalId)
       .eq('user_id', user.id)
       .select()
-      .single();
+      .single()
 
     if (updateError) {
-      console.error('Error updating goal:', updateError);
-      return NextResponse.json({ error: 'Failed to update goal' }, { status: 500 });
+      console.error('Error updating goal:', updateError)
+      return NextResponse.json({ error: 'Failed to update goal' }, { status: 500 })
     }
 
-    return NextResponse.json({ goal }, { status: 200 });
+    return NextResponse.json({ goal }, { status: 200 })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ 
-        error: 'Invalid input', 
-        details: error.issues 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Invalid input',
+          details: error.issues,
+        },
+        { status: 400 }
+      )
     }
-    console.error('Unexpected error:', error);
-    return NextResponse.json({ 
-      error: 'Internal server error', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
-    }, { status: 500 });
+    console.error('Unexpected error:', error)
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
   }
 }
 
@@ -85,17 +88,17 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient();
+    const supabase = await createClient()
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: goalId } = await params;
+    const { id: goalId } = await params
 
     // Verify the goal exists and belongs to the user
     const { data: existingGoal, error: fetchError } = await supabase
@@ -103,29 +106,32 @@ export async function DELETE(
       .select('id')
       .eq('id', goalId)
       .eq('user_id', user.id)
-      .single();
+      .single()
 
     if (fetchError || !existingGoal) {
-      return NextResponse.json({ error: 'Goal not found or access denied' }, { status: 404 });
+      return NextResponse.json({ error: 'Goal not found or access denied' }, { status: 404 })
     }
 
     const { error: deleteError } = await supabase
       .from('goals')
       .delete()
       .eq('id', goalId)
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
 
     if (deleteError) {
-      console.error('Error deleting goal:', deleteError);
-      return NextResponse.json({ error: 'Failed to delete goal' }, { status: 500 });
+      console.error('Error deleting goal:', deleteError)
+      return NextResponse.json({ error: 'Failed to delete goal' }, { status: 500 })
     }
 
-    return NextResponse.json({ message: 'Goal deleted successfully' }, { status: 200 });
+    return NextResponse.json({ message: 'Goal deleted successfully' }, { status: 200 })
   } catch (error) {
-    console.error('Unexpected error:', error);
-    return NextResponse.json({ 
-      error: 'Internal server error', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
-    }, { status: 500 });
+    console.error('Unexpected error:', error)
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
   }
 }

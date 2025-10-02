@@ -1,20 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 // POST /api/priorities/sync-fires - Automatically sync fires category items to priorities
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createClient()
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    console.log('Syncing fires priorities for user:', user.id);
+    console.log('Syncing fires priorities for user:', user.id)
 
     // Get all active fires category goals
     const { data: firesGoals, error: goalsError } = await supabase
@@ -22,11 +22,11 @@ export async function POST(request: NextRequest) {
       .select('id, title, description, category, current_points, target_points')
       .eq('user_id', user.id)
       .eq('category', 'fires')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
 
     if (goalsError) {
-      console.error('Error fetching fires goals:', goalsError);
-      return NextResponse.json({ error: 'Failed to fetch fires goals' }, { status: 500 });
+      console.error('Error fetching fires goals:', goalsError)
+      return NextResponse.json({ error: 'Failed to fetch fires goals' }, { status: 500 })
     }
 
     // Get all pending fires category tasks
@@ -36,11 +36,11 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id)
       .eq('category', 'fires')
       .eq('status', 'pending')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
 
     if (tasksError) {
-      console.error('Error fetching fires tasks:', tasksError);
-      return NextResponse.json({ error: 'Failed to fetch fires tasks' }, { status: 500 });
+      console.error('Error fetching fires tasks:', tasksError)
+      return NextResponse.json({ error: 'Failed to fetch fires tasks' }, { status: 500 })
     }
 
     // Clear existing fire_auto priorities
@@ -48,21 +48,25 @@ export async function POST(request: NextRequest) {
       .from('priorities')
       .delete()
       .eq('user_id', user.id)
-      .eq('priority_type', 'fire_auto');
+      .eq('priority_type', 'fire_auto')
 
     if (deleteError) {
-      console.error('Error clearing existing fire priorities:', deleteError);
-      return NextResponse.json({ error: 'Failed to clear existing fire priorities' }, { status: 500 });
+      console.error('Error clearing existing fire priorities:', deleteError)
+      return NextResponse.json(
+        { error: 'Failed to clear existing fire priorities' },
+        { status: 500 }
+      )
     }
 
-    const newPriorities = [];
+    const newPriorities = []
 
     // Add fires goals as priorities
     if (firesGoals && firesGoals.length > 0) {
       for (const goal of firesGoals) {
-        const progress = goal.target_points > 0 ? Math.round((goal.current_points / goal.target_points) * 100) : 0;
-        const isCompleted = progress >= 100;
-        
+        const progress =
+          goal.target_points > 0 ? Math.round((goal.current_points / goal.target_points) * 100) : 0
+        const isCompleted = progress >= 100
+
         newPriorities.push({
           user_id: user.id,
           title: `🔥 ${goal.title}`,
@@ -72,8 +76,8 @@ export async function POST(request: NextRequest) {
           source_type: 'project',
           project_id: goal.id,
           is_completed: isCompleted,
-          manual_order: newPriorities.length + 1
-        });
+          manual_order: newPriorities.length + 1,
+        })
       }
     }
 
@@ -90,37 +94,40 @@ export async function POST(request: NextRequest) {
           task_id: task.id,
           project_id: task.weekly_goal_id,
           is_completed: false,
-          manual_order: newPriorities.length + 1
-        });
+          manual_order: newPriorities.length + 1,
+        })
       }
     }
 
     // Insert new fire priorities
     if (newPriorities.length > 0) {
-      const { error: insertError } = await supabase
-        .from('priorities')
-        .insert(newPriorities);
+      const { error: insertError } = await supabase.from('priorities').insert(newPriorities)
 
       if (insertError) {
-        console.error('Error inserting fire priorities:', insertError);
-        return NextResponse.json({ error: 'Failed to insert fire priorities' }, { status: 500 });
+        console.error('Error inserting fire priorities:', insertError)
+        return NextResponse.json({ error: 'Failed to insert fire priorities' }, { status: 500 })
       }
     }
 
-    console.log(`Synced ${newPriorities.length} fire priorities`);
+    console.log(`Synced ${newPriorities.length} fire priorities`)
 
-    return NextResponse.json({ 
-      message: `Synced ${newPriorities.length} fire priorities`,
-      count: newPriorities.length,
-      goals: firesGoals?.length || 0,
-      tasks: firesTasks?.length || 0
-    }, { status: 200 });
-
+    return NextResponse.json(
+      {
+        message: `Synced ${newPriorities.length} fire priorities`,
+        count: newPriorities.length,
+        goals: firesGoals?.length || 0,
+        tasks: firesTasks?.length || 0,
+      },
+      { status: 200 }
+    )
   } catch (error) {
-    console.error('Error syncing fire priorities:', error);
-    return NextResponse.json({ 
-      error: 'Failed to sync fire priorities',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    console.error('Error syncing fire priorities:', error)
+    return NextResponse.json(
+      {
+        error: 'Failed to sync fire priorities',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
   }
 }

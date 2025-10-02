@@ -1,106 +1,122 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { Plus, CheckCircle, Trash2, Edit, GraduationCap, DollarSign, Calendar, Star } from 'lucide-react';
+import { useState, useEffect } from 'react'
+import {
+  Plus,
+  CheckCircle,
+  Trash2,
+  Edit,
+  GraduationCap,
+  DollarSign,
+  Calendar,
+  Star,
+} from 'lucide-react'
 
 interface EducationItem {
-  id: string;
-  title: string;
-  description?: string;
-  points_value: number;
-  cost?: number;
-  status: 'pending' | 'in_progress' | 'completed';
-  priority_level: number;
-  target_date?: string;
-  is_active: boolean;
-  is_completed: boolean;
-  completed_at?: string;
-  completion_notes?: string;
-  created_at: string;
+  id: string
+  title: string
+  description?: string
+  points_value: number
+  cost?: number
+  status: 'pending' | 'in_progress' | 'completed'
+  priority_level: number
+  target_date?: string
+  is_active: boolean
+  is_completed: boolean
+  completed_at?: string
+  completion_notes?: string
+  created_at: string
 }
 
 interface EducationFormData {
-  title: string;
-  description: string;
-  points_value: number;
-  cost: number;
-  priority_level: number;
-  target_date: string;
+  title: string
+  description: string
+  points_value: number
+  cost: number
+  priority_level: number
+  target_date: string
 }
 
 export default function EducationSection() {
-  const [educationItems, setEducationItems] = useState<EducationItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingItem, setEditingItem] = useState<EducationItem | null>(null);
+  const [educationItems, setEducationItems] = useState<EducationItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [editingItem, setEditingItem] = useState<EducationItem | null>(null)
   const [formData, setFormData] = useState<EducationFormData>({
     title: '',
     description: '',
     points_value: 100,
     cost: 0,
     priority_level: 3,
-    target_date: ''
-  });
-  const [isImporting, setIsImporting] = useState(false);
+    target_date: '',
+  })
+  const [isImporting, setIsImporting] = useState(false)
 
   useEffect(() => {
-    fetchEducationItems();
-  }, []);
+    fetchEducationItems()
+  }, [])
 
   const fetchEducationItems = async () => {
     try {
-      console.log('Fetching education items...');
-      const response = await fetch('/api/education');
-      console.log('Education response status:', response.status);
-      
+      console.log('Fetching education items...')
+      const response = await fetch('/api/education')
+      console.log('Education response status:', response.status)
+
       if (response.ok) {
-        const data = await response.json();
-        console.log('Education data received:', data);
-        setEducationItems(data.educationItems || []);
+        const data = await response.json()
+        console.log('Education data received:', data)
+        setEducationItems(data.educationItems || [])
       } else {
-        const errorData = await response.json();
-        console.error('Error fetching education items:', errorData);
+        const errorData = await response.json()
+        console.error('Error fetching education items:', errorData)
       }
     } catch (error) {
-      console.error('Error fetching education items:', error);
+      console.error('Error fetching education items:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.title.trim()) return;
+    e.preventDefault()
+    if (!formData.title.trim()) return
 
     try {
-      const url = editingItem ? `/api/education/${editingItem.id}` : '/api/education';
-      const method = editingItem ? 'PATCH' : 'POST';
-      
+      const url = editingItem ? `/api/education/${editingItem.id}` : '/api/education'
+      const method = editingItem ? 'PATCH' : 'POST'
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
           cost: formData.cost || undefined,
-          target_date: formData.target_date || undefined
+          target_date: formData.target_date || undefined,
         }),
-      });
+      })
 
       if (response.ok) {
-        await fetchEducationItems();
-        setShowAddForm(false);
-        setEditingItem(null);
-        setFormData({ title: '', description: '', points_value: 100, cost: 0, priority_level: 3, target_date: '' });
+        await fetchEducationItems()
+        setShowAddForm(false)
+        setEditingItem(null)
+        setFormData({
+          title: '',
+          description: '',
+          points_value: 100,
+          cost: 0,
+          priority_level: 3,
+          target_date: '',
+        })
       } else {
-        const errorData = await response.json();
-        console.error('Error saving education item:', errorData);
-        alert('Failed to save education item. Please try again.');
+        const errorData = await response.json()
+        console.error('Error saving education item:', errorData)
+        alert('Failed to save education item. Please try again.')
       }
     } catch (error) {
-      console.error('Error saving education item:', error);
-      alert('Failed to save education item. Please try again.');
+      console.error('Error saving education item:', error)
+      alert('Failed to save education item. Please try again.')
     }
-  };
+  }
 
   const handleComplete = async (itemId: string, notes?: string) => {
     try {
@@ -108,106 +124,112 @@ export default function EducationSection() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes }),
-      });
+      })
 
       if (response.ok) {
-        const data = await response.json();
-        console.log(data.message);
-        await fetchEducationItems(); // Refresh to show updated status
+        const data = await response.json()
+        console.log(data.message)
+        await fetchEducationItems() // Refresh to show updated status
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json()
         if (errorData.error === 'Education item is already completed') {
-          alert('This education item is already completed!');
+          alert('This education item is already completed!')
         } else {
-          console.error('Error completing education item:', errorData);
-          alert('Failed to complete education item. Please try again.');
+          console.error('Error completing education item:', errorData)
+          alert('Failed to complete education item. Please try again.')
         }
       }
     } catch (error) {
-      console.error('Error completing education item:', error);
-      alert('Failed to complete education item. Please try again.');
+      console.error('Error completing education item:', error)
+      alert('Failed to complete education item. Please try again.')
     }
-  };
+  }
 
   const handleDelete = async (itemId: string) => {
-    if (!confirm('Are you sure you want to delete this education item?')) return;
+    if (!confirm('Are you sure you want to delete this education item?')) return
 
     try {
       const response = await fetch(`/api/education/${itemId}`, {
         method: 'DELETE',
-      });
+      })
 
       if (response.ok) {
-        await fetchEducationItems();
+        await fetchEducationItems()
       } else {
-        console.error('Failed to delete education item');
-        alert('Failed to delete education item. Please try again.');
+        console.error('Failed to delete education item')
+        alert('Failed to delete education item. Please try again.')
       }
     } catch (error) {
-      console.error('Error deleting education item:', error);
-      alert('Failed to delete education item. Please try again.');
+      console.error('Error deleting education item:', error)
+      alert('Failed to delete education item. Please try again.')
     }
-  };
+  }
 
   const handleEdit = (item: EducationItem) => {
-    setEditingItem(item);
+    setEditingItem(item)
     setFormData({
       title: item.title,
       description: item.description || '',
       points_value: item.points_value,
       cost: item.cost || 0,
       priority_level: item.priority_level,
-      target_date: item.target_date || ''
-    });
-    setShowAddForm(true);
-  };
+      target_date: item.target_date || '',
+    })
+    setShowAddForm(true)
+  }
 
   const handleImportDefaultEducation = async () => {
-    setIsImporting(true);
+    setIsImporting(true)
     try {
       const response = await fetch('/api/education/import-default', {
         method: 'POST',
-      });
+      })
 
       if (response.ok) {
-        const data = await response.json();
-        console.log(data.message);
-        await fetchEducationItems(); // Refresh the education items list
-        alert(`Successfully imported ${data.educationItems?.length || 0} default education items!`);
+        const data = await response.json()
+        console.log(data.message)
+        await fetchEducationItems() // Refresh the education items list
+        alert(`Successfully imported ${data.educationItems?.length || 0} default education items!`)
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json()
         if (errorData.message?.includes('already has education items')) {
-          alert('You already have education items imported. No duplicates were created.');
+          alert('You already have education items imported. No duplicates were created.')
         } else {
-          console.error('Error importing education items:', errorData);
-          const errorMessage = errorData.details || errorData.error || 'Unknown error';
-          alert(`Failed to import default education items: ${errorMessage}`);
+          console.error('Error importing education items:', errorData)
+          const errorMessage = errorData.details || errorData.error || 'Unknown error'
+          alert(`Failed to import default education items: ${errorMessage}`)
         }
       }
     } catch (error) {
-      console.error('Error importing education items:', error);
-      alert('Failed to import default education items. Please try again.');
+      console.error('Error importing education items:', error)
+      alert('Failed to import default education items. Please try again.')
     } finally {
-      setIsImporting(false);
+      setIsImporting(false)
     }
-  };
+  }
 
   const getPriorityColor = (priority: number) => {
     switch (priority) {
-      case 1: return 'text-red-600 bg-red-100';
-      case 2: return 'text-orange-600 bg-orange-100';
-      case 3: return 'text-yellow-600 bg-yellow-100';
-      case 4: return 'text-blue-600 bg-blue-100';
-      case 5: return 'text-green-600 bg-green-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 1:
+        return 'text-red-600 bg-red-100'
+      case 2:
+        return 'text-orange-600 bg-orange-100'
+      case 3:
+        return 'text-yellow-600 bg-yellow-100'
+      case 4:
+        return 'text-blue-600 bg-blue-100'
+      case 5:
+        return 'text-green-600 bg-green-100'
+      default:
+        return 'text-gray-600 bg-gray-100'
     }
-  };
+  }
 
   const getStatusColor = (status: string, isCompleted: boolean) => {
-    if (isCompleted) return 'bg-green-50 border-green-200';
-    if (status === 'in_progress') return 'bg-blue-50 border-blue-200';
-    return 'bg-white border-gray-200 hover:border-blue-200';
-  };
+    if (isCompleted) return 'bg-green-50 border-green-200'
+    if (status === 'in_progress') return 'bg-blue-50 border-blue-200'
+    return 'bg-white border-gray-200 hover:border-blue-200'
+  }
 
   if (loading) {
     return (
@@ -222,7 +244,7 @@ export default function EducationSection() {
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -239,9 +261,16 @@ export default function EducationSection() {
           <div className="flex space-x-2">
             <button
               onClick={() => {
-                setEditingItem(null);
-                setFormData({ title: '', description: '', points_value: 100, cost: 0, priority_level: 3, target_date: '' });
-                setShowAddForm(true);
+                setEditingItem(null)
+                setFormData({
+                  title: '',
+                  description: '',
+                  points_value: 100,
+                  cost: 0,
+                  priority_level: 3,
+                  target_date: '',
+                })
+                setShowAddForm(true)
               }}
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
             >
@@ -292,20 +321,22 @@ export default function EducationSection() {
                     min="1"
                     max="10000"
                     value={formData.points_value}
-                    onChange={(e) => setFormData({ ...formData, points_value: parseInt(e.target.value) || 100 })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, points_value: parseInt(e.target.value) || 100 })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Cost ($)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cost ($)</label>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={formData.cost}
-                    onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -317,7 +348,9 @@ export default function EducationSection() {
                   </label>
                   <select
                     value={formData.priority_level}
-                    onChange={(e) => setFormData({ ...formData, priority_level: parseInt(e.target.value) })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, priority_level: parseInt(e.target.value) })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value={1}>1 - Critical</option>
@@ -349,9 +382,16 @@ export default function EducationSection() {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowAddForm(false);
-                    setEditingItem(null);
-                    setFormData({ title: '', description: '', points_value: 100, cost: 0, priority_level: 3, target_date: '' });
+                    setShowAddForm(false)
+                    setEditingItem(null)
+                    setFormData({
+                      title: '',
+                      description: '',
+                      points_value: 100,
+                      cost: 0,
+                      priority_level: 3,
+                      target_date: '',
+                    })
                   }}
                   className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
                 >
@@ -366,7 +406,9 @@ export default function EducationSection() {
           <div className="text-center py-8">
             <GraduationCap className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No education items yet</h3>
-            <p className="text-gray-600 mb-4">Add your first education goal or import default items</p>
+            <p className="text-gray-600 mb-4">
+              Add your first education goal or import default items
+            </p>
             <button
               onClick={handleImportDefaultEducation}
               disabled={isImporting}
@@ -395,18 +437,20 @@ export default function EducationSection() {
                   >
                     {item.is_completed && <CheckCircle className="h-4 w-4 text-white" />}
                   </button>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2 mb-1">
-                      <h4 className={`font-medium ${item.is_completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                      <h4
+                        className={`font-medium ${item.is_completed ? 'line-through text-gray-500' : 'text-gray-900'}`}
+                      >
                         {item.title}
                       </h4>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(item.priority_level)}`}>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(item.priority_level)}`}
+                      >
                         P{item.priority_level}
                       </span>
-                      <span className="text-sm text-gray-500">
-                        +{item.points_value} pts
-                      </span>
+                      <span className="text-sm text-gray-500">+{item.points_value} pts</span>
                     </div>
                     {item.description && (
                       <p className="text-sm text-gray-600 mb-1">{item.description}</p>
@@ -429,7 +473,7 @@ export default function EducationSection() {
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-1">
                     <button
                       onClick={() => handleEdit(item)}
@@ -447,11 +491,11 @@ export default function EducationSection() {
                     </button>
                   </div>
                 </div>
-              );
+              )
             })}
           </div>
         )}
       </div>
     </div>
-  );
+  )
 }

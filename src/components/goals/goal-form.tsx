@@ -45,7 +45,26 @@ export function GoalForm({ weekId, onSuccess }: GoalFormProps) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    category: 'other' as 'quick_money' | 'save_money' | 'health' | 'network_expansion' | 'business_growth' | 'fires' | 'good_living' | 'big_vision' | 'job' | 'organization' | 'tech_issues' | 'business_launch' | 'future_planning' | 'innovation' | 'productivity' | 'learning' | 'financial' | 'personal' | 'other',
+    category: 'other' as
+      | 'quick_money'
+      | 'save_money'
+      | 'health'
+      | 'network_expansion'
+      | 'business_growth'
+      | 'fires'
+      | 'good_living'
+      | 'big_vision'
+      | 'job'
+      | 'organization'
+      | 'tech_issues'
+      | 'business_launch'
+      | 'future_planning'
+      | 'innovation'
+      | 'productivity'
+      | 'learning'
+      | 'financial'
+      | 'personal'
+      | 'other',
     target_points: 0,
     target_money: 0,
   })

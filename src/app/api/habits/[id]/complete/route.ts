@@ -1,21 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 // POST /api/habits/[id]/complete - Mark a habit as completed
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const supabase = await createClient();
-    const { id } = await params;
+    const supabase = await createClient()
+    const { id } = await params
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // First, get the habit to check if it exists and get points
@@ -25,22 +22,22 @@ export async function POST(
       .eq('id', id)
       .eq('user_id', user.id)
       .eq('is_active', true)
-      .single();
+      .single()
 
     if (fetchError || !habit) {
       if (fetchError?.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Habit not found' }, { status: 404 });
+        return NextResponse.json({ error: 'Habit not found' }, { status: 404 })
       }
-      console.error('Error fetching habit:', fetchError);
-      return NextResponse.json({ error: 'Failed to fetch habit' }, { status: 500 });
+      console.error('Error fetching habit:', fetchError)
+      return NextResponse.json({ error: 'Failed to fetch habit' }, { status: 500 })
     }
 
     // Check if habit was already completed today
-    const today = new Date();
-    const startOfDay = new Date(today);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(today);
-    endOfDay.setHours(23, 59, 59, 999);
+    const today = new Date()
+    const startOfDay = new Date(today)
+    startOfDay.setHours(0, 0, 0, 0)
+    const endOfDay = new Date(today)
+    endOfDay.setHours(23, 59, 59, 999)
 
     const { data: todayCompletions, error: todayError } = await supabase
       .from('habit_completions')
@@ -48,15 +45,15 @@ export async function POST(
       .eq('user_id', user.id)
       .eq('habit_id', id)
       .gte('completed_at', startOfDay.toISOString())
-      .lte('completed_at', endOfDay.toISOString());
+      .lte('completed_at', endOfDay.toISOString())
 
     if (todayError) {
-      console.error('Error checking today completions:', todayError);
-      return NextResponse.json({ error: 'Failed to check habit status' }, { status: 500 });
+      console.error('Error checking today completions:', todayError)
+      return NextResponse.json({ error: 'Failed to check habit status' }, { status: 500 })
     }
 
     if (todayCompletions && todayCompletions.length > 0) {
-      return NextResponse.json({ error: 'Habit already completed today' }, { status: 400 });
+      return NextResponse.json({ error: 'Habit already completed today' }, { status: 400 })
     }
 
     // Add habit completion
@@ -69,20 +66,20 @@ export async function POST(
         completed_at: new Date().toISOString(),
       })
       .select()
-      .single();
+      .single()
 
     if (completionError) {
-      console.error('Error completing habit:', completionError);
-      return NextResponse.json({ error: 'Failed to complete habit' }, { status: 500 });
+      console.error('Error completing habit:', completionError)
+      return NextResponse.json({ error: 'Failed to complete habit' }, { status: 500 })
     }
 
     return NextResponse.json({
       completion,
       habit,
       message: `Habit completed! +${habit.points_per_completion} points earned.`,
-    });
+    })
   } catch (error) {
-    console.error('Unexpected error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Unexpected error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -71,15 +71,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         task_title: task.title,
         category: task.category,
         points_value: task.points_value,
-        money_value: task.money_value
-      }
-    });
+        money_value: task.money_value,
+      },
+    })
 
     // Update analytics
     await supabase.rpc('update_user_analytics', {
       p_user_id: user.id,
-      p_activity_type: 'task_completed'
-    });
+      p_activity_type: 'task_completed',
+    })
 
     return NextResponse.json({
       task,

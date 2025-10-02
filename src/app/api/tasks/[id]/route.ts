@@ -5,38 +5,42 @@ import { z } from 'zod'
 const updateTaskSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
-  category: z.enum([
-    'quick_money',
-    'save_money', 
-    'health',
-    'network_expansion',
-    'business_growth',
-    'fires',
-    'good_living',
-    'big_vision',
-    'job',
-    'organization',
-    'tech_issues',
-    'business_launch',
-    'future_planning',
-    'innovation',
-    'productivity',
-    'learning',
-    'financial',
-    'personal',
-    'other'
-  ]).optional(),
+  category: z
+    .enum([
+      'quick_money',
+      'save_money',
+      'health',
+      'network_expansion',
+      'business_growth',
+      'fires',
+      'good_living',
+      'big_vision',
+      'job',
+      'organization',
+      'tech_issues',
+      'business_launch',
+      'future_planning',
+      'innovation',
+      'productivity',
+      'learning',
+      'financial',
+      'personal',
+      'other',
+    ])
+    .optional(),
   points_value: z.number().min(0).optional(),
   money_value: z.number().min(0).optional(),
-  weekly_goal_id: z.string().uuid().optional().or(z.literal('')).transform(val => val === '' ? undefined : val),
+  weekly_goal_id: z
+    .string()
+    .uuid()
+    .optional()
+    .or(z.literal(''))
+    .transform((val) => (val === '' ? undefined : val)),
   status: z.enum(['pending', 'in_progress', 'completed']).optional(),
 })
 
 // PATCH /api/tasks/[id] - Update task properties
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient()
 
@@ -70,7 +74,7 @@ export async function PATCH(
       .from('tasks')
       .update({
         ...validatedData,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .eq('id', taskId)
       .select()
@@ -83,21 +87,20 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      task: updatedTask
+      task: updatedTask,
     })
-
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid input', details: error.issues },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invalid input', details: error.issues }, { status: 400 })
     }
     console.error('Unexpected error:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
   }
 }
 
@@ -146,14 +149,16 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: 'Task deleted successfully'
+      message: 'Task deleted successfully',
     })
-
   } catch (error) {
     console.error('Unexpected error:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
   }
 }

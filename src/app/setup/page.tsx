@@ -1,18 +1,10 @@
-'use client';
+'use client'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Database, 
-  Brain, 
-  Key, 
-  Copy, 
-  CheckCircle,
-  ExternalLink,
-  AlertCircle
-} from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Database, Brain, Key, Copy, CheckCircle, ExternalLink, AlertCircle } from 'lucide-react'
 
 export default function SetupPage() {
   const envVars = [
@@ -58,19 +50,17 @@ export default function SetupPage() {
       example: 'http://localhost:3000',
       icon: ExternalLink,
     },
-  ];
+  ]
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
+    navigator.clipboard.writeText(text)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Personal AI OS Setup Guide
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Personal AI OS Setup Guide</h1>
           <p className="text-lg text-gray-600">
             Configure your environment variables to enable all features
           </p>
@@ -86,7 +76,8 @@ export default function SetupPage() {
                   Environment Variables
                 </CardTitle>
                 <CardDescription>
-                  Create a <code className="bg-gray-100 px-2 py-1 rounded">.env.local</code> file in your project root
+                  Create a <code className="bg-gray-100 px-2 py-1 rounded">.env.local</code> file in
+                  your project root
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -105,9 +96,7 @@ export default function SetupPage() {
                         )}
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">
-                      {envVar.description}
-                    </p>
+                    <p className="text-sm text-gray-600 mb-2">{envVar.description}</p>
                     <div className="flex items-center space-x-2">
                       <code className="text-xs bg-gray-50 px-2 py-1 rounded flex-1">
                         {envVar.example}
@@ -134,9 +123,7 @@ export default function SetupPage() {
                   <Database className="mr-2 h-5 w-5" />
                   Supabase Setup
                 </CardTitle>
-                <CardDescription>
-                  Set up your database and authentication
-                </CardDescription>
+                <CardDescription>Set up your database and authentication</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
@@ -147,11 +134,20 @@ export default function SetupPage() {
                     <div>
                       <p className="font-medium">Create Supabase Project</p>
                       <p className="text-sm text-gray-600">
-                        Go to <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">supabase.com</a> and create a new project
+                        Go to{' '}
+                        <a
+                          href="https://supabase.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          supabase.com
+                        </a>{' '}
+                        and create a new project
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start space-x-3">
                     <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                       <span className="text-blue-600 text-sm font-medium">2</span>
@@ -163,7 +159,7 @@ export default function SetupPage() {
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start space-x-3">
                     <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                       <span className="text-blue-600 text-sm font-medium">3</span>
@@ -171,7 +167,8 @@ export default function SetupPage() {
                     <div>
                       <p className="font-medium">Run Database Migrations</p>
                       <p className="text-sm text-gray-600">
-                        Execute the SQL files in <code className="bg-gray-100 px-1 rounded">supabase/migrations/</code>
+                        Execute the SQL files in{' '}
+                        <code className="bg-gray-100 px-1 rounded">supabase/migrations/</code>
                       </p>
                     </div>
                   </div>
@@ -185,9 +182,7 @@ export default function SetupPage() {
                   <Brain className="mr-2 h-5 w-5" />
                   OpenAI Setup
                 </CardTitle>
-                <CardDescription>
-                  Enable AI-powered features
-                </CardDescription>
+                <CardDescription>Enable AI-powered features</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
@@ -198,11 +193,20 @@ export default function SetupPage() {
                     <div>
                       <p className="font-medium">Get OpenAI API Key</p>
                       <p className="text-sm text-gray-600">
-                        Visit <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">OpenAI Platform</a> and create an API key
+                        Visit{' '}
+                        <a
+                          href="https://platform.openai.com/api-keys"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          OpenAI Platform
+                        </a>{' '}
+                        and create an API key
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start space-x-3">
                     <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
                       <span className="text-green-600 text-sm font-medium">2</span>
@@ -210,7 +214,8 @@ export default function SetupPage() {
                     <div>
                       <p className="font-medium">Add to Environment</p>
                       <p className="text-sm text-gray-600">
-                        Add your API key to the <code className="bg-gray-100 px-1 rounded">OPENAI_API_KEY</code> variable
+                        Add your API key to the{' '}
+                        <code className="bg-gray-100 px-1 rounded">OPENAI_API_KEY</code> variable
                       </p>
                     </div>
                   </div>
@@ -224,13 +229,14 @@ export default function SetupPage() {
                   <CheckCircle className="mr-2 h-5 w-5" />
                   Quick Start
                 </CardTitle>
-                <CardDescription>
-                  Get up and running quickly
-                </CardDescription>
+                <CardDescription>Get up and running quickly</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm font-medium mb-2">Copy this template to your <code className="bg-gray-100 px-1 rounded">.env.local</code> file:</p>
+                  <p className="text-sm font-medium mb-2">
+                    Copy this template to your{' '}
+                    <code className="bg-gray-100 px-1 rounded">.env.local</code> file:
+                  </p>
                   <div className="bg-gray-900 text-green-400 p-3 rounded text-xs font-mono overflow-x-auto">
                     {envVars.map((envVar) => (
                       <div key={envVar.name}>
@@ -242,7 +248,11 @@ export default function SetupPage() {
                     variant="outline"
                     size="sm"
                     className="mt-3"
-                    onClick={() => copyToClipboard(envVars.map(envVar => `${envVar.name}=${envVar.example}`).join('\n'))}
+                    onClick={() =>
+                      copyToClipboard(
+                        envVars.map((envVar) => `${envVar.name}=${envVar.example}`).join('\n')
+                      )
+                    }
                   >
                     <Copy className="h-3 w-3 mr-1" />
                     Copy All
@@ -257,11 +267,12 @@ export default function SetupPage() {
           <Alert className="border-blue-200 bg-blue-50 text-blue-800">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              After setting up your environment variables, restart your development server with <code className="bg-blue-100 px-2 py-1 rounded">npm run dev</code>
+              After setting up your environment variables, restart your development server with{' '}
+              <code className="bg-blue-100 px-2 py-1 rounded">npm run dev</code>
             </AlertDescription>
           </Alert>
         </div>
       </div>
     </div>
-  );
+  )
 }

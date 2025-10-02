@@ -1,15 +1,15 @@
-'use client';
+'use client'
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function DemoRedirectPage() {
-  const router = useRouter();
+  const router = useRouter()
 
   useEffect(() => {
     // Immediate redirect to dashboard
-    router.replace('/dashboard');
-  }, [router]);
+    router.replace('/dashboard')
+  }, [router])
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -19,6 +19,5 @@ export default function DemoRedirectPage() {
         <p className="text-gray-600">Redirecting you to the productivity dashboard...</p>
       </div>
     </div>
-  );
+  )
 }
-

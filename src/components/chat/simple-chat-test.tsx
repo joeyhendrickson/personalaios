@@ -1,52 +1,52 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
+import { useState } from 'react'
 
 export function SimpleChatTest() {
-  const [message, setMessage] = useState('');
-  const [response, setResponse] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('')
+  const [response, setResponse] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim()) return;
+    e.preventDefault()
+    if (!message.trim()) return
 
-    setLoading(true);
-    setResponse('');
+    setLoading(true)
+    setResponse('')
 
     try {
-      console.log('Sending simple chat request:', message);
+      console.log('Sending simple chat request:', message)
       const res = await fetch('/api/chat/simple', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [{ role: 'user', content: message }]
-        })
-      });
+          messages: [{ role: 'user', content: message }],
+        }),
+      })
 
-      console.log('Simple chat response status:', res.status);
-      
+      console.log('Simple chat response status:', res.status)
+
       if (res.ok) {
-        const data = await res.json();
-        console.log('Simple chat response data:', data);
-        setResponse(data.message || 'No response');
+        const data = await res.json()
+        console.log('Simple chat response data:', data)
+        setResponse(data.message || 'No response')
       } else {
-        const errorData = await res.json();
-        console.error('Simple chat error:', errorData);
-        setResponse(`Error: ${errorData.error || 'Unknown error'}`);
+        const errorData = await res.json()
+        console.error('Simple chat error:', errorData)
+        setResponse(`Error: ${errorData.error || 'Unknown error'}`)
       }
     } catch (error) {
-      console.error('Simple chat request error:', error);
-      setResponse(`Request error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Simple chat request error:', error)
+      setResponse(`Request error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
     <div className="fixed bottom-4 left-4 z-50 w-80 bg-white rounded-lg shadow-xl border p-4">
       <h3 className="font-semibold mb-3">Simple Chat Test</h3>
-      
+
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
           type="text"
@@ -72,5 +72,5 @@ export function SimpleChatTest() {
         </div>
       )}
     </div>
-  );
+  )
 }

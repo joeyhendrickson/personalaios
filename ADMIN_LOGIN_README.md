@@ -1,23 +1,27 @@
 # 🔐 Admin Login System
 
 ## Overview
+
 The admin login system allows authorized users to access the admin dashboard with comprehensive user analytics and management features.
 
 ## 🚀 How to Set Up Admin Access
 
 ### Step 1: Create a Regular User Account
+
 1. Go to `http://localhost:3000`
-2. Click "Create Account" 
+2. Click "Create Account"
 3. Sign up with your email and password
 4. Verify your email if required
 
 ### Step 2: Grant Admin Privileges
+
 1. Go to your Supabase dashboard
 2. Navigate to the SQL Editor
 3. Run the `setup-admin.sql` script
 4. Replace `joeyhendrickson@gmail.com` with your actual email address
 
 ### Step 3: Access Admin Dashboard
+
 1. Go to `http://localhost:3000/admin/login`
 2. Sign in with your regular user credentials
 3. You'll be automatically redirected to the admin dashboard
@@ -55,12 +59,14 @@ If not admin: Redirect to /dashboard with error
 ## 🔧 Technical Implementation
 
 ### Files Created/Modified:
+
 - `src/app/admin/login/page.tsx` - Admin login page
 - `src/app/admin/page.tsx` - Updated with auth checks
 - `src/app/page.tsx` - Added admin login link
 - `setup-admin.sql` - Admin setup script
 
 ### Key Components:
+
 - **Admin Login Page**: Dedicated login form for admin access
 - **Auth Integration**: Uses existing `useAuth` and `useAdminAuth` hooks
 - **Automatic Redirects**: Smart routing based on user permissions
@@ -69,16 +75,19 @@ If not admin: Redirect to /dashboard with error
 ## 🚨 Troubleshooting
 
 ### "Admin access required" error:
+
 - Make sure you've run the `setup-admin.sql` script
 - Verify your email is in the `admin_users` table
 - Check that your role is set to 'admin' or 'super_admin'
 
 ### Can't access admin dashboard:
+
 - Ensure you're signed in as a regular user first
 - Check that your email matches exactly in both `auth.users` and `admin_users`
 - Try signing out and signing back in
 
 ### Admin link not showing:
+
 - The admin link only appears for users with admin privileges
 - Make sure you've completed the admin setup process
 

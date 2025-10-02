@@ -1,26 +1,26 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { useState } from 'react'
+import { Plus, X } from 'lucide-react'
 
 interface ManualPriorityFormProps {
-  onClose: () => void;
-  onSuccess: () => void;
+  onClose: () => void
+  onSuccess: () => void
 }
 
 export default function ManualPriorityForm({ onClose, onSuccess }: ManualPriorityFormProps) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    priority_score: 70
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+    priority_score: 70,
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.title.trim()) return;
+    e.preventDefault()
+    if (!formData.title.trim()) return
 
-    setIsSubmitting(true);
+    setIsSubmitting(true)
     try {
       const response = await fetch('/api/priorities', {
         method: 'POST',
@@ -32,35 +32,32 @@ export default function ManualPriorityForm({ onClose, onSuccess }: ManualPriorit
           description: formData.description.trim() || undefined,
           priority_type: 'manual',
           priority_score: formData.priority_score,
-          source_type: 'manual'
+          source_type: 'manual',
         }),
-      });
+      })
 
       if (response.ok) {
-        onSuccess();
-        onClose();
+        onSuccess()
+        onClose()
       } else {
-        const errorData = await response.json();
-        console.error('Error creating priority:', errorData);
-        alert('Failed to create priority. Please try again.');
+        const errorData = await response.json()
+        console.error('Error creating priority:', errorData)
+        alert('Failed to create priority. Please try again.')
       }
     } catch (error) {
-      console.error('Error creating priority:', error);
-      alert('Failed to create priority. Please try again.');
+      console.error('Error creating priority:', error)
+      alert('Failed to create priority. Please try again.')
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-lg font-semibold">Add Manual Priority</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -96,7 +93,10 @@ export default function ManualPriorityForm({ onClose, onSuccess }: ManualPriorit
           </div>
 
           <div>
-            <label htmlFor="priority_score" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="priority_score"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Priority Score: {formData.priority_score}
             </label>
             <input
@@ -105,7 +105,9 @@ export default function ManualPriorityForm({ onClose, onSuccess }: ManualPriorit
               min="50"
               max="85"
               value={formData.priority_score}
-              onChange={(e) => setFormData({ ...formData, priority_score: parseInt(e.target.value) })}
+              onChange={(e) =>
+                setFormData({ ...formData, priority_score: parseInt(e.target.value) })
+              }
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
             />
             <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -133,5 +135,5 @@ export default function ManualPriorityForm({ onClose, onSuccess }: ManualPriorit
         </form>
       </div>
     </div>
-  );
+  )
 }

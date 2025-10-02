@@ -1,34 +1,34 @@
-'use client';
+'use client'
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
-import { ErrorHandler, createError, ERROR_CODES } from '@/lib/error-handling';
+import React, { Component, ErrorInfo, ReactNode } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import { ErrorHandler, createError, ERROR_CODES } from '@/lib/error-handling'
 
 interface Props {
-  children: ReactNode;
-  fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  children: ReactNode
+  fallback?: ReactNode
+  onError?: (error: Error, errorInfo: ErrorInfo) => void
 }
 
 interface State {
-  hasError: boolean;
-  error: Error | null;
-  errorInfo: ErrorInfo | null;
+  hasError: boolean
+  error: Error | null
+  errorInfo: ErrorInfo | null
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  private errorHandler: ErrorHandler;
+  private errorHandler: ErrorHandler
 
   constructor(props: Props) {
-    super(props);
+    super(props)
     this.state = {
       hasError: false,
       error: null,
       errorInfo: null,
-    };
-    this.errorHandler = ErrorHandler.getInstance();
+    }
+    this.errorHandler = ErrorHandler.getInstance()
   }
 
   static getDerivedStateFromError(error: Error): State {
@@ -36,14 +36,14 @@ export class ErrorBoundary extends Component<Props, State> {
       hasError: true,
       error,
       errorInfo: null,
-    };
+    }
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     this.setState({
       error,
       errorInfo,
-    });
+    })
 
     // Log the error
     const appError = createError(
@@ -54,7 +54,7 @@ export class ErrorBoundary extends Component<Props, State> {
         errorBoundary: true,
       },
       'React Error Boundary'
-    );
+    )
 
     this.errorHandler.logError({
       code: appError.code,
@@ -62,10 +62,10 @@ export class ErrorBoundary extends Component<Props, State> {
       details: appError.details,
       context: appError.context,
       timestamp: new Date().toISOString(),
-    });
+    })
 
     // Call custom error handler if provided
-    this.props.onError?.(error, errorInfo);
+    this.props.onError?.(error, errorInfo)
   }
 
   handleRetry = () => {
@@ -73,18 +73,18 @@ export class ErrorBoundary extends Component<Props, State> {
       hasError: false,
       error: null,
       errorInfo: null,
-    });
-  };
+    })
+  }
 
   handleGoHome = () => {
-    window.location.href = '/';
-  };
+    window.location.href = '/'
+  }
 
   render() {
     if (this.state.hasError) {
       // Custom fallback UI
       if (this.props.fallback) {
-        return this.props.fallback;
+        return this.props.fallback
       }
 
       // Default error UI
@@ -114,7 +114,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   )}
                 </div>
               )}
-              
+
               <div className="flex flex-col space-y-2">
                 <Button onClick={this.handleRetry} className="w-full">
                   <RefreshCw className="w-4 h-4 mr-2" />
@@ -125,23 +125,23 @@ export class ErrorBoundary extends Component<Props, State> {
                   Go to Home
                 </Button>
               </div>
-              
+
               <div className="text-center text-sm text-gray-500">
                 If this problem persists, please contact support.
               </div>
             </CardContent>
           </Card>
         </div>
-      );
+      )
     }
 
-    return this.props.children;
+    return this.props.children
   }
 }
 
 // Hook for functional components to handle errors
 export function useErrorHandler() {
-  const errorHandler = ErrorHandler.getInstance();
+  const errorHandler = ErrorHandler.getInstance()
 
   const handleError = (error: unknown, context?: string) => {
     const appError = createError(
@@ -149,7 +149,7 @@ export function useErrorHandler() {
       error instanceof Error ? error.message : 'An error occurred',
       error,
       context
-    );
+    )
 
     errorHandler.logError({
       code: appError.code,
@@ -157,8 +157,8 @@ export function useErrorHandler() {
       details: appError.details,
       context: appError.context,
       timestamp: new Date().toISOString(),
-    });
-  };
+    })
+  }
 
-  return { handleError };
+  return { handleError }
 }

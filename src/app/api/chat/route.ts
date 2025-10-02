@@ -1,122 +1,125 @@
-import { openai } from '@ai-sdk/openai';
-import { streamText } from 'ai';
-import { createClient } from '@/lib/supabase/server';
+import { openai } from '@ai-sdk/openai'
+import { streamText } from 'ai'
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json();
-    console.log('Chat API called with messages:', messages.length);
+    const { messages } = await req.json()
+    console.log('Chat API called with messages:', messages.length)
 
     // Get user data for context
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
     if (authError || !user) {
-      console.error('Chat API auth error:', authError);
-      return new Response('Unauthorized', { status: 401 });
+      console.error('Chat API auth error:', authError)
+      return new Response('Unauthorized', { status: 401 })
     }
 
-    console.log('Chat API user authenticated:', user.id);
+    console.log('Chat API user authenticated:', user.id)
 
-  // Fetch user's dashboard data
-  const [goalsResult, tasksResult, habitsResult, educationResult, prioritiesResult, pointsResult] = await Promise.all([
-    // Weekly goals
-    supabase
-      .from('weekly_goals')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false }),
-    
-    // Tasks
-    supabase
-      .from('tasks')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false }),
-    
-    // Daily habits
-    supabase
-      .from('daily_habits')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_active', true),
-    
-    // Education items
-    supabase
-      .from('education_items')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_active', true),
-    
-    // Priorities
-    supabase
-      .from('priorities')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_completed', false)
-      .order('priority_score', { ascending: false }),
-    
-    // Points data
-    supabase
-      .from('points_ledger')
-      .select('*')
-      .eq('user_id', user.id)
-      .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()) // Last 7 days
-  ]);
+    // Fetch user's dashboard data
+    const [
+      goalsResult,
+      tasksResult,
+      habitsResult,
+      educationResult,
+      prioritiesResult,
+      pointsResult,
+    ] = await Promise.all([
+      // Weekly goals
+      supabase
+        .from('weekly_goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false }),
 
-  const goals = goalsResult.data || [];
-  const tasks = tasksResult.data || [];
-  const habits = habitsResult.data || [];
-  const educationItems = educationResult.data || [];
-  const priorities = prioritiesResult.data || [];
-  const recentPoints = pointsResult.data || [];
+      // Tasks
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false }),
 
-  // Calculate current week's points
-  const currentWeekStart = new Date();
-  currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
-  currentWeekStart.setHours(0, 0, 0, 0);
-  
-  const weeklyPoints = recentPoints
-    .filter(point => new Date(point.created_at) >= currentWeekStart)
-    .reduce((sum, point) => sum + point.points, 0);
+      // Daily habits
+      supabase.from('daily_habits').select('*').eq('user_id', user.id).eq('is_active', true),
 
-  // Get today's points
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const dailyPoints = recentPoints
-    .filter(point => new Date(point.created_at) >= today)
-    .reduce((sum, point) => sum + point.points, 0);
+      // Education items
+      supabase.from('education_items').select('*').eq('user_id', user.id).eq('is_active', true),
 
-  // Analyze categories
-  const goalCategories = [...new Set(goals.map(g => g.category).filter(Boolean))];
-  const taskCategories = [...new Set(tasks.map(t => t.category).filter(Boolean))];
-  const allCategories = [...new Set([...goalCategories, ...taskCategories])];
+      // Priorities
+      supabase
+        .from('priorities')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_completed', false)
+        .order('priority_score', { ascending: false }),
 
-  // Check for "Good Living" category
-  const hasGoodLiving = allCategories.some(cat => 
-    cat.toLowerCase().includes('good') || 
-    cat.toLowerCase().includes('living') ||
-    cat.toLowerCase().includes('wellness') ||
-    cat.toLowerCase().includes('health')
-  );
+      // Points data
+      supabase
+        .from('points_ledger')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()), // Last 7 days
+    ])
 
-  const userContext = {
-    weeklyPoints,
-    dailyPoints,
-    totalGoals: goals.length,
-    totalTasks: tasks.length,
-    totalHabits: habits.length,
-    totalEducationItems: educationItems.length,
-    activePriorities: priorities.length,
-    categories: allCategories,
-    hasGoodLiving,
-    goals: goals.slice(0, 5), // Top 5 goals for context
-    recentTasks: tasks.slice(0, 10), // Recent 10 tasks
-    habits: habits.slice(0, 5), // Top 5 habits
-    priorities: priorities.slice(0, 5) // Top 5 priorities
-  };
+    const goals = goalsResult.data || []
+    const tasks = tasksResult.data || []
+    const habits = habitsResult.data || []
+    const educationItems = educationResult.data || []
+    const priorities = prioritiesResult.data || []
+    const recentPoints = pointsResult.data || []
 
-    console.log('Calling OpenAI with user context...');
+    // Calculate current week's points
+    const currentWeekStart = new Date()
+    currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay())
+    currentWeekStart.setHours(0, 0, 0, 0)
+
+    const weeklyPoints = recentPoints
+      .filter((point) => new Date(point.created_at) >= currentWeekStart)
+      .reduce((sum, point) => sum + point.points, 0)
+
+    // Get today's points
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const dailyPoints = recentPoints
+      .filter((point) => new Date(point.created_at) >= today)
+      .reduce((sum, point) => sum + point.points, 0)
+
+    // Analyze categories
+    const goalCategories = [...new Set(goals.map((g) => g.category).filter(Boolean))]
+    const taskCategories = [...new Set(tasks.map((t) => t.category).filter(Boolean))]
+    const allCategories = [...new Set([...goalCategories, ...taskCategories])]
+
+    // Check for "Good Living" category
+    const hasGoodLiving = allCategories.some(
+      (cat) =>
+        cat.toLowerCase().includes('good') ||
+        cat.toLowerCase().includes('living') ||
+        cat.toLowerCase().includes('wellness') ||
+        cat.toLowerCase().includes('health')
+    )
+
+    const userContext = {
+      weeklyPoints,
+      dailyPoints,
+      totalGoals: goals.length,
+      totalTasks: tasks.length,
+      totalHabits: habits.length,
+      totalEducationItems: educationItems.length,
+      activePriorities: priorities.length,
+      categories: allCategories,
+      hasGoodLiving,
+      goals: goals.slice(0, 5), // Top 5 goals for context
+      recentTasks: tasks.slice(0, 10), // Recent 10 tasks
+      habits: habits.slice(0, 5), // Top 5 habits
+      priorities: priorities.slice(0, 5), // Top 5 priorities
+    }
+
+    console.log('Calling OpenAI with user context...')
     const result = await streamText({
       model: openai('gpt-4.1-mini'),
       messages,
@@ -134,16 +137,16 @@ USER'S CURRENT DASHBOARD DATA:
 - Has Good Living Category: ${userContext.hasGoodLiving}
 
 RECENT GOALS:
-${userContext.goals.map(g => `- ${g.title} (${g.category}) - Progress: ${g.current_points}/${g.target_points}`).join('\n')}
+${userContext.goals.map((g) => `- ${g.title} (${g.category}) - Progress: ${g.current_points}/${g.target_points}`).join('\n')}
 
 RECENT TASKS:
-${userContext.recentTasks.map(t => `- ${t.title} (${t.category}) - Status: ${t.status}`).join('\n')}
+${userContext.recentTasks.map((t) => `- ${t.title} (${t.category}) - Status: ${t.status}`).join('\n')}
 
 ACTIVE HABITS:
-${userContext.habits.map(h => `- ${h.title}`).join('\n')}
+${userContext.habits.map((h) => `- ${h.title}`).join('\n')}
 
 TOP PRIORITIES:
-${userContext.priorities.map(p => `- ${p.title} - Priority Level: ${p.priority_score > 80 ? 'High' : p.priority_score > 60 ? 'Medium' : 'Low'}`).join('\n')}
+${userContext.priorities.map((p) => `- ${p.title} - Priority Level: ${p.priority_score > 80 ? 'High' : p.priority_score > 60 ? 'Medium' : 'Low'}`).join('\n')}
 
 CORE CAPABILITIES:
 1. **Personalized Advice**: Analyze user's data to provide specific, actionable recommendations
@@ -202,12 +205,14 @@ When user asks about having a "happy day":
 6. Consider their energy level and time available
 
 Always provide specific, actionable advice based on their actual dashboard data.`,
-    });
+    })
 
-    console.log('OpenAI response generated successfully');
-    return result.toTextStreamResponse();
+    console.log('OpenAI response generated successfully')
+    return result.toTextStreamResponse()
   } catch (error) {
-    console.error('Chat API error:', error);
-    return new Response(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, { status: 500 });
+    console.error('Chat API error:', error)
+    return new Response(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+      status: 500,
+    })
   }
 }

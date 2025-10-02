@@ -1,12 +1,15 @@
 # Database Schema - Current State
 
 ## Overview
+
 This document tracks the current state of the Personal AI OS database schema, including all tables, relationships, and recent changes.
 
 ## Core Tables
 
 ### 1. `weeks` table
+
 **Purpose**: Tracks weekly periods for goal and task organization
+
 ```sql
 CREATE TABLE weeks (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -19,7 +22,9 @@ CREATE TABLE weeks (
 ```
 
 ### 2. `weekly_goals` table (Projects)
+
 **Purpose**: Stores current weekly projects (previously called "goals")
+
 ```sql
 CREATE TABLE weekly_goals (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -39,7 +44,9 @@ CREATE TABLE weekly_goals (
 ```
 
 ### 3. `tasks` table
+
 **Purpose**: Stores individual tasks that can be linked to projects
+
 ```sql
 CREATE TABLE tasks (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -58,7 +65,9 @@ CREATE TABLE tasks (
 ```
 
 ### 4. `goals` table (High-Level Goals)
+
 **Purpose**: Stores high-level weekly/monthly/yearly objectives
+
 ```sql
 CREATE TABLE goals (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -79,7 +88,9 @@ CREATE TABLE goals (
 ```
 
 ### 5. `priorities` table
+
 **Purpose**: Stores AI-recommended and manual priorities
+
 ```sql
 CREATE TABLE priorities (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -96,7 +107,9 @@ CREATE TABLE priorities (
 ```
 
 ### 6. `points_ledger` table
+
 **Purpose**: Tracks all point transactions for accomplishments
+
 ```sql
 CREATE TABLE points_ledger (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -110,7 +123,9 @@ CREATE TABLE points_ledger (
 ```
 
 ### 7. `audit_logs` table
+
 **Purpose**: Tracks system changes and user actions
+
 ```sql
 CREATE TABLE audit_logs (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -127,9 +142,11 @@ CREATE TABLE audit_logs (
 ## Custom Types
 
 ### `goal_category` enum
+
 **Current values** (19 total):
+
 - `health`
-- `productivity` 
+- `productivity`
 - `learning`
 - `financial`
 - `personal`
@@ -149,17 +166,20 @@ CREATE TABLE audit_logs (
 - `innovation`
 
 ### `task_status` enum
+
 - `pending`
 - `completed`
 - `cancelled`
 
 ### `ledger_type` enum
+
 - `points`
 - `money`
 
 ## API Endpoints
 
 ### Projects (weekly_goals)
+
 - `GET /api/projects` - Fetch all projects for current user
 - `POST /api/projects` - Create new project
 - `PATCH /api/projects/[id]` - Update project
@@ -167,12 +187,14 @@ CREATE TABLE audit_logs (
 - `PATCH /api/projects/[id]/progress` - Update project progress
 
 ### Goals (high-level)
+
 - `GET /api/goals` - Fetch all high-level goals
 - `POST /api/goals` - Create new high-level goal
 - `PATCH /api/goals/[id]` - Update high-level goal
 - `DELETE /api/goals/[id]` - Delete high-level goal
 
 ### Tasks
+
 - `GET /api/tasks` - Fetch all tasks
 - `POST /api/tasks` - Create new task
 - `PATCH /api/tasks/[id]` - Update task
@@ -180,6 +202,7 @@ CREATE TABLE audit_logs (
 - `PATCH /api/tasks/[id]/complete` - Mark task as completed
 
 ### Priorities
+
 - `GET /api/priorities` - Fetch all priorities
 - `POST /api/priorities` - Create new priority
 - `PATCH /api/priorities/[id]` - Update priority
@@ -188,25 +211,30 @@ CREATE TABLE audit_logs (
 ## Recent Changes
 
 ### Migration 005: Add New Goal Categories
+
 - Added 13 new categories to `goal_category` enum
 - Applied via `apply-migration.sql`
 
 ### Migration 006: Create Goals Table
+
 - Created `goals` table for high-level objectives
 - Added RLS policies
 
 ### Migration 007: Create Priorities Table & Add Category to Tasks
+
 - Created `priorities` table for AI-recommended priorities
 - Added `category` column to `tasks` table
 - Made `weekly_goal_id` optional in `tasks` table
 
 ## Dashboard Section Hierarchy
+
 1. **Priorities** - AI-recommended and manual priorities
-2. **Goals** - High-level weekly/monthly objectives  
+2. **Goals** - High-level weekly/monthly objectives
 3. **Projects** - Current weekly projects (weekly_goals)
 4. **Tasks** - Individual actionable steps
 
 ## Data Flow
+
 - **Goals** → High-level objectives (weekly/monthly/yearly)
 - **Projects** → Weekly implementations of goals
 - **Tasks** → Individual steps to complete projects

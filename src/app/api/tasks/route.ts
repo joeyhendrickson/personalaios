@@ -6,27 +6,29 @@ const createTaskSchema = z.object({
   weekly_goal_id: z.string().uuid().optional(),
   title: z.string().min(1).max(255),
   description: z.string().optional(),
-  category: z.enum([
-    'quick_money',
-    'save_money', 
-    'health',
-    'network_expansion',
-    'business_growth',
-    'fires',
-    'good_living',
-    'big_vision',
-    'job',
-    'organization',
-    'tech_issues',
-    'business_launch',
-    'future_planning',
-    'innovation',
-    'productivity',
-    'learning',
-    'financial',
-    'personal',
-    'other'
-  ]).default('other'),
+  category: z
+    .enum([
+      'quick_money',
+      'save_money',
+      'health',
+      'network_expansion',
+      'business_growth',
+      'fires',
+      'good_living',
+      'big_vision',
+      'job',
+      'organization',
+      'tech_issues',
+      'business_launch',
+      'future_planning',
+      'innovation',
+      'productivity',
+      'learning',
+      'financial',
+      'personal',
+      'other',
+    ])
+    .default('other'),
   points_value: z.number().int().min(0).default(0),
   money_value: z.number().min(0).default(0),
 })
@@ -140,15 +142,15 @@ export async function POST(request: NextRequest) {
         task_id: task.id,
         task_title: task.title,
         category: task.category,
-        points_value: task.points_value
-      }
-    });
+        points_value: task.points_value,
+      },
+    })
 
     // Update analytics
     await supabase.rpc('update_user_analytics', {
       p_user_id: user.id,
-      p_activity_type: 'task_created'
-    });
+      p_activity_type: 'task_created',
+    })
 
     return NextResponse.json({ task }, { status: 201 })
   } catch (error) {

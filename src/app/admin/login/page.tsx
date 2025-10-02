@@ -26,7 +26,7 @@ export default function AdminLoginPage() {
     try {
       // First, sign in as a regular user
       await signIn(email, password)
-      
+
       // After successful login, redirect to admin dashboard
       // The admin dashboard will check if the user has admin privileges
       router.push('/admin')
@@ -41,11 +41,7 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-red-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Back Button */}
-        <Button
-          variant="ghost"
-          onClick={() => router.push('/')}
-          className="mb-6"
-        >
+        <Button variant="ghost" onClick={() => router.push('/')} className="mb-6">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Home
         </Button>
@@ -56,9 +52,7 @@ export default function AdminLoginPage() {
             <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
               <Shield className="h-6 w-6 text-red-600" />
             </div>
-            <CardTitle className="text-2xl text-red-900">
-              Admin Access
-            </CardTitle>
+            <CardTitle className="text-2xl text-red-900">Admin Access</CardTitle>
             <CardDescription>
               Sign in with your admin credentials to access the admin dashboard
             </CardDescription>
@@ -89,17 +83,19 @@ export default function AdminLoginPage() {
                   placeholder="Enter your password"
                 />
               </div>
-              
+
               {error && (
                 <Alert className="border-red-200 bg-red-50">
                   <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription className="text-red-800">
-                    {error}
-                  </AlertDescription>
+                  <AlertDescription className="text-red-800">{error}</AlertDescription>
                 </Alert>
               )}
 
-              <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full bg-red-600 hover:bg-red-700"
+                disabled={isLoading}
+              >
                 <LogIn className="h-4 w-4 mr-2" />
                 {isLoading ? 'Signing In...' : 'Access Admin Dashboard'}
               </Button>
@@ -112,8 +108,8 @@ export default function AdminLoginPage() {
                 <div className="text-sm text-yellow-800">
                   <p className="font-medium">Admin Access Required</p>
                   <p className="mt-1">
-                    Only users with admin privileges can access this dashboard. 
-                    If you don&apos;t have admin access, please contact the system administrator.
+                    Only users with admin privileges can access this dashboard. If you don&apos;t
+                    have admin access, please contact the system administrator.
                   </p>
                 </div>
               </div>
@@ -123,9 +119,7 @@ export default function AdminLoginPage() {
 
         {/* Admin Features Preview */}
         <div className="mt-8 text-center">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Admin Dashboard Features:
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Admin Dashboard Features:</h3>
           <div className="grid grid-cols-1 gap-3 text-sm text-gray-600">
             <div className="flex items-center justify-center space-x-2">
               <div className="w-2 h-2 bg-red-500 rounded-full"></div>
