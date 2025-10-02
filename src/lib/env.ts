@@ -2,8 +2,8 @@ import { z } from 'zod'
 
 const envSchema = z.object({
   // Supabase Configuration
-  NEXT_PUBLIC_SUPABASE_URL: z.string().url('Must be a valid Supabase URL'),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, 'Supabase anon key is required'),
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url('Must be a valid Supabase URL').optional(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, 'Supabase anon key is required').optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'Supabase service role key is required').optional(),
 
   // OpenAI Configuration
