@@ -182,8 +182,10 @@ export default function DashboardPage() {
   const [showEditGoal, setShowEditGoal] = useState(false)
   const [showEditHighLevelGoal, setShowEditHighLevelGoal] = useState(false)
   const [showEditTask, setShowEditTask] = useState(false)
+  const [showEditPriority, setShowEditPriority] = useState(false)
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [editingPriority, setEditingPriority] = useState<Record<string, unknown> | null>(null)
   const [accomplishments, setAccomplishments] = useState<Record<string, unknown>[]>([])
   const [showAccomplishmentsHistory, setShowAccomplishmentsHistory] = useState(false)
   const [showManualPriorityForm, setShowManualPriorityForm] = useState(false)
@@ -939,6 +941,11 @@ export default function DashboardPage() {
     setShowEditHighLevelGoal(true)
   }
 
+  const openEditPriority = (priority: Record<string, unknown>) => {
+    setEditingPriority(priority)
+    setShowEditPriority(true)
+  }
+
   const updateGoal = async (updatedGoal: Partial<Goal>) => {
     if (!editingGoal) return
 
@@ -1016,6 +1023,34 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Error updating task:', error)
       alert(`Error updating task: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  const updatePriority = async (updatedPriority: Partial<Record<string, unknown>>) => {
+    if (!editingPriority) return
+
+    try {
+      console.log('Updating priority with data:', updatedPriority)
+      const response = await fetch(`/api/priorities/${(editingPriority as any).id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedPriority),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Priority update error:', errorData)
+        throw new Error(errorData.error || 'Failed to update priority')
+      }
+
+      await fetchPriorities()
+      setShowEditPriority(false)
+      setEditingPriority(null)
+    } catch (error) {
+      console.error('Error updating priority:', error)
+      alert(`Error updating priority: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -1472,23 +1507,34 @@ export default function DashboardPage() {
                           </div>
 
                           <div className="flex items-center space-x-1">
-                            <button className="text-gray-400 hover:text-gray-600">
+                            <button
+                              onClick={() => openEditPriority(priority)}
+                              className="text-gray-400 hover:text-gray-600"
+                              title="Edit Priority"
+                            >
                               <Settings className="h-4 w-4" />
                             </button>
                             <button
                               onClick={async () => {
                                 if (confirm('Are you sure you want to delete this priority?')) {
                                   try {
+                                    console.log(
+                                      'Attempting to delete priority:',
+                                      (priority as any).id
+                                    )
                                     const response = await fetch(
                                       `/api/priorities/${(priority as any).id}`,
                                       {
                                         method: 'DELETE',
                                       }
                                     )
+                                    console.log('Delete response status:', response.status)
                                     if (response.ok) {
+                                      console.log('Priority deleted successfully, refreshing list')
                                       await fetchPriorities()
                                     } else {
                                       const errorData = await response.json()
+                                      console.error('Delete error response:', errorData)
                                       alert(
                                         `Failed to delete priority: ${errorData.error || 'Unknown error'}`
                                       )
@@ -3299,6 +3345,109 @@ export default function DashboardPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Priority Modal */}
+      {showEditPriority && editingPriority && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Edit Priority</h3>
+              <button
+                onClick={() => setShowEditPriority(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                const title = (document.getElementById('edit-priority-title') as HTMLInputElement)
+                  ?.value
+                const description = (
+                  document.getElementById('edit-priority-description') as HTMLTextAreaElement
+                )?.value
+                const priority_score = parseInt(
+                  (document.getElementById('edit-priority-score') as HTMLInputElement)?.value ||
+                    '70'
+                )
+
+                updatePriority({
+                  title,
+                  description,
+                  priority_score,
+                })
+              }}
+            >
+              <div className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="edit-priority-title"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-priority-title"
+                    defaultValue={(editingPriority as any).title || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="edit-priority-description"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Description
+                  </label>
+                  <textarea
+                    id="edit-priority-description"
+                    defaultValue={(editingPriority as any).description || ''}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="edit-priority-score"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Priority Score (0-100)
+                  </label>
+                  <input
+                    type="number"
+                    id="edit-priority-score"
+                    defaultValue={(editingPriority as any).priority_score || 70}
+                    min="0"
+                    max="100"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex space-x-3 mt-6">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Update Priority
+                </button>
+                <button
+                  onClick={() => setShowEditPriority(false)}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
