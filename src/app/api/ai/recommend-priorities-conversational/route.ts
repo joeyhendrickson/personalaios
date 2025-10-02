@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         .from('weekly_goals')
         .select('*')
         .eq('user_id', user.id)
-        .neq('status', 'completed')
+        .eq('is_completed', false)
         .order('created_at', { ascending: false }),
 
       supabase
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         .from('weekly_goals')
         .select('*')
         .eq('user_id', user.id)
-        .eq('status', 'completed')
+        .eq('is_completed', true)
         .order('updated_at', { ascending: false })
         .limit(10), // Recent completed projects
 
