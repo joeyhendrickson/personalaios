@@ -116,7 +116,7 @@ export function GoalCard({ goal, onDelete, onAddTask }: GoalCardProps) {
             <div className="flex justify-between text-sm mb-1">
               <span>Points Progress</span>
               <span>
-                {goal.current_points} / {goal.target_points}
+                {goal.current_points} / {goal.target_points} ({Math.round(pointsProgress)}%)
               </span>
             </div>
             <Progress value={pointsProgress} className="h-2" />
@@ -127,7 +127,8 @@ export function GoalCard({ goal, onDelete, onAddTask }: GoalCardProps) {
               <div className="flex justify-between text-sm mb-1">
                 <span>Money Progress</span>
                 <span>
-                  ${goal.current_money.toFixed(2)} / ${goal.target_money.toFixed(2)}
+                  ${goal.current_money.toFixed(2)} / ${goal.target_money.toFixed(2)} (
+                  {Math.round(moneyProgress)}%)
                 </span>
               </div>
               <Progress value={moneyProgress} className="h-2" />
