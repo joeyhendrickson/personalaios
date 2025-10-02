@@ -17,9 +17,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+
+  // Only create Supabase client in browser environment
+  const supabase = typeof window !== 'undefined' ? createClient() : null
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
+
     // Get initial session
     const getInitialSession = async () => {
       const {
@@ -40,9 +47,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth])
+  }, [supabase])
 
   const signIn = async (email: string, password: string) => {
+    if (!supabase) throw new Error('Supabase client not available')
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -51,6 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signUp = async (email: string, password: string) => {
+    if (!supabase) throw new Error('Supabase client not available')
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -59,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
+    if (!supabase) throw new Error('Supabase client not available')
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   }
