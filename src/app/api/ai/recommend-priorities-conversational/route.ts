@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
       tasksResult,
       completedProjectsResult,
       completedTasksResult,
+      existingPrioritiesResult,
     ] = await Promise.all([
       supabase
         .from('goals')
@@ -82,6 +83,13 @@ export async function POST(request: NextRequest) {
         .eq('status', 'completed')
         .order('updated_at', { ascending: false })
         .limit(20), // Recent completed tasks
+
+      // Fetch existing priorities to avoid duplicates
+      supabase
+        .from('priorities')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false }),
     ])
 
     const goals = goalsResult.data || []
@@ -89,6 +97,7 @@ export async function POST(request: NextRequest) {
     const tasks = tasksResult.data || []
     const completedProjects = completedProjectsResult.data || []
     const completedTasks = completedTasksResult.data || []
+    const existingPriorities = existingPrioritiesResult.data || []
 
     console.log(
       'Data fetched - Goals:',
@@ -100,7 +109,9 @@ export async function POST(request: NextRequest) {
       'Completed Projects:',
       completedProjects.length,
       'Completed Tasks:',
-      completedTasks.length
+      completedTasks.length,
+      'Existing Priorities:',
+      existingPriorities.length
     )
 
     // Check for errors in data fetching
@@ -154,8 +165,20 @@ export async function POST(request: NextRequest) {
     // Separate fires items (they're handled separately)
     const firesProjects = projects.filter((p) => p.category === 'fires')
     const firesTasks = tasks.filter((t) => t.category === 'fires')
-    const nonFiresProjects = projects.filter((p) => p.category !== 'fires')
-    const nonFiresTasks = tasks.filter((t) => t.category !== 'fires')
+
+    // Get IDs of items that already have priorities to avoid duplicates
+    const existingProjectIds = existingPriorities
+      .filter((p) => p.project_id)
+      .map((p) => p.project_id)
+    const existingTaskIds = existingPriorities.filter((p) => p.task_id).map((p) => p.task_id)
+
+    // Filter out items that already have priorities
+    const nonFiresProjects = projects.filter(
+      (p) => p.category !== 'fires' && !existingProjectIds.includes(p.id)
+    )
+    const nonFiresTasks = tasks.filter(
+      (t) => t.category !== 'fires' && !existingTaskIds.includes(t.id)
+    )
 
     // Create AI prompt with user's daily intention
     const prompt = `
@@ -185,6 +208,9 @@ RECENTLY COMPLETED ITEMS (for context - DO NOT include these in recommendations)
 ${completedProjects.length > 0 ? `COMPLETED PROJECTS:\n${completedProjects.map((project) => `✅ ${project.title} (${project.category}) - Completed`).join('\n')}\n` : 'No recently completed projects'}
 ${completedTasks.length > 0 ? `COMPLETED TASKS:\n${completedTasks.map((task) => `✅ ${task.title} (${task.category}) - Completed`).join('\n')}\n` : 'No recently completed tasks'}
 
+EXISTING PRIORITIES (already set - DO NOT duplicate these):
+${existingPriorities.length > 0 ? `CURRENT PRIORITIES:\n${existingPriorities.map((priority) => `🔥 ${priority.title} (${priority.priority_type}) - Score: ${priority.priority_score}`).join('\n')}\n` : 'No existing priorities'}
+
 🔥 FIRES (URGENT - Handle these first):
 ${firesProjects.length > 0 ? `FIRE PROJECTS:\n${firesProjects.map((project) => `- ${project.title} - ${project.current_points}/${project.target_points} points`).join('\n')}` : 'No fire projects'}
 ${firesTasks.length > 0 ? `FIRE TASKS:\n${firesTasks.map((task) => `- ${task.title} - ${task.points_value} points`).join('\n')}` : 'No fire tasks'}
@@ -198,6 +224,8 @@ Analyze the user's daily intention "${daily_intention}" and recommend 3-5 specif
 5. Have clear, actionable next steps
 6. ONLY include items from the ACTIVE PROJECTS and ACTIVE TASKS lists above
 7. DO NOT recommend anything from the COMPLETED ITEMS - acknowledge them in your reasoning but don't suggest them as priorities
+8. DO NOT recommend anything that already has a priority in the EXISTING PRIORITIES list - these are already handled
+9. Focus on NEW priorities that complement existing ones without duplicating them
 
 🔥 FIRES HANDLING STRATEGY:
 - If user wants to REST/RELAX: Remind them about fires first, encourage quick completion before rest
