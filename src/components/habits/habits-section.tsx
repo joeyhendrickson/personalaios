@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import {
   Plus,
   CheckCircle,
@@ -10,6 +11,7 @@ import {
   Calendar,
   ChevronUp,
   ChevronDown,
+  Lightbulb,
 } from 'lucide-react'
 
 interface Habit {
@@ -258,12 +260,12 @@ export default function HabitsSection() {
               <Plus className="h-4 w-4" />
               Add Habit
             </button>
-            <button
-              onClick={fetchHabits}
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
-            >
-              🔄 Refresh
-            </button>
+            <Link href="/habitrecommendations">
+              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-green-300 bg-green-50 hover:bg-green-100 text-green-700 h-10 px-4 py-2">
+                <Lightbulb className="h-4 w-4" />
+                Recommendations
+              </button>
+            </Link>
           </div>
         </div>
 

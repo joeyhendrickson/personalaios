@@ -20,3 +20,4 @@ ALTER TYPE goal_category ADD VALUE IF NOT EXISTS 'innovation';
 -- You can run this query to check: SELECT unnest(enum_range(NULL::goal_category));
 
 
+

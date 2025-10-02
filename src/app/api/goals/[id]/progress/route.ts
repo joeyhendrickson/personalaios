@@ -7,10 +7,7 @@ const updateProgressSchema = z.object({
 })
 
 // PATCH /api/goals/[id]/progress - Update goal progress and award points
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient()
 
@@ -45,12 +42,16 @@ export async function PATCH(
     const newProgress = Math.round((progress_percentage / 100) * targetPoints)
     const pointsEarned = newProgress - previousProgress
 
+    // Check if goal should be marked as completed (100% progress)
+    const isCompleted = progress_percentage >= 100
+
     // Update the goal's current progress
     const { error: updateError } = await supabase
       .from('weekly_goals')
-      .update({ 
+      .update({
         current_points: newProgress,
-        updated_at: new Date().toISOString()
+        is_completed: isCompleted,
+        updated_at: new Date().toISOString(),
       })
       .eq('id', goalId)
 
@@ -61,19 +62,16 @@ export async function PATCH(
 
     // Add points change to the ledger (positive or negative)
     if (pointsEarned !== 0) {
-      const description = pointsEarned > 0 
-        ? `Progress on "${goal.title}"` 
-        : `Progress reduced on "${goal.title}"`
-      
-      const { error: pointsError } = await supabase
-        .from('points_ledger')
-        .insert({
-          user_id: user.id,
-          weekly_goal_id: goalId,
-          points: pointsEarned, // This can be negative
-          description: description,
-          created_at: new Date().toISOString()
-        })
+      const description =
+        pointsEarned > 0 ? `Progress on "${goal.title}"` : `Progress reduced on "${goal.title}"`
+
+      const { error: pointsError } = await supabase.from('points_ledger').insert({
+        user_id: user.id,
+        weekly_goal_id: goalId,
+        points: pointsEarned, // This can be negative
+        description: description,
+        created_at: new Date().toISOString(),
+      })
 
       if (pointsError) {
         console.error('Error adding points to ledger:', pointsError)
@@ -87,22 +85,20 @@ export async function PATCH(
         id: goalId,
         current_points: newProgress,
         progress_percentage,
-        points_earned: pointsEarned
-      }
+        points_earned: pointsEarned,
+      },
     })
-
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid input', details: error.issues },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invalid input', details: error.issues }, { status: 400 })
     }
     console.error('Unexpected error:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
   }
 }
-

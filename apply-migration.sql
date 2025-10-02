@@ -20,3 +20,4 @@ ALTER TYPE goal_category ADD VALUE IF NOT EXISTS 'innovation';
 SELECT unnest(enum_range(NULL::goal_category)) as category;
 
 
+

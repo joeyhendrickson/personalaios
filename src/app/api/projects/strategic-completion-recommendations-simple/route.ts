@@ -10,8 +10,18 @@ export async function GET(request: NextRequest) {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    if (authError) {
+      console.error('Auth error in strategic recommendations API:', authError)
+      return NextResponse.json(
+        { error: 'Authentication error', details: authError.message },
+        { status: 401 }
+      )
+    }
+
+    if (!user) {
+      console.log('No user found in strategic recommendations API')
+      return NextResponse.json({ error: 'Unauthorized - no user found' }, { status: 401 })
     }
 
     console.log('Generating simple strategic completion recommendations for user:', user.id)

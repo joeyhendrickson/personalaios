@@ -18,3 +18,4 @@ WHERE table_name = 'weekly_goals'
 ORDER BY ordinal_position;
 
 
+

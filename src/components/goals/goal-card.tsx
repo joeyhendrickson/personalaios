@@ -63,7 +63,7 @@ export function GoalCard({ goal, onDelete, onAddTask }: GoalCardProps) {
   const shouldTruncate = goal.description && goal.description.length > 120
   const displayDescription =
     shouldTruncate && !showFullDescription
-      ? truncateDescription(goal.description)
+      ? truncateDescription(goal.description || '')
       : goal.description
 
   return (

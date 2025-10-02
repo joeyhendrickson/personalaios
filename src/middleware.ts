@@ -44,13 +44,13 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-
   if (
     !user &&
     !request.nextUrl.pathname.startsWith('/login') &&
     !request.nextUrl.pathname.startsWith('/auth') &&
     !request.nextUrl.pathname.startsWith('/setup') &&
     !request.nextUrl.pathname.startsWith('/demo') &&
+    !request.nextUrl.pathname.startsWith('/api/') && // Skip all API routes - let them handle auth
     request.nextUrl.pathname !== '/'
   ) {
     // no user, potentially respond by redirecting the user to the login page

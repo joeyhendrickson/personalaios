@@ -24,6 +24,9 @@ import {
   ChevronDown,
   ChevronUp,
   History,
+  Eye,
+  EyeOff,
+  Lightbulb,
 } from 'lucide-react'
 import Link from 'next/link'
 import { ChatInterface } from '@/components/chat/chat-interface'
@@ -156,6 +159,18 @@ export default function DashboardPage() {
   } | null>(null)
   const [strategicLoading, setStrategicLoading] = useState(false)
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({})
+  const [currentDayName, setCurrentDayName] = useState<string>('')
+  const [isClient, setIsClient] = useState(false)
+  const [sectionVisibility, setSectionVisibility] = useState({
+    priorities: true,
+    goals: true,
+    projects: true,
+    tasks: true,
+    habits: true,
+    education: true,
+    accomplishments: true,
+    categories: true,
+  })
   const [highLevelGoals, setHighLevelGoals] = useState<Record<string, unknown>[]>([])
   const [priorities, setPriorities] = useState<Record<string, unknown>[]>([])
   const [showAddGoal, setShowAddGoal] = useState(false)
@@ -200,7 +215,28 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchDashboardData()
     fetchUserTimezone()
-  }, [])
+    if (user) {
+      fetchStrategicRecommendations()
+    }
+  }, [user])
+
+  // Initialize client-side state to prevent hydration mismatches
+  useEffect(() => {
+    setIsClient(true)
+    setCurrentDayName(
+      new Date().toLocaleDateString('en-US', {
+        weekday: 'short',
+        timeZone: userTimezone,
+      })
+    )
+  }, [userTimezone])
+
+  const toggleSectionVisibility = (section: keyof typeof sectionVisibility) => {
+    setSectionVisibility((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }))
+  }
 
   const fetchDashboardData = async () => {
     try {
@@ -265,7 +301,9 @@ export default function DashboardPage() {
 
       // Fetch goals and priorities
       await fetchHighLevelGoals()
-      await fetchPriorities()
+      if (user) {
+        await fetchPriorities()
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
     } finally {
@@ -313,7 +351,11 @@ export default function DashboardPage() {
     try {
       console.log('Fetching priorities...')
       // First sync fires priorities to ensure they're included
-      await fetch('/api/priorities/sync-fires', { method: 'POST' })
+      const syncResponse = await fetch('/api/priorities/sync-fires', { method: 'POST' })
+      if (!syncResponse.ok && syncResponse.status === 401) {
+        console.log('User not authenticated, skipping priorities sync')
+        return
+      }
 
       // Then fetch all priorities
       const response = await fetch('/api/priorities')
@@ -322,6 +364,8 @@ export default function DashboardPage() {
         const data = await response.json()
         console.log('Priorities data received:', data)
         setPriorities(data.priorities || [])
+      } else if (response.status === 401) {
+        console.log('User not authenticated, skipping priorities fetch')
       } else {
         const errorData = await response.json()
         console.error('Error fetching priorities:', errorData)
@@ -340,6 +384,57 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Error fetching user timezone:', error)
+    }
+  }
+
+  const fetchStrategicRecommendations = async () => {
+    try {
+      console.log('Fetching strategic recommendations...')
+      setStrategicLoading(true)
+      const response = await fetch('/api/ai/project-goal-alignment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      console.log('Strategic recommendations response status:', response.status)
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Strategic recommendations data:', data)
+        if (data.assessment) {
+          // Extract the most important recommendation from the assessment
+          const assessment = data.assessment
+          const topRecommendation = assessment.recommendations?.[0] || assessment.next_steps?.[0]
+
+          console.log('Top recommendation:', topRecommendation)
+
+          if (topRecommendation) {
+            const recommendation = {
+              recommendation:
+                typeof topRecommendation === 'string'
+                  ? topRecommendation
+                  : topRecommendation.action || topRecommendation,
+              focusArea:
+                typeof topRecommendation === 'string'
+                  ? 'General'
+                  : topRecommendation.category || 'General',
+              timestamp: new Date().toISOString(),
+            }
+            console.log('Setting strategic recommendation:', recommendation)
+            setStrategicRecommendation(recommendation)
+          }
+        }
+      } else if (response.status === 401) {
+        console.log('User not authenticated, skipping strategic recommendations')
+      } else {
+        console.error('Strategic recommendations API failed:', response.status, response.statusText)
+      }
+    } catch (error) {
+      console.error('Error fetching strategic recommendations:', error)
+    } finally {
+      setStrategicLoading(false)
     }
   }
 
@@ -931,39 +1026,35 @@ export default function DashboardPage() {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-6">
-              <Link href="/">
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 hover:bg-gray-100">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Home
-                </button>
-              </Link>
-              <div>
-                <h1 className="text-3xl font-bold text-black">Personal AI OS</h1>
-                <p className="text-sm text-gray-600 flex items-center">
-                  <Calendar className="h-4 w-4 mr-1" />
-                  {currentWeek ? (
-                    <>
-                      Week of {new Date(currentWeek.week_start).toLocaleDateString()} -{' '}
-                      {new Date(currentWeek.week_end).toLocaleDateString()}
-                    </>
-                  ) : (
-                    'Loading...'
-                  )}
-                </p>
-                {user && <p className="text-xs text-gray-500 mt-1">Welcome back, {user.email}</p>}
+              <div className="flex items-center space-x-4">
+                <img src="/LifeStacks-logo.png" alt="Life Stacks" className="h-40 w-auto" />
+                <div>
+                  <p className="text-sm text-gray-600 flex items-center">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    {currentWeek ? (
+                      <>
+                        Week of {new Date(currentWeek.week_start).toLocaleDateString()} -{' '}
+                        {new Date(currentWeek.week_end).toLocaleDateString()}
+                      </>
+                    ) : (
+                      'Loading...'
+                    )}
+                  </p>
+                  {user && <p className="text-xs text-gray-500 mt-1">Welcome back, {user.email}</p>}
+                </div>
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              <Link href="/modules">
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black text-white hover:bg-gray-800 h-9 rounded-md px-3">
+                  <Plus className="h-4 w-4" />
+                  Life Hacks
+                </button>
+              </Link>
               <Link href="/import">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3">
                   <FileSpreadsheet className="h-4 w-4" />
                   Import Excel
-                </button>
-              </Link>
-              <Link href="/life-hacks">
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-green-300 bg-green-50 hover:bg-green-100 text-green-700 h-9 rounded-md px-3">
-                  <Brain className="h-4 w-4" />
-                  Life Hacks
                 </button>
               </Link>
               <Link href="/profile">
@@ -999,17 +1090,15 @@ export default function DashboardPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Daily Points</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-black">Daily Points</p>
+                  <p className="text-2xl font-bold text-black">
                     {pointsData?.dailyPoints || 0}
-                    {pointsLoading && <span className="text-sm text-blue-500 ml-2">⟳</span>}
+                    {pointsLoading && <span className="text-sm text-blue-400 ml-2">⟳</span>}
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Weekly: {pointsData?.weeklyPoints || 0}
-                  </p>
+                  <p className="text-sm text-black mt-1">Weekly: {pointsData?.weeklyPoints || 0}</p>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <BarChart3 className="h-8 w-8 text-orange-500" />
+                  <BarChart3 className="h-8 w-8 text-blue-400" />
                   <button
                     onClick={() => {
                       setShowPointsDetails(true)
@@ -1029,16 +1118,11 @@ export default function DashboardPage() {
                       ...(pointsData.dailyBreakdown?.map((d) => d.points) || [1])
                     )
                     const height = maxPoints > 0 ? (day.points / maxPoints) * 100 : 0
-                    const isToday =
-                      day.dayName ===
-                      new Date().toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        timeZone: userTimezone,
-                      })
+                    const isToday = isClient && day.dayName === currentDayName
                     return (
                       <div
                         key={index}
-                        className={`rounded-t relative group ${isToday ? 'bg-orange-600' : 'bg-orange-400'}`}
+                        className={`rounded-t relative group ${isToday ? 'bg-blue-500' : 'bg-blue-400'}`}
                         style={{
                           width: '8px',
                           height: `${height}%`,
@@ -1063,32 +1147,22 @@ export default function DashboardPage() {
               </div>
               <div className="flex justify-between text-xs text-gray-500 mt-2">
                 {pointsData?.dailyBreakdown?.map((day, index) => {
-                  const isToday =
-                    day.dayName ===
-                    new Date().toLocaleDateString('en-US', {
-                      weekday: 'short',
-                      timeZone: userTimezone,
-                    })
+                  const isToday = isClient && day.dayName === currentDayName
                   return (
                     <span
                       key={index}
-                      className={`text-center ${isToday ? 'font-bold text-orange-600' : ''}`}
+                      className={`text-center ${isToday ? 'font-bold text-blue-500' : ''}`}
                     >
                       {day.dayName}
                     </span>
                   )
                 }) ||
                   ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => {
-                    const isToday =
-                      day ===
-                      new Date().toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        timeZone: userTimezone,
-                      })
+                    const isToday = isClient && day === currentDayName
                     return (
                       <span
                         key={index}
-                        className={`text-center ${isToday ? 'font-bold text-orange-600' : ''}`}
+                        className={`text-center ${isToday ? 'font-bold text-blue-500' : ''}`}
                       >
                         {day}
                       </span>
@@ -1110,7 +1184,7 @@ export default function DashboardPage() {
                     message:
                       "🔥 INCREDIBLE! You're crushing it today! Keep this momentum going and push even higher!",
                     emoji: '🚀',
-                    color: 'text-green-600 bg-green-50 border-green-200',
+                    color: 'text-blue-600 bg-blue-50 border-blue-200',
                   }
                 } else if (dailyPoints >= 300) {
                   motivation = {
@@ -1124,21 +1198,21 @@ export default function DashboardPage() {
                     message:
                       "🎯 Great momentum! You're building serious progress. Keep attacking those projects!",
                     emoji: '🎯',
-                    color: 'text-purple-600 bg-purple-50 border-purple-200',
+                    color: 'text-blue-600 bg-blue-50 border-blue-200',
                   }
                 } else if (dailyPoints >= 100) {
                   motivation = {
                     message:
                       "🌟 Good start! You're building momentum. Let's push for 300+ points today!",
                     emoji: '⭐',
-                    color: 'text-yellow-600 bg-yellow-50 border-yellow-200',
+                    color: 'text-blue-600 bg-blue-50 border-blue-200',
                   }
                 } else if (dailyPoints > 0) {
                   motivation = {
                     message:
                       "🚀 You've started! Every point counts. Let's build this into a productive day!",
                     emoji: '💫',
-                    color: 'text-orange-600 bg-orange-50 border-orange-200',
+                    color: 'text-blue-600 bg-blue-50 border-blue-200',
                   }
                 } else {
                   motivation = {
@@ -1161,45 +1235,111 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Weekly Progress Ring */}
+          {/* Combined Project Progress & Recommendations */}
           <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Project Progress</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-black">Project Progress</p>
+                  <p className="text-2xl font-bold text-black">
                     {totalCurrentPoints}/{totalTargetPoints}
                   </p>
                 </div>
-                <CheckCircle className="h-8 w-8 text-purple-500" />
+                <CheckCircle className="h-8 w-8 text-blue-400" />
               </div>
-              <div className="flex justify-center">
-                <ProgressRing percentage={progressPercentage} size={100} color="#8B5CF6" />
+              <div className="flex justify-center mb-4">
+                <ProgressRing percentage={progressPercentage} size={100} color="#60A5FA" />
+              </div>
+
+              {/* Strategic Recommendations */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex items-center space-x-2 mb-3">
+                  <Lightbulb className="h-4 w-4 text-blue-400" />
+                  <h4 className="text-sm font-semibold text-black">Strategic Insights</h4>
+                </div>
+                {strategicLoading ? (
+                  <div className="text-center py-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mx-auto"></div>
+                    <p className="text-xs text-gray-500 mt-1">Analyzing...</p>
+                  </div>
+                ) : strategicRecommendation ? (
+                  <div className="bg-gradient-to-r from-blue-50 to-blue-50 rounded-lg p-3 border border-blue-200">
+                    <div className="flex items-start space-x-2">
+                      <div className="bg-blue-400 rounded-full p-1 flex-shrink-0">
+                        <TrendingUp className="h-3 w-3 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
+                            {strategicRecommendation.focusArea}
+                          </span>
+                        </div>
+                        <p className="text-xs text-black leading-relaxed">
+                          {strategicRecommendation.recommendation}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-2">
+                    <Lightbulb className="h-4 w-4 text-gray-400 mx-auto mb-1" />
+                    <p className="text-xs text-gray-500">No insights available</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-
-          {/* Active Projects with Recommendations */}
-          <ActiveProjectsWidget goals={goals as any} />
 
           {/* Task Completion */}
           <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Tasks Done</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-black">Tasks Done</p>
+                  <p className="text-2xl font-bold text-black">
                     {completedTasksCount}/{totalTasks}
                   </p>
                 </div>
-                <CheckCircle className="h-8 w-8 text-purple-500" />
+                <CheckCircle className="h-8 w-8 text-blue-400" />
               </div>
               <div className="flex justify-center">
-                <ProgressRing percentage={taskCompletionRate} size={80} color="#8B5CF6" />
+                <ProgressRing percentage={taskCompletionRate} size={80} color="#60A5FA" />
               </div>
 
               {/* Task Advisor */}
               <TaskAdvisor goals={goals as any} />
+            </div>
+          </div>
+
+          {/* Visibility Switcher */}
+          <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm font-medium text-black">Visibility</p>
+                  <p className="text-xs text-black mt-1">Hide stacks</p>
+                </div>
+                <Eye className="h-8 w-8 text-blue-400" />
+              </div>
+
+              <div className="space-y-2">
+                {Object.entries(sectionVisibility).map(([section, isVisible]) => (
+                  <button
+                    key={section}
+                    onClick={() =>
+                      toggleSectionVisibility(section as keyof typeof sectionVisibility)
+                    }
+                    className={`w-full flex items-center justify-between p-2 rounded-lg text-xs transition-colors ${
+                      isVisible
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'bg-gray-50 text-gray-500 border border-gray-200'
+                    }`}
+                  >
+                    <span className="capitalize">{section}</span>
+                    {isVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -1208,336 +1348,516 @@ export default function DashboardPage() {
           {/* Main Content - Left Column */}
           <div className="xl:col-span-2 space-y-6">
             {/* Priorities Section - TOP */}
-            <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
-              <div className="p-6 pb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-semibold tracking-tight flex items-center text-xl">
-                      <Brain className="h-6 w-6 mr-2 text-purple-500" />
-                      Priorities
-                    </h2>
-                    <p className="text-sm text-gray-600">
-                      AI-recommended and manual priorities for today
-                    </p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setShowConversationalPriorityInput(true)}
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black hover:bg-gray-800 text-white h-10 px-4 py-2"
-                    >
-                      <Brain className="h-4 w-4" />
-                      AI Recommend
-                    </button>
-                    <button
-                      onClick={() => setShowManualPriorityForm(true)}
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add Priority
-                    </button>
+            {sectionVisibility.priorities && (
+              <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
+                <div className="p-6 pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-semibold tracking-tight flex items-center text-xl">
+                        <Brain className="h-6 w-6 mr-2 text-purple-500" />
+                        Priorities
+                      </h2>
+                      <p className="text-sm text-gray-600">
+                        AI-recommended and manual priorities for today
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => setShowConversationalPriorityInput(true)}
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black hover:bg-gray-800 text-white h-10 px-4 py-2"
+                      >
+                        <Brain className="h-4 w-4" />
+                        AI Recommend
+                      </button>
+                      <button
+                        onClick={() => setShowManualPriorityForm(true)}
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add Priority
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="p-6 pt-0">
-                {priorities.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No priorities set</h3>
-                    <p className="text-gray-600 mb-4">
-                      Generate AI recommendations or add manual priorities
-                    </p>
-                    <button
-                      onClick={() => setShowConversationalPriorityInput(true)}
-                      className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                    >
-                      <Brain className="h-4 w-4 inline mr-2" />
-                      Generate AI Priorities
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {priorities.map((priority, index) => (
-                      <div
-                        key={(priority as any).id}
-                        className={`flex items-center space-x-3 p-3 rounded-lg border transition-all ${
-                          priority.is_completed
-                            ? 'bg-green-50 border-green-200'
-                            : 'bg-white border-gray-200 hover:border-blue-200'
-                        }`}
+                <div className="p-6 pt-0">
+                  {priorities.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No priorities set</h3>
+                      <p className="text-gray-600 mb-4">
+                        Generate AI recommendations or add manual priorities
+                      </p>
+                      <button
+                        onClick={() => setShowConversationalPriorityInput(true)}
+                        className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                       >
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-gray-500 w-6">
-                            #{index + 1}
-                          </span>
-                          <button
-                            onClick={async () => {
-                              try {
-                                const response = await fetch(`/api/priorities/${priority.id}`, {
-                                  method: 'PATCH',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ is_completed: !priority.is_completed }),
-                                })
-                                if (response.ok) {
-                                  await fetchPriorities()
-                                }
-                              } catch (error) {
-                                console.error('Error updating priority:', error)
-                              }
-                            }}
-                            className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                              priority.is_completed
-                                ? 'bg-green-500 border-green-500'
-                                : 'border-gray-300 hover:border-blue-400'
-                            }`}
-                          >
-                            {(priority as any).is_completed && (
-                              <CheckCircle className="h-3 w-3 text-white" />
-                            )}
-                          </button>
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h4
-                              className={`font-medium ${priority.is_completed ? 'line-through text-gray-500' : 'text-gray-900'}`}
-                            >
-                              {(priority as any).title}
-                            </h4>
-                            <span
-                              className={`text-xs px-2 py-1 rounded ${
-                                priority.priority_type === 'ai_recommended'
-                                  ? 'bg-gray-100 text-gray-800'
-                                  : priority.priority_type === 'fire_auto'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-gray-100 text-gray-800'
-                              }`}
-                            >
-                              {priority.priority_type === 'ai_recommended'
-                                ? 'AI'
-                                : priority.priority_type === 'fire_auto'
-                                  ? 'FIRE'
-                                  : 'Manual'}
+                        <Brain className="h-4 w-4 inline mr-2" />
+                        Generate AI Priorities
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {priorities.map((priority, index) => (
+                        <div
+                          key={(priority as any).id}
+                          className={`flex items-center space-x-3 p-3 rounded-lg border transition-all ${
+                            priority.is_completed
+                              ? 'bg-green-50 border-green-200'
+                              : 'bg-white border-gray-200 hover:border-blue-200'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-medium text-gray-500 w-6">
+                              #{index + 1}
                             </span>
-                            <span className="text-xs text-gray-500">
-                              Score: {(priority as any).priority_score}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600">{(priority as any).description}</p>
-                        </div>
-
-                        <div className="flex items-center space-x-1">
-                          <button className="text-gray-400 hover:text-gray-600">
-                            <Settings className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={async () => {
-                              if (confirm('Are you sure you want to delete this priority?')) {
+                            <button
+                              onClick={async () => {
                                 try {
-                                  const response = await fetch(
-                                    `/api/priorities/${(priority as any).id}`,
-                                    {
-                                      method: 'DELETE',
-                                    }
-                                  )
+                                  const response = await fetch(`/api/priorities/${priority.id}`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ is_completed: !priority.is_completed }),
+                                  })
                                   if (response.ok) {
                                     await fetchPriorities()
-                                  } else {
-                                    const errorData = await response.json()
-                                    alert(
-                                      `Failed to delete priority: ${errorData.error || 'Unknown error'}`
-                                    )
                                   }
                                 } catch (error) {
-                                  console.error('Error deleting priority:', error)
-                                  alert(
-                                    `Error deleting priority: ${error instanceof Error ? error.message : 'Unknown error'}`
-                                  )
+                                  console.error('Error updating priority:', error)
                                 }
-                              }
-                            }}
-                            className="text-gray-400 hover:text-red-600"
-                            title="Delete Priority"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Goals Section - SECOND */}
-            <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
-              <div className="p-6 pb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-semibold tracking-tight flex items-center text-xl">
-                      <Target className="h-6 w-6 mr-2 text-red-500" />
-                      Goals
-                    </h2>
-                    <p className="text-sm text-gray-600">
-                      High-level weekly and monthly objectives
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setShowAddHighLevelGoal(true)}
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Goal
-                  </button>
-                </div>
-              </div>
-              <div className="p-6 pt-0">
-                {highLevelGoals.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No goals yet</h3>
-                    <p className="text-gray-600 mb-4">
-                      Create your first goal to start building your roadmap
-                    </p>
-                    <button
-                      onClick={() => setShowAddHighLevelGoal(true)}
-                      className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                    >
-                      Add Your First Goal
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {highLevelGoals.map((goal) => (
-                      <div
-                        key={(goal as any).id}
-                        className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900 mb-1">
-                              {(goal as any).title}
-                            </h3>
-                            <p className="text-sm text-gray-600 mb-2">
-                              {(goal as any).description}
-                            </p>
-                            <div className="flex items-center space-x-2 text-xs text-gray-500">
-                              <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
-                                {(goal as any).goal_type}
-                              </span>
-                              <span>Priority: {(goal as any).priority_level}/5</span>
-                            </div>
-                          </div>
-                          <div className="flex space-x-1">
-                            <button
-                              onClick={() => openEditHighLevelGoal(goal)}
-                              className="text-gray-400 hover:text-gray-600"
-                              title="Edit Goal"
+                              }}
+                              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                                priority.is_completed
+                                  ? 'bg-green-500 border-green-500'
+                                  : 'border-gray-300 hover:border-blue-400'
+                              }`}
                             >
+                              {(priority as any).is_completed && (
+                                <CheckCircle className="h-3 w-3 text-white" />
+                              )}
+                            </button>
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <h4
+                                className={`font-medium ${priority.is_completed ? 'line-through text-gray-500' : 'text-gray-900'}`}
+                              >
+                                {(priority as any).title}
+                              </h4>
+                              <span
+                                className={`text-xs px-2 py-1 rounded ${
+                                  priority.priority_type === 'ai_recommended'
+                                    ? 'bg-gray-100 text-gray-800'
+                                    : priority.priority_type === 'fire_auto'
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-gray-100 text-gray-800'
+                                }`}
+                              >
+                                {priority.priority_type === 'ai_recommended'
+                                  ? 'AI'
+                                  : priority.priority_type === 'fire_auto'
+                                    ? 'FIRE'
+                                    : 'Manual'}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                Score: {(priority as any).priority_score}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600">{(priority as any).description}</p>
+                          </div>
+
+                          <div className="flex items-center space-x-1">
+                            <button className="text-gray-400 hover:text-gray-600">
                               <Settings className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => deleteHighLevelGoal((goal as any).id)}
+                              onClick={async () => {
+                                if (confirm('Are you sure you want to delete this priority?')) {
+                                  try {
+                                    const response = await fetch(
+                                      `/api/priorities/${(priority as any).id}`,
+                                      {
+                                        method: 'DELETE',
+                                      }
+                                    )
+                                    if (response.ok) {
+                                      await fetchPriorities()
+                                    } else {
+                                      const errorData = await response.json()
+                                      alert(
+                                        `Failed to delete priority: ${errorData.error || 'Unknown error'}`
+                                      )
+                                    }
+                                  } catch (error) {
+                                    console.error('Error deleting priority:', error)
+                                    alert(
+                                      `Error deleting priority: ${error instanceof Error ? error.message : 'Unknown error'}`
+                                    )
+                                  }
+                                }
+                              }}
                               className="text-gray-400 hover:text-red-600"
-                              title="Delete Goal"
+                              title="Delete Priority"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </div>
-
-                        {(goal as any).target_value && (
-                          <div className="mb-3">
-                            <div className="flex justify-between text-sm text-gray-600 mb-1">
-                              <span>Progress</span>
-                              <span>
-                                {(goal as any).current_value}/{(goal as any).target_value}{' '}
-                                {(goal as any).target_unit || ''}
-                              </span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div
-                                className="bg-black h-2 rounded-full transition-all duration-300"
-                                style={{
-                                  width: `${Math.min(100, ((goal as any).current_value / (goal as any).target_value) * 100)}%`,
-                                }}
-                              ></div>
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="text-xs text-gray-500">
-                          {(goal as any).target_date &&
-                            `Target: ${new Date((goal as any).target_date).toLocaleDateString()}`}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Projects Section - THIRD */}
-            <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
-              <div className="p-6 pb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-semibold tracking-tight flex items-center text-xl">
-                      <Target className="h-6 w-6 mr-2 text-blue-500" />
-                      Projects
-                    </h2>
-                    <p className="text-sm text-gray-600">
-                      Track your progress across different projects and goal categories
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
+            {/* Goals Section - SECOND */}
+            {sectionVisibility.goals && (
+              <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
+                <div className="p-6 pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-semibold tracking-tight flex items-center text-xl">
+                        <Target className="h-6 w-6 mr-2 text-red-500" />
+                        Goals
+                      </h2>
+                      <p className="text-sm text-gray-600">
+                        High-level weekly and monthly objectives
+                      </p>
+                    </div>
                     <button
-                      onClick={categorizeGoalsWithAI}
-                      disabled={isCategorizing || goals.length === 0}
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 h-10 px-4 py-2"
-                      title="Use AI to automatically categorize your goals with smart financial detection"
-                    >
-                      <Brain className="h-4 w-4 mr-2" />
-                      {isCategorizing ? 'Categorizing...' : 'Categorize'}
-                    </button>
-                    <button
-                      onClick={() => setShowCompleted(!showCompleted)}
-                      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-10 px-4 py-2 ${
-                        showCompleted
-                          ? 'bg-green-600 text-white hover:bg-green-700'
-                          : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700'
-                      }`}
-                    >
-                      <History className="h-4 w-4 mr-2" />
-                      {showCompleted ? 'Active' : 'Completed'}
-                    </button>
-                    <button
-                      onClick={() => setShowAddGoal(true)}
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-white hover:bg-gray-800 h-10 px-4 py-2 bg-black"
+                      onClick={() => setShowAddHighLevelGoal(true)}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                     >
                       <Plus className="h-4 w-4 mr-2" />
-                      Add Project
+                      Add Goal
                     </button>
                   </div>
                 </div>
-              </div>
-              <div className="p-6 pt-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {loading ? (
-                    <div className="col-span-2 text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                      <p className="text-gray-600 mt-2">Loading projects...</p>
+                <div className="p-6 pt-0">
+                  {highLevelGoals.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No goals yet</h3>
+                      <p className="text-gray-600 mb-4">
+                        Create your first goal to start building your roadmap
+                      </p>
+                      <button
+                        onClick={() => setShowAddHighLevelGoal(true)}
+                        className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                      >
+                        Add Your First Goal
+                      </button>
                     </div>
-                  ) : showCompleted ? (
-                    // Show completed projects
-                    completedProjects.length === 0 ? (
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {highLevelGoals.map((goal) => (
+                        <div
+                          key={(goal as any).id}
+                          className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-gray-900 mb-1">
+                                {(goal as any).title}
+                              </h3>
+                              <p className="text-sm text-gray-600 mb-2">
+                                {(goal as any).description}
+                              </p>
+                              <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
+                                  {(goal as any).goal_type}
+                                </span>
+                                <span>Priority: {(goal as any).priority_level}/5</span>
+                              </div>
+                            </div>
+                            <div className="flex space-x-1">
+                              <button
+                                onClick={() => openEditHighLevelGoal(goal)}
+                                className="text-gray-400 hover:text-gray-600"
+                                title="Edit Goal"
+                              >
+                                <Settings className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => deleteHighLevelGoal((goal as any).id)}
+                                className="text-gray-400 hover:text-red-600"
+                                title="Delete Goal"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {(goal as any).target_value && (
+                            <div className="mb-3">
+                              {/* Interactive Progress Slider */}
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between text-xs text-gray-500">
+                                  <span>Progress</span>
+                                  <span>
+                                    {(goal as any).current_value}/{(goal as any).target_value}{' '}
+                                    {(goal as any).target_unit || ''}
+                                  </span>
+                                </div>
+                                <Slider
+                                  value={
+                                    localProgress[(goal as any).id] !== undefined
+                                      ? localProgress[(goal as any).id]
+                                      : Math.min(
+                                          100,
+                                          ((goal as any).current_value /
+                                            (goal as any).target_value) *
+                                            100
+                                        )
+                                  }
+                                  onChange={(value) =>
+                                    handleProgressChange((goal as any).id, value)
+                                  }
+                                  onValueCommit={(value) =>
+                                    handleProgressCommit((goal as any).id, value)
+                                  }
+                                  min={0}
+                                  max={100}
+                                  step={1}
+                                  className="w-full"
+                                  disabled={updatingProgress === (goal as any).id}
+                                />
+                                <div className="flex items-center justify-between text-xs text-gray-500">
+                                  <span>0%</span>
+                                  <span>100%</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="text-xs text-gray-500">
+                            {(goal as any).target_date &&
+                              `Target: ${new Date((goal as any).target_date).toLocaleDateString()}`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Projects Section - THIRD */}
+            {sectionVisibility.projects && (
+              <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
+                <div className="p-6 pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-semibold tracking-tight flex items-center text-xl">
+                        <Target className="h-6 w-6 mr-2 text-blue-500" />
+                        Projects
+                      </h2>
+                      <p className="text-sm text-gray-600">
+                        Track your progress across different projects and goal categories
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={categorizeGoalsWithAI}
+                        disabled={isCategorizing || goals.length === 0}
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 h-10 px-4 py-2"
+                        title="Use AI to automatically categorize your goals with smart financial detection"
+                      >
+                        <Brain className="h-4 w-4 mr-2" />
+                        {isCategorizing ? 'Categorizing...' : 'Categorize'}
+                      </button>
+                      <button
+                        onClick={() => setShowCompleted(!showCompleted)}
+                        className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-10 px-4 py-2 ${
+                          showCompleted
+                            ? 'bg-green-600 text-white hover:bg-green-700'
+                            : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        <History className="h-4 w-4 mr-2" />
+                        {showCompleted ? 'Active' : 'Completed'}
+                      </button>
+                      <button
+                        onClick={() => setShowAddGoal(true)}
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-white hover:bg-gray-800 h-10 px-4 py-2 bg-black"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Project
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6 pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {loading ? (
                       <div className="col-span-2 text-center py-8">
-                        <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                        <p className="text-gray-600 mt-2">Loading projects...</p>
+                      </div>
+                    ) : showCompleted ? (
+                      // Show completed projects
+                      completedProjects.length === 0 ? (
+                        <div className="col-span-2 text-center py-8">
+                          <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                          <p className="text-gray-600">
+                            No completed projects yet. Complete a project to see it here!
+                          </p>
+                        </div>
+                      ) : (
+                        completedProjects.map((goal) => {
+                          const baseProgress =
+                            (goal as any).target_points && (goal as any).target_points > 0
+                              ? Math.round(
+                                  (((goal as any).current_points || 0) /
+                                    (goal as any).target_points) *
+                                    100
+                                )
+                              : 100 // Completed projects show 100%
+                          const goalProgress = baseProgress
+                          const categoryColors = {
+                            quick_money: '#DC2626',
+                            save_money: '#059669',
+                            health: '#F59E0B',
+                            network_expansion: '#8B5CF6',
+                            business_growth: '#10B981',
+                            fires: '#EF4444',
+                            good_living: '#EC4899',
+                            big_vision: '#7C3AED',
+                            job: '#3B82F6',
+                            organization: '#6B7280',
+                            tech_issues: '#F97316',
+                            business_launch: '#059669',
+                            future_planning: '#0EA5E9',
+                            innovation: '#8B5CF6',
+                            other: '#6B7280',
+                          }
+                          return (
+                            <div
+                              key={goal.id}
+                              className="bg-green-50 rounded-xl p-6 border border-green-200 hover:shadow-md transition-all duration-200"
+                            >
+                              <div className="flex items-start justify-between mb-4">
+                                <div className="flex items-center space-x-3">
+                                  <span className="text-2xl">
+                                    {(goal as any).category === 'quick_money'
+                                      ? '⚡'
+                                      : (goal as any).category === 'save_money'
+                                        ? '💳'
+                                        : (goal as any).category === 'health'
+                                          ? '💪'
+                                          : (goal as any).category === 'network_expansion'
+                                            ? '🤝'
+                                            : (goal as any).category === 'business_growth'
+                                              ? '📈'
+                                              : (goal as any).category === 'fires'
+                                                ? '🔥'
+                                                : (goal as any).category === 'good_living'
+                                                  ? '🌟'
+                                                  : (goal as any).category === 'big_vision'
+                                                    ? '🎯'
+                                                    : (goal as any).category === 'job'
+                                                      ? '💼'
+                                                      : (goal as any).category === 'organization'
+                                                        ? '📁'
+                                                        : (goal as any).category === 'tech_issues'
+                                                          ? '🔧'
+                                                          : (goal as any).category ===
+                                                              'business_launch'
+                                                            ? '🚀'
+                                                            : (goal as any).category ===
+                                                                'future_planning'
+                                                              ? '🗺️'
+                                                              : (goal as any).category ===
+                                                                  'innovation'
+                                                                ? '💡'
+                                                                : '📋'}
+                                  </span>
+                                  <div className="flex-1">
+                                    <h3 className="font-semibold text-gray-900">
+                                      {(goal as any).title}
+                                    </h3>
+                                    <div className="space-y-2">
+                                      <p className="text-sm text-gray-600 leading-relaxed">
+                                        {(() => {
+                                          const description =
+                                            (goal as any).description || 'No description'
+                                          const shouldTruncate = description.length > 120
+                                          const displayDescription =
+                                            shouldTruncate && !expandedDescriptions[goal.id]
+                                              ? description.substring(0, 120).trim() + '...'
+                                              : description
+                                          return displayDescription
+                                        })()}
+                                      </p>
+                                      {((goal as any).description || '').length > 120 && (
+                                        <button
+                                          onClick={() =>
+                                            setExpandedDescriptions((prev) => ({
+                                              ...prev,
+                                              [goal.id]: !prev[goal.id],
+                                            }))
+                                          }
+                                          className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                        >
+                                          {expandedDescriptions[goal.id] ? (
+                                            <>
+                                              <ChevronUp className="w-3 h-3" />
+                                              Show Less
+                                            </>
+                                          ) : (
+                                            <>
+                                              <ChevronDown className="w-3 h-3" />
+                                              View Details
+                                            </>
+                                          )}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2 ml-4">
+                                  <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-green-200 text-green-700">
+                                    {(goal as any).category}
+                                  </span>
+                                  <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 border-green-200 text-green-700">
+                                    Completed
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="space-y-3">
+                                <div>
+                                  <div className="flex justify-between text-sm mb-1">
+                                    <span>Progress</span>
+                                    <span>100%</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div
+                                      className="bg-green-500 h-2 rounded-full"
+                                      style={{ width: '100%' }}
+                                    ></div>
+                                  </div>
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  Completed on:{' '}
+                                  {new Date(
+                                    (goal as any).updated_at || (goal as any).created_at
+                                  ).toLocaleDateString()}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })
+                      )
+                    ) : // Show active projects
+                    goals.length === 0 ? (
+                      <div className="col-span-2 text-center py-8">
+                        <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                         <p className="text-gray-600">
-                          No completed projects yet. Complete a project to see it here!
+                          No active projects yet. Create your first project to get started!
                         </p>
                       </div>
                     ) : (
-                      completedProjects.map((goal) => {
+                      goals.map((goal) => {
                         const baseProgress =
                           (goal as any).target_points && (goal as any).target_points > 0
                             ? Math.round(
@@ -1545,8 +1865,11 @@ export default function DashboardPage() {
                                   (goal as any).target_points) *
                                   100
                               )
-                            : 100 // Completed projects show 100%
-                        const goalProgress = baseProgress
+                            : 0
+                        const goalProgress =
+                          localProgress[goal.id] !== undefined
+                            ? localProgress[goal.id]
+                            : baseProgress
                         const categoryColors = {
                           quick_money: '#DC2626',
                           save_money: '#059669',
@@ -1567,7 +1890,7 @@ export default function DashboardPage() {
                         return (
                           <div
                             key={goal.id}
-                            className="bg-green-50 rounded-xl p-6 border border-green-200 hover:shadow-md transition-all duration-200"
+                            className="bg-white/50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-all duration-200"
                           >
                             <div className="flex items-start justify-between mb-4">
                               <div className="flex items-center space-x-3">
@@ -1648,421 +1971,273 @@ export default function DashboardPage() {
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex items-center space-x-2 ml-4">
-                                <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-green-200 text-green-700">
+                              <div className="flex items-center space-x-2">
+                                <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-blue-200 text-blue-700">
                                   {(goal as any).category}
                                 </span>
-                                <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 border-green-200 text-green-700">
-                                  Completed
-                                </span>
-                              </div>
-                            </div>
-                            <div className="space-y-3">
-                              <div>
-                                <div className="flex justify-between text-sm mb-1">
-                                  <span>Progress</span>
-                                  <span>100%</span>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className="bg-green-500 h-2 rounded-full"
-                                    style={{ width: '100%' }}
-                                  ></div>
-                                </div>
-                              </div>
-                              <div className="text-sm text-gray-600">
-                                Completed on:{' '}
-                                {new Date(
-                                  (goal as any).updated_at || (goal as any).created_at
-                                ).toLocaleDateString()}
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })
-                    )
-                  ) : // Show active projects
-                  goals.length === 0 ? (
-                    <div className="col-span-2 text-center py-8">
-                      <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">
-                        No active projects yet. Create your first project to get started!
-                      </p>
-                    </div>
-                  ) : (
-                    goals.map((goal) => {
-                      const baseProgress =
-                        (goal as any).target_points && (goal as any).target_points > 0
-                          ? Math.round(
-                              (((goal as any).current_points || 0) / (goal as any).target_points) *
-                                100
-                            )
-                          : 0
-                      const goalProgress =
-                        localProgress[goal.id] !== undefined ? localProgress[goal.id] : baseProgress
-                      const categoryColors = {
-                        quick_money: '#DC2626',
-                        save_money: '#059669',
-                        health: '#F59E0B',
-                        network_expansion: '#8B5CF6',
-                        business_growth: '#10B981',
-                        fires: '#EF4444',
-                        good_living: '#EC4899',
-                        big_vision: '#7C3AED',
-                        job: '#3B82F6',
-                        organization: '#6B7280',
-                        tech_issues: '#F97316',
-                        business_launch: '#059669',
-                        future_planning: '#0EA5E9',
-                        innovation: '#8B5CF6',
-                        other: '#6B7280',
-                      }
-                      return (
-                        <div
-                          key={goal.id}
-                          className="bg-white/50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-all duration-200"
-                        >
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center space-x-3">
-                              <span className="text-2xl">
-                                {(goal as any).category === 'quick_money'
-                                  ? '⚡'
-                                  : (goal as any).category === 'save_money'
-                                    ? '💳'
-                                    : (goal as any).category === 'health'
-                                      ? '💪'
-                                      : (goal as any).category === 'network_expansion'
-                                        ? '🤝'
-                                        : (goal as any).category === 'business_growth'
-                                          ? '📈'
-                                          : (goal as any).category === 'fires'
-                                            ? '🔥'
-                                            : (goal as any).category === 'good_living'
-                                              ? '🌟'
-                                              : (goal as any).category === 'big_vision'
-                                                ? '🎯'
-                                                : (goal as any).category === 'job'
-                                                  ? '💼'
-                                                  : (goal as any).category === 'organization'
-                                                    ? '📁'
-                                                    : (goal as any).category === 'tech_issues'
-                                                      ? '🔧'
-                                                      : (goal as any).category === 'business_launch'
-                                                        ? '🚀'
-                                                        : (goal as any).category ===
-                                                            'future_planning'
-                                                          ? '🗺️'
-                                                          : (goal as any).category === 'innovation'
-                                                            ? '💡'
-                                                            : '📋'}
-                              </span>
-                              <div className="flex-1">
-                                <h3 className="font-semibold text-gray-900">
-                                  {(goal as any).title}
-                                </h3>
-                                <div className="space-y-2">
-                                  <p className="text-sm text-gray-600 leading-relaxed">
-                                    {(() => {
-                                      const description =
-                                        (goal as any).description || 'No description'
-                                      const shouldTruncate = description.length > 120
-                                      const displayDescription =
-                                        shouldTruncate && !expandedDescriptions[goal.id]
-                                          ? description.substring(0, 120).trim() + '...'
-                                          : description
-                                      return displayDescription
-                                    })()}
-                                  </p>
-                                  {((goal as any).description || '').length > 120 && (
-                                    <button
-                                      onClick={() =>
-                                        setExpandedDescriptions((prev) => ({
-                                          ...prev,
-                                          [goal.id]: !prev[goal.id],
-                                        }))
-                                      }
-                                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                                    >
-                                      {expandedDescriptions[goal.id] ? (
-                                        <>
-                                          <ChevronUp className="w-3 h-3" />
-                                          Show Less
-                                        </>
-                                      ) : (
-                                        <>
-                                          <ChevronDown className="w-3 h-3" />
-                                          View Details
-                                        </>
-                                      )}
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-blue-200 text-blue-700">
-                                {(goal as any).category}
-                              </span>
-                              <button
-                                onClick={() => convertGoalToTask(goal)}
-                                className="text-green-500 hover:text-green-700"
-                                title="Convert to Task"
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => deleteGoal(goal.id)}
-                                className="text-red-500 hover:text-red-700"
-                                title="Delete Goal"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-600">
-                                {(goal as any).current_points || 0}/
-                                {(goal as any).target_points || 0} points
-                              </span>
-                              <div className="flex items-center space-x-2">
-                                <span className="font-medium text-gray-900">{goalProgress}%</span>
-                                {updatingProgress === goal.id && (
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Interactive Progress Slider */}
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between text-xs text-gray-500">
-                                <span>Progress</span>
-                                <span>{goalProgress}%</span>
-                              </div>
-                              <Slider
-                                value={goalProgress}
-                                onChange={(value) => handleProgressChange(goal.id, value)}
-                                onValueCommit={(value) => handleProgressCommit(goal.id, value)}
-                                min={0}
-                                max={100}
-                                step={1}
-                                className="w-full"
-                                disabled={updatingProgress === goal.id}
-                              />
-                              <div className="flex items-center justify-between text-xs text-gray-500">
-                                <span>0%</span>
-                                <span>100%</span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-gray-500">
-                                {((goal as any).target_points || 0) -
-                                  ((goal as any).current_points || 0)}{' '}
-                                points remaining
-                              </span>
-                              <button
-                                onClick={() => openEditGoal(goal)}
-                                className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 rounded-md px-3 text-xs"
-                              >
-                                View Details <ChevronRight className="h-3 w-3 ml-1" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Tasks Section */}
-            <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
-              <div className="p-6 pb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-semibold tracking-tight flex items-center text-xl">
-                      <CheckCircle className="h-6 w-6 mr-2 text-green-500" />
-                      Current Tasks
-                    </h2>
-                    <p className="text-sm text-gray-600">
-                      Break down your projects into actionable steps
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setShowCompleted(!showCompleted)}
-                      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-10 px-4 py-2 ${
-                        showCompleted
-                          ? 'bg-green-600 text-white hover:bg-green-700'
-                          : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700'
-                      }`}
-                    >
-                      <History className="h-4 w-4 mr-2" />
-                      {showCompleted ? 'Active' : 'Completed'}
-                    </button>
-                    <button
-                      onClick={() => setShowAddTask(true)}
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Task
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="p-6 pt-0">
-                <div className="space-y-3">
-                  {loading ? (
-                    <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                      <p className="text-gray-600 mt-2">Loading tasks...</p>
-                    </div>
-                  ) : showCompleted ? (
-                    // Show completed tasks
-                    completedTasks.length === 0 ? (
-                      <div className="text-center py-8">
-                        <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">
-                          No completed tasks yet. Complete a task to see it here!
-                        </p>
-                      </div>
-                    ) : (
-                      completedTasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className="bg-green-50 rounded-lg p-4 border border-green-200 transition-all duration-200"
-                        >
-                          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 mt-1">
-                              <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                                <CheckCircle className="w-3 h-3 text-white" />
-                              </div>
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between">
-                                <h3 className="font-medium text-gray-900 line-through">
-                                  {task.title}
-                                </h3>
-                                <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 border-green-200 text-green-700">
-                                  Completed
-                                </span>
-                              </div>
-                              {task.description && (
-                                <p className="text-sm text-gray-600 mt-1 line-through">
-                                  {task.description}
-                                </p>
-                              )}
-                              <div className="flex items-center justify-between mt-2">
-                                <div className="flex items-center space-x-4 text-sm text-gray-500">
-                                  <span>+{(task as any).points_value || 0} pts</span>
-                                  <span>${(task as any).money_value || 0}</span>
-                                </div>
-                                <span className="text-xs text-gray-500">
-                                  Completed:{' '}
-                                  {new Date(
-                                    (task as any).updated_at || (task as any).created_at
-                                  ).toLocaleDateString()}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )
-                  ) : // Show active tasks
-                  tasks.length === 0 ? (
-                    <div className="text-center py-8">
-                      <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">
-                        No active tasks yet. Create your first task to get started!
-                      </p>
-                    </div>
-                  ) : (
-                    tasks.map((task) => (
-                      <div
-                        key={task.id}
-                        className={`bg-white/50 rounded-lg p-4 border transition-all duration-200 hover:shadow-sm ${
-                          task.status === 'completed'
-                            ? 'border-green-200 bg-green-50/50'
-                            : 'border-gray-200 hover:border-blue-200'
-                        }`}
-                      >
-                        <div className="flex items-start space-x-4">
-                          <button
-                            onClick={() => toggleTask(task.id)}
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mt-0.5 transition-all duration-200 ${
-                              task.status === 'completed'
-                                ? 'bg-green-500 border-green-500 hover:bg-green-600'
-                                : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-                            }`}
-                          >
-                            {task.status === 'completed' && (
-                              <CheckCircle className="h-4 w-4 text-white" />
-                            )}
-                          </button>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <h4
-                                  className={`font-medium ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'}`}
-                                >
-                                  {(task as any).title}
-                                </h4>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  {task.description || 'No description'}
-                                </p>
-                                {(task as any).weekly_goal && (task as any).weekly_goal.title && (
-                                  <p className="text-xs text-blue-600 mt-1">
-                                    📋 {(task as any).weekly_goal.title}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="flex items-center space-x-2 ml-4">
-                                <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gray-100 text-gray-700">
-                                  <Star className="h-3 w-3 mr-1" />
-                                  {task.points_value || 0}
-                                </span>
                                 <button
-                                  onClick={() => openEditTask(task)}
-                                  className="text-gray-500 hover:text-gray-700"
-                                  title="Edit Task"
+                                  onClick={() => convertGoalToTask(goal)}
+                                  className="text-green-500 hover:text-green-700"
+                                  title="Convert to Task"
                                 >
-                                  <Settings className="h-4 w-4" />
+                                  <CheckCircle className="h-4 w-4" />
                                 </button>
                                 <button
-                                  onClick={() => {
-                                    console.log(
-                                      'Convert to goal button clicked for task:',
-                                      (task as any).title
-                                    )
-                                    convertTaskToGoal(task)
-                                  }}
-                                  className="text-blue-500 hover:text-blue-700"
-                                  title="Convert to Goal"
-                                >
-                                  <Target className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => deleteTask(task.id)}
+                                  onClick={() => deleteGoal(goal.id)}
                                   className="text-red-500 hover:text-red-700"
-                                  title="Delete Task"
+                                  title="Delete Goal"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
                               </div>
                             </div>
+
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600">
+                                  {(goal as any).current_points || 0}/
+                                  {(goal as any).target_points || 0} points
+                                </span>
+                                <div className="flex items-center space-x-2">
+                                  <span className="font-medium text-gray-900">{goalProgress}%</span>
+                                  {updatingProgress === goal.id && (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Interactive Progress Slider */}
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between text-xs text-gray-500">
+                                  <span>Progress</span>
+                                  <span>{goalProgress}%</span>
+                                </div>
+                                <Slider
+                                  value={goalProgress}
+                                  onChange={(value) => handleProgressChange(goal.id, value)}
+                                  onValueCommit={(value) => handleProgressCommit(goal.id, value)}
+                                  min={0}
+                                  max={100}
+                                  step={1}
+                                  className="w-full"
+                                  disabled={updatingProgress === goal.id}
+                                />
+                                <div className="flex items-center justify-between text-xs text-gray-500">
+                                  <span>0%</span>
+                                  <span>100%</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-500">
+                                  {((goal as any).target_points || 0) -
+                                    ((goal as any).current_points || 0)}{' '}
+                                  points remaining
+                                </span>
+                                <button
+                                  onClick={() => openEditGoal(goal)}
+                                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 rounded-md px-3 text-xs"
+                                >
+                                  View Details <ChevronRight className="h-3 w-3 ml-1" />
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
+                        )
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* Tasks Section */}
+            {sectionVisibility.tasks && (
+              <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
+                <div className="p-6 pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-semibold tracking-tight flex items-center text-xl">
+                        <CheckCircle className="h-6 w-6 mr-2 text-green-500" />
+                        Current Tasks
+                      </h2>
+                      <p className="text-sm text-gray-600">
+                        Break down your projects into actionable steps
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setShowCompleted(!showCompleted)}
+                        className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-10 px-4 py-2 ${
+                          showCompleted
+                            ? 'bg-green-600 text-white hover:bg-green-700'
+                            : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        <History className="h-4 w-4 mr-2" />
+                        {showCompleted ? 'Active' : 'Completed'}
+                      </button>
+                      <button
+                        onClick={() => setShowAddTask(true)}
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Task
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6 pt-0">
+                  <div className="space-y-3">
+                    {loading ? (
+                      <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                        <p className="text-gray-600 mt-2">Loading tasks...</p>
+                      </div>
+                    ) : showCompleted ? (
+                      // Show completed tasks
+                      completedTasks.length === 0 ? (
+                        <div className="text-center py-8">
+                          <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                          <p className="text-gray-600">
+                            No completed tasks yet. Complete a task to see it here!
+                          </p>
+                        </div>
+                      ) : (
+                        completedTasks.map((task) => (
+                          <div
+                            key={task.id}
+                            className="bg-green-50 rounded-lg p-4 border border-green-200 transition-all duration-200"
+                          >
+                            <div className="flex items-start space-x-4">
+                              <div className="flex-shrink-0 mt-1">
+                                <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                  <CheckCircle className="w-3 h-3 text-white" />
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between">
+                                  <h3 className="font-medium text-gray-900 line-through">
+                                    {task.title}
+                                  </h3>
+                                  <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 border-green-200 text-green-700">
+                                    Completed
+                                  </span>
+                                </div>
+                                {task.description && (
+                                  <p className="text-sm text-gray-600 mt-1 line-through">
+                                    {task.description}
+                                  </p>
+                                )}
+                                <div className="flex items-center justify-between mt-2">
+                                  <div className="flex items-center space-x-4 text-sm text-gray-500">
+                                    <span>+{(task as any).points_value || 0} pts</span>
+                                    <span>${(task as any).money_value || 0}</span>
+                                  </div>
+                                  <span className="text-xs text-gray-500">
+                                    Completed:{' '}
+                                    {new Date(
+                                      (task as any).updated_at || (task as any).created_at
+                                    ).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )
+                    ) : // Show active tasks
+                    tasks.length === 0 ? (
+                      <div className="text-center py-8">
+                        <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-600">
+                          No active tasks yet. Create your first task to get started!
+                        </p>
+                      </div>
+                    ) : (
+                      tasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className={`bg-white/50 rounded-lg p-4 border transition-all duration-200 hover:shadow-sm ${
+                            task.status === 'completed'
+                              ? 'border-green-200 bg-green-50/50'
+                              : 'border-gray-200 hover:border-blue-200'
+                          }`}
+                        >
+                          <div className="flex items-start space-x-4">
+                            <button
+                              onClick={() => toggleTask(task.id)}
+                              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mt-0.5 transition-all duration-200 ${
+                                task.status === 'completed'
+                                  ? 'bg-green-500 border-green-500 hover:bg-green-600'
+                                  : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                              }`}
+                            >
+                              {task.status === 'completed' && (
+                                <CheckCircle className="h-4 w-4 text-white" />
+                              )}
+                            </button>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <h4
+                                    className={`font-medium ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'}`}
+                                  >
+                                    {(task as any).title}
+                                  </h4>
+                                  <p className="text-sm text-gray-600 mt-1">
+                                    {task.description || 'No description'}
+                                  </p>
+                                  {(task as any).weekly_goal && (task as any).weekly_goal.title && (
+                                    <p className="text-xs text-blue-600 mt-1">
+                                      📋 {(task as any).weekly_goal.title}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-2 ml-4">
+                                  <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gray-100 text-gray-700">
+                                    <Star className="h-3 w-3 mr-1" />
+                                    {task.points_value || 0}
+                                  </span>
+                                  <button
+                                    onClick={() => openEditTask(task)}
+                                    className="text-gray-500 hover:text-gray-700"
+                                    title="Edit Task"
+                                  >
+                                    <Settings className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      console.log(
+                                        'Convert to goal button clicked for task:',
+                                        (task as any).title
+                                      )
+                                      convertTaskToGoal(task)
+                                    }}
+                                    className="text-blue-500 hover:text-blue-700"
+                                    title="Convert to Goal"
+                                  >
+                                    <Target className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteTask(task.id)}
+                                    className="text-red-500 hover:text-red-700"
+                                    title="Delete Task"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Sidebar */}
@@ -2103,220 +2278,226 @@ export default function DashboardPage() {
             </div>
 
             {/* Recent Accomplishments */}
-            <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
-              <div className="p-6 pb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-semibold tracking-tight flex items-center text-xl">
-                      <Activity className="h-6 w-6 mr-2 text-orange-500" />
-                      Recent Accomplishments
-                    </h2>
-                    <p className="text-sm text-gray-600">Your latest progress and achievements</p>
+            {sectionVisibility.accomplishments && (
+              <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
+                <div className="p-6 pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-semibold tracking-tight flex items-center text-xl">
+                        <Activity className="h-6 w-6 mr-2 text-orange-500" />
+                        Recent Accomplishments
+                      </h2>
+                      <p className="text-sm text-gray-600">Your latest progress and achievements</p>
+                    </div>
+                    <button
+                      onClick={() => setShowAccomplishmentsHistory(true)}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      View All
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setShowAccomplishmentsHistory(true)}
-                    className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                  >
-                    View All
-                  </button>
                 </div>
-              </div>
-              <div className="p-6 pt-0">
-                <div className="space-y-4">
-                  {accomplishments.length === 0 ? (
-                    <div className="text-center py-6">
-                      <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600 text-sm">No accomplishments yet</p>
-                      <p className="text-gray-500 text-xs mt-1">
-                        Complete goals or tasks to see your progress here
-                      </p>
-                    </div>
-                  ) : (
-                    accomplishments.map((accomplishment) => {
-                      const isGoalProgress = accomplishment.type === 'goal_progress'
-                      const isTaskCompletion = accomplishment.type === 'task_completion'
+                <div className="p-6 pt-0">
+                  <div className="space-y-4">
+                    {accomplishments.length === 0 ? (
+                      <div className="text-center py-6">
+                        <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-600 text-sm">No accomplishments yet</p>
+                        <p className="text-gray-500 text-xs mt-1">
+                          Complete goals or tasks to see your progress here
+                        </p>
+                      </div>
+                    ) : (
+                      accomplishments.map((accomplishment) => {
+                        const isGoalProgress = accomplishment.type === 'goal_progress'
+                        const isTaskCompletion = accomplishment.type === 'task_completion'
 
-                      const getIcon = () => {
-                        if (isGoalProgress) {
-                          const category = (accomplishment as any).details.goal?.category
-                          return category === 'quick_money'
-                            ? '⚡'
-                            : category === 'save_money'
-                              ? '💳'
-                              : category === 'health'
-                                ? '💪'
-                                : category === 'network_expansion'
-                                  ? '🤝'
-                                  : category === 'business_growth'
-                                    ? '📈'
-                                    : category === 'fires'
-                                      ? '🔥'
-                                      : category === 'good_living'
-                                        ? '🌟'
-                                        : category === 'big_vision'
-                                          ? '🎯'
-                                          : category === 'job'
-                                            ? '💼'
-                                            : category === 'organization'
-                                              ? '📁'
-                                              : category === 'tech_issues'
-                                                ? '🔧'
-                                                : category === 'business_launch'
-                                                  ? '🚀'
-                                                  : category === 'future_planning'
-                                                    ? '🗺️'
-                                                    : category === 'innovation'
-                                                      ? '💡'
-                                                      : '📋'
-                        } else if (isTaskCompletion) {
-                          return '✅'
-                        }
-                        return '⭐'
-                      }
-
-                      const getTitle = () => {
-                        if (isGoalProgress) {
-                          return `Progress on "${(accomplishment as any).details.goal?.title}"`
-                        } else if (isTaskCompletion) {
-                          return `Completed "${(accomplishment as any).details.task?.title}"`
-                        }
-                        return accomplishment.description
-                      }
-
-                      const getTimeAgo = (dateString: string) => {
-                        const now = new Date()
-                        const date = new Date(dateString)
-                        const diffInMinutes = Math.floor(
-                          (now.getTime() - date.getTime()) / (1000 * 60)
-                        )
-
-                        if (diffInMinutes < 1) return 'Just now'
-                        if (diffInMinutes < 60) return `${diffInMinutes}m ago`
-                        if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`
-                        return `${Math.floor(diffInMinutes / 1440)}d ago`
-                      }
-
-                      return (
-                        <div
-                          key={(accomplishment as any).id}
-                          className="flex items-center space-x-3 p-3 bg-white/50 rounded-lg border border-gray-200 hover:bg-white/70 transition-colors"
-                        >
-                          <span className="text-lg">{getIcon()}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900 text-sm truncate">
-                              {getTitle() as any}
-                            </p>
-                            <p className="text-xs text-gray-600">
-                              {getTimeAgo((accomplishment as any).created_at)}
-                            </p>
-                          </div>
-                          <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-green-100 text-green-700">
-                            <Star className="h-3 w-3 mr-1" />+{(accomplishment as any).points}
-                          </span>
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Category Breakdown */}
-            <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
-              <div className="p-6 pb-4">
-                <h2 className="font-semibold tracking-tight flex items-center text-xl">
-                  <PieChart className="h-6 w-6 mr-2 text-indigo-500" />
-                  Category Progress
-                </h2>
-                <p className="text-sm text-gray-600">Points by life area</p>
-              </div>
-              <div className="p-6 pt-0">
-                <div className="space-y-4">
-                  {Object.keys(categoryPoints).length === 0 ? (
-                    <div className="text-center py-4">
-                      <p className="text-gray-500 text-sm">No projects yet</p>
-                      <p className="text-gray-400 text-xs mt-1">
-                        Create your first project to see category progress
-                      </p>
-                    </div>
-                  ) : (
-                    Object.entries(categoryPoints)
-                      .sort(([, a], [, b]) => b.current - a.current) // Sort by current points descending
-                      .map(([category, points]) => {
-                        const categoryColors = {
-                          quick_money: 'bg-red-500',
-                          save_money: 'bg-gray-500',
-                          health: 'bg-orange-500',
-                          network_expansion: 'bg-gray-600',
-                          business_growth: 'bg-green-500',
-                          fires: 'bg-red-600',
-                          good_living: 'bg-yellow-500',
-                          big_vision: 'bg-indigo-500',
-                          job: 'bg-gray-500',
-                          organization: 'bg-teal-500',
-                          tech_issues: 'bg-cyan-500',
-                          business_launch: 'bg-pink-500',
-                          future_planning: 'bg-violet-500',
-                          innovation: 'bg-emerald-500',
-                          productivity: 'bg-green-500',
-                          learning: 'bg-gray-600',
-                          financial: 'bg-gray-500',
-                          personal: 'bg-pink-500',
-                          other: 'bg-gray-400',
+                        const getIcon = () => {
+                          if (isGoalProgress) {
+                            const category = (accomplishment as any).details.goal?.category
+                            return category === 'quick_money'
+                              ? '⚡'
+                              : category === 'save_money'
+                                ? '💳'
+                                : category === 'health'
+                                  ? '💪'
+                                  : category === 'network_expansion'
+                                    ? '🤝'
+                                    : category === 'business_growth'
+                                      ? '📈'
+                                      : category === 'fires'
+                                        ? '🔥'
+                                        : category === 'good_living'
+                                          ? '🌟'
+                                          : category === 'big_vision'
+                                            ? '🎯'
+                                            : category === 'job'
+                                              ? '💼'
+                                              : category === 'organization'
+                                                ? '📁'
+                                                : category === 'tech_issues'
+                                                  ? '🔧'
+                                                  : category === 'business_launch'
+                                                    ? '🚀'
+                                                    : category === 'future_planning'
+                                                      ? '🗺️'
+                                                      : category === 'innovation'
+                                                        ? '💡'
+                                                        : '📋'
+                          } else if (isTaskCompletion) {
+                            return '✅'
+                          }
+                          return '⭐'
                         }
 
-                        const categoryLabels = {
-                          quick_money: 'Quick Money',
-                          save_money: 'Save Money',
-                          health: 'Health',
-                          network_expansion: 'Network Expansion',
-                          business_growth: 'Business Growth',
-                          fires: 'Fires',
-                          good_living: 'Good Living',
-                          big_vision: 'Big Vision',
-                          job: 'Job',
-                          organization: 'Organization',
-                          tech_issues: 'Tech Issues',
-                          business_launch: 'Business Launch',
-                          future_planning: 'Future Planning',
-                          innovation: 'Innovation',
-                          productivity: 'Productivity',
-                          learning: 'Learning',
-                          financial: 'Financial',
-                          personal: 'Personal',
-                          other: 'Other',
+                        const getTitle = () => {
+                          if (isGoalProgress) {
+                            return `Progress on "${(accomplishment as any).details.goal?.title}"`
+                          } else if (isTaskCompletion) {
+                            return `Completed "${(accomplishment as any).details.task?.title}"`
+                          }
+                          return accomplishment.description
+                        }
+
+                        const getTimeAgo = (dateString: string) => {
+                          const now = new Date()
+                          const date = new Date(dateString)
+                          const diffInMinutes = Math.floor(
+                            (now.getTime() - date.getTime()) / (1000 * 60)
+                          )
+
+                          if (diffInMinutes < 1) return 'Just now'
+                          if (diffInMinutes < 60) return `${diffInMinutes}m ago`
+                          if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`
+                          return `${Math.floor(diffInMinutes / 1440)}d ago`
                         }
 
                         return (
-                          <div key={category} className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                              <div
-                                className={`w-3 h-3 rounded-full ${categoryColors[category as keyof typeof categoryColors] || 'bg-gray-400'}`}
-                              />
-                              <span className="text-sm font-medium text-gray-900">
-                                {categoryLabels[category as keyof typeof categoryLabels] ||
-                                  category}
-                              </span>
+                          <div
+                            key={(accomplishment as any).id}
+                            className="flex items-center space-x-3 p-3 bg-white/50 rounded-lg border border-gray-200 hover:bg-white/70 transition-colors"
+                          >
+                            <span className="text-lg">{getIcon()}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 text-sm truncate">
+                                {getTitle() as any}
+                              </p>
+                              <p className="text-xs text-gray-600">
+                                {getTimeAgo((accomplishment as any).created_at)}
+                              </p>
                             </div>
-                            <div className="text-right">
-                              <span className="text-sm font-bold text-gray-900">
-                                {points.current} pts
-                              </span>
-                              <span className="text-xs text-gray-500 ml-1">/ {points.target}</span>
-                            </div>
+                            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-green-100 text-green-700">
+                              <Star className="h-3 w-3 mr-1" />+{(accomplishment as any).points}
+                            </span>
                           </div>
                         )
                       })
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* Category Breakdown */}
+            {sectionVisibility.categories && (
+              <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
+                <div className="p-6 pb-4">
+                  <h2 className="font-semibold tracking-tight flex items-center text-xl">
+                    <PieChart className="h-6 w-6 mr-2 text-indigo-500" />
+                    Category Progress
+                  </h2>
+                  <p className="text-sm text-gray-600">Points by life area</p>
+                </div>
+                <div className="p-6 pt-0">
+                  <div className="space-y-4">
+                    {Object.keys(categoryPoints).length === 0 ? (
+                      <div className="text-center py-4">
+                        <p className="text-gray-500 text-sm">No projects yet</p>
+                        <p className="text-gray-400 text-xs mt-1">
+                          Create your first project to see category progress
+                        </p>
+                      </div>
+                    ) : (
+                      Object.entries(categoryPoints)
+                        .sort(([, a], [, b]) => b.current - a.current) // Sort by current points descending
+                        .map(([category, points]) => {
+                          const categoryColors = {
+                            quick_money: 'bg-red-500',
+                            save_money: 'bg-gray-500',
+                            health: 'bg-orange-500',
+                            network_expansion: 'bg-gray-600',
+                            business_growth: 'bg-green-500',
+                            fires: 'bg-red-600',
+                            good_living: 'bg-yellow-500',
+                            big_vision: 'bg-indigo-500',
+                            job: 'bg-gray-500',
+                            organization: 'bg-teal-500',
+                            tech_issues: 'bg-cyan-500',
+                            business_launch: 'bg-pink-500',
+                            future_planning: 'bg-violet-500',
+                            innovation: 'bg-emerald-500',
+                            productivity: 'bg-green-500',
+                            learning: 'bg-gray-600',
+                            financial: 'bg-gray-500',
+                            personal: 'bg-pink-500',
+                            other: 'bg-gray-400',
+                          }
+
+                          const categoryLabels = {
+                            quick_money: 'Quick Money',
+                            save_money: 'Save Money',
+                            health: 'Health',
+                            network_expansion: 'Network Expansion',
+                            business_growth: 'Business Growth',
+                            fires: 'Fires',
+                            good_living: 'Good Living',
+                            big_vision: 'Big Vision',
+                            job: 'Job',
+                            organization: 'Organization',
+                            tech_issues: 'Tech Issues',
+                            business_launch: 'Business Launch',
+                            future_planning: 'Future Planning',
+                            innovation: 'Innovation',
+                            productivity: 'Productivity',
+                            learning: 'Learning',
+                            financial: 'Financial',
+                            personal: 'Personal',
+                            other: 'Other',
+                          }
+
+                          return (
+                            <div key={category} className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <div
+                                  className={`w-3 h-3 rounded-full ${categoryColors[category as keyof typeof categoryColors] || 'bg-gray-400'}`}
+                                />
+                                <span className="text-sm font-medium text-gray-900">
+                                  {categoryLabels[category as keyof typeof categoryLabels] ||
+                                    category}
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-sm font-bold text-gray-900">
+                                  {points.current} pts
+                                </span>
+                                <span className="text-xs text-gray-500 ml-1">
+                                  / {points.target}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Daily Habits Section */}
-            <HabitsSection />
+            {sectionVisibility.habits && <HabitsSection />}
 
             {/* Education Section */}
-            <EducationSection />
+            {sectionVisibility.education && <EducationSection />}
           </div>
         </div>
       </div>

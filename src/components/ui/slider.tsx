@@ -1,7 +1,7 @@
-"use client"
+'use client'
 
-import * as React from "react"
-import { cn } from "@/lib/utils"
+import * as React from 'react'
+import { cn } from '@/lib/utils'
 
 interface SliderProps {
   value: number
@@ -15,7 +15,20 @@ interface SliderProps {
 }
 
 const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
-  ({ value, onChange, onValueCommit, min = 0, max = 100, step = 1, disabled = false, className, ...props }, ref) => {
+  (
+    {
+      value,
+      onChange,
+      onValueCommit,
+      min = 0,
+      max = 100,
+      step = 1,
+      disabled = false,
+      className,
+      ...props
+    },
+    ref
+  ) => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const newValue = parseInt(e.target.value)
       onChange(newValue)
@@ -36,7 +49,7 @@ const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
     }
 
     return (
-      <div className={cn("relative w-full", className)}>
+      <div className={cn('relative w-full', className)}>
         <input
           ref={ref}
           type="range"
@@ -49,13 +62,13 @@ const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
           onTouchEnd={handleTouchEnd}
           disabled={disabled}
           className={cn(
-            "w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider",
-            "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
+            'w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider',
+            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50',
+            'disabled:opacity-50 disabled:cursor-not-allowed',
             className
           )}
           style={{
-            background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${value}%, #e5e7eb ${value}%, #e5e7eb 100%)`
+            background: `linear-gradient(to right, #000000 0%, #000000 ${value}%, #e5e7eb ${value}%, #e5e7eb 100%)`,
           }}
           {...props}
         />
@@ -65,7 +78,7 @@ const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
             height: 20px;
             width: 20px;
             border-radius: 50%;
-            background: #3b82f6;
+            background: #000000;
             cursor: pointer;
             border: 2px solid #ffffff;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -74,7 +87,7 @@ const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
             height: 20px;
             width: 20px;
             border-radius: 50%;
-            background: #3b82f6;
+            background: #000000;
             cursor: pointer;
             border: 2px solid #ffffff;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -85,7 +98,6 @@ const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
   }
 )
 
-Slider.displayName = "Slider"
+Slider.displayName = 'Slider'
 
 export { Slider }
-

@@ -19,3 +19,4 @@ LIMIT 3;
 SELECT DISTINCT user_id FROM weekly_goals LIMIT 5;
 
 
+
