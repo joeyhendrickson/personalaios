@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       daily_intention
     )
 
-    // Fetch user's goals, projects, and tasks (including completed items for context)
+    // Fetch complete dashboard context for holistic AI recommendations
     console.log('Fetching user data...')
     const [
       goalsResult,
@@ -44,6 +44,10 @@ export async function POST(request: NextRequest) {
       completedProjectsResult,
       completedTasksResult,
       existingPrioritiesResult,
+      habitsResult,
+      educationResult,
+      accomplishmentsResult,
+      pointsHistoryResult,
     ] = await Promise.all([
       supabase
         .from('goals')
@@ -90,6 +94,36 @@ export async function POST(request: NextRequest) {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false }),
+
+      // Fetch habits for context
+      supabase
+        .from('habits')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false }),
+
+      // Fetch education items for context
+      supabase
+        .from('education')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false }),
+
+      // Fetch recent accomplishments for context
+      supabase
+        .from('accomplishments')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10),
+
+      // Fetch points history for context
+      supabase
+        .from('points_ledger')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20),
     ])
 
     const goals = goalsResult.data || []
@@ -98,6 +132,10 @@ export async function POST(request: NextRequest) {
     const completedProjects = completedProjectsResult.data || []
     const completedTasks = completedTasksResult.data || []
     const existingPriorities = existingPrioritiesResult.data || []
+    const habits = habitsResult.data || []
+    const education = educationResult.data || []
+    const accomplishments = accomplishmentsResult.data || []
+    const pointsHistory = pointsHistoryResult.data || []
 
     console.log(
       'Data fetched - Goals:',
@@ -111,7 +149,15 @@ export async function POST(request: NextRequest) {
       'Completed Tasks:',
       completedTasks.length,
       'Existing Priorities:',
-      existingPriorities.length
+      existingPriorities.length,
+      'Habits:',
+      habits.length,
+      'Education:',
+      education.length,
+      'Accomplishments:',
+      accomplishments.length,
+      'Points History:',
+      pointsHistory.length
     )
 
     // Check for errors in data fetching
@@ -180,7 +226,7 @@ export async function POST(request: NextRequest) {
       (t) => t.category !== 'fires' && !existingTaskIds.includes(t.id)
     )
 
-    // Create AI prompt with user's daily intention
+    // Create AI prompt with user's daily intention and holistic dashboard context
     const prompt = `
 You are an AI productivity assistant helping prioritize tasks and projects for TODAY based on the user's specific daily intention.
 
@@ -194,6 +240,16 @@ CONTEXT:
 - Focus on 3-5 actionable priorities that align with the user's stated intention
 - FIRES items are URGENT and should be prioritized appropriately based on the user's intention
 - IMPORTANT: Do NOT recommend priorities for completed items - they are already done
+- You have COMPLETE DASHBOARD CONTEXT below - use it to make holistic, strategic recommendations
+
+DASHBOARD OVERVIEW:
+- High-Level Goals: ${goals.length} active goals
+- Active Projects: ${projects.length} projects  
+- Active Tasks: ${tasks.length} tasks
+- Daily Habits: ${habits.length} habits tracked
+- Education Items: ${education.length} learning items
+- Recent Accomplishments: ${accomplishments.length} recent wins
+- Points Earned: ${pointsHistory.length} recent point activities
 
 GOALS (in priority order):
 ${goals.map((goal, i) => `${i + 1}. ${goal.title} (${goal.goal_type}) - Target: ${goal.target_value} ${goal.target_unit || ''} - Current: ${goal.current_value} - Priority: ${goal.priority_level}/5`).join('\n')}
@@ -211,21 +267,50 @@ ${completedTasks.length > 0 ? `COMPLETED TASKS:\n${completedTasks.map((task) => 
 EXISTING PRIORITIES (already set - DO NOT duplicate these):
 ${existingPriorities.length > 0 ? `CURRENT PRIORITIES:\n${existingPriorities.map((priority) => `🔥 ${priority.title} (${priority.priority_type}) - Score: ${priority.priority_score}`).join('\n')}\n` : 'No existing priorities'}
 
+DAILY HABITS (for context - consider habit completion in recommendations):
+${habits.length > 0 ? `TRACKED HABITS:\n${habits.map((habit) => `- ${habit.title} (${habit.category}) - ${habit.frequency}`).join('\n')}\n` : 'No habits tracked'}
+
+EDUCATION/LEARNING (for context - consider learning goals):
+${education.length > 0 ? `LEARNING ITEMS:\n${education.map((item) => `- ${item.title} (${item.category}) - ${item.status}`).join('\n')}\n` : 'No education items'}
+
+RECENT ACCOMPLISHMENTS (for motivation context):
+${accomplishments.length > 0 ? `RECENT WINS:\n${accomplishments.map((acc) => `✅ ${acc.title} (${acc.type})`).join('\n')}\n` : 'No recent accomplishments'}
+
+RECENT ACTIVITY (points earned):
+${
+  pointsHistory.length > 0
+    ? `RECENT POINTS:\n${pointsHistory
+        .slice(0, 5)
+        .map((point) => `+${point.points} - ${point.description}`)
+        .join('\n')}\n`
+    : 'No recent point activity'
+}
+
 🔥 FIRES (URGENT - Handle these first):
 ${firesProjects.length > 0 ? `FIRE PROJECTS:\n${firesProjects.map((project) => `- ${project.title} - ${project.current_points}/${project.target_points} points`).join('\n')}` : 'No fire projects'}
 ${firesTasks.length > 0 ? `FIRE TASKS:\n${firesTasks.map((task) => `- ${task.title} - ${task.points_value} points`).join('\n')}` : 'No fire tasks'}
 
-YOUR TASK:
-Analyze the user's daily intention "${daily_intention}" and recommend 3-5 specific priorities that:
-1. DIRECTLY support their stated intention for today
-2. Advance their highest-priority goals
-3. Are appropriate for their energy level and time available
-4. Are realistically completable today
-5. Have clear, actionable next steps
-6. ONLY include items from the ACTIVE PROJECTS and ACTIVE TASKS lists above
-7. DO NOT recommend anything from the COMPLETED ITEMS - acknowledge them in your reasoning but don't suggest them as priorities
-8. DO NOT recommend anything that already has a priority in the EXISTING PRIORITIES list - these are already handled
-9. Focus on NEW priorities that complement existing ones without duplicating them
+STRATEGIC PRIORITY RECOMMENDATIONS:
+Using the COMPLETE DASHBOARD CONTEXT and user's intention "${daily_intention}", recommend 3-5 strategic priorities that:
+
+1. **INTENTION-ALIGNED**: DIRECTLY support their stated intention "${daily_intention}"
+2. **HOLISTIC APPROACH**: Consider the entire dashboard - goals, projects, tasks, habits, education, and recent activity
+3. **STRATEGIC FOCUS**: Choose priorities that create the most impact across multiple areas
+4. **ENERGY & TIME OPTIMIZED**: Match their ${energy_level || 'medium'} energy level and ${time_available || 'full day'} availability
+5. **COMPLEMENTARY**: Work WITH existing priorities, not against them - build momentum
+6. **REALISTIC SCOPE**: Be appropriate for a ${dayOfWeek}${isWeekend ? ' (weekend)' : ' (workday)'}
+7. **ACTIONABLE**: Have clear, specific next steps that can be completed today
+8. **NON-DUPLICATIVE**: ONLY include items from ACTIVE PROJECTS/TASKS that don't already have priorities
+9. **GOAL-ALIGNED**: Directly advance the highest-priority goals from the list above
+10. **HABIT-SUPPORTING**: Consider how priorities can support or complement daily habits
+11. **LEARNING-ENHANCED**: Factor in education goals and recent accomplishments for motivation
+
+AVOID:
+- Duplicating existing priorities (check EXISTING PRIORITIES list)
+- Recommending completed items
+- Creating overlapping or redundant recommendations
+- Ignoring the broader dashboard context
+- Ignoring the user's specific daily intention
 
 🔥 FIRES HANDLING STRATEGY:
 - If user wants to REST/RELAX: Remind them about fires first, encourage quick completion before rest
