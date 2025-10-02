@@ -150,7 +150,7 @@ Example format:
 ]`
 
     const { text } = await generateText({
-      model: openai('gpt-4o-mini'),
+      model: openai('gpt-4.1-mini'),
       prompt,
     })
 
