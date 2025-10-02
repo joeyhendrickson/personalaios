@@ -164,7 +164,7 @@ Return your response as a JSON object with this structure:
 }`
 
     const { text } = await generateText({
-      model: openai('gpt-3.5-turbo'),
+      model: openai('gpt-4o-mini'),
       prompt,
     })
 
