@@ -163,10 +163,22 @@ Return your response as a JSON object with this structure:
   ]
 }`
 
-    const { text } = await generateText({
-      model: openai('gpt-4o-mini'),
-      prompt,
-    })
+    // Try gpt-4o-mini first, fallback to gpt-3.5-turbo for CI compatibility
+    let text: string
+    try {
+      const result = await generateText({
+        model: openai('gpt-4o-mini'),
+        prompt,
+      })
+      text = result.text
+    } catch (modelError) {
+      console.log('gpt-4o-mini not available, falling back to gpt-3.5-turbo')
+      const result = await generateText({
+        model: openai('gpt-3.5-turbo'),
+        prompt,
+      })
+      text = result.text
+    }
 
     let assessment
     try {

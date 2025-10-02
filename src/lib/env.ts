@@ -8,6 +8,7 @@ const envSchema = z.object({
 
   // OpenAI Configuration
   OPENAI_API_KEY: z.string().optional(),
+  OPENAI_MODEL: z.string().optional(),
 
   // Stock Data API Configuration
   ALPHA_VANTAGE_API_KEY: z.string().optional(),
@@ -32,6 +33,7 @@ export const env = envSchema.parse({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY?.trim() || undefined,
+  OPENAI_MODEL: process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini',
   ALPHA_VANTAGE_API_KEY: process.env.ALPHA_VANTAGE_API_KEY?.trim() || undefined,
   IEX_CLOUD_API_KEY: process.env.IEX_CLOUD_API_KEY?.trim() || undefined,
   FINANCIAL_MODELING_PREP_API_KEY: process.env.FINANCIAL_MODELING_PREP_API_KEY?.trim() || undefined,
