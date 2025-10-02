@@ -157,7 +157,7 @@ Be bold, strategic, and forward-thinking. Consider opportunities they might not 
     console.log('Calling OpenAI with prompt length:', prompt.length)
 
     const { text } = await generateText({
-      model: openai('gpt-4o-mini'),
+      model: openai('gpt-3.5-turbo'),
       prompt,
       temperature: 0.9, // High creativity for strategic thinking
     })
