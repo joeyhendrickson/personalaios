@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
       educationResult,
       accomplishmentsResult,
       pointsHistoryResult,
+      installedModulesResult,
     ] = await Promise.all([
       supabase
         .from('goals')
