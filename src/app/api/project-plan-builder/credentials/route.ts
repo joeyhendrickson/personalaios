@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import { encrypt, decrypt } from '@/lib/crypto'
+import { encrypt } from '@/lib/crypto'
 
 export async function GET() {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     const {
       data: { user },
       error: authError,
@@ -47,7 +48,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     const {
       data: { user },
       error: authError,

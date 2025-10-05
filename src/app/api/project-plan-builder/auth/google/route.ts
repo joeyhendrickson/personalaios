@@ -3,9 +3,10 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { google } from 'googleapis'
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     const {
       data: { user },
       error: authError,
