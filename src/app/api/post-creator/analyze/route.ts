@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', jobId)
 
-        const allPosts = exports.flatMap((exp) => exp.posts)
+        const allPosts = exports.flatMap((exp: any) => exp.posts)
         console.log(`Found ${allPosts.length} posts across ${exports.length} platforms`)
 
         if (allPosts.length < 5) {

@@ -65,7 +65,7 @@ export async function PATCH(request: NextRequest) {
       .update({
         ...updates,
         updated_at: new Date().toISOString(),
-        version: supabase.raw('version + 1'),
+        // version will be handled by database trigger
       })
       .eq('id', entry_id)
       .eq('user_id', user.id)

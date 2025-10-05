@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = createRouteHandlerClient({ cookies })
     const {
@@ -14,7 +14,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const planId = params.id
+    const resolvedParams = await params
+    const planId = resolvedParams.id
 
     // Get the plan
     const { data: plan, error: planError } = await supabase

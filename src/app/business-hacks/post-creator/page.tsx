@@ -114,7 +114,7 @@ export default function PostCreatorPage() {
   const [postSentiment, setPostSentiment] = useState('professional')
   const [targetAudience, setTargetAudience] = useState('')
   const [postGoal, setPostGoal] = useState('')
-  const [postLength, setPostLength] = useState([50])
+  const [postLength, setPostLength] = useState(50)
   const [includeHashtags, setIncludeHashtags] = useState(true)
   const [includeCallToAction, setIncludeCallToAction] = useState(true)
 
@@ -205,7 +205,7 @@ export default function PostCreatorPage() {
           sentiment: postSentiment,
           target_audience: targetAudience,
           goal: postGoal,
-          length_percentage: postLength[0],
+          length_percentage: postLength,
           include_hashtags: includeHashtags,
           include_call_to_action: includeCallToAction,
         }),
@@ -504,10 +504,10 @@ export default function PostCreatorPage() {
                 {/* Advanced Settings */}
                 <div className="space-y-4">
                   <div>
-                    <Label>Post Length: {postLength[0]}%</Label>
+                    <Label>Post Length: {postLength}%</Label>
                     <Slider
                       value={postLength}
-                      onValueChange={setPostLength}
+                      onChange={setPostLength}
                       max={100}
                       step={10}
                       className="mt-2"
