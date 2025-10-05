@@ -142,36 +142,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Prepare context for AI
-    const context = {
-      goals: goals.map((goal) => ({
-        title: goal.title,
-        description: goal.description,
-        type: goal.goal_type,
-        target_value: goal.target_value,
-        target_unit: goal.target_unit,
-        current_value: goal.current_value,
-        priority_level: goal.priority_level,
-        target_date: goal.target_date,
-      })),
-      projects: projects.map((project) => ({
-        title: project.title,
-        description: project.description,
-        category: project.category,
-        target_points: project.target_points,
-        current_points: project.current_points,
-        target_money: project.target_money,
-      })),
-      tasks: tasks.map((task) => ({
-        title: task.title,
-        description: task.description,
-        category: task.category,
-        points_value: task.points_value,
-        money_value: task.money_value,
-        project_title: projects.find((p) => p.id === task.weekly_goal_id)?.title,
-      })),
-    }
-
     // Get current date and day of week for context
     const today = new Date()
     const dayOfWeek = today.toLocaleDateString('en-US', { weekday: 'long' })
