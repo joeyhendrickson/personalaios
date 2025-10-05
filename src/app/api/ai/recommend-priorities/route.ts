@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
-
 // POST /api/ai/recommend-priorities - Generate AI-recommended priorities based on goals
 export async function POST(request: NextRequest) {
   try {
@@ -278,6 +274,11 @@ Return as JSON array with this structure:
 
 Focus on TODAY's most impactful actions that advance your top goals.
 `
+
+    // Initialize OpenAI client
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
 
     // Call OpenAI
     const completion = await openai.chat.completions.create({

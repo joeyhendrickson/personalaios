@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
-
 interface ImportedGoal {
   title: string
   description: string
@@ -35,6 +31,11 @@ export async function POST(request: NextRequest) {
     try {
       // Check if OpenAI API key is available and has access
       if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here') {
+        // Initialize OpenAI client
+        const openai = new OpenAI({
+          apiKey: process.env.OPENAI_API_KEY,
+        })
+
         // Create a comprehensive prompt for AI prioritization
         const prompt = `
 You are an expert productivity coach and project manager. I need you to analyze and prioritize the following goals and tasks for optimal productivity and success.
