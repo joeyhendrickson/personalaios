@@ -8,6 +8,7 @@ import { GoalCard } from '@/components/goals/goal-card'
 import { TaskForm } from '@/components/tasks/task-form'
 import { TaskCard } from '@/components/tasks/task-card'
 import { Plus, Calendar } from 'lucide-react'
+import { Task } from '@/types'
 
 interface Goal {
   id: string
@@ -21,17 +22,6 @@ interface Goal {
   is_completed: boolean
   created_at: string
   tasks?: Task[]
-}
-
-interface Task {
-  id: string
-  title: string
-  description?: string
-  status: 'pending' | 'completed' | 'cancelled'
-  points_value: number
-  money_value: number
-  completed_at?: string
-  created_at: string
 }
 
 interface Week {

@@ -4,18 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Plus, Target, Lightbulb } from 'lucide-react'
 import { DraggableHabits } from './draggable-habits'
-
-interface Habit {
-  id: string
-  title: string
-  description?: string
-  points_per_completion: number
-  is_active: boolean
-  weekly_completion_count: number
-  last_completed?: string
-  order_index: number
-  created_at: string
-}
+import { Habit } from '@/types'
 
 interface HabitFormData {
   title: string

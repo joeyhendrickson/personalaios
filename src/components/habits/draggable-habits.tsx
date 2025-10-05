@@ -19,17 +19,7 @@ import {
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { CheckCircle, Trash2, Edit, Calendar, GripVertical, Target } from 'lucide-react'
-
-interface Habit {
-  id: string
-  title: string
-  description?: string
-  points_per_completion: number
-  is_active: boolean
-  weekly_completion_count: number
-  last_completed?: string
-  order_index: number
-}
+import { Habit } from '@/types'
 
 interface DraggableHabitsProps {
   habits: Habit[]

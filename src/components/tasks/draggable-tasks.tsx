@@ -19,17 +19,7 @@ import {
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { CheckCircle, Star, Settings, Target, Trash2, GripVertical } from 'lucide-react'
-
-interface Task {
-  id: string
-  title: string
-  description?: string
-  status: string
-  points_value: number
-  weekly_goal?: {
-    title: string
-  }
-}
+import { Task } from '@/types'
 
 interface DraggableTasksProps {
   tasks: Task[]

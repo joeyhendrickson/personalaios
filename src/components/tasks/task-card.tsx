@@ -4,17 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CheckCircle, Circle, Trash2, DollarSign, Star } from 'lucide-react'
-
-interface Task {
-  id: string
-  title: string
-  description?: string
-  status: 'pending' | 'completed' | 'cancelled'
-  points_value: number
-  money_value: number
-  completed_at?: string
-  created_at: string
-}
+import { Task } from '@/types'
 
 interface TaskCardProps {
   task: Task
@@ -24,6 +14,7 @@ interface TaskCardProps {
 
 const statusColors = {
   pending: 'bg-yellow-100 text-yellow-800',
+  in_progress: 'bg-blue-100 text-blue-800',
   completed: 'bg-green-100 text-green-800',
   cancelled: 'bg-red-100 text-red-800',
 }

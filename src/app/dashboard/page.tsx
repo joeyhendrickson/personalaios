@@ -40,40 +40,12 @@ import EducationSection from '@/components/education/education-section'
 import ActiveProjectsWidget from '@/components/dashboard/active-projects-widget'
 import TaskAdvisor from '@/components/dashboard/task-advisor'
 import { DraggableTasks } from '@/components/tasks/draggable-tasks'
+import { Task, Goal, Habit, Priority } from '@/types'
 import { DeletedPriorities } from '@/components/priorities/deleted-priorities'
 import { useActivityTracking } from '@/hooks/use-activity-tracking'
 import { useAdminAuth } from '@/hooks/use-admin-auth'
 
 // Type definitions
-interface Goal {
-  id: string
-  title: string
-  description?: string
-  category: string
-  target_points: number
-  target_money: number
-  current_points?: number
-  week_id: string
-  user_id: string
-  created_at: string
-  updated_at: string
-  tasks?: Task[]
-}
-
-interface Task {
-  id: string
-  title: string
-  description?: string
-  category: string
-  points_value: number
-  money_value: number
-  weekly_goal_id: string
-  user_id: string
-  status: 'pending' | 'in_progress' | 'completed'
-  created_at: string
-  updated_at: string
-  weekly_goal?: Goal
-}
 
 interface Week {
   id: string

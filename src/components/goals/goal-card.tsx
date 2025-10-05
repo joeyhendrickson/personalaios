@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress'
 import { Trash2, Plus, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
+import { Task } from '@/types'
 
 interface Goal {
   id: string
@@ -19,14 +20,6 @@ interface Goal {
   is_completed: boolean
   created_at: string
   tasks?: Task[]
-}
-
-interface Task {
-  id: string
-  title: string
-  status: 'pending' | 'completed' | 'cancelled'
-  points_value: number
-  money_value: number
 }
 
 interface GoalCardProps {
