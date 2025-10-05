@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('user_id', user.id)
       .eq('is_active', true)
-      .order('created_at', { ascending: true })
+      .order('order_index', { ascending: true })
 
     if (habitsError) {
       console.error('Error fetching habits:', habitsError)
@@ -115,10 +115,22 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = createHabitSchema.parse(body)
 
+    // Get the next order_index for this user
+    const { data: lastHabit } = await supabase
+      .from('daily_habits')
+      .select('order_index')
+      .eq('user_id', user.id)
+      .order('order_index', { ascending: false })
+      .limit(1)
+      .single()
+
+    const nextOrderIndex = lastHabit ? lastHabit.order_index + 1 : 0
+
     const { data: habit, error: habitError } = await supabase
       .from('daily_habits')
       .insert({
         user_id: user.id,
+        order_index: nextOrderIndex,
         ...validatedData,
       })
       .select()

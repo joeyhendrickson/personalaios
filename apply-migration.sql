@@ -21,3 +21,5 @@ SELECT unnest(enum_range(NULL::goal_category)) as category;
 
 
 
+
+

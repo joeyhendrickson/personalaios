@@ -256,7 +256,9 @@ export default function EducationSection() {
               <GraduationCap className="h-6 w-6 mr-2 text-blue-500" />
               Education
             </h2>
-            <p className="text-sm text-gray-600">Track your educational goals and certifications</p>
+            <p className="text-sm text-gray-600">
+              things I'm learning or certificates I'm completing
+            </p>
           </div>
           <div className="flex space-x-2">
             <button

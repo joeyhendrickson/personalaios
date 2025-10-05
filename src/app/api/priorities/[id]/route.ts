@@ -116,18 +116,29 @@ export async function DELETE(
       return NextResponse.json({ error: 'Priority not found or access denied' }, { status: 404 })
     }
 
-    const { error: deleteError } = await supabase
+    // Soft delete the priority instead of hard delete
+    const { data: updateResult, error: deleteError } = await supabase
       .from('priorities')
-      .delete()
+      .update({
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', priorityId)
       .eq('user_id', user.id)
+      .select()
 
     if (deleteError) {
       console.error('Error deleting priority:', deleteError)
       return NextResponse.json({ error: 'Failed to delete priority' }, { status: 500 })
     }
 
-    return NextResponse.json({ message: 'Priority deleted successfully' }, { status: 200 })
+    if (!updateResult || updateResult.length === 0) {
+      console.error('No rows were updated during soft delete')
+      return NextResponse.json({ error: 'Priority not found or already deleted' }, { status: 404 })
+    }
+
+    return NextResponse.json({ message: 'Priority moved to trash successfully' }, { status: 200 })
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json(

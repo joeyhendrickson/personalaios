@@ -39,6 +39,8 @@ import HabitsSection from '@/components/habits/habits-section'
 import EducationSection from '@/components/education/education-section'
 import ActiveProjectsWidget from '@/components/dashboard/active-projects-widget'
 import TaskAdvisor from '@/components/dashboard/task-advisor'
+import { DraggableTasks } from '@/components/tasks/draggable-tasks'
+import { DeletedPriorities } from '@/components/priorities/deleted-priorities'
 import { useActivityTracking } from '@/hooks/use-activity-tracking'
 import { useAdminAuth } from '@/hooks/use-admin-auth'
 
@@ -179,10 +181,12 @@ export default function DashboardPage() {
   const [showCompleted, setShowCompleted] = useState(false)
   const [completedProjects, setCompletedProjects] = useState<Goal[]>([])
   const [completedTasks, setCompletedTasks] = useState<Task[]>([])
+  const [allTasks, setAllTasks] = useState<Task[]>([])
   const [showEditGoal, setShowEditGoal] = useState(false)
   const [showEditHighLevelGoal, setShowEditHighLevelGoal] = useState(false)
   const [showEditTask, setShowEditTask] = useState(false)
   const [showEditPriority, setShowEditPriority] = useState(false)
+  const [showDeletedPriorities, setShowDeletedPriorities] = useState(false)
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [editingPriority, setEditingPriority] = useState<Record<string, unknown> | null>(null)
@@ -269,10 +273,12 @@ export default function DashboardPage() {
       const tasksResponse = await fetch('/api/tasks')
       if (tasksResponse.ok) {
         const tasksData = await tasksResponse.json()
-        const allTasks = tasksData.tasks || []
+        const allTasksData = tasksData.tasks || []
+        // Store all tasks for accurate counting
+        setAllTasks(allTasksData)
         // Separate active and completed tasks
-        const activeTasks = allTasks.filter((task: any) => task.status !== 'completed')
-        const completedTasks = allTasks.filter((task: any) => task.status === 'completed')
+        const activeTasks = allTasksData.filter((task: any) => task.status !== 'completed')
+        const completedTasks = allTasksData.filter((task: any) => task.status === 'completed')
         setTasks(activeTasks)
         setCompletedTasks(completedTasks)
       }
@@ -496,10 +502,16 @@ export default function DashboardPage() {
     {} as Record<string, { current: number; target: number }>
   )
 
-  const completedTasksCount = tasks.filter((t) => t.status === 'completed').length
-  const totalTasks = tasks.length
-  const taskCompletionRate =
-    totalTasks > 0 ? Math.round((completedTasksCount / totalTasks) * 100) : 0
+  const completedTasksCount = allTasks.filter((t) => t.status === 'completed').length
+  const totalTasks = allTasks.length
+
+  // Calculate points-based completion rate
+  const totalPoints = allTasks.reduce((sum, task) => sum + (task.points_value || 0), 0)
+  const completedPoints = allTasks
+    .filter((t) => t.status === 'completed')
+    .reduce((sum, task) => sum + (task.points_value || 0), 0)
+
+  const taskCompletionRate = totalPoints > 0 ? Math.round((completedPoints / totalPoints) * 100) : 0
 
   const handleAddGoal = async () => {
     if (newGoal.title.trim() && currentWeek) {
@@ -862,25 +874,39 @@ export default function DashboardPage() {
   }
 
   // Handle slider release (API call)
-  const handleProgressCommit = async (goalId: string, progressPercentage: number) => {
+  const handleProgressCommit = async (
+    goalId: string,
+    progressPercentage: number,
+    isProject: boolean = false
+  ) => {
     try {
       setUpdatingProgress(goalId)
-      console.log(`Updating goal ${goalId} progress to ${progressPercentage}%`)
+      console.log(
+        `Updating ${isProject ? 'project' : 'goal'} ${goalId} progress to ${progressPercentage}%`
+      )
 
-      const response = await fetch(`/api/projects/${goalId}/progress`, {
+      // Choose the correct API endpoint based on whether it's a project or goal
+      const apiEndpoint = isProject
+        ? `/api/projects/${goalId}/progress`
+        : `/api/goals/${goalId}/progress`
+
+      const response = await fetch(apiEndpoint, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          progress: progressPercentage,
+          progress: progressPercentage, // Projects API expects 'progress'
+          progress_percentage: progressPercentage, // Goals API expects 'progress_percentage'
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
         console.error('Progress update failed:', errorData)
-        throw new Error(errorData.error || 'Failed to update goal progress')
+        throw new Error(
+          errorData.error || `Failed to update ${isProject ? 'project' : 'goal'} progress`
+        )
       }
 
       const result = await response.json()
@@ -899,20 +925,21 @@ export default function DashboardPage() {
       })
 
       // Show success message if points changed
-      if (result.goal && result.goal.points_earned !== 0) {
-        if (result.goal.points_earned > 0) {
-          console.log(`Earned ${result.goal.points_earned} points for goal progress!`)
-        } else {
+      const pointsEarned = result.pointsEarned || (result.goal && result.goal.points_earned)
+      if (pointsEarned && pointsEarned !== 0) {
+        if (pointsEarned > 0) {
           console.log(
-            `Lost ${Math.abs(result.goal.points_earned)} points due to progress reduction!`
+            `Earned ${pointsEarned} points for ${isProject ? 'project' : 'goal'} progress!`
           )
+        } else {
+          console.log(`Lost ${Math.abs(pointsEarned)} points due to progress reduction!`)
         }
         // You could add a toast notification here if you want
       }
     } catch (error) {
-      console.error('Error updating goal progress:', error)
+      console.error(`Error updating ${isProject ? 'project' : 'goal'} progress:`, error)
       alert(
-        `Error updating goal progress: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Error updating ${isProject ? 'project' : 'goal'} progress: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
 
       // Clear local progress state on error
@@ -1054,6 +1081,27 @@ export default function DashboardPage() {
     }
   }
 
+  const reorderTasks = async (taskOrders: { id: string; sort_order: number }[]) => {
+    try {
+      const response = await fetch('/api/tasks/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskOrders }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to reorder tasks')
+      }
+
+      // Refresh tasks to reflect new order
+      await fetchDashboardData()
+    } catch (error) {
+      console.error('Error reordering tasks:', error)
+      alert(`Error reordering tasks: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       {/* Header */}
@@ -1084,6 +1132,12 @@ export default function DashboardPage() {
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black text-white hover:bg-gray-800 h-9 rounded-md px-3">
                   <Plus className="h-4 w-4" />
                   Life Hacks
+                </button>
+              </Link>
+              <Link href="/business-hacks">
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-9 rounded-md px-3">
+                  <Plus className="h-4 w-4" />
+                  Business Hacks
                 </button>
               </Link>
               <Link href="/import">
@@ -1393,7 +1447,7 @@ export default function DashboardPage() {
                         Priorities
                       </h2>
                       <p className="text-sm text-gray-600">
-                        AI-recommended and manual priorities for today
+                        AI-recommended priorities I should do now
                       </p>
                     </div>
                     <div className="flex space-x-2">
@@ -1410,6 +1464,13 @@ export default function DashboardPage() {
                       >
                         <Plus className="h-4 w-4" />
                         Add Priority
+                      </button>
+                      <button
+                        onClick={() => setShowDeletedPriorities(true)}
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        View Deleted
                       </button>
                     </div>
                   </div>
@@ -1572,7 +1633,7 @@ export default function DashboardPage() {
                         Goals
                       </h2>
                       <p className="text-sm text-gray-600">
-                        High-level weekly and monthly objectives
+                        measurable things I really need to achieve in my life right now
                       </p>
                     </div>
                     <button
@@ -1674,7 +1735,18 @@ export default function DashboardPage() {
                                   disabled={updatingProgress === (goal as any).id}
                                 />
                                 <div className="flex items-center justify-between text-xs text-gray-500">
-                                  <span>0%</span>
+                                  <span>
+                                    {localProgress[(goal as any).id] !== undefined
+                                      ? `${localProgress[(goal as any).id]}%`
+                                      : `${Math.min(
+                                          100,
+                                          Math.round(
+                                            ((goal as any).current_value /
+                                              (goal as any).target_value) *
+                                              100
+                                          )
+                                        )}%`}
+                                  </span>
                                   <span>100%</span>
                                 </div>
                               </div>
@@ -1704,7 +1776,7 @@ export default function DashboardPage() {
                         Projects
                       </h2>
                       <p className="text-sm text-gray-600">
-                        Track your progress across different projects and goal categories
+                        Tracking my progress on big ideas and things I'm doing to reach my goals
                       </p>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -2066,7 +2138,9 @@ export default function DashboardPage() {
                                 <Slider
                                   value={goalProgress}
                                   onChange={(value) => handleProgressChange(goal.id, value)}
-                                  onValueCommit={(value) => handleProgressCommit(goal.id, value)}
+                                  onValueCommit={(value) =>
+                                    handleProgressCommit(goal.id, value, true)
+                                  }
                                   min={0}
                                   max={100}
                                   step={1}
@@ -2074,7 +2148,11 @@ export default function DashboardPage() {
                                   disabled={updatingProgress === goal.id}
                                 />
                                 <div className="flex items-center justify-between text-xs text-gray-500">
-                                  <span>0%</span>
+                                  <span>
+                                    {localProgress[goal.id] !== undefined
+                                      ? `${localProgress[goal.id]}%`
+                                      : `${goalProgress}%`}
+                                  </span>
                                   <span>100%</span>
                                 </div>
                               </div>
@@ -2110,10 +2188,10 @@ export default function DashboardPage() {
                     <div>
                       <h2 className="font-semibold tracking-tight flex items-center text-xl">
                         <CheckCircle className="h-6 w-6 mr-2 text-green-500" />
-                        Current Tasks
+                        Tasks
                       </h2>
                       <p className="text-sm text-gray-600">
-                        Break down your projects into actionable steps
+                        Breaking down my projects into actionable items
                       </p>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -2206,84 +2284,14 @@ export default function DashboardPage() {
                         </p>
                       </div>
                     ) : (
-                      tasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className={`bg-white/50 rounded-lg p-4 border transition-all duration-200 hover:shadow-sm ${
-                            task.status === 'completed'
-                              ? 'border-green-200 bg-green-50/50'
-                              : 'border-gray-200 hover:border-blue-200'
-                          }`}
-                        >
-                          <div className="flex items-start space-x-4">
-                            <button
-                              onClick={() => toggleTask(task.id)}
-                              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mt-0.5 transition-all duration-200 ${
-                                task.status === 'completed'
-                                  ? 'bg-green-500 border-green-500 hover:bg-green-600'
-                                  : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-                              }`}
-                            >
-                              {task.status === 'completed' && (
-                                <CheckCircle className="h-4 w-4 text-white" />
-                              )}
-                            </button>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <h4
-                                    className={`font-medium ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'}`}
-                                  >
-                                    {(task as any).title}
-                                  </h4>
-                                  <p className="text-sm text-gray-600 mt-1">
-                                    {task.description || 'No description'}
-                                  </p>
-                                  {(task as any).weekly_goal && (task as any).weekly_goal.title && (
-                                    <p className="text-xs text-blue-600 mt-1">
-                                      📋 {(task as any).weekly_goal.title}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="flex items-center space-x-2 ml-4">
-                                  <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gray-100 text-gray-700">
-                                    <Star className="h-3 w-3 mr-1" />
-                                    {task.points_value || 0}
-                                  </span>
-                                  <button
-                                    onClick={() => openEditTask(task)}
-                                    className="text-gray-500 hover:text-gray-700"
-                                    title="Edit Task"
-                                  >
-                                    <Settings className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      console.log(
-                                        'Convert to goal button clicked for task:',
-                                        (task as any).title
-                                      )
-                                      convertTaskToGoal(task)
-                                    }}
-                                    className="text-blue-500 hover:text-blue-700"
-                                    title="Convert to Goal"
-                                  >
-                                    <Target className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => deleteTask(task.id)}
-                                    className="text-red-500 hover:text-red-700"
-                                    title="Delete Task"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))
+                      <DraggableTasks
+                        tasks={tasks}
+                        onReorder={reorderTasks}
+                        onToggleTask={toggleTask}
+                        onEditTask={openEditTask}
+                        onConvertToGoal={convertTaskToGoal}
+                        onDeleteTask={deleteTask}
+                      />
                     )}
                   </div>
                 </div>
@@ -2298,9 +2306,11 @@ export default function DashboardPage() {
               <div className="p-6 pb-4">
                 <h2 className="font-semibold tracking-tight flex items-center text-xl">
                   <Brain className="h-6 w-6 mr-2 text-purple-500" />
-                  AI Assistant
+                  AI Advisor
                 </h2>
-                <p className="text-sm text-gray-600">Your AI Productivity Advisor</p>
+                <p className="text-sm text-gray-600">
+                  help me organize my life and get things done
+                </p>
               </div>
               <div className="p-6 pt-0">
                 <div className="space-y-4">
@@ -3635,6 +3645,12 @@ export default function DashboardPage() {
           }}
         />
       )}
+
+      {/* Deleted Priorities Modal */}
+      <DeletedPriorities
+        isOpen={showDeletedPriorities}
+        onClose={() => setShowDeletedPriorities(false)}
+      />
     </div>
   )
 }

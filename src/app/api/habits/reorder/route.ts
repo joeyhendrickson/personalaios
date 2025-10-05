@@ -23,21 +23,20 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { habitId, direction } = reorderHabitSchema.parse(body)
 
-    // Get all habits for the user, ordered by created_at (fallback when order_index doesn't exist)
+    // Get all habits for the user, ordered by order_index
     const { data: habits, error: habitsError } = await supabase
       .from('daily_habits')
-      .select('id, created_at')
+      .select('id, order_index')
       .eq('user_id', user.id)
       .eq('is_active', true)
-      .order('created_at', { ascending: true })
+      .order('order_index', { ascending: true })
 
     if (habitsError) {
       console.error('Error fetching habits for reorder:', habitsError)
       return NextResponse.json(
         {
           error: 'Failed to fetch habits',
-          message:
-            'Habit reordering is not available until the database migration is applied. Please apply the order_index migration first.',
+          message: 'Habit reordering failed. Please try again.',
         },
         { status: 500 }
       )
@@ -67,16 +66,42 @@ export async function POST(request: NextRequest) {
       newIndex = currentIndex + 1
     }
 
-    // Since order_index column doesn't exist yet, return a helpful message
-    return NextResponse.json(
-      {
-        error: 'Habit reordering not available',
-        message:
-          'Habit reordering requires the order_index column to be added to the database. Please apply the migration first.',
-        migrationRequired: true,
-      },
-      { status: 400 }
-    )
+    // Get the habits that need to be swapped
+    const currentHabit = habits[currentIndex]
+    const targetHabit = habits[newIndex]
+
+    // Swap the order_index values
+    const { error: updateError1 } = await supabase
+      .from('daily_habits')
+      .update({ order_index: targetHabit.order_index })
+      .eq('id', currentHabit.id)
+
+    if (updateError1) {
+      console.error('Error updating habit order:', updateError1)
+      return NextResponse.json({ error: 'Failed to update habit order' }, { status: 500 })
+    }
+
+    const { error: updateError2 } = await supabase
+      .from('daily_habits')
+      .update({ order_index: currentHabit.order_index })
+      .eq('id', targetHabit.id)
+
+    if (updateError2) {
+      console.error('Error updating habit order:', updateError2)
+      // Try to revert the first update
+      await supabase
+        .from('daily_habits')
+        .update({ order_index: currentHabit.order_index })
+        .eq('id', currentHabit.id)
+      return NextResponse.json({ error: 'Failed to update habit order' }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Habit moved ${direction}`,
+      new_position: newIndex + 1,
+      total_habits: habits.length,
+    })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

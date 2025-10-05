@@ -42,3 +42,5 @@ CREATE POLICY "Users can delete their own priorities" ON priorities
 
 
 
+
+

@@ -33,20 +33,45 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    console.log(`Fetching priorities for user ${user.id}`)
     const { data: priorities, error: prioritiesError } = await supabase
       .from('priorities')
       .select('*')
       .eq('user_id', user.id)
+      .eq('is_deleted', false)
       .order('order_index', { ascending: true })
       .order('priority_score', { ascending: false })
       .order('created_at', { ascending: false })
+
+    // Safety check: Get all soft-deleted priorities and filter them out from main list
+    const { data: deletedPriorities } = await supabase
+      .from('priorities')
+      .select('title')
+      .eq('user_id', user.id)
+      .eq('is_deleted', true)
+
+    // Create a simple set of deleted priority titles
+    const deletedTitles = new Set(deletedPriorities?.map((p) => p.title) || [])
+
+    // Filter out priorities that have the same title as any deleted priority
+    const filteredPriorities = priorities?.filter((p) => !deletedTitles.has(p.title)) || []
+
+    console.log('Priorities query result:', {
+      prioritiesCount: priorities?.length || 0,
+      deletedCount: deletedPriorities?.length || 0,
+      filteredCount: filteredPriorities.length,
+      prioritiesError,
+      priorities: priorities?.map((p) => ({ id: p.id, title: p.title, is_deleted: p.is_deleted })),
+      deletedTitles: Array.from(deletedTitles),
+      currentTitles: priorities?.map((p) => p.title),
+    })
 
     if (prioritiesError) {
       console.error('Error fetching priorities:', prioritiesError)
       return NextResponse.json({ error: 'Failed to fetch priorities' }, { status: 500 })
     }
 
-    return NextResponse.json({ priorities: priorities || [] }, { status: 200 })
+    return NextResponse.json({ priorities: filteredPriorities }, { status: 200 })
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json(

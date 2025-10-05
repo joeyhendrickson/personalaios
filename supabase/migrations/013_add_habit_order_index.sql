@@ -20,3 +20,5 @@ WHERE daily_habits.id = ordered_habits.id;
 -- Set NOT NULL constraint after populating existing data
 ALTER TABLE daily_habits ALTER COLUMN order_index SET NOT NULL;
 
+
+

@@ -26,8 +26,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     // Get the current goal to calculate points
     const { data: goal, error: goalError } = await supabase
-      .from('weekly_goals')
-      .select('id, title, target_points, current_points, user_id')
+      .from('goals')
+      .select('id, title, target_value, current_value, user_id')
       .eq('id', goalId)
       .eq('user_id', user.id)
       .single()
@@ -36,21 +36,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Goal not found' }, { status: 404 })
     }
 
-    // Calculate points earned based on progress
-    const targetPoints = goal.target_points || 0
-    const previousProgress = goal.current_points || 0
-    const newProgress = Math.round((progress_percentage / 100) * targetPoints)
-    const pointsEarned = newProgress - previousProgress
+    // Calculate progress based on target value
+    const targetValue = goal.target_value || 0
+    const previousProgress = goal.current_value || 0
+    const newProgress = Math.round((progress_percentage / 100) * targetValue)
+    const progressChange = newProgress - previousProgress
 
     // Check if goal should be marked as completed (100% progress)
     const isCompleted = progress_percentage >= 100
 
     // Update the goal's current progress
     const { error: updateError } = await supabase
-      .from('weekly_goals')
+      .from('goals')
       .update({
-        current_points: newProgress,
-        is_completed: isCompleted,
+        current_value: newProgress,
+        status: isCompleted ? 'completed' : 'active',
         updated_at: new Date().toISOString(),
       })
       .eq('id', goalId)
@@ -60,21 +60,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Failed to update goal progress' }, { status: 500 })
     }
 
-    // Add points change to the ledger (positive or negative)
-    if (pointsEarned !== 0) {
+    // Add progress change to the ledger (positive or negative)
+    if (progressChange !== 0) {
       const description =
-        pointsEarned > 0 ? `Progress on "${goal.title}"` : `Progress reduced on "${goal.title}"`
+        progressChange > 0 ? `Progress on "${goal.title}"` : `Progress reduced on "${goal.title}"`
 
       const { error: pointsError } = await supabase.from('points_ledger').insert({
         user_id: user.id,
-        weekly_goal_id: goalId,
-        points: pointsEarned, // This can be negative
+        goal_id: goalId,
+        points: progressChange, // This can be negative
         description: description,
         created_at: new Date().toISOString(),
       })
 
       if (pointsError) {
-        console.error('Error adding points to ledger:', pointsError)
+        console.error('Error adding progress to ledger:', pointsError)
         // Don't fail the request, just log the error
       }
     }
@@ -83,9 +83,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       success: true,
       goal: {
         id: goalId,
-        current_points: newProgress,
+        current_value: newProgress,
         progress_percentage,
-        points_earned: pointsEarned,
+        progress_change: progressChange,
       },
     })
   } catch (error) {

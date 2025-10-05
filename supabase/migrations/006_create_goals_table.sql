@@ -45,3 +45,5 @@ CREATE POLICY "Users can delete their own goals" ON goals
 
 
 
+
+

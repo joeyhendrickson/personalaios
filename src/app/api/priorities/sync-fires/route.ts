@@ -43,12 +43,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch fires tasks' }, { status: 500 })
     }
 
-    // Clear existing fire_auto priorities
+    // Clear existing fire_auto priorities (only non-deleted ones)
     const { error: deleteError } = await supabase
       .from('priorities')
       .delete()
       .eq('user_id', user.id)
       .eq('priority_type', 'fire_auto')
+      .eq('is_deleted', false) // Only delete non-soft-deleted priorities
 
     if (deleteError) {
       console.error('Error clearing existing fire priorities:', deleteError)
@@ -60,9 +61,32 @@ export async function POST(request: NextRequest) {
 
     const newPriorities = []
 
-    // Add fires goals as priorities
+    // Add fires goals as priorities (only if not soft-deleted)
     if (firesGoals && firesGoals.length > 0) {
       for (const goal of firesGoals) {
+        // Check if this goal already has a soft-deleted priority
+        const { data: existingDeletedPriorities, error: checkError } = await supabase
+          .from('priorities')
+          .select('id, title, is_deleted')
+          .eq('user_id', user.id)
+          .eq('priority_type', 'fire_auto')
+          .eq('source_type', 'project')
+          .eq('project_id', goal.id)
+          .eq('is_deleted', true)
+
+        console.log(`Checking goal ${goal.id} (${goal.title}) for soft-deleted priority:`, {
+          existingDeletedPriorities,
+          checkError: checkError?.message,
+        })
+
+        // Skip this goal if it has a soft-deleted priority
+        if (existingDeletedPriorities && existingDeletedPriorities.length > 0) {
+          console.log(
+            `✅ Skipping goal ${goal.id} - has soft-deleted priority: ${existingDeletedPriorities[0].id}`
+          )
+          continue
+        }
+
         const progress =
           goal.target_points > 0 ? Math.round((goal.current_points / goal.target_points) * 100) : 0
         const isCompleted = progress >= 100
@@ -82,9 +106,31 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Add fires tasks as priorities
+    // Add fires tasks as priorities (only if not soft-deleted)
     if (firesTasks && firesTasks.length > 0) {
       for (const task of firesTasks) {
+        // Check if this task already has a soft-deleted priority
+        const { data: existingDeletedPriorities } = await supabase
+          .from('priorities')
+          .select('id, title, is_deleted')
+          .eq('user_id', user.id)
+          .eq('priority_type', 'fire_auto')
+          .eq('source_type', 'task')
+          .eq('task_id', task.id)
+          .eq('is_deleted', true)
+
+        console.log(`Checking task ${task.id} for soft-deleted priority:`, {
+          existingDeletedPriorities,
+        })
+
+        // Skip this task if it has a soft-deleted priority
+        if (existingDeletedPriorities && existingDeletedPriorities.length > 0) {
+          console.log(
+            `✅ Skipping task ${task.id} - has soft-deleted priority: ${existingDeletedPriorities[0].id}`
+          )
+          continue
+        }
+
         newPriorities.push({
           user_id: user.id,
           title: `🔥 ${task.title}`,

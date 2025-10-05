@@ -51,6 +51,18 @@ export function GoalCard({ goal, onDelete, onAddTask }: GoalCardProps) {
     goal.target_points > 0 ? (goal.current_points / goal.target_points) * 100 : 0
   const moneyProgress = goal.target_money > 0 ? (goal.current_money / goal.target_money) * 100 : 0
 
+  // Debug logging
+  console.log('Goal progress calculation:', {
+    goalId: goal.id,
+    title: goal.title,
+    current_points: goal.current_points,
+    target_points: goal.target_points,
+    pointsProgress: Math.round(pointsProgress),
+    current_money: goal.current_money,
+    target_money: goal.target_money,
+    moneyProgress: Math.round(moneyProgress),
+  })
+
   const completedTasks = goal.tasks?.filter((task) => task.status === 'completed').length || 0
   const totalTasks = goal.tasks?.length || 0
 

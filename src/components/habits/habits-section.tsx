@@ -2,17 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import {
-  Plus,
-  CheckCircle,
-  Trash2,
-  Edit,
-  Target,
-  Calendar,
-  ChevronUp,
-  ChevronDown,
-  Lightbulb,
-} from 'lucide-react'
+import { Plus, Target, Lightbulb } from 'lucide-react'
+import { DraggableHabits } from './draggable-habits'
 
 interface Habit {
   id: string
@@ -22,6 +13,7 @@ interface Habit {
   is_active: boolean
   weekly_completion_count: number
   last_completed?: string
+  order_index: number
   created_at: string
 }
 
@@ -153,13 +145,6 @@ export default function HabitsSection() {
     setShowAddForm(true)
   }
 
-  const isCompletedToday = (lastCompleted?: string) => {
-    if (!lastCompleted) return false
-    const today = new Date().toDateString()
-    const completedDate = new Date(lastCompleted).toDateString()
-    return today === completedDate
-  }
-
   const handleImportDefaultHabits = async () => {
     setIsImporting(true)
     try {
@@ -190,34 +175,24 @@ export default function HabitsSection() {
     }
   }
 
-  const handleReorder = async (habitId: string, direction: 'up' | 'down') => {
+  const handleReorder = async (habitOrders: { id: string; order_index: number }[]) => {
     try {
-      const response = await fetch('/api/habits/reorder', {
+      const response = await fetch('/api/habits/reorder-bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ habitId, direction }),
+        body: JSON.stringify({ habits: habitOrders }),
       })
 
       if (response.ok) {
         await fetchHabits() // Refresh the habits list
       } else {
         const errorData = await response.json()
-        if (errorData.error?.includes('already at')) {
-          // Don't show error for boundary conditions
-          return
-        }
-        if (errorData.migrationRequired) {
-          alert(
-            'Habit reordering requires a database migration. Please apply the order_index migration to enable this feature.'
-          )
-          return
-        }
-        console.error('Error reordering habit:', errorData)
-        alert('Failed to reorder habit. Please try again.')
+        console.error('Error reordering habits:', errorData)
+        alert('Failed to reorder habits. Please try again.')
       }
     } catch (error) {
-      console.error('Error reordering habit:', error)
-      alert('Failed to reorder habit. Please try again.')
+      console.error('Error reordering habits:', error)
+      alert('Failed to reorder habits. Please try again.')
     }
   }
 
@@ -246,7 +221,7 @@ export default function HabitsSection() {
               <Target className="h-6 w-6 mr-2 text-green-500" />
               Daily Habits
             </h2>
-            <p className="text-sm text-gray-600">Track your daily habits and earn points</p>
+            <p className="text-sm text-gray-600">do these things every day and earn points</p>
           </div>
           <div className="flex space-x-2">
             <button
@@ -345,95 +320,13 @@ export default function HabitsSection() {
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {habits.map((habit) => {
-              const completedToday = isCompletedToday(habit.last_completed)
-              return (
-                <div
-                  key={habit.id}
-                  className={`flex items-center space-x-3 p-3 rounded-lg border transition-all ${
-                    completedToday
-                      ? 'bg-green-50 border-green-200'
-                      : 'bg-white border-gray-200 hover:border-green-200'
-                  }`}
-                >
-                  <button
-                    onClick={() => handleComplete(habit.id)}
-                    disabled={completedToday}
-                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                      completedToday
-                        ? 'bg-green-500 border-green-500 cursor-not-allowed'
-                        : 'border-gray-300 hover:border-green-400 hover:bg-green-50'
-                    }`}
-                    title={completedToday ? 'Completed today' : 'Mark as completed'}
-                  >
-                    {completedToday && <CheckCircle className="h-4 w-4 text-white" />}
-                  </button>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <h4
-                        className={`font-medium ${completedToday ? 'line-through text-gray-500' : 'text-gray-900'}`}
-                      >
-                        {habit.title}
-                      </h4>
-                      <span className="text-sm text-gray-500">
-                        +{habit.points_per_completion} pts
-                      </span>
-                    </div>
-                    {habit.description && (
-                      <p className="text-sm text-gray-600 mb-1">{habit.description}</p>
-                    )}
-                    <div className="flex items-center space-x-4 text-xs text-gray-500">
-                      <div className="flex items-center space-x-1">
-                        <Calendar className="h-3 w-3" />
-                        <span>{habit.weekly_completion_count} this week</span>
-                      </div>
-                      {completedToday && (
-                        <span className="text-green-600 font-medium">✓ Completed today</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-1">
-                    {/* Reorder buttons */}
-                    <div className="flex flex-col space-y-1">
-                      <button
-                        onClick={() => handleReorder(habit.id, 'up')}
-                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                        title="Move up"
-                      >
-                        <ChevronUp className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => handleReorder(habit.id, 'down')}
-                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                        title="Move down"
-                      >
-                        <ChevronDown className="h-3 w-3" />
-                      </button>
-                    </div>
-
-                    {/* Edit and Delete buttons */}
-                    <button
-                      onClick={() => handleEdit(habit)}
-                      className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                      title="Edit habit"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(habit.id)}
-                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                      title="Delete habit"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          <DraggableHabits
+            habits={habits}
+            onReorder={handleReorder}
+            onCompleteHabit={handleComplete}
+            onEditHabit={handleEdit}
+            onDeleteHabit={handleDelete}
+          />
         )}
 
         {/* Weekly Habit Points Total */}

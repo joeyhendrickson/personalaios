@@ -187,3 +187,5 @@ END $$;
 
 -- Success message
 SELECT 'Relationship Manager database setup completed successfully!' as status;
+
+

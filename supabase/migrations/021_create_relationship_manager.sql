@@ -139,3 +139,5 @@ CREATE TRIGGER update_contact_profiles_updated_at BEFORE UPDATE ON contact_profi
 
 CREATE TRIGGER update_relationship_goals_updated_at BEFORE UPDATE ON relationship_goals
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+

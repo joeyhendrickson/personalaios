@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
       `
       )
       .eq('user_id', user.id)
+      .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false })
 
     if (goalId) {
@@ -115,11 +116,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Get the highest sort_order for this user to place new task at the top
+    const { data: maxSortResult } = await supabase
+      .from('tasks')
+      .select('sort_order')
+      .eq('user_id', user.id)
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .single()
+
+    const nextSortOrder = (maxSortResult?.sort_order || 0) + 1
+
     const { data: task, error } = await supabase
       .from('tasks')
       .insert({
         ...validatedData,
         user_id: user.id,
+        sort_order: nextSortOrder,
       })
       .select(
         `

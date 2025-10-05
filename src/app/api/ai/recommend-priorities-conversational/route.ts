@@ -89,11 +89,12 @@ export async function POST(request: NextRequest) {
         .order('updated_at', { ascending: false })
         .limit(20), // Recent completed tasks
 
-      // Fetch existing priorities to avoid duplicates
+      // Fetch existing priorities to avoid duplicates (exclude deleted)
       supabase
         .from('priorities')
         .select('*')
         .eq('user_id', user.id)
+        .eq('is_deleted', false)
         .order('created_at', { ascending: false }),
 
       // Fetch habits for context
