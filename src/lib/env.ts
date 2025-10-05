@@ -19,7 +19,7 @@ const envSchema = z.object({
   // Plaid Configuration
   PLAID_CLIENT_ID: z.string().optional(),
   PLAID_SECRET: z.string().optional(),
-  PLAID_ENV: z.enum(['sandbox', 'development', 'production']).optional(),
+  PLAID_ENV: z.string().optional(),
   FITBIT_CLIENT_ID: z.string().optional(),
   FITBIT_CLIENT_SECRET: z.string().optional(),
 
