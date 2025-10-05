@@ -4,8 +4,7 @@ import { cookies } from 'next/headers'
 
 export async function POST() {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = createRouteHandlerClient({ cookies })
     const {
       data: { user },
       error: authError,
@@ -21,7 +20,7 @@ export async function POST() {
       .select('*')
       .eq('user_id', user.id)
       .eq('is_deleted', false)
-      .order('created_at', 'asc')
+      .order('created_at', { ascending: true })
 
     if (fetchError) {
       console.error('Error fetching priorities:', fetchError)

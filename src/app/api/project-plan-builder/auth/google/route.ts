@@ -5,8 +5,7 @@ import { google } from 'googleapis'
 
 export async function GET() {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = createRouteHandlerClient({ cookies })
     const {
       data: { user },
       error: authError,

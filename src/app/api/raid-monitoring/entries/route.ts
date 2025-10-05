@@ -4,8 +4,7 @@ import { cookies } from 'next/headers'
 
 export async function GET() {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = createRouteHandlerClient({ cookies })
     const {
       data: { user },
       error: authError,
@@ -44,8 +43,7 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = createRouteHandlerClient({ cookies })
     const {
       data: { user },
       error: authError,
