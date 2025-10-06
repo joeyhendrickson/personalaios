@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { ArrowLeft, User, Mail, Calendar, BarChart3, Target, CheckCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import RewardsSection from '@/components/rewards/rewards-section'
+import DisciplineTrophies from '@/components/discipline/discipline-trophies'
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
@@ -203,6 +204,9 @@ export default function ProfilePage() {
 
           {/* Rewards Section */}
           <RewardsSection />
+
+          {/* Discipline Trophies Section */}
+          <DisciplineTrophies />
 
           {/* Quick Actions */}
           <Card>
