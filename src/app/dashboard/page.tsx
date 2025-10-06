@@ -27,6 +27,7 @@ import {
   Eye,
   EyeOff,
   Lightbulb,
+  Bug,
 } from 'lucide-react'
 import Link from 'next/link'
 import { ChatInterface } from '@/components/chat/chat-interface'
@@ -1109,7 +1110,13 @@ export default function DashboardPage() {
               <Link href="/business-hacks">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 h-9 rounded-md px-3">
                   <Plus className="h-4 w-4" />
-                  Business Hacks
+                  Apps
+                </button>
+              </Link>
+              <Link href="/bug-report">
+                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 h-9 rounded-md px-3">
+                  <Bug className="h-4 w-4" />
+                  Report Bug
                 </button>
               </Link>
               <Link href="/import">

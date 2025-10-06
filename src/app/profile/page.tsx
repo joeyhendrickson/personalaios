@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuth } from '@/contexts/auth-context'
 import { ArrowLeft, User, Mail, Calendar, BarChart3, Target, CheckCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import RewardsSection from '@/components/rewards/rewards-section'
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
@@ -104,125 +105,133 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* User Info Card */}
-          <div className="lg:col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <User className="h-5 w-5 mr-2" />
-                  Account Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Email</Label>
-                  <div className="flex items-center mt-1">
-                    <Mail className="h-4 w-4 text-gray-400 mr-2" />
-                    <span className="text-sm">{user.email}</span>
+        <div className="max-w-6xl mx-auto space-y-8">
+          {/* Top Row - User Info and Stats */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* User Info Card */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <User className="h-5 w-5 mr-2" />
+                    Account Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-500">Email</Label>
+                    <div className="flex items-center mt-1">
+                      <Mail className="h-4 w-4 text-gray-400 mr-2" />
+                      <span className="text-sm">{user.email}</span>
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Member Since</Label>
-                  <div className="flex items-center mt-1">
-                    <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                    <span className="text-sm">
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </span>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-500">Member Since</Label>
+                    <div className="flex items-center mt-1">
+                      <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                      <span className="text-sm">
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                <div className="pt-4 border-t">
-                  <Button variant="outline" onClick={() => signOut()} className="w-full">
-                    Sign Out
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="pt-4 border-t">
+                    <Button variant="outline" onClick={() => signOut()} className="w-full">
+                      Sign Out
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Statistics Cards */}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <BarChart3 className="h-5 w-5 mr-2" />
+                    Your Productivity Stats
+                  </CardTitle>
+                  <CardDescription>Track your progress and achievements</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                      <p className="text-gray-600">Loading statistics...</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center p-4 bg-blue-50 rounded-lg">
+                        <Target className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                        <div className="text-2xl font-bold text-blue-900">{stats.totalGoals}</div>
+                        <div className="text-sm text-blue-700">Total Goals</div>
+                      </div>
+
+                      <div className="text-center p-4 bg-green-50 rounded-lg">
+                        <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                        <div className="text-2xl font-bold text-green-900">{stats.totalTasks}</div>
+                        <div className="text-sm text-green-700">Total Tasks</div>
+                      </div>
+
+                      <div className="text-center p-4 bg-purple-50 rounded-lg">
+                        <div className="h-8 w-8 bg-purple-600 rounded-full mx-auto mb-2 flex items-center justify-center">
+                          <span className="text-white text-sm font-bold">{completionRate}%</span>
+                        </div>
+                        <div className="text-2xl font-bold text-purple-900">
+                          {stats.completedTasks}
+                        </div>
+                        <div className="text-sm text-purple-700">Completed</div>
+                      </div>
+
+                      <div className="text-center p-4 bg-orange-50 rounded-lg">
+                        <div className="h-8 w-8 bg-orange-600 rounded-full mx-auto mb-2 flex items-center justify-center">
+                          <span className="text-white text-sm font-bold">★</span>
+                        </div>
+                        <div className="text-2xl font-bold text-orange-900">
+                          {stats.totalPoints}
+                        </div>
+                        <div className="text-sm text-orange-700">Total Points</div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
 
-          {/* Statistics Cards */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <BarChart3 className="h-5 w-5 mr-2" />
-                  Your Productivity Stats
-                </CardTitle>
-                <CardDescription>Track your progress and achievements</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading statistics...</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center p-4 bg-blue-50 rounded-lg">
-                      <Target className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                      <div className="text-2xl font-bold text-blue-900">{stats.totalGoals}</div>
-                      <div className="text-sm text-blue-700">Total Goals</div>
-                    </div>
+          {/* Rewards Section */}
+          <RewardsSection />
 
-                    <div className="text-center p-4 bg-green-50 rounded-lg">
-                      <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                      <div className="text-2xl font-bold text-green-900">{stats.totalTasks}</div>
-                      <div className="text-sm text-green-700">Total Tasks</div>
-                    </div>
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Manage your productivity system</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/dashboard')}
+                  className="h-20 flex flex-col items-center justify-center"
+                >
+                  <Target className="h-6 w-6 mb-2" />
+                  <span>Go to Dashboard</span>
+                </Button>
 
-                    <div className="text-center p-4 bg-purple-50 rounded-lg">
-                      <div className="h-8 w-8 bg-purple-600 rounded-full mx-auto mb-2 flex items-center justify-center">
-                        <span className="text-white text-sm font-bold">{completionRate}%</span>
-                      </div>
-                      <div className="text-2xl font-bold text-purple-900">
-                        {stats.completedTasks}
-                      </div>
-                      <div className="text-sm text-purple-700">Completed</div>
-                    </div>
-
-                    <div className="text-center p-4 bg-orange-50 rounded-lg">
-                      <div className="h-8 w-8 bg-orange-600 rounded-full mx-auto mb-2 flex items-center justify-center">
-                        <span className="text-white text-sm font-bold">★</span>
-                      </div>
-                      <div className="text-2xl font-bold text-orange-900">{stats.totalPoints}</div>
-                      <div className="text-sm text-orange-700">Total Points</div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>Manage your productivity system</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => router.push('/dashboard')}
-                    className="h-20 flex flex-col items-center justify-center"
-                  >
-                    <Target className="h-6 w-6 mb-2" />
-                    <span>Go to Dashboard</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    onClick={() => router.push('/import')}
-                    className="h-20 flex flex-col items-center justify-center"
-                  >
-                    <CheckCircle className="h-6 w-6 mb-2" />
-                    <span>Import Data</span>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/import')}
+                  className="h-20 flex flex-col items-center justify-center"
+                >
+                  <CheckCircle className="h-6 w-6 mb-2" />
+                  <span>Import Data</span>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
