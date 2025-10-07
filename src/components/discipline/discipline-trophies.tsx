@@ -121,7 +121,12 @@ export default function DisciplineTrophies() {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Trophy className="h-5 w-5 mr-2 text-yellow-500" />
-            The Path of The Disciplined Spirit
+            <span
+              className="cursor-help border-b border-dotted border-gray-400"
+              title="As you complete daily habits consistently, discipline badges will automatically appear. Each habit is tracked separately, and you'll earn 8 different trophies at 5, 10, 20, 30, 40, 50, 75, and 100 completions. Your journey through The Path of The Disciplined Spirit begins with awareness and culminates in mastery."
+            >
+              The Path of The Disciplined Spirit
+            </span>
           </CardTitle>
           <CardDescription>
             Your journey through the stages of discipline. Each day, your habit completion brings
@@ -143,7 +148,12 @@ export default function DisciplineTrophies() {
       <CardHeader>
         <CardTitle className="flex items-center">
           <Trophy className="h-5 w-5 mr-2 text-yellow-500" />
-          The Path of The Disciplined Spirit
+          <span
+            className="cursor-help border-b border-dotted border-gray-400"
+            title="As you complete daily habits consistently, discipline badges will automatically appear. Each habit is tracked separately, and you'll earn 8 different trophies at 5, 10, 20, 30, 40, 50, 75, and 100 completions. Your journey through The Path of The Disciplined Spirit begins with awareness and culminates in mastery."
+          >
+            The Path of The Disciplined Spirit
+          </span>
         </CardTitle>
         <CardDescription>
           Your journey through the stages of discipline. Each day, your habit completion brings you
