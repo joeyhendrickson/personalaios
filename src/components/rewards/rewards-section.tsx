@@ -378,96 +378,17 @@ export default function RewardsSection() {
           </div>
         </div>
 
-        <Tabs defaultValue="rewards" className="w-full">
+        <Tabs defaultValue="available" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="rewards">My Rewards</TabsTrigger>
             <TabsTrigger value="available">Available Rewards</TabsTrigger>
             <TabsTrigger value="partner">Partner Rewards</TabsTrigger>
+            <TabsTrigger value="rewards">Redeemed Awards</TabsTrigger>
             <TabsTrigger value="milestones">Milestones</TabsTrigger>
           </TabsList>
 
-          {/* My Rewards Tab */}
+          {/* Redeemed Awards Tab */}
           <TabsContent value="rewards" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Your Rewards</h3>
-              <Dialog open={showCreateReward} onOpenChange={setShowCreateReward}>
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Custom Reward
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create Custom Reward</DialogTitle>
-                    <DialogDescription>Create a personalized reward for yourself</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="reward-name">Reward Name</Label>
-                      <Input
-                        id="reward-name"
-                        value={newReward.name}
-                        onChange={(e) => setNewReward({ ...newReward, name: e.target.value })}
-                        placeholder="e.g., Buy myself a nice dinner"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="reward-description">Description</Label>
-                      <Textarea
-                        id="reward-description"
-                        value={newReward.description}
-                        onChange={(e) =>
-                          setNewReward({ ...newReward, description: e.target.value })
-                        }
-                        placeholder="Optional description"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="reward-cost">Point Cost</Label>
-                      <Input
-                        id="reward-cost"
-                        type="number"
-                        value={newReward.point_cost}
-                        onChange={(e) =>
-                          setNewReward({ ...newReward, point_cost: parseInt(e.target.value) || 0 })
-                        }
-                        min="1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="reward-category">Category</Label>
-                      <Select
-                        value={newReward.category_id}
-                        onValueChange={(value) =>
-                          setNewReward({ ...newReward, category_id: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((category) => {
-                            const IconComponent = iconMap[category.icon] || Gift
-                            return (
-                              <SelectItem key={category.id} value={category.id}>
-                                <div className="flex items-center gap-2">
-                                  <IconComponent className="h-4 w-4" />
-                                  {category.name}
-                                </div>
-                              </SelectItem>
-                            )
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button onClick={handleCreateReward} className="w-full">
-                      Create Reward
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
+            <h3 className="text-lg font-semibold">Redeemed Awards</h3>
 
             <div className="grid gap-4">
               {userRewards.map((userReward) => (
