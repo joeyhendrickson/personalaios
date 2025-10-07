@@ -1122,13 +1122,7 @@ export default function DashboardPage() {
               <Link href="/import">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3">
                   <FileSpreadsheet className="h-4 w-4" />
-                  Import Excel
-                </button>
-              </Link>
-              <Link href="/categories">
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-700 h-9 rounded-md px-3">
-                  <Settings className="h-4 w-4" />
-                  Categories
+                  Import
                 </button>
               </Link>
               <Link href="/profile">
