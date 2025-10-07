@@ -87,6 +87,16 @@ interface Milestone {
   rewards?: Reward
 }
 
+interface PartnerReward {
+  id: string
+  name: string
+  description: string
+  point_cost: number
+  partner_name: string
+  is_active: boolean
+  redemption_code?: string
+}
+
 const iconMap: Record<string, any> = {
   heart: Heart,
   'book-open': BookOpen,
@@ -103,6 +113,7 @@ export default function RewardsSection() {
   const [categories, setCategories] = useState<RewardCategory[]>([])
   const [defaultRewards, setDefaultRewards] = useState<Reward[]>([])
   const [userRewards, setUserRewards] = useState<UserReward[]>([])
+  const [partnerRewards, setPartnerRewards] = useState<PartnerReward[]>([])
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [currentPoints, setCurrentPoints] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -139,6 +150,16 @@ export default function RewardsSection() {
       }
     } catch (error) {
       console.error('Error fetching rewards data:', error)
+    }
+
+    try {
+      const response = await fetch('/api/rewards/partner')
+      if (response.ok) {
+        const data = await response.json()
+        setPartnerRewards(data.partnerRewards)
+      }
+    } catch (error) {
+      console.error('Error fetching partner rewards:', error)
     }
 
     try {
@@ -249,6 +270,50 @@ export default function RewardsSection() {
     }
   }
 
+  const handleAddRewardToUser = async (rewardId: string) => {
+    try {
+      const response = await fetch('/api/rewards/add-to-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reward_id: rewardId }),
+      })
+
+      if (response.ok) {
+        await fetchRewardsData()
+        alert('Reward added to your rewards!')
+      } else {
+        const error = await response.json()
+        alert(`Error: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error adding reward to user:', error)
+      alert('Failed to add reward')
+    }
+  }
+
+  const handleRedeemPartnerReward = async (partnerRewardId: string) => {
+    try {
+      const response = await fetch('/api/rewards/redeem-partner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partner_reward_id: partnerRewardId }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setCurrentPoints(data.newPointsBalance)
+        await fetchRewardsData()
+        alert(`Partner reward redeemed! Your unique code is: ${data.redemptionCode}`)
+      } else {
+        const error = await response.json()
+        alert(`Error: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error redeeming partner reward:', error)
+      alert('Failed to redeem partner reward')
+    }
+  }
+
   const getRewardIcon = (reward: Reward) => {
     const categoryIcon = reward.reward_categories?.icon
     if (categoryIcon && iconMap[categoryIcon]) {
@@ -314,9 +379,10 @@ export default function RewardsSection() {
         </div>
 
         <Tabs defaultValue="rewards" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="rewards">My Rewards</TabsTrigger>
             <TabsTrigger value="available">Available Rewards</TabsTrigger>
+            <TabsTrigger value="partner">Partner Rewards</TabsTrigger>
             <TabsTrigger value="milestones">Milestones</TabsTrigger>
           </TabsList>
 
@@ -461,7 +527,86 @@ export default function RewardsSection() {
 
           {/* Available Rewards Tab */}
           <TabsContent value="available" className="space-y-4">
-            <h3 className="text-lg font-semibold">Available Rewards</h3>
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Available Rewards</h3>
+              <Dialog open={showCreateReward} onOpenChange={setShowCreateReward}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Custom Reward
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create Custom Reward</DialogTitle>
+                    <DialogDescription>Create a personalized reward for yourself</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="reward-name">Reward Name</Label>
+                      <Input
+                        id="reward-name"
+                        value={newReward.name}
+                        onChange={(e) => setNewReward({ ...newReward, name: e.target.value })}
+                        placeholder="e.g., Buy myself a nice dinner"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="reward-description">Description</Label>
+                      <Textarea
+                        id="reward-description"
+                        value={newReward.description}
+                        onChange={(e) =>
+                          setNewReward({ ...newReward, description: e.target.value })
+                        }
+                        placeholder="Optional description"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="reward-cost">Point Cost</Label>
+                      <Input
+                        id="reward-cost"
+                        type="number"
+                        value={newReward.point_cost}
+                        onChange={(e) =>
+                          setNewReward({ ...newReward, point_cost: parseInt(e.target.value) || 0 })
+                        }
+                        min="1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="reward-category">Category</Label>
+                      <Select
+                        value={newReward.category_id}
+                        onValueChange={(value) =>
+                          setNewReward({ ...newReward, category_id: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => {
+                            const IconComponent = iconMap[category.icon] || Gift
+                            return (
+                              <SelectItem key={category.id} value={category.id}>
+                                <div className="flex items-center gap-2">
+                                  <IconComponent className="h-4 w-4" />
+                                  {category.name}
+                                </div>
+                              </SelectItem>
+                            )
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button onClick={handleCreateReward} className="w-full">
+                      Create Reward
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
             <div className="grid gap-4">
               {defaultRewards.map((reward) => (
                 <Card key={reward.id}>
@@ -474,7 +619,54 @@ export default function RewardsSection() {
                           <p className="text-sm text-gray-600">{reward.description}</p>
                         </div>
                       </div>
-                      <Badge variant="outline">{reward.point_cost} pts</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{reward.point_cost} pts</Badge>
+                        <Button
+                          size="sm"
+                          onClick={() => handleAddRewardToUser(reward.id)}
+                          disabled={currentPoints < reward.point_cost}
+                        >
+                          Add to My Rewards
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          {/* Partner Rewards Tab */}
+          <TabsContent value="partner" className="space-y-4">
+            <h3 className="text-lg font-semibold">Partner Rewards</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Special rewards from our partners. Redeem with your points to get unique codes!
+            </p>
+            <div className="grid gap-4">
+              {partnerRewards.map((reward) => (
+                <Card key={reward.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Crown className="h-5 w-5 text-purple-600" />
+                        <div>
+                          <h4 className="font-semibold">{reward.name}</h4>
+                          <p className="text-sm text-gray-600">{reward.description}</p>
+                          <p className="text-xs text-purple-600 font-medium">
+                            Partner: {reward.partner_name}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{reward.point_cost} pts</Badge>
+                        <Button
+                          size="sm"
+                          onClick={() => handleRedeemPartnerReward(reward.id)}
+                          disabled={currentPoints < reward.point_cost}
+                        >
+                          Redeem
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

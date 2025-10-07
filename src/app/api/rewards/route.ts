@@ -85,7 +85,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch user rewards' }, { status: 500 })
     }
 
-    // Get user's current points balance
+    // Get user's total points earned
     const { data: pointsData } = await supabase
       .from('points_ledger')
       .select('points')
@@ -94,7 +94,19 @@ export async function GET() {
       .limit(1)
       .single()
 
-    const currentPoints = pointsData?.points || 0
+    const totalPoints = pointsData?.points || 0
+
+    // Get total points redeemed
+    const { data: redeemedData } = await supabase
+      .from('point_redemptions')
+      .select('points_redeemed')
+      .eq('user_id', user.id)
+
+    const totalRedeemed =
+      redeemedData?.reduce((sum, redemption) => sum + redemption.points_redeemed, 0) || 0
+
+    // Calculate current available points
+    const currentPoints = totalPoints - totalRedeemed
 
     return NextResponse.json({
       categories,
