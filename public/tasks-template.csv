@@ -1,7 +1,9 @@
-Title,Description,Points,Priority,Estimated Time
-Design user interface mockups,Create wireframes and visual designs,8,high,2 hours
-Implement authentication system,Set up user login and registration,12,high,4 hours
-Study React Context API,Learn about state management with Context,5,medium,1 hour
-Practice custom hooks,Build reusable custom hooks,8,medium,3 hours
-Morning workout,30-minute cardio session,3,low,30 minutes
-Strength training,Upper body workout,4,medium,45 minutes
+title,description,points_value,money_value,priority,estimated_time,deadline
+"Research competitors","Analyze top 5 competitors and their pricing strategies",50,0,high,2 hours,2024-03-15
+"Design wireframes","Create wireframes for the new mobile app",100,0,high,4 hours,2024-03-20
+"Write blog post","Write 1500-word blog post about industry trends",30,0,medium,3 hours,2024-03-18
+"Update website content","Update homepage content with new messaging",25,0,medium,1 hour,2024-03-12
+"Schedule team meeting","Organize weekly team standup meeting",10,0,low,30 minutes,2024-03-11
+"Review contracts","Review and update vendor contracts",75,0,high,2 hours,2024-03-25
+"Create social media posts","Design and schedule social media content for next week",40,0,medium,2 hours,2024-03-14
+"Update project documentation","Update project documentation with latest changes",35,0,low,1 hour,2024-03-16

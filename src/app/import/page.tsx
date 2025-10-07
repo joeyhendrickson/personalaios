@@ -6,7 +6,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ExcelImport } from '@/components/import/excel-import'
-import { ArrowLeft, CheckCircle, Brain, Target, Clock, User } from 'lucide-react'
+import {
+  ArrowLeft,
+  CheckCircle,
+  Brain,
+  Target,
+  Clock,
+  User,
+  Download,
+  FileSpreadsheet,
+  BookOpen,
+  Repeat,
+  Settings,
+  FolderOpen,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 interface ImportedGoal {
@@ -151,10 +164,10 @@ export default function ImportPage() {
           </Button>
 
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Import Goals & Tasks</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Import Dashboard Data</h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Upload your Excel spreadsheet and let AI help prioritize your goals and tasks for
-              maximum productivity
+              Upload your Excel spreadsheets and import all your dashboard data including goals,
+              projects, tasks, habits, education, and custom categories
             </p>
           </div>
         </div>
@@ -222,66 +235,264 @@ export default function ImportPage() {
           </Card>
         </div>
 
-        {/* Sample Excel Template */}
-        <div className="mt-12 max-w-4xl mx-auto">
+        {/* Download Templates */}
+        <div className="mt-12 max-w-6xl mx-auto">
           <Card>
             <CardHeader>
-              <CardTitle>Need a Template?</CardTitle>
+              <CardTitle className="flex items-center">
+                <Download className="h-5 w-5 mr-2" />
+                Download CSV Templates
+              </CardTitle>
               <CardDescription>
-                Download our sample CSV templates to get started with the correct format. You can
-                use these as a starting point for your goals and tasks.
+                Download our comprehensive CSV templates to get started with the correct format.
+                Each template includes sample data and proper column headers for easy import.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                onClick={async () => {
-                  try {
-                    // Download the goals template
-                    const response = await fetch('/sample-template.csv')
-                    const blob = await response.blob()
-                    const url = window.URL.createObjectURL(blob)
-                    const link = document.createElement('a')
-                    link.href = url
-                    link.download = 'goals-and-tasks-template.csv'
-                    document.body.appendChild(link)
-                    link.click()
-                    document.body.removeChild(link)
-                    window.URL.revokeObjectURL(url)
-                  } catch (error) {
-                    console.error('Failed to download goals template:', error)
-                    alert('Failed to download goals template. Please try again.')
-                  }
-                }}
-                variant="outline"
-                className="w-full"
-              >
-                Download Goals & Tasks Template
-              </Button>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/goals-template.csv')
+                      const blob = await response.blob()
+                      const url = window.URL.createObjectURL(blob)
+                      const link = document.createElement('a')
+                      link.href = url
+                      link.download = 'goals-template.csv'
+                      document.body.appendChild(link)
+                      link.click()
+                      document.body.removeChild(link)
+                      window.URL.revokeObjectURL(url)
+                    } catch (error) {
+                      console.error('Failed to download goals template:', error)
+                      alert('Failed to download goals template. Please try again.')
+                    }
+                  }}
+                  variant="outline"
+                  className="h-auto p-4 flex flex-col items-start"
+                >
+                  <div className="flex items-center mb-2">
+                    <Target className="h-4 w-4 mr-2 text-blue-600" />
+                    <span className="font-medium">Goals Template</span>
+                  </div>
+                  <span className="text-sm text-gray-600 text-left">
+                    Life goals with points, money targets, priorities, and deadlines
+                  </span>
+                </Button>
 
-              <Button
-                onClick={async () => {
-                  try {
-                    // Download the tasks template
-                    const response = await fetch('/tasks-template.csv')
-                    const blob = await response.blob()
-                    const url = window.URL.createObjectURL(blob)
-                    const link = document.createElement('a')
-                    link.href = url
-                    link.download = 'tasks-template.csv'
-                    document.body.appendChild(link)
-                    link.click()
-                    document.body.removeChild(link)
-                    window.URL.revokeObjectURL(url)
-                  } catch (error) {
-                    console.error('Failed to download tasks template:', error)
-                    alert('Failed to download tasks template. Please try again.')
-                  }
-                }}
-                variant="outline"
-                className="w-full"
-              >
-                Download Tasks Template
-              </Button>
+                <Button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/projects-template.csv')
+                      const blob = await response.blob()
+                      const url = window.URL.createObjectURL(blob)
+                      const link = document.createElement('a')
+                      link.href = url
+                      link.download = 'projects-template.csv'
+                      document.body.appendChild(link)
+                      link.click()
+                      document.body.removeChild(link)
+                      window.URL.revokeObjectURL(url)
+                    } catch (error) {
+                      console.error('Failed to download projects template:', error)
+                      alert('Failed to download projects template. Please try again.')
+                    }
+                  }}
+                  variant="outline"
+                  className="h-auto p-4 flex flex-col items-start"
+                >
+                  <div className="flex items-center mb-2">
+                    <FolderOpen className="h-4 w-4 mr-2 text-purple-600" />
+                    <span className="font-medium">Projects Template</span>
+                  </div>
+                  <span className="text-sm text-gray-600 text-left">
+                    Project tracking with progress, status, and deadlines
+                  </span>
+                </Button>
+
+                <Button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/tasks-template.csv')
+                      const blob = await response.blob()
+                      const url = window.URL.createObjectURL(blob)
+                      const link = document.createElement('a')
+                      link.href = url
+                      link.download = 'tasks-template.csv'
+                      document.body.appendChild(link)
+                      link.click()
+                      document.body.removeChild(link)
+                      window.URL.revokeObjectURL(url)
+                    } catch (error) {
+                      console.error('Failed to download tasks template:', error)
+                      alert('Failed to download tasks template. Please try again.')
+                    }
+                  }}
+                  variant="outline"
+                  className="h-auto p-4 flex flex-col items-start"
+                >
+                  <div className="flex items-center mb-2">
+                    <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                    <span className="font-medium">Tasks Template</span>
+                  </div>
+                  <span className="text-sm text-gray-600 text-left">
+                    Actionable tasks with points, priorities, and time estimates
+                  </span>
+                </Button>
+
+                <Button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/habits-template.csv')
+                      const blob = await response.blob()
+                      const url = window.URL.createObjectURL(blob)
+                      const link = document.createElement('a')
+                      link.href = url
+                      link.download = 'habits-template.csv'
+                      document.body.appendChild(link)
+                      link.click()
+                      document.body.removeChild(link)
+                      window.URL.revokeObjectURL(url)
+                    } catch (error) {
+                      console.error('Failed to download habits template:', error)
+                      alert('Failed to download habits template. Please try again.')
+                    }
+                  }}
+                  variant="outline"
+                  className="h-auto p-4 flex flex-col items-start"
+                >
+                  <div className="flex items-center mb-2">
+                    <Repeat className="h-4 w-4 mr-2 text-cyan-600" />
+                    <span className="font-medium">Habits Template</span>
+                  </div>
+                  <span className="text-sm text-gray-600 text-left">
+                    Daily habits with points, streaks, and tracking
+                  </span>
+                </Button>
+
+                <Button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/education-template.csv')
+                      const blob = await response.blob()
+                      const url = window.URL.createObjectURL(blob)
+                      const link = document.createElement('a')
+                      link.href = url
+                      link.download = 'education-template.csv'
+                      document.body.appendChild(link)
+                      link.click()
+                      document.body.removeChild(link)
+                      window.URL.revokeObjectURL(url)
+                    } catch (error) {
+                      console.error('Failed to download education template:', error)
+                      alert('Failed to download education template. Please try again.')
+                    }
+                  }}
+                  variant="outline"
+                  className="h-auto p-4 flex flex-col items-start"
+                >
+                  <div className="flex items-center mb-2">
+                    <BookOpen className="h-4 w-4 mr-2 text-red-600" />
+                    <span className="font-medium">Education Template</span>
+                  </div>
+                  <span className="text-sm text-gray-600 text-left">
+                    Learning goals with progress tracking and completion dates
+                  </span>
+                </Button>
+
+                <Button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/categories-template.csv')
+                      const blob = await response.blob()
+                      const url = window.URL.createObjectURL(blob)
+                      const link = document.createElement('a')
+                      link.href = url
+                      link.download = 'categories-template.csv'
+                      document.body.appendChild(link)
+                      link.click()
+                      document.body.removeChild(link)
+                      window.URL.revokeObjectURL(url)
+                    } catch (error) {
+                      console.error('Failed to download categories template:', error)
+                      alert('Failed to download categories template. Please try again.')
+                    }
+                  }}
+                  variant="outline"
+                  className="h-auto p-4 flex flex-col items-start"
+                >
+                  <div className="flex items-center mb-2">
+                    <Settings className="h-4 w-4 mr-2 text-purple-600" />
+                    <span className="font-medium">Categories Template</span>
+                  </div>
+                  <span className="text-sm text-gray-600 text-left">
+                    Custom dashboard categories with colors and icons
+                  </span>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Import Instructions */}
+        <div className="mt-8 max-w-4xl mx-auto">
+          <Card>
+            <CardHeader>
+              <CardTitle>Import Instructions</CardTitle>
+              <CardDescription>
+                Follow these steps to successfully import your data into Life Stacks
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-blue-600 text-sm font-medium">1</span>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">Download Templates</h4>
+                    <p className="text-sm text-gray-600">
+                      Download the CSV templates above that match the data you want to import.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-blue-600 text-sm font-medium">2</span>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">Fill in Your Data</h4>
+                    <p className="text-sm text-gray-600">
+                      Replace the sample data with your actual goals, tasks, habits, and other
+                      information. Keep the column headers exactly as they are.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-blue-600 text-sm font-medium">3</span>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">Upload and Import</h4>
+                    <p className="text-sm text-gray-600">
+                      Use the upload area above to select your CSV files. Our AI will analyze and
+                      prioritize your data automatically.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-blue-600 text-sm font-medium">4</span>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">Review and Confirm</h4>
+                    <p className="text-sm text-gray-600">
+                      Review the AI recommendations and confirm the import. Your data will be
+                      organized in your personalized dashboard.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>

@@ -1,0 +1,11 @@
+title,description,points_value,streak_count,is_active
+"Morning Exercise","30 minutes of cardio or strength training every morning",50,0,true
+"Read for 30 minutes","Read books, articles, or educational content daily",25,0,true
+"Meditation","10 minutes of mindfulness meditation",20,0,true
+"Drink 8 glasses of water","Stay hydrated throughout the day",15,0,true
+"Write in journal","Daily reflection and goal tracking",30,0,true
+"Practice Spanish","Study Spanish for 20 minutes daily",35,0,true
+"Take a walk","20-minute walk outside for fresh air",20,0,true
+"Limit social media","Keep social media usage under 1 hour",40,0,true
+"Eat vegetables","Include vegetables in every meal",25,0,true
+"Early bedtime","Go to bed before 10 PM",30,0,true

@@ -1,0 +1,11 @@
+name,description,color,icon_name,sort_order
+"Health & Fitness","Physical and mental wellness goals",#10B981,Heart,1
+"Career & Business","Professional development and business goals",#3B82F6,Briefcase,2
+"Learning & Education","Skills development and knowledge acquisition",#8B5CF6,BookOpen,3
+"Financial Goals","Money management and financial planning",#F59E0B,TrendingUp,4
+"Personal Development","Self-improvement and personal growth",#EF4444,Target,5
+"Relationships","Family, friends, and social connections",#06B6D4,Users,6
+"Creative Projects","Artistic and creative endeavors",#84CC16,Paintbrush,7
+"Travel & Adventure","Exploring new places and experiences",#F97316,Plane,8
+"Home & Family","Household and family-related goals",#EC4899,Home,9
+"Technology & Innovation","Tech projects and digital transformation",#6366F1,Code,10

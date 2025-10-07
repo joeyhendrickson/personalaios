@@ -5,14 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import {
-  Candle,
+  Flame,
   Eye,
   TreePine,
   Circle,
   Mountain,
-  Wave,
+  Waves,
   Sun,
-  Lotus,
+  Flower2,
   Trophy,
   Star,
 } from 'lucide-react'
@@ -50,14 +50,14 @@ interface CompletionCount {
 }
 
 const iconMap = {
-  Candle,
+  Candle: Flame,
   Eye,
   TreePine,
   Circle,
   Mountain,
-  Wave,
+  Wave: Waves,
   Sun,
-  Lotus,
+  Lotus: Flower2,
 }
 
 export default function DisciplineTrophies() {
