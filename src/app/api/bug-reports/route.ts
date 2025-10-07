@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { sendBugReportEmail } from '@/lib/email'
 import { z } from 'zod'
 
 const bugReportSchema = z.object({
@@ -75,10 +76,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create bug report' }, { status: 500 })
     }
 
-    // TODO: Send email notification to joeyhendrickson@me.com
-    // This would be implemented with an email service like Resend, SendGrid, etc.
+    // Send email notification
+    const emailResult = await sendBugReportEmail({
+      type: validatedData.type,
+      title: validatedData.title,
+      description: validatedData.description,
+      userEmail: user.email || 'unknown@example.com',
+      screenshotUrl: validatedData.screenshot_url,
+      priority: validatedData.priority || 'medium',
+      reportId: bugReport.id,
+    })
 
-    return NextResponse.json({ bugReport }, { status: 201 })
+    if (!emailResult.success) {
+      console.warn('Failed to send email notification:', emailResult.error)
+      // Don't fail the request if email fails, just log it
+    }
+
+    return NextResponse.json(
+      {
+        bugReport,
+        emailSent: emailResult.success,
+        emailError: emailResult.error,
+      },
+      { status: 201 }
+    )
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid data', details: error.errors }, { status: 400 })

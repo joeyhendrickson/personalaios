@@ -23,6 +23,10 @@ const envSchema = z.object({
   FITBIT_CLIENT_ID: z.string().optional(),
   FITBIT_CLIENT_SECRET: z.string().optional(),
 
+  // Email Configuration
+  RESEND_API_KEY: z.string().optional(),
+  BUG_REPORT_EMAIL: z.string().email().optional(),
+
   // Next.js Configuration
   NEXTAUTH_SECRET: z.string().min(1, 'NextAuth secret is required').optional(),
   NEXTAUTH_URL: z.string().url('Must be a valid URL').optional(),
@@ -41,6 +45,8 @@ export const env = envSchema.parse({
   PLAID_CLIENT_ID: process.env.PLAID_CLIENT_ID?.trim() || undefined,
   PLAID_SECRET: process.env.PLAID_SECRET?.trim() || undefined,
   PLAID_ENV: (process.env.PLAID_ENV as 'sandbox' | 'development' | 'production') || 'sandbox',
+  RESEND_API_KEY: process.env.RESEND_API_KEY?.trim() || undefined,
+  BUG_REPORT_EMAIL: process.env.BUG_REPORT_EMAIL?.trim() || 'joeyhendrickson@me.com',
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
   NEXTAUTH_URL: process.env.NEXTAUTH_URL,
 })
