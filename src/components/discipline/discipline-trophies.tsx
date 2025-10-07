@@ -121,9 +121,12 @@ export default function DisciplineTrophies() {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Trophy className="h-5 w-5 mr-2 text-yellow-500" />
-            Path of Disciplined Spirit
+            The Path of The Disciplined Spirit
           </CardTitle>
-          <CardDescription>Your journey through the stages of spiritual discipline</CardDescription>
+          <CardDescription>
+            Your journey through the stages of discipline. Each day, your habit completion brings
+            you closer to mastery.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
@@ -140,10 +143,10 @@ export default function DisciplineTrophies() {
       <CardHeader>
         <CardTitle className="flex items-center">
           <Trophy className="h-5 w-5 mr-2 text-yellow-500" />
-          Path of Disciplined Spirit
+          The Path of The Disciplined Spirit
         </CardTitle>
         <CardDescription>
-          Your journey through the stages of spiritual discipline. Each habit completion brings you
+          Your journey through the stages of discipline. Each day, your habit completion brings you
           closer to mastery.
         </CardDescription>
       </CardHeader>
@@ -153,7 +156,7 @@ export default function DisciplineTrophies() {
             <Trophy className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-600 mb-2">No habits tracked yet</p>
             <p className="text-sm text-gray-500">
-              Complete your daily habits to begin your journey on the Path of Disciplined Spirit
+              Complete your daily habits to begin your journey on The Path of The Disciplined Spirit
             </p>
           </div>
         ) : (
