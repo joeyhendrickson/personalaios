@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
 import { openai } from '@ai-sdk/openai'
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     const supabase = await createClient()
 
@@ -171,7 +171,7 @@ Return your response as a JSON object with this structure:
         prompt,
       })
       text = result.text
-    } catch (modelError) {
+    } catch {
       console.log('gpt-4.1-mini failed, trying fallback')
       const result = await generateText({
         model: openai('gpt-4.1-mini'),

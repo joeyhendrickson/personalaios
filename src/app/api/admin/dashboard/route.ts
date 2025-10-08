@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   console.log('🚀 ADMIN DASHBOARD API CALLED - STARTING EXECUTION')
   try {
     const supabase = await createClient()
@@ -75,9 +75,7 @@ export async function GET(request: NextRequest) {
 
     // Get user emails by querying the admin_users table and any other sources
     // Since we can't directly query auth.users, let's get emails from admin_users first
-    const { data: adminEmails, error: adminEmailsError } = await supabase
-      .from('admin_users')
-      .select('email')
+    const { data: adminEmails } = await supabase.from('admin_users').select('email')
 
     console.log('Admin emails:', adminEmails)
 
@@ -86,7 +84,7 @@ export async function GET(request: NextRequest) {
 
     // Add admin emails
     if (adminEmails) {
-      adminEmails.forEach((admin) => {
+      adminEmails.forEach((_admin) => {
         // We need to find the user_id for this email
         // For now, let's just add it to a list we can reference
       })
@@ -104,9 +102,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Get analytics data
-    const { data: analyticsData, error: analyticsError } = await supabase
-      .from('user_analytics_summary')
-      .select('*')
+    const { error: analyticsError } = await supabase.from('user_analytics_summary').select('*')
 
     if (analyticsError) {
       console.error('Error fetching analytics:', analyticsError)

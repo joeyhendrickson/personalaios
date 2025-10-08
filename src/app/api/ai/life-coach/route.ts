@@ -412,7 +412,7 @@ Remember: Be genuinely helpful, acknowledge their efforts, and provide specific 
   let parsedResponse
   try {
     parsedResponse = JSON.parse(aiResponse)
-  } catch (parseError) {
+  } catch {
     // If JSON parsing fails, return a structured response
     parsedResponse = {
       message: aiResponse,

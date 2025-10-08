@@ -144,8 +144,8 @@ export async function POST(request: NextRequest) {
     const isWeekend = today.getDay() === 0 || today.getDay() === 6
 
     // Separate fires items (they're handled separately)
-    const firesProjects = projects.filter((p) => p.category === 'fires')
-    const firesTasks = tasks.filter((t) => t.category === 'fires')
+    // const firesProjects = projects.filter((p) => p.category === 'fires')
+    // const firesTasks = tasks.filter((t) => t.category === 'fires')
 
     // Get IDs of items that already have priorities to avoid duplicates
     const existingProjectIds = existingPriorities
