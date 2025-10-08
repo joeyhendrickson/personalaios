@@ -48,6 +48,118 @@ import { useAdminAuth } from '@/hooks/use-admin-auth'
 
 // Type definitions
 
+// Category Item Component with Edit Functionality
+interface CategoryItemProps {
+  category: {
+    id: string
+    name: string
+    color: string | null
+  }
+  categoryPoints: {
+    current: number
+    target: number
+  }
+  onDelete: (id: string) => void
+  onUpdate: (id: string, newName: string, newColor: string) => void
+}
+
+const CategoryItem = ({ category, categoryPoints, onDelete, onUpdate }: CategoryItemProps) => {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedName, setEditedName] = useState(category.name)
+  const [editedColor, setEditedColor] = useState(category.color || '#3B82F6')
+
+  const handleSave = () => {
+    if (editedName.trim()) {
+      onUpdate(category.id, editedName.trim(), editedColor)
+      setIsEditing(false)
+    }
+  }
+
+  const handleCancel = () => {
+    setEditedName(category.name)
+    setEditedColor(category.color || '#3B82F6')
+    setIsEditing(false)
+  }
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border-2 border-blue-300">
+        <div className="flex items-center space-x-3 flex-1">
+          <input
+            type="color"
+            value={editedColor}
+            onChange={(e) => setEditedColor(e.target.value)}
+            className="w-8 h-8 rounded cursor-pointer"
+            title="Choose category color"
+          />
+          <input
+            type="text"
+            value={editedName}
+            onChange={(e) => setEditedName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSave()
+              if (e.key === 'Escape') handleCancel()
+            }}
+            className="flex-1 px-2 py-1 text-sm font-medium border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Category name"
+            autoFocus
+          />
+        </div>
+        <div className="flex items-center space-x-1 ml-2">
+          <button
+            onClick={handleSave}
+            className="p-1 text-green-600 hover:text-green-800 hover:bg-green-100 rounded transition-colors"
+            title="Save changes"
+          >
+            <CheckCircle className="h-4 w-4" />
+          </button>
+          <button
+            onClick={handleCancel}
+            className="p-1 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+            title="Cancel"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
+      <div className="flex items-center space-x-3 flex-1">
+        <div
+          className="w-3 h-3 rounded-full"
+          style={{ backgroundColor: category.color || '#3B82F6' }}
+        />
+        <span className="text-sm font-medium text-gray-900">{category.name}</span>
+        {categoryPoints.current > 0 && (
+          <div className="text-right flex-1">
+            <span className="text-sm font-bold text-gray-900">{categoryPoints.current} pts</span>
+            <span className="text-xs text-gray-500 ml-1">/ {categoryPoints.target}</span>
+          </div>
+        )}
+      </div>
+      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={() => setIsEditing(true)}
+          className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+          title="Edit category"
+        >
+          <Settings className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => onDelete(category.id)}
+          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+          title="Delete category"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // Cascading Section Component
 interface CascadingSectionProps {
   title: string
@@ -58,18 +170,20 @@ interface CascadingSectionProps {
   className?: string
 }
 
-const CascadingSection = ({ 
-  title, 
-  icon, 
-  isExpanded, 
-  onToggle, 
-  children, 
-  className = "" 
+const CascadingSection = ({
+  title,
+  icon,
+  isExpanded,
+  onToggle,
+  children,
+  className = '',
 }: CascadingSectionProps) => {
   return (
-    <div className={`bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg ${className}`}>
+    <div
+      className={`bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg ${className}`}
+    >
       {/* Title Row - Double Click to Toggle */}
-      <div 
+      <div
         className="p-6 pb-4 cursor-pointer select-none hover:bg-gray-50/50 transition-colors duration-200"
         onDoubleClick={onToggle}
         title="Double-click to expand/collapse"
@@ -91,14 +205,12 @@ const CascadingSection = ({
       </div>
 
       {/* Content - Animated Expand/Collapse */}
-      <div 
+      <div
         className={`overflow-hidden transition-all duration-300 ease-in-out ${
           isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
-        <div className="px-6 pb-6">
-          {children}
-        </div>
+        <div className="px-6 pb-6">{children}</div>
       </div>
     </div>
   )
@@ -218,13 +330,15 @@ export default function DashboardPage() {
   const [priorities, setPriorities] = useState<Record<string, unknown>[]>([])
   const [showAddGoal, setShowAddGoal] = useState(false)
   const [showAddHighLevelGoal, setShowAddHighLevelGoal] = useState(false)
-  const [dashboardCategories, setDashboardCategories] = useState<Array<{
-    id: string
-    name: string
-    description?: string
-    color?: string
-    icon_name?: string
-  }>>([])
+  const [dashboardCategories, setDashboardCategories] = useState<
+    Array<{
+      id: string
+      name: string
+      description?: string
+      color?: string
+      icon_name?: string
+    }>
+  >([])
   const [showAddCategory, setShowAddCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [showAddTask, setShowAddTask] = useState(false)
@@ -353,6 +467,27 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Error deleting category:', error)
+    }
+  }
+
+  const updateCategory = async (categoryId: string, newName: string, newColor: string) => {
+    try {
+      const response = await fetch(`/api/dashboard-categories/${categoryId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newName,
+          color: newColor,
+        }),
+      })
+
+      if (response.ok) {
+        await fetchCategories()
+      }
+    } catch (error) {
+      console.error('Error updating category:', error)
     }
   }
 
@@ -1563,31 +1698,31 @@ export default function DashboardPage() {
                   <p className="text-sm text-gray-600 mb-4">
                     AI-recommended priorities I should do now
                   </p>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => setShowConversationalPriorityInput(true)}
-                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black hover:bg-gray-800 text-white h-10 px-4 py-2"
-                      >
-                        <Brain className="h-4 w-4" />
-                        AI Recommend
-                      </button>
-                      <button
-                        onClick={() => setShowManualPriorityForm(true)}
-                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Add Priority
-                      </button>
-                      <button
-                        onClick={() => setShowDeletedPriorities(true)}
-                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        View Deleted
-                      </button>
-                    </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setShowConversationalPriorityInput(true)}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black hover:bg-gray-800 text-white h-10 px-4 py-2"
+                    >
+                      <Brain className="h-4 w-4" />
+                      AI Recommend
+                    </button>
+                    <button
+                      onClick={() => setShowManualPriorityForm(true)}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Priority
+                    </button>
+                    <button
+                      onClick={() => setShowDeletedPriorities(true)}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      View Deleted
+                    </button>
                   </div>
-                
+                </div>
+
                 <div>
                   {priorities.length === 0 ? (
                     <div className="text-center py-8">
@@ -1888,36 +2023,36 @@ export default function DashboardPage() {
                     Tracking my progress on big ideas and things I'm doing to reach my goals
                   </p>
                   <div className="flex items-center space-x-2">
-                      <button
-                        onClick={categorizeGoalsWithAI}
-                        disabled={isCategorizing || goals.length === 0}
-                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 h-10 px-4 py-2"
-                        title="Use AI to automatically categorize your goals with smart financial detection"
-                      >
-                        <Brain className="h-4 w-4 mr-2" />
-                        {isCategorizing ? 'Categorizing...' : 'Categorize'}
-                      </button>
-                      <button
-                        onClick={() => setShowCompleted(!showCompleted)}
-                        className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-10 px-4 py-2 ${
-                          showCompleted
-                            ? 'bg-green-600 text-white hover:bg-green-700'
-                            : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        <History className="h-4 w-4 mr-2" />
-                        {showCompleted ? 'Active' : 'Completed'}
-                      </button>
-                      <button
-                        onClick={() => setShowAddGoal(true)}
-                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-white hover:bg-gray-800 h-10 px-4 py-2 bg-black"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Project
-                      </button>
-                    </div>
+                    <button
+                      onClick={categorizeGoalsWithAI}
+                      disabled={isCategorizing || goals.length === 0}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 h-10 px-4 py-2"
+                      title="Use AI to automatically categorize your goals with smart financial detection"
+                    >
+                      <Brain className="h-4 w-4 mr-2" />
+                      {isCategorizing ? 'Categorizing...' : 'Categorize'}
+                    </button>
+                    <button
+                      onClick={() => setShowCompleted(!showCompleted)}
+                      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-10 px-4 py-2 ${
+                        showCompleted
+                          ? 'bg-green-600 text-white hover:bg-green-700'
+                          : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      <History className="h-4 w-4 mr-2" />
+                      {showCompleted ? 'Active' : 'Completed'}
+                    </button>
+                    <button
+                      onClick={() => setShowAddGoal(true)}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-white hover:bg-gray-800 h-10 px-4 py-2 bg-black"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Project
+                    </button>
                   </div>
-                
+                </div>
+
                 <div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {loading ? (
@@ -2301,27 +2436,27 @@ export default function DashboardPage() {
                     Breaking down my projects into actionable items
                   </p>
                   <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => setShowCompleted(!showCompleted)}
-                        className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-10 px-4 py-2 ${
-                          showCompleted
-                            ? 'bg-green-600 text-white hover:bg-green-700'
-                            : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        <History className="h-4 w-4 mr-2" />
-                        {showCompleted ? 'Active' : 'Completed'}
-                      </button>
-                      <button
-                        onClick={() => setShowAddTask(true)}
-                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Task
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setShowCompleted(!showCompleted)}
+                      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-10 px-4 py-2 ${
+                        showCompleted
+                          ? 'bg-green-600 text-white hover:bg-green-700'
+                          : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      <History className="h-4 w-4 mr-2" />
+                      {showCompleted ? 'Active' : 'Completed'}
+                    </button>
+                    <button
+                      onClick={() => setShowAddTask(true)}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Task
+                    </button>
                   </div>
-                
+                </div>
+
                 <div>
                   <div className="space-y-3">
                     {loading ? (
@@ -2453,15 +2588,17 @@ export default function DashboardPage() {
                 onToggle={() => toggleSectionExpansion('accomplishments')}
               >
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-4">Your latest progress and achievements</p>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Your latest progress and achievements
+                  </p>
                   <button
-                      onClick={() => setShowAccomplishmentsHistory(true)}
-                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      View All
-                    </button>
-                  </div>
-                
+                    onClick={() => setShowAccomplishmentsHistory(true)}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    View All
+                  </button>
+                </div>
+
                 <div>
                   <div className="space-y-4">
                     {accomplishments.length === 0 ? (
@@ -2612,34 +2749,13 @@ export default function DashboardPage() {
                         )
 
                         return (
-                          <div key={category.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                            <div className="flex items-center space-x-3 flex-1">
-                              <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: category.color || '#3B82F6' }}
-                              />
-                              <span className="text-sm font-medium text-gray-900">
-                                {category.name}
-                              </span>
-                              {categoryPoints.current > 0 && (
-                                <div className="text-right flex-1">
-                                  <span className="text-sm font-bold text-gray-900">
-                                    {categoryPoints.current} pts
-                                  </span>
-                                  <span className="text-xs text-gray-500 ml-1">
-                                    / {categoryPoints.target}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => deleteCategory(category.id)}
-                              className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                              title="Delete category"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
+                          <CategoryItem
+                            key={category.id}
+                            category={category}
+                            categoryPoints={categoryPoints}
+                            onDelete={deleteCategory}
+                            onUpdate={updateCategory}
+                          />
                         )
                       })
                     )}
@@ -2647,7 +2763,6 @@ export default function DashboardPage() {
                 </div>
               </CascadingSection>
             )}
-
 
             {/* Daily Habits Section */}
             {sectionVisibility.habits && (

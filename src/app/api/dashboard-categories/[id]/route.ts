@@ -47,7 +47,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-// PATCH /api/dashboard-categories/[id] - Update a category
+// PATCH/PUT /api/dashboard-categories/[id] - Update a category
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
@@ -85,6 +85,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     console.error('Error in dashboard category PATCH:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
+}
+
+// PUT - Alias for PATCH
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  return PATCH(request, { params })
 }
 
 // DELETE /api/dashboard-categories/[id] - Delete a category

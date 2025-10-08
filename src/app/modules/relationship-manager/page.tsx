@@ -351,7 +351,7 @@ export default function RelationshipManagerPage() {
                   Relationship Manager
                 </h1>
                 <p className="text-sm text-gray-600">
-                  Manage your relationships and stay connected with the people who matter
+                  Manage your relationships and stay connected with the people who are close to you
                 </p>
               </div>
             </div>

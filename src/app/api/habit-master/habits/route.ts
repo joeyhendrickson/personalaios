@@ -13,12 +13,161 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // First, check if we need to migrate existing habits from daily_habits table
+    const { data: existingHabitMasterHabits } = await supabase
+      .from('habit_master_habits')
+      .select('id')
+      .eq('user_id', user.id)
+      .limit(1)
+
+    // If no habit_master_habits exist, migrate from daily_habits
+    if (!existingHabitMasterHabits || existingHabitMasterHabits.length === 0) {
+      const { data: dailyHabits } = await supabase
+        .from('daily_habits')
+        .select('*')
+        .eq('user_id', user.id)
+
+      if (dailyHabits && dailyHabits.length > 0) {
+        // Get or create a default category for migrated habits
+        let { data: defaultCategory } = await supabase
+          .from('habit_categories')
+          .select('id')
+          .eq('name', 'General')
+          .single()
+
+        if (!defaultCategory) {
+          const { data: newCategory } = await supabase
+            .from('habit_categories')
+            .insert({
+              name: 'General',
+              description: 'General daily habits',
+              color: '#3B82F6',
+              icon: 'Target',
+            })
+            .select('id')
+            .single()
+          defaultCategory = newCategory
+        }
+
+        // Migrate each daily habit to habit_master_habits
+        for (const dailyHabit of dailyHabits) {
+          const { data: migratedHabit } = await supabase
+            .from('habit_master_habits')
+            .insert({
+              user_id: user.id,
+              title: dailyHabit.title,
+              description: dailyHabit.description || '',
+              category_id: defaultCategory?.id,
+              habit_type: 'positive',
+              points_per_completion: dailyHabit.points_value || 10,
+              difficulty_level: 'medium',
+              stage_of_change: 'action',
+              is_public: false,
+              share_achievements: true,
+            })
+            .select()
+            .single()
+
+          if (migratedHabit) {
+            // Create initial streak record
+            await supabase.from('habit_master_streaks').insert({
+              habit_id: migratedHabit.id,
+              user_id: user.id,
+              current_streak: 0,
+              longest_streak: 0,
+              is_active: true,
+            })
+
+            // Migrate completion history from habit_completions
+            const { data: oldCompletions } = await supabase
+              .from('habit_completions')
+              .select('*')
+              .eq('habit_id', dailyHabit.id)
+              .eq('user_id', user.id)
+
+            if (oldCompletions && oldCompletions.length > 0) {
+              const newCompletions = oldCompletions.map((completion: any) => ({
+                habit_id: migratedHabit.id,
+                user_id: user.id,
+                completion_date: completion.completion_date,
+                notes: '',
+                points_earned: dailyHabit.points_value || 10,
+              }))
+
+              await supabase.from('habit_master_completions').insert(newCompletions)
+
+              // Update streak based on completion history
+              // Simple calculation: count consecutive days from most recent completion
+              const sortedCompletions = oldCompletions.sort(
+                (a: any, b: any) =>
+                  new Date(b.completion_date).getTime() - new Date(a.completion_date).getTime()
+              )
+
+              let currentStreak = 0
+              let longestStreak = 0
+              let tempStreak = 0
+              let previousDate: Date | null = null
+
+              for (const completion of sortedCompletions) {
+                const completionDate = new Date(completion.completion_date)
+
+                if (!previousDate) {
+                  tempStreak = 1
+                } else {
+                  const dayDiff = Math.floor(
+                    (previousDate.getTime() - completionDate.getTime()) / (1000 * 60 * 60 * 24)
+                  )
+                  if (dayDiff === 1) {
+                    tempStreak++
+                  } else {
+                    if (tempStreak > longestStreak) longestStreak = tempStreak
+                    tempStreak = 1
+                  }
+                }
+                previousDate = completionDate
+              }
+
+              // Check if streak is current (completed today or yesterday)
+              const today = new Date()
+              today.setHours(0, 0, 0, 0)
+              const mostRecentCompletion = sortedCompletions[0]
+                ? new Date(sortedCompletions[0].completion_date)
+                : null
+              if (mostRecentCompletion) {
+                mostRecentCompletion.setHours(0, 0, 0, 0)
+                const daysSinceLastCompletion = Math.floor(
+                  (today.getTime() - mostRecentCompletion.getTime()) / (1000 * 60 * 60 * 24)
+                )
+                if (daysSinceLastCompletion <= 1) {
+                  currentStreak = tempStreak
+                }
+              }
+
+              if (tempStreak > longestStreak) longestStreak = tempStreak
+
+              await supabase
+                .from('habit_master_streaks')
+                .update({
+                  current_streak: currentStreak,
+                  longest_streak: longestStreak,
+                })
+                .eq('habit_id', migratedHabit.id)
+                .eq('user_id', user.id)
+            }
+          }
+        }
+      }
+    }
+
+    // Now fetch all habit_master_habits
     const { data: habits, error } = await supabase
       .from('habit_master_habits')
-      .select(`
+      .select(
+        `
         *,
         category:habit_categories(*)
-      `)
+      `
+      )
       .eq('user_id', user.id)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
@@ -149,15 +298,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Create initial streak record
-    await supabase
-      .from('habit_master_streaks')
-      .insert({
-        habit_id: habit.id,
-        user_id: user.id,
-        current_streak: 0,
-        longest_streak: 0,
-        is_active: true,
-      })
+    await supabase.from('habit_master_streaks').insert({
+      habit_id: habit.id,
+      user_id: user.id,
+      current_streak: 0,
+      longest_streak: 0,
+      is_active: true,
+    })
 
     return NextResponse.json(habit)
   } catch (error) {
