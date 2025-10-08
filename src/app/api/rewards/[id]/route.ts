@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 // DELETE /api/rewards/[id] - Delete a user reward
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const supabase = await createClient()
     const {
@@ -14,7 +17,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userRewardId = params.id
+    const { id: userRewardId } = await params
 
     // Verify the user reward belongs to the current user
     const { data: userReward, error: fetchError } = await supabase
