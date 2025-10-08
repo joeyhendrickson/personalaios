@@ -1,304 +1,258 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { openai } from '@ai-sdk/openai'
 import { generateText } from 'ai'
-import { env } from '@/lib/env'
+import { openai } from '@ai-sdk/openai'
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if OpenAI API key is configured
-    if (!env.OPENAI_API_KEY || env.OPENAI_API_KEY.trim() === '') {
-      return NextResponse.json(
-        {
-          error: 'OpenAI API key not configured',
-          details: 'Please add OPENAI_API_KEY to your environment variables',
-        },
-        { status: 500 }
-      )
-    }
-
     const supabase = await createClient()
-
-    // Get current user
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser()
+
     if (authError || !user) {
+      console.error('Auth error:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { receipt_id, zipcode } = body
+    console.log('Starting receipt analysis for user:', user.id)
 
-    if (!receipt_id || !zipcode) {
+    // Parse form data
+    const formData = await request.formData()
+    const receiptFile = formData.get('receipt') as File
+    const zipCode = formData.get('zipCode') as string
+
+    console.log('Received zip code:', zipCode)
+    console.log('Received file:', receiptFile?.name, 'Type:', receiptFile?.type, 'Size:', receiptFile?.size)
+
+    if (!receiptFile || !zipCode) {
       return NextResponse.json(
-        {
-          error: 'Missing required fields: receipt_id, zipcode',
-        },
+        { error: 'Receipt file and zip code are required' },
         { status: 400 }
       )
     }
 
-    console.log(`Analyzing grocery receipt ${receipt_id} for user: ${user.id}`)
-
-    // Get the receipt and its items
-    const { data: receipt, error: receiptError } = await supabase
-      .from('grocery_receipts')
-      .select(
-        `
-        *,
-        grocery_items (*)
-      `
-      )
-      .eq('id', receipt_id)
-      .eq('user_id', user.id)
-      .single()
-
-    if (receiptError || !receipt) {
-      console.error('Error fetching receipt:', receiptError)
-      return NextResponse.json({ error: 'Receipt not found' }, { status: 404 })
-    }
-
-    // Get nearby stores
-    const { data: stores, error: storesError } = await supabase
-      .from('grocery_stores')
-      .select('*')
-      .eq('zipcode', zipcode)
-      .eq('is_active', true)
-
-    if (storesError) {
-      console.error('Error fetching stores:', storesError)
-    }
-
-    // Get user preferences
-    const { data: preferences, error: prefsError } = await supabase
-      .from('grocery_preferences')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-
-    // Generate AI analysis
-    const analysis = await generateGroceryAnalysis(receipt, stores || [], preferences, zipcode)
-
-    // Save analysis to database
-    const { data: savedAnalysis, error: analysisError } = await supabase
-      .from('receipt_analysis')
-      .insert({
-        receipt_id: receipt.id,
-        total_savings_potential: analysis.total_savings_potential,
-        alternative_store_recommendations: analysis.alternative_store_recommendations,
-        item_alternatives: analysis.item_alternatives,
-        analysis_summary: analysis.analysis_summary,
-        confidence_score: analysis.confidence_score,
-      })
-      .select()
-      .single()
-
-    if (analysisError) {
-      console.error('Error saving analysis:', analysisError)
-      // Don't fail the request if analysis save fails
-    }
-
-    // Update receipt as processed
-    await supabase.from('grocery_receipts').update({ is_processed: true }).eq('id', receipt.id)
-
-    // Log activity
-    await supabase.from('activity_logs').insert({
-      user_id: user.id,
-      activity_type: 'grocery_receipt_analyzed',
-      description: `Analyzed grocery receipt from ${receipt.store_name}`,
-      metadata: {
-        receipt_id,
-        store_name: receipt.store_name,
-        total_amount: receipt.total_amount,
-        potential_savings: analysis.total_savings_potential,
-      },
-    })
-
-    return NextResponse.json({
-      success: true,
-      analysis: savedAnalysis || analysis,
-      receipt: receipt,
-    })
-  } catch (error) {
-    console.error('Error in grocery analysis:', error)
-
-    // Check if it's an OpenAI API error
-    if (error instanceof Error && error.message.includes('API key')) {
+    // Check if OpenAI API key is configured
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OPENAI_API_KEY is not configured')
       return NextResponse.json(
-        {
-          error: 'OpenAI API key not configured or invalid',
-          details: 'Please check your OpenAI API key in the environment variables',
-        },
+        { error: 'AI service is not configured. Please contact support.' },
         { status: 500 }
       )
     }
 
+    console.log('Using AI SDK with gpt-4.1-mini model')
+
+    // Convert file to base64 for OpenAI Vision API
+    console.log('Converting file to base64...')
+    const bytes = await receiptFile.arrayBuffer()
+    const buffer = Buffer.from(bytes)
+    const base64Image = buffer.toString('base64')
+    const mimeType = receiptFile.type || 'image/jpeg'
+    console.log('Image converted, size:', base64Image.length, 'bytes')
+
+    // Step 1: Extract receipt data using GPT-4 Vision
+    console.log('Calling OpenAI Vision API to extract receipt data...')
+    
+    const extractionPrompt = `Extract all items from this grocery receipt. For each item, provide:
+- Item name
+- Price per unit
+- Quantity purchased
+- Total price for that line item
+
+Return ONLY a valid JSON array with this exact structure:
+[
+  {
+    "item": "item name",
+    "price": 0.00,
+    "quantity": 1,
+    "total": 0.00
+  }
+]
+
+Be precise with numbers. If quantity is not shown, assume 1. Return ONLY the JSON array, no other text.
+
+Image (base64): data:${mimeType};base64,${base64Image}`
+
+    const { text: receiptDataText } = await generateText({
+      model: openai('gpt-4.1-mini'),
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: extractionPrompt.split('\n\n')[0] + '\n\n' + extractionPrompt.split('\n\n')[1],
+            },
+            {
+              type: 'image',
+              image: `data:${mimeType};base64,${base64Image}`,
+            },
+          ],
+        },
+      ],
+      maxTokens: 2000,
+    })
+    console.log('Extraction response received:', receiptDataText.substring(0, 200))
+    let receiptItems
+    
+    try {
+      // Try to parse the JSON directly
+      receiptItems = JSON.parse(receiptDataText)
+      console.log('Successfully parsed receipt data directly')
+    } catch (e) {
+      console.log('Direct JSON parse failed, trying to extract from markdown...')
+      // If parsing fails, try to extract JSON from markdown code blocks
+      const jsonMatch = receiptDataText.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/)
+      if (jsonMatch) {
+        receiptItems = JSON.parse(jsonMatch[1])
+        console.log('Extracted from markdown code block')
+      } else {
+        // Try to find JSON array in the text
+        const arrayMatch = receiptDataText.match(/\[[\s\S]*\]/)
+        if (arrayMatch) {
+          receiptItems = JSON.parse(arrayMatch[0])
+          console.log('Extracted JSON array from text')
+        } else {
+          console.error('Failed to parse receipt data:', receiptDataText)
+          receiptItems = []
+        }
+      }
+    }
+
+    console.log('Extracted items count:', receiptItems?.length || 0)
+
+    if (!Array.isArray(receiptItems) || receiptItems.length === 0) {
+      console.error('No items extracted from receipt')
+      return NextResponse.json(
+        { error: 'Could not extract items from receipt. Please try a clearer image.' },
+        { status: 400 }
+      )
+    }
+
+    // Calculate total spending
+    const totalCurrentSpending = receiptItems.reduce((sum, item) => sum + item.total, 0)
+    console.log('Total current spending:', totalCurrentSpending)
+
+    // Step 2: Get AI recommendations for alternatives and store
+    console.log('Getting AI recommendations for alternatives and stores...')
+    const analysisPrompt = `I have a grocery receipt from zip code ${zipCode} with these items:
+
+${receiptItems.map((item: any) => `- ${item.item}: $${item.total.toFixed(2)}`).join('\n')}
+
+Total spent: $${totalCurrentSpending.toFixed(2)}
+
+Please provide:
+1. Alternative products for EACH line item that would save money, based on realistic grocery store prices within 25 miles of zip code ${zipCode}. Consider stores like Walmart, Aldi, Costco, Sam's Club, Kroger, Safeway, Target, etc.
+2. Recommend which specific store would offer the best overall savings for this shopping trip
+3. Calculate total potential savings
+
+Return ONLY valid JSON with this EXACT structure (no markdown, no code blocks):
+{
+  "alternatives": [
+    {
+      "item": "original item name",
+      "currentPrice": 0.00,
+      "alternativeProduct": "cheaper alternative product name",
+      "alternativePrice": 0.00,
+      "savings": 0.00,
+      "store": "store name"
+    }
+  ],
+  "storeRecommendation": {
+    "storeName": "Recommended Store Name",
+    "address": "123 Street, City, State",
+    "distance": 0.0,
+    "totalSavings": 0.00,
+    "savingsPercentage": 0.0
+  }
+}
+
+Be realistic with prices and savings. Base recommendations on actual store locations and prices typical for that area.`
+
+    const { text: analysisText } = await generateText({
+      model: openai('gpt-4.1-mini'),
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a grocery shopping expert who helps people save money by finding better deals at different stores. Provide realistic price comparisons based on actual store chains and typical prices. Return ONLY valid JSON, no markdown formatting.',
+        },
+        {
+          role: 'user',
+          content: analysisPrompt,
+        },
+      ],
+      maxTokens: 3000,
+    })
+    console.log('Analysis response received:', analysisText.substring(0, 200))
+    let analysis
+    
+    try {
+      analysis = JSON.parse(analysisText)
+      console.log('Successfully parsed analysis JSON')
+    } catch (e) {
+      console.error('Failed to parse analysis:', analysisText)
+      console.error('Parse error:', e)
+      return NextResponse.json(
+        { error: 'Failed to analyze receipt. Please try again.' },
+        { status: 500 }
+      )
+    }
+
+    // Calculate total potential savings
+    const totalPotentialSavings = analysis.alternatives?.reduce(
+      (sum: number, alt: any) => sum + alt.savings,
+      0
+    ) || 0
+
+    // Prepare response
+    const result = {
+      receipt: receiptItems,
+      alternatives: analysis.alternatives || [],
+      storeRecommendation: analysis.storeRecommendation || {
+        storeName: 'No recommendation available',
+        address: '',
+        distance: 0,
+        totalSavings: totalPotentialSavings,
+        savingsPercentage: totalCurrentSpending > 0 
+          ? (totalPotentialSavings / totalCurrentSpending) * 100 
+          : 0,
+      },
+      totalCurrentSpending,
+      totalPotentialSavings,
+    }
+
+    // Store the analysis in database for history
+    console.log('Saving analysis to database...')
+    const { error: dbError } = await supabase.from('grocery_analyses').insert({
+      user_id: user.id,
+      zip_code: zipCode,
+      total_spending: totalCurrentSpending,
+      total_savings: totalPotentialSavings,
+      recommended_store: analysis.storeRecommendation?.storeName,
+      analysis_data: result,
+    })
+
+    if (dbError) {
+      console.error('Database error:', dbError)
+      // Continue even if database save fails
+    } else {
+      console.log('Analysis saved to database successfully')
+    }
+
+    console.log('Returning result to client')
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error('Error analyzing receipt:', error)
+    console.error('Error details:', error instanceof Error ? error.message : 'Unknown error')
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
-      {
-        error: 'Failed to analyze grocery receipt',
-        details: error instanceof Error ? error.message : 'Unknown error',
+      { 
+        error: 'Failed to analyze receipt. Please try again.',
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )
   }
-}
-
-async function generateGroceryAnalysis(
-  receipt: any,
-  stores: any[],
-  preferences: any,
-  zipcode: string
-) {
-  // Prepare data for AI
-  const receiptData = {
-    store_name: receipt.store_name,
-    total_amount: receipt.total_amount,
-    receipt_date: receipt.receipt_date,
-    items:
-      receipt.grocery_items?.map((item: any) => ({
-        name: item.item_name,
-        category: item.item_category,
-        brand: item.brand,
-        quantity: item.quantity,
-        unit: item.unit,
-        unit_price: item.unit_price,
-        total_price: item.total_price,
-        is_organic: item.is_organic,
-        is_generic: item.is_generic,
-      })) || [],
-  }
-
-  const storesData = stores.map((store) => ({
-    name: store.store_name,
-    chain: store.store_chain,
-    address: store.address,
-  }))
-
-  const preferencesData = preferences
-    ? {
-        preferred_stores: preferences.preferred_stores,
-        max_drive_distance: preferences.max_drive_distance,
-        prioritize_organic: preferences.prioritize_organic,
-        prioritize_generic: preferences.prioritize_generic,
-        budget_limit: preferences.budget_limit,
-        dietary_restrictions: preferences.dietary_restrictions,
-      }
-    : null
-
-  const prompt = `
-Analyze this grocery receipt and provide cost optimization recommendations:
-
-RECEIPT DATA:
-${JSON.stringify(receiptData, null, 2)}
-
-AVAILABLE STORES IN ZIPCODE ${zipcode}:
-${JSON.stringify(storesData, null, 2)}
-
-USER PREFERENCES:
-${JSON.stringify(preferencesData, null, 2)}
-
-Provide a comprehensive analysis including:
-
-1. Cost analysis of each item
-2. Alternative items with better prices
-3. Store recommendations within 20 miles
-4. Total potential savings
-5. Shopping strategy recommendations
-
-Consider:
-- Generic vs brand name alternatives
-- Organic vs conventional options
-- Bulk buying opportunities
-- Store-specific deals and pricing
-- User preferences and dietary restrictions
-- Distance and convenience factors
-
-Format your response as JSON with this structure:
-{
-  "total_savings_potential": 25.50,
-  "analysis_summary": "You could save approximately $25.50 by shopping at different stores and choosing alternative items...",
-  "confidence_score": 0.85,
-  "alternative_store_recommendations": [
-    {
-      "store_name": "Walmart",
-      "store_chain": "Walmart",
-      "estimated_savings": "$15.30",
-      "distance_miles": 2.5,
-      "reason": "Best prices for pantry items and household goods",
-      "items_better_priced": ["Milk", "Bread", "Cereal"]
-    }
-  ],
-  "item_alternatives": [
-    {
-      "original_item": "Brand Name Cereal",
-      "alternative_item": "Generic Cereal",
-      "original_price": 4.99,
-      "alternative_price": 2.99,
-      "savings": 2.00,
-      "store_recommendation": "Walmart",
-      "reason": "Generic version offers same nutrition at 40% lower cost"
-    }
-  ],
-  "shopping_strategy": {
-    "primary_store": "Walmart",
-    "secondary_stores": ["Target", "Kroger"],
-    "total_estimated_cost": 45.50,
-    "total_savings": 25.50,
-    "recommended_route": "Start at Walmart for basics, then Target for organic items"
-  }
-}
-
-Be realistic about pricing and focus on actionable recommendations that will actually save money.
-`
-
-  const { text: aiResponse } = await generateText({
-    model: openai('gpt-4.1-mini'),
-    messages: [
-      {
-        role: 'system',
-        content:
-          'You are an expert grocery shopping analyst and cost optimization specialist. Analyze grocery receipts and provide detailed, actionable recommendations for saving money while maintaining quality and meeting dietary needs.',
-      },
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ],
-    temperature: 0.7,
-  })
-
-  let parsedResponse
-  try {
-    parsedResponse = JSON.parse(aiResponse)
-  } catch (parseError) {
-    // If JSON parsing fails, create a basic analysis
-    parsedResponse = {
-      total_savings_potential: 10.0,
-      analysis_summary:
-        'Analysis completed with basic recommendations. Consider shopping at different stores for better prices.',
-      confidence_score: 0.6,
-      alternative_store_recommendations: [
-        {
-          store_name: 'Walmart',
-          store_chain: 'Walmart',
-          estimated_savings: '$10.00',
-          distance_miles: 5.0,
-          reason: 'Generally lower prices on most items',
-          items_better_priced: ['Basic groceries'],
-        },
-      ],
-      item_alternatives: [],
-      shopping_strategy: {
-        primary_store: 'Walmart',
-        secondary_stores: ['Target'],
-        total_estimated_cost: receipt.total_amount - 10.0,
-        total_savings: 10.0,
-        recommended_route: 'Shop at Walmart for better prices',
-      },
-    }
-  }
-
-  return parsedResponse
 }

@@ -28,7 +28,13 @@ import {
   X,
   Trash2,
   ShoppingCart,
+  Music,
+  FileText,
+  AlertTriangle,
+  PenTool,
+  Briefcase,
 } from 'lucide-react'
+import RatingStars from '@/components/rating-stars'
 
 interface Module {
   id: string
@@ -47,6 +53,19 @@ interface InstalledModule {
   installed_at: string
   last_accessed: string
   is_active: boolean
+}
+
+interface AppRating {
+  rating: number
+  reviewText?: string
+  averageRating: number
+  totalRatings: number
+  userRating?: {
+    rating: number
+    reviewText?: string
+    createdAt: string
+    updatedAt: string
+  }
 }
 
 const modules: Module[] = [
@@ -131,31 +150,6 @@ const modules: Module[] = [
     complexity: 'beginner',
   },
   {
-    id: 'mood-tracker',
-    title: 'Mood Tracker',
-    description: 'Track mood patterns and get insights for mental health optimization.',
-    category: 'Health',
-    icon: <Heart className="h-8 w-8" />,
-    status: 'available',
-    features: ['Mood Logging', 'Pattern Analysis', 'Wellness Tips', 'Mental Health Insights'],
-    complexity: 'beginner',
-  },
-  {
-    id: 'energy-optimizer',
-    title: 'Energy Optimizer',
-    description: 'Track energy levels and optimize daily routines for peak performance.',
-    category: 'Health',
-    icon: <Zap className="h-8 w-8" />,
-    status: 'available',
-    features: [
-      'Energy Tracking',
-      'Sleep Analysis',
-      'Nutrition Monitoring',
-      'Performance Optimization',
-    ],
-    complexity: 'intermediate',
-  },
-  {
     id: 'calendar-ai',
     title: 'Calendar AI',
     description: 'AI-powered calendar management with smart scheduling and optimization.',
@@ -176,6 +170,16 @@ const modules: Module[] = [
     complexity: 'advanced',
   },
   {
+    id: 'focus-enhancer',
+    title: 'Focus Enhancer',
+    description: 'AI-powered screen time analysis and therapeutic conversations to improve digital wellness.',
+    category: 'Wellness',
+    icon: <Brain className="h-8 w-8" />,
+    status: 'available',
+    features: ['Screen Time Analysis', 'Therapeutic Conversations', 'Digital Wellness', 'Habit Building'],
+    complexity: 'beginner',
+  },
+  {
     id: 'habit-master',
     title: 'Habit Master',
     description: 'Advanced habit tracking and optimization with behavioral insights.',
@@ -184,51 +188,6 @@ const modules: Module[] = [
     status: 'available',
     features: ['Habit Tracking', 'Behavioral Analysis', 'Optimization Tips', 'Streak Management'],
     complexity: 'beginner',
-  },
-  {
-    id: 'focus-enhancer',
-    title: 'Focus Enhancer',
-    description: 'Advanced focus tracking and concentration optimization techniques.',
-    category: 'Productivity',
-    icon: <Target className="h-8 w-8" />,
-    status: 'available',
-    features: [
-      'Focus Tracking',
-      'Distraction Analysis',
-      'Concentration Techniques',
-      'Productivity Insights',
-    ],
-    complexity: 'intermediate',
-  },
-  {
-    id: 'stress-manager',
-    title: 'Stress Manager',
-    description: 'Track stress levels and get personalized stress management techniques.',
-    category: 'Health',
-    icon: <Heart className="h-8 w-8" />,
-    status: 'available',
-    features: [
-      'Stress Tracking',
-      'Relaxation Techniques',
-      'Mindfulness Exercises',
-      'Wellness Insights',
-    ],
-    complexity: 'beginner',
-  },
-  {
-    id: 'creativity-boost',
-    title: 'Creativity Boost',
-    description: 'Enhance creativity with AI-powered brainstorming and idea generation.',
-    category: 'Productivity',
-    icon: <Lightbulb className="h-8 w-8" />,
-    status: 'premium',
-    features: [
-      'Idea Generation',
-      'Brainstorming Tools',
-      'Creative Exercises',
-      'Innovation Tracking',
-    ],
-    complexity: 'intermediate',
   },
 ]
 
@@ -241,11 +200,35 @@ export default function ModulesPage() {
   const [installedModules, setInstalledModules] = useState<InstalledModule[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [businessApps, setBusinessApps] = useState<Array<{
+    id: string
+    name: string
+    description: string
+    icon: string
+  }>>([])
+  const [businessAppsLoading, setBusinessAppsLoading] = useState(true)
+  const [appRatings, setAppRatings] = useState<Record<string, AppRating>>({})
+  const [ratingLoading, setRatingLoading] = useState<Record<string, boolean>>({})
 
-  // Fetch installed modules on component mount
+  // Fetch installed modules and business apps on component mount
   useEffect(() => {
     fetchInstalledModules()
+    fetchBusinessApps()
   }, [])
+
+  const fetchBusinessApps = async () => {
+    try {
+      const response = await fetch('/api/business-hacks')
+      if (response.ok) {
+        const data = await response.json()
+        setBusinessApps(data.businessApps || [])
+      }
+    } catch (error) {
+      console.error('Error fetching business apps:', error)
+    } finally {
+      setBusinessAppsLoading(false)
+    }
+  }
 
   const fetchInstalledModules = async () => {
     try {
@@ -533,6 +516,88 @@ export default function ModulesPage() {
                           <Trash2 className="h-4 w-4" />
                         )}
                       </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Business Hacks Section */}
+        {businessApps.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                <Briefcase className="h-6 w-6 mr-2 text-black" />
+                Business Hacks ({businessApps.length})
+              </h2>
+              <p className="text-sm text-gray-500">Tools for business and content creation</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {businessApps.map((app) => {
+                const getIconComponent = (iconName: string) => {
+                  switch (iconName) {
+                    case 'Music':
+                      return <Music className="h-8 w-8" />
+                    case 'BookOpen':
+                      return <BookOpen className="h-8 w-8" />
+                    case 'FileText':
+                      return <FileText className="h-8 w-8" />
+                    case 'AlertTriangle':
+                      return <AlertTriangle className="h-8 w-8" />
+                    case 'PenTool':
+                      return <PenTool className="h-8 w-8" />
+                    default:
+                      return <Briefcase className="h-8 w-8" />
+                  }
+                }
+
+                const getAppPath = (appName: string) => {
+                  switch (appName) {
+                    case 'Co-Writer':
+                      return '/business-hacks/co-writer'
+                    case 'Ghost Writer':
+                      return '/business-hacks/ghost-writer'
+                    case 'Project Plan Builder':
+                      return '/business-hacks/project-plan-builder'
+                    case 'RAID Monitoring Tool':
+                      return '/business-hacks/raid-monitoring'
+                    case 'Post Creator':
+                      return '/business-hacks/post-creator'
+                    default:
+                      return '/business-hacks'
+                  }
+                }
+
+                return (
+                  <div
+                    key={app.id}
+                    className="bg-gray-50 border-2 border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-gray-100 rounded-lg text-black">
+                          {getIconComponent(app.icon)}
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">{app.name}</h3>
+                          <p className="text-sm text-gray-500">Business Tool</p>
+                        </div>
+                      </div>
+                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-black border border-gray-200">
+                        Installed
+                      </span>
+                    </div>
+
+                    <p className="text-gray-600 mb-4">{app.description}</p>
+
+                    <div className="flex space-x-2">
+                      <Link href={getAppPath(app.name)} className="flex-1">
+                        <button className="w-full bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors text-sm font-medium">
+                          Install
+                        </button>
+                      </Link>
                     </div>
                   </div>
                 )

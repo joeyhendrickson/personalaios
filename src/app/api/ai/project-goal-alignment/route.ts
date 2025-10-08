@@ -172,9 +172,9 @@ Return your response as a JSON object with this structure:
       })
       text = result.text
     } catch (modelError) {
-      console.log('gpt-4.1-mini failed, trying gpt-4.1')
+      console.log('gpt-4.1-mini failed, trying fallback')
       const result = await generateText({
-        model: openai('gpt-4.1'),
+        model: openai('gpt-4.1-mini'),
         prompt,
       })
       text = result.text
