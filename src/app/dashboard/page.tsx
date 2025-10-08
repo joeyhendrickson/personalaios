@@ -125,37 +125,57 @@ const CategoryItem = ({ category, categoryPoints, onDelete, onUpdate }: Category
     )
   }
 
+  const progress =
+    categoryPoints.target > 0
+      ? Math.min((categoryPoints.current / categoryPoints.target) * 100, 100)
+      : 0
+
   return (
-    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
-      <div className="flex items-center space-x-3 flex-1">
-        <div
-          className="w-3 h-3 rounded-full"
-          style={{ backgroundColor: category.color || '#3B82F6' }}
-        />
-        <span className="text-sm font-medium text-gray-900">{category.name}</span>
-        {categoryPoints.current > 0 && (
-          <div className="text-right flex-1">
-            <span className="text-sm font-bold text-gray-900">{categoryPoints.current} pts</span>
-            <span className="text-xs text-gray-500 ml-1">/ {categoryPoints.target}</span>
+    <div className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center space-x-3 flex-1">
+          <div
+            className="w-3 h-3 rounded-full"
+            style={{ backgroundColor: category.color || '#3B82F6' }}
+          />
+          <span className="text-sm font-medium text-gray-900">{category.name}</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          {categoryPoints.current > 0 && (
+            <div className="text-right">
+              <span className="text-sm font-bold text-gray-900">{categoryPoints.current}</span>
+              <span className="text-xs text-gray-500 ml-1">/ {categoryPoints.target} pts</span>
+            </div>
+          )}
+          <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => setIsEditing(true)}
+              className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+              title="Edit category"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => onDelete(category.id)}
+              className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+              title="Delete category"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
           </div>
-        )}
+        </div>
       </div>
-      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={() => setIsEditing(true)}
-          className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
-          title="Edit category"
-        >
-          <Settings className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => onDelete(category.id)}
-          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-          title="Delete category"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
+      {categoryPoints.target > 0 && (
+        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-500 ease-out"
+            style={{
+              width: `${progress}%`,
+              backgroundColor: category.color || '#3B82F6',
+            }}
+          />
+        </div>
+      )}
     </div>
   )
 }
