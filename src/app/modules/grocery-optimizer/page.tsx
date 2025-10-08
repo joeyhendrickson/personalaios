@@ -94,21 +94,23 @@ export default function GroceryOptimizerPage() {
       if (!response.ok) {
         const errorData = await response.json()
         console.error('API Error:', errorData)
-        
+
         // Display specific error messages based on the error
         let userFriendlyError = errorData.error || 'Failed to analyze receipt'
-        
+
         // Check for specific error types
         if (errorData.error?.includes('AI service is not configured')) {
-          userFriendlyError = '⚙️ System Configuration Issue: The AI analysis service is not properly configured. Please contact support to enable this feature.'
+          userFriendlyError =
+            '⚙️ System Configuration Issue: The AI analysis service is not properly configured. Please contact support to enable this feature.'
         } else if (errorData.error?.includes('Unauthorized')) {
           userFriendlyError = '🔒 Authentication Required: Please log in to use this feature.'
         } else if (errorData.error?.includes('Could not extract items')) {
-          userFriendlyError = '📸 Image Quality Issue: We could not read the items from your receipt. Please try uploading a clearer, well-lit photo of your receipt. Make sure all text is visible and in focus.'
+          userFriendlyError =
+            '📸 Image Quality Issue: We could not read the items from your receipt. Please try uploading a clearer, well-lit photo of your receipt. Make sure all text is visible and in focus.'
         } else if (errorData.details) {
           userFriendlyError = `${errorData.error}\n\nDetails: ${errorData.details}`
         }
-        
+
         throw new Error(userFriendlyError)
       }
 
@@ -118,18 +120,19 @@ export default function GroceryOptimizerPage() {
     } catch (err) {
       console.error('Error analyzing receipt:', err)
       let errorMessage = 'Failed to analyze receipt. Please try again.'
-      
+
       if (err instanceof Error) {
         errorMessage = err.message
       } else if (typeof err === 'string') {
         errorMessage = err
       }
-      
+
       // Check for network errors
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
-        errorMessage = '🌐 Connection Error: Unable to reach the server. Please check your internet connection and try again.'
+        errorMessage =
+          '🌐 Connection Error: Unable to reach the server. Please check your internet connection and try again.'
       }
-      
+
       console.error('Error message:', errorMessage)
       setError(errorMessage)
     } finally {
@@ -164,7 +167,8 @@ export default function GroceryOptimizerPage() {
                   Grocery Store Optimizer
                 </h1>
                 <p className="text-sm text-gray-600">
-                  Save money by finding the best grocery stores and alternative products in your area
+                  Save money by finding the best grocery stores and alternative products in your
+                  area
                 </p>
               </div>
             </div>
@@ -183,7 +187,8 @@ export default function GroceryOptimizerPage() {
                   Upload Your Grocery Receipt
                 </h2>
                 <p className="text-gray-600">
-                  Enter your zip code and upload a receipt to get personalized savings recommendations
+                  Enter your zip code and upload a receipt to get personalized savings
+                  recommendations
                 </p>
               </div>
 
@@ -226,12 +231,8 @@ export default function GroceryOptimizerPage() {
                       </div>
                     ) : (
                       <>
-                        <p className="text-gray-600 font-medium mb-1">
-                          Click to upload receipt
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Supports JPG, PNG, or PDF files
-                        </p>
+                        <p className="text-gray-600 font-medium mb-1">Click to upload receipt</p>
+                        <p className="text-sm text-gray-500">Supports JPG, PNG, or PDF files</p>
                       </>
                     )}
                   </label>
@@ -249,7 +250,8 @@ export default function GroceryOptimizerPage() {
                       {error.includes('Configuration') && (
                         <div className="mt-3 pt-3 border-t border-red-200">
                           <p className="text-red-600 text-xs">
-                            <strong>For Administrators:</strong> Make sure the OPENAI_API_KEY is set in your environment variables.
+                            <strong>For Administrators:</strong> Make sure the OPENAI_API_KEY is set
+                            in your environment variables.
                           </p>
                         </div>
                       )}
@@ -365,9 +367,7 @@ export default function GroceryOptimizerPage() {
                       <div className="flex-1">
                         <div className="flex items-center mb-2">
                           <span className="font-semibold text-gray-900">{alt.item}</span>
-                          <span className="ml-2 text-gray-600">
-                            ${alt.currentPrice.toFixed(2)}
-                          </span>
+                          <span className="ml-2 text-gray-600">${alt.currentPrice.toFixed(2)}</span>
                         </div>
                         <div className="flex items-center text-green-600">
                           <TrendingDown className="h-4 w-4 mr-1" />
@@ -454,4 +454,3 @@ export default function GroceryOptimizerPage() {
     </div>
   )
 }
-

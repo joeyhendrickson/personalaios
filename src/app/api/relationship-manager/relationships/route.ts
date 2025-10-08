@@ -6,16 +6,26 @@ const createRelationshipSchema = z.object({
   name: z.string().min(1).max(255),
   email: z.string().email().optional().or(z.literal('')),
   phone: z.string().optional().or(z.literal('')),
-  relationship_type: z.enum(['family', 'friend', 'colleague', 'business', 'mentor', 'acquaintance']),
+  relationship_type: z.enum([
+    'family',
+    'friend',
+    'colleague',
+    'business',
+    'mentor',
+    'acquaintance',
+  ]),
   contact_frequency_days: z.number().min(1).max(365),
   notes: z.string().optional().or(z.literal('')),
-  priority_level: z.number().min(1).max(5)
+  priority_level: z.number().min(1).max(5),
 })
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -23,11 +33,13 @@ export async function GET(request: NextRequest) {
 
     const { data: relationships, error } = await supabase
       .from('relationships')
-      .select(`
+      .select(
+        `
         *,
         relationship_photos!left(count),
         contact_history!left(id, created_at)
-      `)
+      `
+      )
       .eq('user_id', user.id)
       .eq('is_active', true)
       .order('priority_level', { ascending: true })
@@ -39,14 +51,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Process relationships to include computed fields
-    const processedRelationships = relationships.map(rel => {
+    const processedRelationships = relationships.map((rel) => {
       const photosCount = rel.relationship_photos?.[0]?.count || 0
       const lastContactDate = rel.contact_history?.[0]?.created_at || rel.last_contact_date
-      
+
       return {
         ...rel,
         photos_count: photosCount,
-        last_contact_date: lastContactDate
+        last_contact_date: lastContactDate,
       }
     })
 
@@ -60,7 +72,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -74,14 +89,14 @@ export async function POST(request: NextRequest) {
       ...validatedData,
       email: validatedData.email || null,
       phone: validatedData.phone || null,
-      notes: validatedData.notes || null
+      notes: validatedData.notes || null,
     }
 
     const { data: relationship, error } = await supabase
       .from('relationships')
       .insert({
         user_id: user.id,
-        ...cleanData
+        ...cleanData,
       })
       .select()
       .single()
@@ -94,10 +109,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ relationship })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ 
-        error: 'Invalid request data', 
-        details: error.issues 
-      }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: 'Invalid request data',
+          details: error.issues,
+        },
+        { status: 400 }
+      )
     }
 
     console.error('Error in relationships POST API:', error)

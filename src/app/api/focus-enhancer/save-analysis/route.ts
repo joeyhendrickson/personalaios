@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         suggested_projects: analysisSummary.suggestedProjects,
         total_screen_time: analysisSummary.totalScreenTime,
         problematic_apps_count: analysisSummary.problematicAppsCount,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       })
       .select()
       .single()
@@ -59,10 +59,9 @@ export async function POST(request: NextRequest) {
         dynamicSuggestions: savedAnalysis.dynamic_suggestions,
         userFears: savedAnalysis.user_fears,
         suggestedHabits: savedAnalysis.suggested_habits,
-        suggestedProjects: savedAnalysis.suggested_projects
-      }
+        suggestedProjects: savedAnalysis.suggested_projects,
+      },
     })
-
   } catch (error: any) {
     console.error('Error saving analysis:', error)
     return NextResponse.json(

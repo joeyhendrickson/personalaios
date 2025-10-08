@@ -4,7 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -26,7 +29,7 @@ export async function POST(request: NextRequest) {
     // Check if token needs refresh
     const now = new Date()
     const tokenExpiry = new Date(integration.token_expires_at)
-    
+
     let accessToken = integration.access_token
 
     if (now >= tokenExpiry) {
@@ -45,7 +48,10 @@ export async function POST(request: NextRequest) {
       })
 
       if (!refreshResponse.ok) {
-        return NextResponse.json({ error: 'Failed to refresh Google Photos token' }, { status: 401 })
+        return NextResponse.json(
+          { error: 'Failed to refresh Google Photos token' },
+          { status: 401 }
+        )
       }
 
       const refreshData = await refreshResponse.json()
@@ -57,7 +63,7 @@ export async function POST(request: NextRequest) {
         .update({
           access_token: refreshData.access_token,
           token_expires_at: new Date(Date.now() + refreshData.expires_in * 1000).toISOString(),
-          last_sync_at: new Date().toISOString()
+          last_sync_at: new Date().toISOString(),
         })
         .eq('id', integration.id)
     }
@@ -65,14 +71,17 @@ export async function POST(request: NextRequest) {
     // Fetch photos from Google Photos API
     const photosResponse = await fetch('https://photoslibrary.googleapis.com/v1/mediaItems', {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
     })
 
     if (!photosResponse.ok) {
       console.error('Google Photos API error:', await photosResponse.text())
-      return NextResponse.json({ error: 'Failed to fetch photos from Google Photos' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Failed to fetch photos from Google Photos' },
+        { status: 500 }
+      )
     }
 
     const photosData = await photosResponse.json()
@@ -82,7 +91,8 @@ export async function POST(request: NextRequest) {
     let skippedCount = 0
 
     // Process each photo
-    for (const photo of photos.slice(0, 50)) { // Limit to first 50 photos for initial sync
+    for (const photo of photos.slice(0, 50)) {
+      // Limit to first 50 photos for initial sync
       try {
         // Check if photo already exists
         const { data: existingPhoto } = await supabase
@@ -100,24 +110,24 @@ export async function POST(request: NextRequest) {
         // Extract photo metadata
         const photoUrl = photo.baseUrl
         const thumbnailUrl = photo.baseUrl + '=w200-h200'
-        const photoDate = photo.mediaMetadata?.creationTime ? new Date(photo.mediaMetadata.creationTime).toISOString().split('T')[0] : null
+        const photoDate = photo.mediaMetadata?.creationTime
+          ? new Date(photo.mediaMetadata.creationTime).toISOString().split('T')[0]
+          : null
         const description = photo.description || ''
 
         // Insert photo record
-        const { error: insertError } = await supabase
-          .from('relationship_photos')
-          .insert({
-            user_id: user.id,
-            relationship_id: null, // Will be matched later
-            google_photo_id: photo.id,
-            photo_url: photoUrl,
-            thumbnail_url: thumbnailUrl,
-            photo_date: photoDate,
-            description: description,
-            people_in_photo: [], // Will be populated by AI analysis
-            ai_tags: [], // Will be populated by AI analysis
-            relevance_score: 0.5 // Default score
-          })
+        const { error: insertError } = await supabase.from('relationship_photos').insert({
+          user_id: user.id,
+          relationship_id: null, // Will be matched later
+          google_photo_id: photo.id,
+          photo_url: photoUrl,
+          thumbnail_url: thumbnailUrl,
+          photo_date: photoDate,
+          description: description,
+          people_in_photo: [], // Will be populated by AI analysis
+          ai_tags: [], // Will be populated by AI analysis
+          relevance_score: 0.5, // Default score
+        })
 
         if (insertError) {
           console.error('Error inserting photo:', insertError)
@@ -127,8 +137,7 @@ export async function POST(request: NextRequest) {
         syncedCount++
 
         // Add a small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100))
-
+        await new Promise((resolve) => setTimeout(resolve, 100))
       } catch (photoError) {
         console.error(`Error processing photo ${photo.id}:`, photoError)
         continue
@@ -145,9 +154,8 @@ export async function POST(request: NextRequest) {
       message: `Successfully synced ${syncedCount} new photos`,
       synced: syncedCount,
       skipped: skippedCount,
-      total: photos.length
+      total: photos.length,
     })
-
   } catch (error) {
     console.error('Error syncing Google Photos:', error)
     return NextResponse.json({ error: 'Failed to sync photos' }, { status: 500 })

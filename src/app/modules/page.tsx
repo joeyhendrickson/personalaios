@@ -172,11 +172,17 @@ const modules: Module[] = [
   {
     id: 'focus-enhancer',
     title: 'Focus Enhancer',
-    description: 'AI-powered screen time analysis and therapeutic conversations to improve digital wellness.',
+    description:
+      'AI-powered screen time analysis and therapeutic conversations to improve digital wellness.',
     category: 'Wellness',
     icon: <Brain className="h-8 w-8" />,
     status: 'available',
-    features: ['Screen Time Analysis', 'Therapeutic Conversations', 'Digital Wellness', 'Habit Building'],
+    features: [
+      'Screen Time Analysis',
+      'Therapeutic Conversations',
+      'Digital Wellness',
+      'Habit Building',
+    ],
     complexity: 'beginner',
   },
   {
@@ -200,12 +206,14 @@ export default function ModulesPage() {
   const [installedModules, setInstalledModules] = useState<InstalledModule[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
-  const [businessApps, setBusinessApps] = useState<Array<{
-    id: string
-    name: string
-    description: string
-    icon: string
-  }>>([])
+  const [businessApps, setBusinessApps] = useState<
+    Array<{
+      id: string
+      name: string
+      description: string
+      icon: string
+    }>
+  >([])
   const [businessAppsLoading, setBusinessAppsLoading] = useState(true)
   const [appRatings, setAppRatings] = useState<Record<string, AppRating>>({})
   const [ratingLoading, setRatingLoading] = useState<Record<string, boolean>>({})

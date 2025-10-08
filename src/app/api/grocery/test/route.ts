@@ -10,10 +10,10 @@ export async function GET() {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         status: 'error',
         message: 'Not authenticated',
-        authError: authError?.message 
+        authError: authError?.message,
       })
     }
 
@@ -21,10 +21,7 @@ export async function GET() {
     const hasOpenAI = !!process.env.OPENAI_API_KEY
 
     // Check if table exists
-    const { error: tableError } = await supabase
-      .from('grocery_analyses')
-      .select('id')
-      .limit(1)
+    const { error: tableError } = await supabase.from('grocery_analyses').select('id').limit(1)
 
     return NextResponse.json({
       status: 'ok',
@@ -39,4 +36,3 @@ export async function GET() {
     })
   }
 }
-

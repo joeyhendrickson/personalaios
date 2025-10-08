@@ -140,7 +140,12 @@ export default function HabitMasterPage() {
     automatic_thought: '',
     cognitive_distortion: '',
     reframe_statement: '',
-    stage_of_change: 'precontemplation' as 'precontemplation' | 'contemplation' | 'preparation' | 'action' | 'maintenance',
+    stage_of_change: 'precontemplation' as
+      | 'precontemplation'
+      | 'contemplation'
+      | 'preparation'
+      | 'action'
+      | 'maintenance',
     autonomy_score: 5,
     competence_score: 5,
     relatedness_score: 5,
@@ -152,35 +157,54 @@ export default function HabitMasterPage() {
 
   const getCategoryIcon = (iconName: string) => {
     switch (iconName) {
-      case 'activity': return <Activity className="h-5 w-5" />
-      case 'brain': return <Brain className="h-5 w-5" />
-      case 'target': return <Target className="h-5 w-5" />
-      case 'users': return <Users className="h-5 w-5" />
-      case 'book-open': return <BookOpen className="h-5 w-5" />
-      case 'dollar-sign': return <DollarSign className="h-5 w-5" />
-      case 'heart': return <Heart className="h-5 w-5" />
-      case 'smartphone': return <Smartphone className="h-5 w-5" />
-      default: return <Star className="h-5 w-5" />
+      case 'activity':
+        return <Activity className="h-5 w-5" />
+      case 'brain':
+        return <Brain className="h-5 w-5" />
+      case 'target':
+        return <Target className="h-5 w-5" />
+      case 'users':
+        return <Users className="h-5 w-5" />
+      case 'book-open':
+        return <BookOpen className="h-5 w-5" />
+      case 'dollar-sign':
+        return <DollarSign className="h-5 w-5" />
+      case 'heart':
+        return <Heart className="h-5 w-5" />
+      case 'smartphone':
+        return <Smartphone className="h-5 w-5" />
+      default:
+        return <Star className="h-5 w-5" />
     }
   }
 
   const getStageColor = (stage: string) => {
     switch (stage) {
-      case 'precontemplation': return 'bg-gray-100 text-gray-800'
-      case 'contemplation': return 'bg-yellow-100 text-yellow-800'
-      case 'preparation': return 'bg-blue-100 text-blue-800'
-      case 'action': return 'bg-green-100 text-green-800'
-      case 'maintenance': return 'bg-purple-100 text-purple-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'precontemplation':
+        return 'bg-gray-100 text-gray-800'
+      case 'contemplation':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'preparation':
+        return 'bg-blue-100 text-blue-800'
+      case 'action':
+        return 'bg-green-100 text-green-800'
+      case 'maintenance':
+        return 'bg-purple-100 text-purple-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
     }
   }
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case 'easy': return 'bg-green-100 text-green-800'
-      case 'medium': return 'bg-yellow-100 text-yellow-800'
-      case 'hard': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'easy':
+        return 'bg-green-100 text-green-800'
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'hard':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
     }
   }
 
@@ -220,7 +244,7 @@ export default function HabitMasterPage() {
     try {
       const [celebrationsResponse, performersResponse] = await Promise.all([
         fetch('/api/habit-master/celebrations'),
-        fetch('/api/habit-master/top-performers')
+        fetch('/api/habit-master/top-performers'),
       ])
 
       if (celebrationsResponse.ok) {
@@ -291,11 +315,13 @@ export default function HabitMasterPage() {
       if (response.ok) {
         fetchHabits()
         fetchSocialData()
-        
+
         // Show success notification
-        const habit = habits.find(h => h.id === habitId)
+        const habit = habits.find((h) => h.id === habitId)
         if (habit) {
-          alert(`Great job! You completed "${habit.title}" and earned ${habit.points_per_completion} points!`)
+          alert(
+            `Great job! You completed "${habit.title}" and earned ${habit.points_per_completion} points!`
+          )
         }
       } else {
         const errorData = await response.json()
@@ -329,7 +355,7 @@ export default function HabitMasterPage() {
     }
   }
 
-  const filteredHabits = habits.filter(habit => {
+  const filteredHabits = habits.filter((habit) => {
     const categoryMatch = selectedCategory === 'all' || habit.category_id === selectedCategory
     const typeMatch = selectedHabitType === 'all' || habit.habit_type === selectedHabitType
     return categoryMatch && typeMatch
@@ -375,7 +401,11 @@ export default function HabitMasterPage() {
                 variant="outline"
                 className={showSocial ? 'bg-blue-50 border-blue-200' : ''}
               >
-                {showSocial ? <Eye className="h-4 w-4 mr-2" /> : <EyeOff className="h-4 w-4 mr-2" />}
+                {showSocial ? (
+                  <Eye className="h-4 w-4 mr-2" />
+                ) : (
+                  <EyeOff className="h-4 w-4 mr-2" />
+                )}
                 {showSocial ? 'Hide Social' : 'Show Social'}
               </Button>
               <Button
@@ -452,10 +482,14 @@ export default function HabitMasterPage() {
                       </div>
                     </div>
                     <div className="flex flex-col items-end space-y-1">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getDifficultyColor(habit.difficulty_level)}`}>
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${getDifficultyColor(habit.difficulty_level)}`}
+                      >
                         {habit.difficulty_level}
                       </span>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStageColor(habit.stage_of_change)}`}>
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${getStageColor(habit.stage_of_change)}`}
+                      >
                         {habit.stage_of_change}
                       </span>
                     </div>
@@ -491,7 +525,9 @@ export default function HabitMasterPage() {
                     <div className="flex items-center space-x-4">
                       <div className="flex items-center space-x-1">
                         <Flame className="h-4 w-4 text-orange-500" />
-                        <span className="text-sm font-medium">{habit.current_streak} day streak</span>
+                        <span className="text-sm font-medium">
+                          {habit.current_streak} day streak
+                        </span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <Trophy className="h-4 w-4 text-yellow-500" />
@@ -548,14 +584,18 @@ export default function HabitMasterPage() {
                 </h3>
                 <div className="space-y-3">
                   {socialCelebrations.slice(0, 5).map((celebration) => (
-                    <div key={celebration.id} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div
+                      key={celebration.id}
+                      className="bg-blue-50 border border-blue-200 rounded-lg p-3"
+                    >
                       <div className="flex items-start space-x-2">
                         <ThumbsUp className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                         <div className="flex-1">
                           <p className="text-sm text-gray-800">
-                            <span className="font-medium">{celebration.celebrator_name}</span> celebrated{' '}
-                            <span className="font-medium">{celebration.celebrated_user_name}</span>'s{' '}
-                            {celebration.habit_title} achievement!
+                            <span className="font-medium">{celebration.celebrator_name}</span>{' '}
+                            celebrated{' '}
+                            <span className="font-medium">{celebration.celebrated_user_name}</span>
+                            's {celebration.habit_title} achievement!
                           </p>
                           <p className="text-xs text-gray-600 mt-1">
                             {new Date(celebration.created_at).toLocaleDateString()}
@@ -565,9 +605,7 @@ export default function HabitMasterPage() {
                     </div>
                   ))}
                   {socialCelebrations.length === 0 && (
-                    <p className="text-sm text-gray-500 text-center py-4">
-                      No recent celebrations
-                    </p>
+                    <p className="text-sm text-gray-500 text-center py-4">No recent celebrations</p>
                   )}
                 </div>
               </div>
@@ -580,7 +618,10 @@ export default function HabitMasterPage() {
                 </h3>
                 <div className="space-y-3">
                   {topPerformers.slice(0, 5).map((performer, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg"
+                    >
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
                           <span className="text-sm font-bold text-yellow-700">#{index + 1}</span>
@@ -591,15 +632,17 @@ export default function HabitMasterPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium text-yellow-700">{performer.current_streak} day streak</p>
-                        <p className="text-xs text-gray-600">{performer.total_completions} completions</p>
+                        <p className="text-sm font-medium text-yellow-700">
+                          {performer.current_streak} day streak
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          {performer.total_completions} completions
+                        </p>
                       </div>
                     </div>
                   ))}
                   {topPerformers.length === 0 && (
-                    <p className="text-sm text-gray-500 text-center py-4">
-                      No top performers yet
-                    </p>
+                    <p className="text-sm text-gray-500 text-center py-4">No top performers yet</p>
                   )}
                 </div>
               </div>
@@ -615,11 +658,7 @@ export default function HabitMasterPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Add New Habit</h2>
-                <Button
-                  onClick={() => setShowAddHabit(false)}
-                  variant="outline"
-                  size="sm"
-                >
+                <Button onClick={() => setShowAddHabit(false)} variant="outline" size="sm">
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -653,9 +692,7 @@ export default function HabitMasterPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Category
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                     <select
                       value={newHabit.category_id}
                       onChange={(e) => setNewHabit({ ...newHabit, category_id: e.target.value })}
@@ -676,7 +713,12 @@ export default function HabitMasterPage() {
                     </label>
                     <select
                       value={newHabit.habit_type}
-                      onChange={(e) => setNewHabit({ ...newHabit, habit_type: e.target.value as 'positive' | 'negative' })}
+                      onChange={(e) =>
+                        setNewHabit({
+                          ...newHabit,
+                          habit_type: e.target.value as 'positive' | 'negative',
+                        })
+                      }
                       className="w-full border border-gray-300 rounded-md px-3 py-2"
                     >
                       <option value="positive">Positive Habit (Building)</option>
@@ -725,10 +767,7 @@ export default function HabitMasterPage() {
                 </div>
 
                 <div className="flex justify-end space-x-3">
-                  <Button
-                    onClick={() => setShowAddHabit(false)}
-                    variant="outline"
-                  >
+                  <Button onClick={() => setShowAddHabit(false)} variant="outline">
                     Cancel
                   </Button>
                   <Button

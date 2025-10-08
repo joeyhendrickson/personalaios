@@ -11,6 +11,7 @@ By using the Apps, you agree to the collection and use of information in accorda
 ## 1. Introduction & Scope
 
 **Purpose.** The Life Stacks platform helps users organize their personal productivity through various modules including:
+
 - **Relationship Manager**: Consolidates, organizes, and enhances contact/relationship-related data and optionally links relevant media (e.g. photos) via Google Photos integration
 - **Habit Master**: Tracks and optimizes personal habits using psychological frameworks
 - **Focus Enhancer**: Analyzes screen time and provides therapeutic conversations for digital wellness
@@ -36,6 +37,7 @@ By using the Apps, you agree to the collection and use of information in accorda
 ### B. Google User Data via OAuth / Google Photos
 
 When you grant permission, we may access:
+
 - **Google Photos read access.** We may list, read, and retrieve media items from your Google Photos library (within the scopes you authorize).
 - **Media metadata.** This includes creation timestamp, file type, dimensions, album membership, and other metadata associated with the media item.
 
@@ -53,6 +55,7 @@ We do not access or retrieve data outside the scopes you explicitly grant. We do
 ## 3. How We Use the Information
 
 We use your data for:
+
 - **Providing the service.** Displaying, organizing, and managing your relationship data, habits, goals, projects, photos, and metadata as intended.
 - **Synchronization.** Syncing with your Google Photos (within granted scopes) to show images linked to contacts, allowing you to add images from your library.
 - **AI-powered features.** Using your data to provide personalized insights, habit recommendations, therapeutic conversations, and productivity analysis through our AI-powered modules.
@@ -61,6 +64,7 @@ We use your data for:
 - **Security, fraud prevention, compliance.** To detect abuse or unauthorized access, enforce our Terms of Service, and comply with legal obligations.
 
 We do not:
+
 - Sell or share your Google user data with third parties (e.g. advertising networks, data brokers).
 - Use Google user data for advertising or marketing purposes outside the app's features.
 - Aggregate or combine Google user data in a way that would allow individual re-identification beyond your own use.
@@ -70,6 +74,7 @@ We do not:
 ## 4. How We Share or Disclose Data
 
 We may share your data only in the following limited circumstances:
+
 - **Service providers / contractors.** E.g. cloud hosting (Supabase), analytics, email providers, AI service providers (OpenAI) — under strict confidentiality and only for service performance.
 - **With your consent.** In rare cases if you explicitly grant further sharing.
 - **Legal requirements.** To comply with laws, legal processes, or enforce our rights.
@@ -133,6 +138,7 @@ Additionally:
 ## 11. Third-Party Services
 
 Our applications integrate with the following third-party services:
+
 - **Supabase**: Database and authentication services
 - **OpenAI**: AI-powered features and insights
 - **Google Photos API**: Photo access and synchronization
@@ -145,6 +151,7 @@ Each of these services has their own privacy policies, and we encourage you to r
 ## 12. Changes to This Policy
 
 We may update this Privacy Policy periodically (e.g. to comply with new laws or Google requirements). When we do, we will:
+
 - Post the updated version with a new "Last updated" date.
 - Notify users in-app or by email for significant changes.
 - Where required (e.g. new Google scopes), ask users to re-consent prior to use.

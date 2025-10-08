@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform the data to match the frontend expectations
-    const transformedAnalyses = analyses.map(analysis => ({
+    const transformedAnalyses = analyses.map((analysis) => ({
       id: analysis.id,
       timestamp: analysis.timestamp,
       totalScreenTime: analysis.total_screen_time,
@@ -42,13 +42,12 @@ export async function GET(request: NextRequest) {
       userFears: analysis.user_fears,
       suggestedHabits: analysis.suggested_habits,
       suggestedProjects: analysis.suggested_projects,
-      createdAt: analysis.created_at
+      createdAt: analysis.created_at,
     }))
 
     return NextResponse.json({
-      analyses: transformedAnalyses
+      analyses: transformedAnalyses,
     })
-
   } catch (error: any) {
     console.error('Error fetching saved analyses:', error)
     return NextResponse.json(

@@ -26,7 +26,10 @@ export async function GET() {
     // Calculate average points per day
     const oldestPoint = pointsData?.[pointsData.length - 1]?.created_at
     const daysSinceStart = oldestPoint
-      ? Math.max(1, Math.ceil((Date.now() - new Date(oldestPoint).getTime()) / (1000 * 60 * 60 * 24)))
+      ? Math.max(
+          1,
+          Math.ceil((Date.now() - new Date(oldestPoint).getTime()) / (1000 * 60 * 60 * 24))
+        )
       : 1
     const averagePointsPerDay = totalPoints / daysSinceStart
 
@@ -40,7 +43,11 @@ export async function GET() {
     const totalTasks = allTasks?.length || 0
     const taskCompletionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
 
-    console.log('Tasks:', { completed: completedTasks, total: totalTasks, rate: taskCompletionRate })
+    console.log('Tasks:', {
+      completed: completedTasks,
+      total: totalTasks,
+      rate: taskCompletionRate,
+    })
 
     // Fetch projects (stored in weekly_goals table)
     const { data: allProjects } = await supabase
@@ -70,17 +77,21 @@ export async function GET() {
     // Calculate expected completions (habits * days since oldest habit)
     const oldestHabit = allHabits?.[allHabits.length - 1]?.created_at
     const daysSinceOldestHabit = oldestHabit
-      ? Math.max(1, Math.ceil((Date.now() - new Date(oldestHabit).getTime()) / (1000 * 60 * 60 * 24)))
+      ? Math.max(
+          1,
+          Math.ceil((Date.now() - new Date(oldestHabit).getTime()) / (1000 * 60 * 60 * 24))
+        )
       : 1
     const expectedHabitCompletions = (allHabits?.length || 0) * daysSinceOldestHabit
-    const habitCompletionRate = expectedHabitCompletions > 0 ? (completedHabits / expectedHabitCompletions) * 100 : 0
+    const habitCompletionRate =
+      expectedHabitCompletions > 0 ? (completedHabits / expectedHabitCompletions) * 100 : 0
 
-    console.log('Habits:', { 
-      completed: completedHabits, 
-      expected: expectedHabitCompletions, 
+    console.log('Habits:', {
+      completed: completedHabits,
+      expected: expectedHabitCompletions,
       rate: habitCompletionRate,
       totalHabits: allHabits?.length || 0,
-      daysSince: daysSinceOldestHabit
+      daysSince: daysSinceOldestHabit,
     })
 
     // Fetch category breakdown
@@ -95,7 +106,7 @@ export async function GET() {
       .eq('user_id', user.id)
 
     const categoryMap: Record<string, number> = {}
-    
+
     projectsWithCategories?.forEach((project) => {
       const category = project.category || 'Other'
       categoryMap[category] = (categoryMap[category] || 0) + (project.current_points || 0)
@@ -193,10 +204,6 @@ export async function GET() {
     return NextResponse.json(result)
   } catch (error) {
     console.error('Error fetching analytics:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch analytics' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 })
   }
 }
-

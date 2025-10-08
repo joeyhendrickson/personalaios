@@ -21,12 +21,14 @@ export async function POST(request: NextRequest) {
     // Get user's habits and completions
     const { data: habits } = await supabase
       .from('habit_master_habits')
-      .select(`
+      .select(
+        `
         *,
         category:habit_categories(name),
         completions:habit_master_completions(*),
         streaks:habit_master_streaks(*)
-      `)
+      `
+      )
       .eq('user_id', user.id)
       .eq('is_active', true)
 
@@ -35,8 +37,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get specific habit if provided
-    const targetHabit = habitId 
-      ? habits.find(h => h.id === habitId)
+    const targetHabit = habitId
+      ? habits.find((h) => h.id === habitId)
       : habits[Math.floor(Math.random() * habits.length)]
 
     if (!targetHabit) {
@@ -141,30 +143,54 @@ Please provide insights in the following JSON format:
       // Fallback to a simple text response
       insightsData = {
         overall_assessment: insights,
-        cbt_insights: { thought_patterns: "Analysis not available", reframing_suggestions: "Please try again" },
-        sdt_insights: { autonomy_analysis: "Analysis not available", competence_analysis: "Analysis not available", relatedness_analysis: "Analysis not available", improvement_suggestions: "Please try again" },
-        atomic_habits_insights: { cue_optimization: "Analysis not available", craving_enhancement: "Analysis not available", response_simplification: "Analysis not available", reward_optimization: "Analysis not available" },
-        act_insights: { values_alignment: "Analysis not available", committed_action_review: "Analysis not available", psychological_flexibility: "Analysis not available" },
-        stage_specific_recommendations: { current_stage: targetHabit.stage_of_change, recommendations: "Analysis not available", next_stage_preparation: "Analysis not available" },
-        keystone_analysis: { is_keystone: targetHabit.is_keystone, ripple_effects: "Analysis not available", leverage_opportunities: "Analysis not available" },
-        actionable_recommendations: ["Please try again for detailed recommendations"],
-        motivation_strategies: ["Please try again for motivation strategies"]
+        cbt_insights: {
+          thought_patterns: 'Analysis not available',
+          reframing_suggestions: 'Please try again',
+        },
+        sdt_insights: {
+          autonomy_analysis: 'Analysis not available',
+          competence_analysis: 'Analysis not available',
+          relatedness_analysis: 'Analysis not available',
+          improvement_suggestions: 'Please try again',
+        },
+        atomic_habits_insights: {
+          cue_optimization: 'Analysis not available',
+          craving_enhancement: 'Analysis not available',
+          response_simplification: 'Analysis not available',
+          reward_optimization: 'Analysis not available',
+        },
+        act_insights: {
+          values_alignment: 'Analysis not available',
+          committed_action_review: 'Analysis not available',
+          psychological_flexibility: 'Analysis not available',
+        },
+        stage_specific_recommendations: {
+          current_stage: targetHabit.stage_of_change,
+          recommendations: 'Analysis not available',
+          next_stage_preparation: 'Analysis not available',
+        },
+        keystone_analysis: {
+          is_keystone: targetHabit.is_keystone,
+          ripple_effects: 'Analysis not available',
+          leverage_opportunities: 'Analysis not available',
+        },
+        actionable_recommendations: ['Please try again for detailed recommendations'],
+        motivation_strategies: ['Please try again for motivation strategies'],
       }
     }
 
     // Store insights in database
-    await supabase
-      .from('habit_master_insights')
-      .insert({
-        user_id: user.id,
-        habit_id: targetHabit.id,
-        insight_type: 'psychological_analysis',
-        title: `AI Insights for ${targetHabit.title}`,
-        content: JSON.stringify(insightsData),
-        confidence_score: 0.85,
-        is_positive: true,
-        action_suggestion: insightsData.actionable_recommendations?.[0] || 'Continue your habit journey',
-      })
+    await supabase.from('habit_master_insights').insert({
+      user_id: user.id,
+      habit_id: targetHabit.id,
+      insight_type: 'psychological_analysis',
+      title: `AI Insights for ${targetHabit.title}`,
+      content: JSON.stringify(insightsData),
+      confidence_score: 0.85,
+      is_positive: true,
+      action_suggestion:
+        insightsData.actionable_recommendations?.[0] || 'Continue your habit journey',
+    })
 
     return NextResponse.json(insightsData)
   } catch (error) {

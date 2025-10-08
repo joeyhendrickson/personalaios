@@ -16,11 +16,13 @@ export async function GET() {
     // Get top performers from leaderboards
     const { data: topPerformers, error } = await supabase
       .from('habit_master_leaderboards')
-      .select(`
+      .select(
+        `
         *,
         user:user_profiles(full_name),
         category:habit_categories(name)
-      `)
+      `
+      )
       .order('current_streak', { ascending: false })
       .limit(10)
 
@@ -30,7 +32,7 @@ export async function GET() {
     }
 
     // Transform the data to include user names
-    const transformedPerformers = topPerformers.map(performer => ({
+    const transformedPerformers = topPerformers.map((performer) => ({
       user_name: performer.user?.full_name || 'Anonymous User',
       total_completions: performer.total_completions,
       current_streak: performer.current_streak,

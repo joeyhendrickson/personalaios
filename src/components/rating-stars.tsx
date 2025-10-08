@@ -20,14 +20,14 @@ export default function RatingStars({
   size = 'md',
   showAverage = false,
   averageRating = 0,
-  totalRatings = 0
+  totalRatings = 0,
 }: RatingStarsProps) {
   const [hoveredRating, setHoveredRating] = useState(0)
 
   const sizeClasses = {
     sm: 'h-4 w-4',
     md: 'h-5 w-5',
-    lg: 'h-6 w-6'
+    lg: 'h-6 w-6',
   }
 
   const handleStarClick = (starRating: number) => {
@@ -48,7 +48,7 @@ export default function RatingStars({
     }
   }
 
-  const displayRating = interactive ? (hoveredRating || rating) : rating
+  const displayRating = interactive ? hoveredRating || rating : rating
 
   return (
     <div className="flex items-center space-x-1">
@@ -62,15 +62,11 @@ export default function RatingStars({
           disabled={!interactive}
           className={`transition-colors ${
             interactive ? 'cursor-pointer hover:scale-110' : 'cursor-default'
-          } ${
-            interactive ? '' : 'pointer-events-none'
-          }`}
+          } ${interactive ? '' : 'pointer-events-none'}`}
         >
           <Star
             className={`${sizeClasses[size]} ${
-              star <= displayRating
-                ? 'text-yellow-400 fill-yellow-400'
-                : 'text-gray-300'
+              star <= displayRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'
             } transition-all duration-150`}
           />
         </button>

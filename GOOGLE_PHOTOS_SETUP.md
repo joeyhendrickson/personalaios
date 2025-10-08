@@ -22,13 +22,14 @@
 4. **Create OAuth 2.0 Client ID:**
    - Application type: Web application
    - Name: "Life Stacks - Google Photos"
-   - Authorized redirect URIs: 
+   - Authorized redirect URIs:
      - `http://localhost:3000/api/relationship-manager/google-photos/callback` (for development)
      - `https://lifestacks.ai/api/relationship-manager/google-photos/callback` (for production)
 
 ## Step 3: Environment Variables
 
 ### Development (.env.local):
+
 ```bash
 # Google Photos API Configuration
 GOOGLE_PHOTOS_CLIENT_ID=your_google_client_id_here
@@ -39,6 +40,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 ### Production (Vercel Environment Variables):
+
 ```bash
 # Google Photos API Configuration
 GOOGLE_PHOTOS_CLIENT_ID=your_google_client_id_here
@@ -85,11 +87,14 @@ Run the SQL migration to create the user integrations table:
 ## Production Deployment (lifestacks.ai)
 
 ### 1. Google Cloud Console Updates:
+
 - **OAuth consent screen**: Publish the app (move from testing to production)
 - **Authorized redirect URIs**: Already configured for both localhost and lifestacks.ai
 
 ### 2. Vercel Environment Variables:
+
 Add these in your Vercel dashboard under Project Settings → Environment Variables:
+
 ```bash
 GOOGLE_PHOTOS_CLIENT_ID=your_google_client_id_here
 GOOGLE_PHOTOS_CLIENT_SECRET=your_google_client_secret_here
@@ -97,10 +102,12 @@ NEXT_PUBLIC_APP_URL=https://lifestacks.ai
 ```
 
 ### 3. OAuth Consent Screen Publishing:
+
 - Go to Google Cloud Console → APIs & Services → OAuth consent screen
 - Click "PUBLISH APP" to move from testing to production
 - This allows any user to connect their Google Photos (not just test users)
 
 ### 4. Domain Verification (if required):
+
 - Google may require domain verification for production apps
 - Add `lifestacks.ai` to authorized domains in OAuth consent screen

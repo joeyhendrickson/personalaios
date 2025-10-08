@@ -16,12 +16,14 @@ export async function GET() {
     // Get recent celebrations involving the user or from users they might know
     const { data: celebrations, error } = await supabase
       .from('habit_master_celebrations')
-      .select(`
+      .select(
+        `
         *,
         celebrator:user_profiles!habit_master_celebrations_celebrator_user_id_fkey(full_name),
         celebrated:user_profiles!habit_master_celebrations_celebrated_user_id_fkey(full_name),
         habit:habit_master_habits(title)
-      `)
+      `
+      )
       .or(`celebrated_user_id.eq.${user.id},celebrator_user_id.eq.${user.id}`)
       .order('created_at', { ascending: false })
       .limit(20)
@@ -32,7 +34,7 @@ export async function GET() {
     }
 
     // Transform the data to include user names
-    const transformedCelebrations = celebrations.map(celebration => ({
+    const transformedCelebrations = celebrations.map((celebration) => ({
       id: celebration.id,
       celebrator_name: celebration.celebrator?.full_name || 'Anonymous User',
       celebrated_user_name: celebration.celebrated?.full_name || 'Anonymous User',
@@ -92,14 +94,12 @@ export async function POST(request: Request) {
     }
 
     // Award points to the celebrated user
-    await supabase
-      .from('points_ledger')
-      .insert({
-        user_id: celebrated_user_id,
-        points: 5,
-        description: `Social celebration: ${celebration_type}`,
-        category: 'social_recognition',
-      })
+    await supabase.from('points_ledger').insert({
+      user_id: celebrated_user_id,
+      points: 5,
+      description: `Social celebration: ${celebration_type}`,
+      category: 'social_recognition',
+    })
 
     return NextResponse.json(celebration)
   } catch (error) {

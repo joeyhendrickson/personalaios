@@ -151,11 +151,7 @@ export default function AnalyticsDashboardPage() {
               </div>
             </div>
             <div className="flex space-x-3">
-              <Button
-                onClick={fetchAnalytics}
-                variant="outline"
-                disabled={loading}
-              >
+              <Button onClick={fetchAnalytics} variant="outline" disabled={loading}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
@@ -253,7 +249,9 @@ export default function AnalyticsDashboardPage() {
                 <div className="flex items-center mb-6">
                   <Brain className="h-8 w-8 text-purple-600 mr-3" />
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">AI Insights & Recommendations</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      AI Insights & Recommendations
+                    </h2>
                     <p className="text-sm text-gray-600">
                       Powered by AI analysis of your complete activity data
                     </p>
@@ -296,7 +294,9 @@ export default function AnalyticsDashboardPage() {
                         </div>
                       </div>
                     </div>
-                    <p className="text-center text-sm text-gray-600">{aiInsights.overallProgress}</p>
+                    <p className="text-center text-sm text-gray-600">
+                      {aiInsights.overallProgress}
+                    </p>
                   </div>
 
                   {/* Goal Alignment */}
@@ -398,19 +398,15 @@ export default function AnalyticsDashboardPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">{week.week}</span>
                       <div className="flex items-center space-x-4">
-                        <span className="text-sm text-gray-600">
-                          {week.tasksCompleted} tasks
-                        </span>
-                        <span className="text-sm font-bold text-purple-600">
-                          {week.points} pts
-                        </span>
+                        <span className="text-sm text-gray-600">{week.tasksCompleted} tasks</span>
+                        <span className="text-sm font-bold text-purple-600">{week.points} pts</span>
                       </div>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-purple-600 h-2 rounded-full transition-all duration-500"
                         style={{
-                          width: `${Math.min((week.points / Math.max(...(analytics.weeklyProgress?.map(w => w.points) || [1]))) * 100, 100)}%`,
+                          width: `${Math.min((week.points / Math.max(...(analytics.weeklyProgress?.map((w) => w.points) || [1]))) * 100, 100)}%`,
                         }}
                       />
                     </div>
@@ -469,7 +465,8 @@ export default function AnalyticsDashboardPage() {
                       <div>
                         <p className="font-medium text-gray-900">{accomplishment.title}</p>
                         <p className="text-xs text-gray-600">
-                          {accomplishment.type} • {new Date(accomplishment.date).toLocaleDateString()}
+                          {accomplishment.type} •{' '}
+                          {new Date(accomplishment.date).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
@@ -541,8 +538,8 @@ export default function AnalyticsDashboardPage() {
                 <Brain className="h-12 w-12 mx-auto mb-4" />
                 <h3 className="text-2xl font-bold mb-2">Get AI-Powered Insights</h3>
                 <p className="text-purple-100 mb-6">
-                  Let AI analyze your complete activity data and provide personalized recommendations
-                  for improving your productivity and reaching your goals faster.
+                  Let AI analyze your complete activity data and provide personalized
+                  recommendations for improving your productivity and reaching your goals faster.
                 </p>
                 <Button
                   onClick={analyzeWithAI}
@@ -569,4 +566,3 @@ export default function AnalyticsDashboardPage() {
     </div>
   )
 }
-
