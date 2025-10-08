@@ -85,28 +85,41 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch user rewards' }, { status: 500 })
     }
 
-    // Get user's total points earned
-    const { data: pointsData } = await supabase
+    // Get user's total points earned (sum all points from points_ledger)
+    const { data: allPointsData, error: pointsError } = await supabase
       .from('points_ledger')
       .select('points')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
 
-    const totalPoints = pointsData?.points || 0
+    if (pointsError) {
+      console.error('Error fetching points:', pointsError)
+    }
+
+    const totalPoints = allPointsData?.reduce((sum, entry) => sum + (entry.points || 0), 0) || 0
 
     // Get total points redeemed
-    const { data: redeemedData } = await supabase
+    const { data: redeemedData, error: redeemedError } = await supabase
       .from('point_redemptions')
       .select('points_spent')
       .eq('user_id', user.id)
+
+    if (redeemedError) {
+      console.error('Error fetching redeemed points:', redeemedError)
+    }
 
     const totalRedeemed =
       redeemedData?.reduce((sum, redemption) => sum + redemption.points_spent, 0) || 0
 
     // Calculate current available points
     const currentPoints = totalPoints - totalRedeemed
+
+    console.log('Points calculation:', {
+      totalPoints,
+      totalRedeemed,
+      currentPoints,
+      pointsCount: allPointsData?.length || 0,
+      redeemedCount: redeemedData?.length || 0,
+    })
 
     return NextResponse.json({
       categories,
