@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
 import { openai } from '@ai-sdk/openai'
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
   try {
     const supabase = await createClient()
 

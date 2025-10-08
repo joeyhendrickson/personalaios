@@ -131,7 +131,7 @@ Return ONLY valid JSON, no markdown.`
 
     try {
       insights = JSON.parse(aiResponse)
-    } catch (e) {
+    } catch {
       console.error('Failed to parse AI response:', aiResponse)
       return NextResponse.json(
         { error: 'Failed to parse AI insights. Please try again.' },

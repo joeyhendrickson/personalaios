@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   console.log('🚀 RAW DATA API CALLED - FETCHING ALL TABLE DATA')
   try {
     const supabase = await createClient()

@@ -195,7 +195,7 @@ export async function POST(req: Request) {
     const educationItems = educationResult.data || []
     const priorities = prioritiesResult.data || []
     const recentPoints = pointsResult.data || []
-    const installedModules = installedModulesResult.data || []
+    // const installedModules = installedModulesResult.data || []
 
     // Calculate current week's points
     const currentWeekStart = new Date()

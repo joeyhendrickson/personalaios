@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   console.log('🚀 ADMIN DASHBOARD API CALLED - STARTING EXECUTION')
   try {
     const supabase = await createClient()
@@ -84,7 +84,7 @@ export async function GET(_request: NextRequest) {
 
     // Add admin emails
     if (adminEmails) {
-      adminEmails.forEach((_admin) => {
+      adminEmails.forEach(() => {
         // We need to find the user_id for this email
         // For now, let's just add it to a list we can reference
       })

@@ -240,7 +240,7 @@ Focus on actionable, specific recommendations that can help improve the user's f
     let parsedAnalysis
     try {
       parsedAnalysis = JSON.parse(analysis)
-    } catch (parseError) {
+    } catch {
       // If JSON parsing fails, return a structured response
       parsedAnalysis = {
         spending_patterns: {
