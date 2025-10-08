@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Get habit details for points calculation
     const { data: habit } = await supabase
       .from('habit_master_habits')
-      .select('points_per_completion, streak_bonus_points')
+      .select('title, points_per_completion, streak_bonus_points')
       .eq('id', habit_id)
       .single()
 
@@ -63,14 +63,12 @@ export async function POST(request: NextRequest) {
     await updateHabitStreak(supabase, habit_id, user.id, today)
 
     // Award points to user
-    await supabase
-      .from('points_ledger')
-      .insert({
-        user_id: user.id,
-        points: habit?.points_per_completion || 10,
-        description: `Habit completion: ${habit?.title || 'Habit'}`,
-        category: 'habit_completion',
-      })
+    await supabase.from('points_ledger').insert({
+      user_id: user.id,
+      points: habit?.points_per_completion || 10,
+      description: `Habit completion: ${habit?.title || 'Habit'}`,
+      category: 'habit_completion',
+    })
 
     // Update leaderboard
     await updateLeaderboard(supabase, user.id, habit_id)
@@ -82,7 +80,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function updateHabitStreak(supabase: any, habitId: string, userId: string, completionDate: string) {
+async function updateHabitStreak(
+  supabase: any,
+  habitId: string,
+  userId: string,
+  completionDate: string
+) {
   const { data: streak } = await supabase
     .from('habit_master_streaks')
     .select('*')
@@ -107,17 +110,15 @@ async function updateHabitStreak(supabase: any, habitId: string, userId: string,
 
   newLongestStreak = Math.max(newLongestStreak, newCurrentStreak)
 
-  await supabase
-    .from('habit_master_streaks')
-    .upsert({
-      habit_id: habitId,
-      user_id: userId,
-      current_streak: newCurrentStreak,
-      longest_streak: newLongestStreak,
-      last_completion_date: completionDate,
-      streak_start_date: newCurrentStreak === 1 ? completionDate : streak?.streak_start_date,
-      is_active: true,
-    })
+  await supabase.from('habit_master_streaks').upsert({
+    habit_id: habitId,
+    user_id: userId,
+    current_streak: newCurrentStreak,
+    longest_streak: newLongestStreak,
+    last_completion_date: completionDate,
+    streak_start_date: newCurrentStreak === 1 ? completionDate : streak?.streak_start_date,
+    is_active: true,
+  })
 }
 
 async function updateLeaderboard(supabase: any, userId: string, habitId: string) {
@@ -143,7 +144,8 @@ async function updateLeaderboard(supabase: any, userId: string, habitId: string)
     .from('habit_master_completions')
     .select('id')
     .eq('user_id', userId)
-    .in('habit_id', 
+    .in(
+      'habit_id',
       supabase
         .from('habit_master_habits')
         .select('id')
@@ -156,7 +158,8 @@ async function updateLeaderboard(supabase: any, userId: string, habitId: string)
     .from('habit_master_streaks')
     .select('current_streak')
     .eq('user_id', userId)
-    .in('habit_id',
+    .in(
+      'habit_id',
       supabase
         .from('habit_master_habits')
         .select('id')
@@ -165,7 +168,7 @@ async function updateLeaderboard(supabase: any, userId: string, habitId: string)
     )
 
   const totalCompletions = completions?.length || 0
-  const currentStreak = Math.max(...(streaks?.map(s => s.current_streak) || [0]))
+  const currentStreak = Math.max(...(streaks?.map((s: any) => s.current_streak) || [0]))
   const totalPoints = totalCompletions * 10 // Assuming 10 points per completion
 
   if (leaderboard) {
@@ -179,14 +182,12 @@ async function updateLeaderboard(supabase: any, userId: string, habitId: string)
       })
       .eq('id', leaderboard.id)
   } else {
-    await supabase
-      .from('habit_master_leaderboards')
-      .insert({
-        user_id: userId,
-        category_id: habit.category_id,
-        total_completions: totalCompletions,
-        current_streak: currentStreak,
-        total_points: totalPoints,
-      })
+    await supabase.from('habit_master_leaderboards').insert({
+      user_id: userId,
+      category_id: habit.category_id,
+      total_completions: totalCompletions,
+      current_streak: currentStreak,
+      total_points: totalPoints,
+    })
   }
 }

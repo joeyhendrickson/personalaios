@@ -62,7 +62,7 @@ Focus on creating suggestions that:
 - Transform fear into positive action
 - Include appropriate point values (10-500 points based on difficulty)
 
-Be specific and actionable. Each suggestion should feel like a step toward conquering the fear.`
+Be specific and actionable. Each suggestion should feel like a step toward conquering the fear.`,
         },
         {
           role: 'user',
@@ -75,10 +75,9 @@ Be specific and actionable. Each suggestion should feel like a step toward conqu
 **Impact**: ${fear.impact}
 **Triggers**: ${fear.triggers}
 
-Generate 3-5 specific growth suggestions that transform this fear into positive action. Focus on HABITS (daily behaviors) and PROJECTS (multi-week challenges), not goals.`
-        }
+Generate 3-5 specific growth suggestions that transform this fear into positive action. Focus on HABITS (daily behaviors) and PROJECTS (multi-week challenges), not goals.`,
+        },
       ],
-      maxTokens: 2000,
       temperature: 0.7,
     })
 
@@ -93,7 +92,7 @@ Generate 3-5 specific growth suggestions that transform this fear into positive 
     } catch (parseError) {
       console.error('Failed to parse growth response:', parseError)
       console.error('Raw response:', growthResponse)
-      
+
       // Fallback growth suggestions
       growthData = {
         growthOpportunity: `This fear of "${fear.name}" can become an opportunity to build resilience and confidence in the ${fear.category} area of your life.`,
@@ -106,7 +105,7 @@ Generate 3-5 specific growth suggestions that transform this fear into positive 
             points: 100,
             target_points: 500,
             frequency: 'weekly',
-            reasoning: 'Gradual exposure builds confidence while managing anxiety levels.'
+            reasoning: 'Gradual exposure builds confidence while managing anxiety levels.',
           },
           {
             title: `Daily Confidence Building`,
@@ -116,24 +115,22 @@ Generate 3-5 specific growth suggestions that transform this fear into positive 
             points: 25,
             target_points: 100,
             frequency: 'daily',
-            reasoning: 'Daily practice creates lasting change and builds positive momentum.'
-          }
-        ]
+            reasoning: 'Daily practice creates lasting change and builds positive momentum.',
+          },
+        ],
       }
     }
 
     // Store the fear analysis in the database
-    const { error: insertError } = await supabase
-      .from('user_fears_insights')
-      .insert({
-        user_id: user.id,
-        fear_type: fear.category.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-        description: fear.name,
-        severity: fear.severity,
-        related_apps: fear.triggers ? [fear.triggers] : [],
-        coping_strategies: fear.description ? [fear.description] : [],
-        progress_notes: growthData.growthOpportunity
-      })
+    const { error: insertError } = await supabase.from('user_fears_insights').insert({
+      user_id: user.id,
+      fear_type: fear.category.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+      description: fear.name,
+      severity: fear.severity,
+      related_apps: fear.triggers ? [fear.triggers] : [],
+      coping_strategies: fear.description ? [fear.description] : [],
+      progress_notes: growthData.growthOpportunity,
+    })
 
     if (insertError) {
       console.error('Error storing fear analysis:', insertError)
@@ -149,7 +146,7 @@ Generate 3-5 specific growth suggestions that transform this fear into positive 
         description: suggestion.description,
         category: suggestion.category,
         points_value: suggestion.points,
-        target_points: suggestion.target_points
+        target_points: suggestion.target_points,
       }))
 
       const { error: suggestionsError } = await supabase
@@ -163,9 +160,8 @@ Generate 3-5 specific growth suggestions that transform this fear into positive 
 
     return NextResponse.json({
       growthOpportunity: growthData.growthOpportunity,
-      suggestions: growthData.suggestions || []
+      suggestions: growthData.suggestions || [],
     })
-
   } catch (error: any) {
     console.error('Error generating fear growth suggestions:', error)
     return NextResponse.json(

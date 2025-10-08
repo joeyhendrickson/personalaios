@@ -37,7 +37,8 @@ import {
   Calendar as CalendarIcon,
   Clock as ClockIcon,
   TrendingUp,
-  Activity
+  Activity,
+  X,
 } from 'lucide-react'
 
 interface Relationship {
@@ -85,20 +86,50 @@ interface ContactHistory {
 }
 
 const relationshipTypes = [
-  { value: 'family', label: 'Family', icon: <Heart className="h-4 w-4" />, color: 'text-red-600 bg-red-50' },
-  { value: 'friend', label: 'Friend', icon: <Users className="h-4 w-4" />, color: 'text-blue-600 bg-blue-50' },
-  { value: 'colleague', label: 'Colleague', icon: <Briefcase className="h-4 w-4" />, color: 'text-purple-600 bg-purple-50' },
-  { value: 'business', label: 'Business', icon: <Target className="h-4 w-4" />, color: 'text-green-600 bg-green-50' },
-  { value: 'mentor', label: 'Mentor', icon: <GraduationCap className="h-4 w-4" />, color: 'text-indigo-600 bg-indigo-50' },
-  { value: 'acquaintance', label: 'Acquaintance', icon: <Coffee className="h-4 w-4" />, color: 'text-yellow-600 bg-yellow-50' }
+  {
+    value: 'family',
+    label: 'Family',
+    icon: <Heart className="h-4 w-4" />,
+    color: 'text-red-600 bg-red-50',
+  },
+  {
+    value: 'friend',
+    label: 'Friend',
+    icon: <Users className="h-4 w-4" />,
+    color: 'text-blue-600 bg-blue-50',
+  },
+  {
+    value: 'colleague',
+    label: 'Colleague',
+    icon: <Briefcase className="h-4 w-4" />,
+    color: 'text-purple-600 bg-purple-50',
+  },
+  {
+    value: 'business',
+    label: 'Business',
+    icon: <Target className="h-4 w-4" />,
+    color: 'text-green-600 bg-green-50',
+  },
+  {
+    value: 'mentor',
+    label: 'Mentor',
+    icon: <GraduationCap className="h-4 w-4" />,
+    color: 'text-indigo-600 bg-indigo-50',
+  },
+  {
+    value: 'acquaintance',
+    label: 'Acquaintance',
+    icon: <Coffee className="h-4 w-4" />,
+    color: 'text-yellow-600 bg-yellow-50',
+  },
 ]
 
 const priorityColors = {
   1: 'text-red-600 bg-red-100',
-  2: 'text-orange-600 bg-orange-100', 
+  2: 'text-orange-600 bg-orange-100',
   3: 'text-yellow-600 bg-yellow-100',
   4: 'text-blue-600 bg-blue-100',
-  5: 'text-green-600 bg-green-100'
+  5: 'text-green-600 bg-green-100',
 }
 
 export default function RelationshipManagerPage() {
@@ -128,7 +159,7 @@ export default function RelationshipManagerPage() {
     relationship_type: 'friend',
     contact_frequency_days: 30,
     notes: '',
-    priority_level: 3
+    priority_level: 3,
   })
 
   useEffect(() => {
@@ -139,8 +170,8 @@ export default function RelationshipManagerPage() {
   const fetchRelationships = async () => {
     try {
       const response = await fetch('/api/relationship-manager/relationships')
-    if (response.ok) {
-      const data = await response.json()
+      if (response.ok) {
+        const data = await response.json()
         setRelationships(data.relationships || [])
       }
     } catch (error) {
@@ -153,8 +184,8 @@ export default function RelationshipManagerPage() {
   const checkGooglePhotosConnection = async () => {
     try {
       const response = await fetch('/api/relationship-manager/google-photos/status')
-    if (response.ok) {
-      const data = await response.json()
+      if (response.ok) {
+        const data = await response.json()
         setGooglePhotosConnected(data.connected || false)
       }
     } catch (error) {
@@ -168,7 +199,7 @@ export default function RelationshipManagerPage() {
       const response = await fetch('/api/relationship-manager/relationships', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newRelationship)
+        body: JSON.stringify(newRelationship),
       })
 
       if (response.ok) {
@@ -181,7 +212,7 @@ export default function RelationshipManagerPage() {
           relationship_type: 'friend',
           contact_frequency_days: 30,
           notes: '',
-          priority_level: 3
+          priority_level: 3,
         })
       }
     } catch (error) {
@@ -199,8 +230,8 @@ export default function RelationshipManagerPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           relationshipId: selectedRelationship.id,
-          context: 'casual_check_in'
-        })
+          context: 'casual_check_in',
+        }),
       })
 
       if (response.ok) {
@@ -228,7 +259,7 @@ export default function RelationshipManagerPage() {
     setSyncingPhotos(true)
     try {
       const response = await fetch('/api/relationship-manager/google-photos/sync', {
-        method: 'POST'
+        method: 'POST',
       })
 
       if (response.ok) {
@@ -249,7 +280,9 @@ export default function RelationshipManagerPage() {
 
   const fetchRelationshipPhotos = async (relationshipId: string) => {
     try {
-      const response = await fetch(`/api/relationship-manager/photos?relationshipId=${relationshipId}`)
+      const response = await fetch(
+        `/api/relationship-manager/photos?relationshipId=${relationshipId}`
+      )
       if (response.ok) {
         const data = await response.json()
         setRelationshipPhotos(data.photos || [])
@@ -272,18 +305,20 @@ export default function RelationshipManagerPage() {
     return daysSince === null || daysSince >= relationship.contact_frequency_days
   }
 
-  const filteredRelationships = relationships.filter(rel => {
-    const matchesSearch = rel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         rel.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredRelationships = relationships.filter((rel) => {
+    const matchesSearch =
+      rel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      rel.email?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesType = filterType === 'all' || rel.relationship_type === filterType
-    const matchesPriority = filterPriority === 'all' || rel.priority_level.toString() === filterPriority
+    const matchesPriority =
+      filterPriority === 'all' || rel.priority_level.toString() === filterPriority
     const matchesNeedsContact = !showNeedsContactOnly || getNeedsContactStatus(rel)
-    
+
     return matchesSearch && matchesType && matchesPriority && matchesNeedsContact
   })
 
   const getRelationshipTypeInfo = (type: string) => {
-    return relationshipTypes.find(rt => rt.value === type) || relationshipTypes[0]
+    return relationshipTypes.find((rt) => rt.value === type) || relationshipTypes[0]
   }
 
   if (loading) {
@@ -302,7 +337,7 @@ export default function RelationshipManagerPage() {
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-6 py-6">
-      <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link href="/modules">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 hover:bg-gray-100">
@@ -310,16 +345,16 @@ export default function RelationshipManagerPage() {
                   Back to Life Hacks
                 </button>
               </Link>
-        <div>
+              <div>
                 <h1 className="text-3xl font-bold text-black flex items-center">
                   <Users className="h-8 w-8 mr-3 text-blue-600" />
-            Relationship Manager
-          </h1>
+                  Relationship Manager
+                </h1>
                 <p className="text-sm text-gray-600">
                   Manage your relationships and stay connected with the people who matter
-          </p>
-        </div>
-      </div>
+                </p>
+              </div>
+            </div>
             <div className="flex space-x-3">
               {googlePhotosConnected ? (
                 <button
@@ -373,7 +408,7 @@ export default function RelationshipManagerPage() {
               </div>
             </div>
 
-          {/* Relationship Type Filter */}
+            {/* Relationship Type Filter */}
             <div className="flex items-center space-x-2">
               <Filter className="h-4 w-4 text-gray-400" />
               <select
@@ -382,11 +417,13 @@ export default function RelationshipManagerPage() {
                 className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Types</option>
-                {relationshipTypes.map(type => (
-                  <option key={type.value} value={type.value}>{type.label}</option>
+                {relationshipTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
                 ))}
               </select>
-                        </div>
+            </div>
 
             {/* Priority Filter */}
             <div className="flex items-center space-x-2">
@@ -402,7 +439,7 @@ export default function RelationshipManagerPage() {
                 <option value="4">Priority 4</option>
                 <option value="5">Priority 5 (Low)</option>
               </select>
-                      </div>
+            </div>
 
             {/* Needs Contact Filter */}
             <button
@@ -413,23 +450,27 @@ export default function RelationshipManagerPage() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {showNeedsContactOnly ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+              {showNeedsContactOnly ? (
+                <EyeOff className="h-4 w-4 mr-2" />
+              ) : (
+                <Eye className="h-4 w-4 mr-2" />
+              )}
               Needs Contact
             </button>
-                      </div>
-                    </div>
+          </div>
+        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-                    <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Relationships</p>
                 <p className="text-2xl font-bold text-gray-900">{relationships.length}</p>
-                        </div>
+              </div>
               <Users className="h-8 w-8 text-blue-600" />
-                      </div>
-                    </div>
+            </div>
+          </div>
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -437,10 +478,10 @@ export default function RelationshipManagerPage() {
                 <p className="text-2xl font-bold text-orange-600">
                   {relationships.filter(getNeedsContactStatus).length}
                 </p>
-                    </div>
+              </div>
               <AlertCircle className="h-8 w-8 text-orange-600" />
-                      </div>
-                      </div>
+            </div>
+          </div>
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -448,25 +489,27 @@ export default function RelationshipManagerPage() {
                 <p className="text-2xl font-bold text-green-600">
                   {googlePhotosConnected ? 'Connected' : 'Not Connected'}
                 </p>
-                      </div>
+              </div>
               <Camera className="h-8 w-8 text-green-600" />
-          </div>
+            </div>
           </div>
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Recent Contacts</p>
                 <p className="text-2xl font-bold text-purple-600">
-                  {relationships.filter(rel => {
-                    const days = getDaysSinceLastContact(rel.last_contact_date)
-                    return days !== null && days <= 7
-                  }).length}
+                  {
+                    relationships.filter((rel) => {
+                      const days = getDaysSinceLastContact(rel.last_contact_date)
+                      return days !== null && days <= 7
+                    }).length
+                  }
                 </p>
-                </div>
+              </div>
               <Activity className="h-8 w-8 text-purple-600" />
             </div>
-                </div>
-              </div>
+          </div>
+        </div>
 
         {/* Relationships Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -474,8 +517,8 @@ export default function RelationshipManagerPage() {
             const typeInfo = getRelationshipTypeInfo(relationship.relationship_type)
             const daysSince = getDaysSinceLastContact(relationship.last_contact_date)
             const needsContact = getNeedsContactStatus(relationship)
-            
-                  return (
+
+            return (
               <div
                 key={relationship.id}
                 className={`bg-white rounded-lg border-2 p-6 hover:shadow-lg transition-all cursor-pointer ${
@@ -488,50 +531,52 @@ export default function RelationshipManagerPage() {
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
                       {relationship.name.charAt(0).toUpperCase()}
                     </div>
-                            <div>
+                    <div>
                       <h3 className="text-lg font-semibold text-gray-900">{relationship.name}</h3>
                       <div className="flex items-center space-x-2">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${typeInfo.color}`}>
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${typeInfo.color}`}
+                        >
                           {typeInfo.icon}
                           <span className="ml-1">{typeInfo.label}</span>
                         </span>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${priorityColors[relationship.priority_level as keyof typeof priorityColors]}`}>
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${priorityColors[relationship.priority_level as keyof typeof priorityColors]}`}
+                        >
                           P{relationship.priority_level}
                         </span>
-                              </div>
-                              </div>
-                                </div>
-                  {needsContact && (
-                    <AlertCircle className="h-5 w-5 text-orange-500" />
-                              )}
-                            </div>
+                      </div>
+                    </div>
+                  </div>
+                  {needsContact && <AlertCircle className="h-5 w-5 text-orange-500" />}
+                </div>
 
                 <div className="space-y-2 mb-4">
                   {relationship.email && (
                     <div className="flex items-center text-sm text-gray-600">
                       <Mail className="h-4 w-4 mr-2" />
                       {relationship.email}
-                          </div>
+                    </div>
                   )}
                   {relationship.phone && (
                     <div className="flex items-center text-sm text-gray-600">
                       <Phone className="h-4 w-4 mr-2" />
                       {relationship.phone}
-                        </div>
+                    </div>
                   )}
                   {daysSince !== null && (
                     <div className="flex items-center text-sm text-gray-600">
                       <Clock className="h-4 w-4 mr-2" />
                       {daysSince === 0 ? 'Contacted today' : `Last contact: ${daysSince} days ago`}
-              </div>
+                    </div>
                   )}
                   {relationship.photos_count && relationship.photos_count > 0 && (
                     <div className="flex items-center text-sm text-gray-600">
                       <ImageIcon className="h-4 w-4 mr-2" />
                       {relationship.photos_count} photos
-              </div>
-            )}
-          </div>
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex space-x-2">
                   <button
@@ -556,8 +601,8 @@ export default function RelationshipManagerPage() {
                   >
                     <Camera className="h-4 w-4" />
                   </button>
-                        </div>
-                      </div>
+                </div>
+              </div>
             )
           })}
         </div>
@@ -567,22 +612,27 @@ export default function RelationshipManagerPage() {
             <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No relationships found</h3>
             <p className="text-gray-500 mb-4">
-              {searchTerm || filterType !== 'all' || filterPriority !== 'all' || showNeedsContactOnly
+              {searchTerm ||
+              filterType !== 'all' ||
+              filterPriority !== 'all' ||
+              showNeedsContactOnly
                 ? 'Try adjusting your search or filter criteria'
-                : 'Start building your relationship network by adding people you care about'
-              }
+                : 'Start building your relationship network by adding people you care about'}
             </p>
-            {!searchTerm && filterType === 'all' && filterPriority === 'all' && !showNeedsContactOnly && (
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-              >
-                Add Your First Relationship
-              </button>
-                      )}
-                    </div>
-        )}
+            {!searchTerm &&
+              filterType === 'all' &&
+              filterPriority === 'all' &&
+              !showNeedsContactOnly && (
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Add Your First Relationship
+                </button>
+              )}
           </div>
+        )}
+      </div>
 
       {/* Add Relationship Modal */}
       {showAddModal && (
@@ -590,61 +640,85 @@ export default function RelationshipManagerPage() {
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">Add New Relationship</h2>
             <form onSubmit={addRelationship} className="space-y-4">
-                <div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
                 <input
                   type="text"
-                    required
+                  required
                   value={newRelationship.name}
-                  onChange={(e) => setNewRelationship({...newRelationship, name: e.target.value})}
+                  onChange={(e) => setNewRelationship({ ...newRelationship, name: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <input
-                    type="email"
+                  type="email"
                   value={newRelationship.email}
-                  onChange={(e) => setNewRelationship({...newRelationship, email: e.target.value})}
+                  onChange={(e) =>
+                    setNewRelationship({ ...newRelationship, email: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                 <input
                   type="tel"
                   value={newRelationship.phone}
-                  onChange={(e) => setNewRelationship({...newRelationship, phone: e.target.value})}
+                  onChange={(e) =>
+                    setNewRelationship({ ...newRelationship, phone: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Relationship Type</label>
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Relationship Type
+                </label>
                 <select
                   value={newRelationship.relationship_type}
-                  onChange={(e) => setNewRelationship({...newRelationship, relationship_type: e.target.value})}
+                  onChange={(e) =>
+                    setNewRelationship({ ...newRelationship, relationship_type: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  {relationshipTypes.map(type => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
+                  {relationshipTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
                   ))}
                 </select>
-                </div>
-                <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Contact Frequency (days)</label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Contact Frequency (days)
+                </label>
                 <input
-                    type="number"
-                    min="1"
+                  type="number"
+                  min="1"
                   value={newRelationship.contact_frequency_days}
-                  onChange={(e) => setNewRelationship({...newRelationship, contact_frequency_days: parseInt(e.target.value)})}
+                  onChange={(e) =>
+                    setNewRelationship({
+                      ...newRelationship,
+                      contact_frequency_days: parseInt(e.target.value),
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Priority Level</label>
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Priority Level
+                </label>
                 <select
                   value={newRelationship.priority_level}
-                  onChange={(e) => setNewRelationship({...newRelationship, priority_level: parseInt(e.target.value)})}
+                  onChange={(e) =>
+                    setNewRelationship({
+                      ...newRelationship,
+                      priority_level: parseInt(e.target.value),
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="1">Priority 1 (High)</option>
@@ -653,23 +727,25 @@ export default function RelationshipManagerPage() {
                   <option value="4">Priority 4</option>
                   <option value="5">Priority 5 (Low)</option>
                 </select>
-                </div>
-                <div>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                 <textarea
                   value={newRelationship.notes}
-                  onChange={(e) => setNewRelationship({...newRelationship, notes: e.target.value})}
+                  onChange={(e) =>
+                    setNewRelationship({ ...newRelationship, notes: e.target.value })
+                  }
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
+                />
+              </div>
               <div className="flex space-x-3 pt-4">
                 <button
-                    type="button"
+                  type="button"
                   onClick={() => setShowAddModal(false)}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
+                >
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -677,8 +753,8 @@ export default function RelationshipManagerPage() {
                 >
                   Add Relationship
                 </button>
-                </div>
-              </form>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -695,7 +771,7 @@ export default function RelationshipManagerPage() {
               >
                 <X className="h-6 w-6" />
               </button>
-                </div>
+            </div>
 
             <div className="space-y-4">
               <div className="flex space-x-3">
@@ -714,35 +790,35 @@ export default function RelationshipManagerPage() {
                   <option value="follow_up">Follow-up</option>
                   <option value="thank_you">Thank You</option>
                 </select>
-                </div>
+              </div>
 
-                <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Message Content</label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Message Content
+                </label>
                 <textarea
                   value={messageContent}
                   onChange={(e) => setMessageContent(e.target.value)}
                   rows={6}
                   placeholder="Your message will appear here after generation, or you can write your own..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
+                />
+              </div>
 
               <div className="flex space-x-3">
                 <button
                   onClick={() => setShowMessageModal(false)}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                </button>
-                <button
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
+                  Cancel
+                </button>
+                <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
                   <Send className="h-4 w-4 inline mr-2" />
                   Send Message
                 </button>
-                </div>
-                </div>
-                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -758,7 +834,7 @@ export default function RelationshipManagerPage() {
               >
                 <X className="h-6 w-6" />
               </button>
-                </div>
+            </div>
 
             {relationshipPhotos.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -774,21 +850,20 @@ export default function RelationshipManagerPage() {
                       <div className="absolute bottom-1 left-1 right-1">
                         <div className="bg-black bg-opacity-70 text-white text-xs p-1 rounded">
                           {photo.ai_tags.slice(0, 2).join(', ')}
-                </div>
-                </div>
+                        </div>
+                      </div>
                     )}
-                </div>
+                  </div>
                 ))}
-                </div>
+              </div>
             ) : (
               <div className="text-center py-12">
                 <Camera className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No photos yet</h3>
                 <p className="text-gray-500 mb-4">
-                  {googlePhotosConnected 
+                  {googlePhotosConnected
                     ? `No photos found with ${selectedRelationship.name}. Try syncing your Google Photos or check if photos are properly matched.`
-                    : `Connect Google Photos to see photos with ${selectedRelationship.name}`
-                  }
+                    : `Connect Google Photos to see photos with ${selectedRelationship.name}`}
                 </p>
                 {googlePhotosConnected ? (
                   <div className="space-x-3">
@@ -799,7 +874,7 @@ export default function RelationshipManagerPage() {
                     >
                       {syncingPhotos ? 'Syncing...' : 'Sync Photos'}
                     </button>
-                </div>
+                  </div>
                 ) : (
                   <button
                     onClick={connectGooglePhotos}
@@ -808,7 +883,7 @@ export default function RelationshipManagerPage() {
                     Connect Google Photos
                   </button>
                 )}
-                </div>
+              </div>
             )}
           </div>
         </div>
@@ -826,54 +901,96 @@ export default function RelationshipManagerPage() {
               >
                 <X className="h-6 w-6" />
               </button>
-                </div>
+            </div>
 
             <div className="space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="font-semibold text-blue-900 mb-2">One-Time Application Setup Required</h3>
+                <h3 className="font-semibold text-blue-900 mb-2">
+                  One-Time Application Setup Required
+                </h3>
                 <p className="text-blue-800 text-sm">
-                  Google Photos integration requires OAuth client credentials. This is a one-time setup for the application 
-                  that allows each user to connect their own Google Photos account.
+                  Google Photos integration requires OAuth client credentials. This is a one-time
+                  setup for the application that allows each user to connect their own Google Photos
+                  account.
                 </p>
-                </div>
+              </div>
 
               <div className="space-y-3">
                 <h4 className="font-semibold text-gray-900">Setup Steps:</h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-start space-x-3">
-                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">1</span>
-                    <span className="text-gray-700">Go to <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google Cloud Console</a></span>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">2</span>
-                    <span className="text-gray-700">Create a new project or select existing one</span>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">3</span>
-                    <span className="text-gray-700">Enable Google Photos Library API</span>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">4</span>
-                    <span className="text-gray-700">Create OAuth 2.0 credentials (Web application type)</span>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">5</span>
-                    <span className="text-gray-700">Add redirect URIs: <br/>
-                      <code className="bg-gray-100 px-1 rounded">http://localhost:3000/api/relationship-manager/google-photos/callback</code> (development)<br/>
-                      <code className="bg-gray-100 px-1 rounded">https://lifestacks.ai/api/relationship-manager/google-photos/callback</code> (production)
+                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">
+                      1
+                    </span>
+                    <span className="text-gray-700">
+                      Go to{' '}
+                      <a
+                        href="https://console.cloud.google.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        Google Cloud Console
+                      </a>
                     </span>
                   </div>
                   <div className="flex items-start space-x-3">
-                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">6</span>
-                    <span className="text-gray-700">Add <code className="bg-gray-100 px-1 rounded">GOOGLE_PHOTOS_CLIENT_ID</code> and <code className="bg-gray-100 px-1 rounded">GOOGLE_PHOTOS_CLIENT_SECRET</code> to your <code className="bg-gray-100 px-1 rounded">.env.local</code> file</span>
+                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">
+                      2
+                    </span>
+                    <span className="text-gray-700">
+                      Create a new project or select existing one
+                    </span>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">
+                      3
+                    </span>
+                    <span className="text-gray-700">Enable Google Photos Library API</span>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">
+                      4
+                    </span>
+                    <span className="text-gray-700">
+                      Create OAuth 2.0 credentials (Web application type)
+                    </span>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">
+                      5
+                    </span>
+                    <span className="text-gray-700">
+                      Add redirect URIs: <br />
+                      <code className="bg-gray-100 px-1 rounded">
+                        http://localhost:3000/api/relationship-manager/google-photos/callback
+                      </code>{' '}
+                      (development)
+                      <br />
+                      <code className="bg-gray-100 px-1 rounded">
+                        https://lifestacks.ai/api/relationship-manager/google-photos/callback
+                      </code>{' '}
+                      (production)
+                    </span>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">
+                      6
+                    </span>
+                    <span className="text-gray-700">
+                      Add <code className="bg-gray-100 px-1 rounded">GOOGLE_PHOTOS_CLIENT_ID</code>{' '}
+                      and{' '}
+                      <code className="bg-gray-100 px-1 rounded">GOOGLE_PHOTOS_CLIENT_SECRET</code>{' '}
+                      to your <code className="bg-gray-100 px-1 rounded">.env.local</code> file
+                    </span>
                   </div>
                 </div>
-                </div>
+              </div>
 
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-900 mb-2">Example .env.local:</h4>
                 <pre className="text-xs bg-gray-800 text-green-400 p-3 rounded overflow-x-auto">
-{`# Development (.env.local)
+                  {`# Development (.env.local)
 GOOGLE_PHOTOS_CLIENT_ID=your_client_id_here
 GOOGLE_PHOTOS_CLIENT_SECRET=your_client_secret_here
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -881,7 +998,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 # Production (Vercel Environment Variables)
 NEXT_PUBLIC_APP_URL=https://lifestacks.ai`}
                 </pre>
-                </div>
+              </div>
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <h4 className="font-semibold text-yellow-900 mb-2">Important:</h4>
@@ -891,7 +1008,7 @@ NEXT_PUBLIC_APP_URL=https://lifestacks.ai`}
                   <li>• Restart your development server after adding environment variables</li>
                   <li>• For production, update redirect URIs to your production domain</li>
                 </ul>
-                </div>
+              </div>
 
               <div className="flex space-x-3 pt-4">
                 <button
@@ -901,16 +1018,16 @@ NEXT_PUBLIC_APP_URL=https://lifestacks.ai`}
                   Close
                 </button>
                 <button
-                    onClick={() => {
+                  onClick={() => {
                     setShowSetupModal(false)
                     // Open Google Cloud Console in new tab
                     window.open('https://console.cloud.google.com/', '_blank')
-                    }}
+                  }}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                  >
+                >
                   Open Google Cloud Console
                 </button>
-                </div>
+              </div>
             </div>
           </div>
         </div>

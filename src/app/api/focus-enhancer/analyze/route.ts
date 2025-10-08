@@ -97,16 +97,15 @@ Return your analysis in this exact JSON format:
   ]
 }
 
-Be thorough and compassionate in your analysis. Focus on understanding the emotional drivers behind app usage.`
+Be thorough and compassionate in your analysis. Focus on understanding the emotional drivers behind app usage.`,
             },
             {
               type: 'image',
-              image: imageData
-            }
-          ]
-        }
+              image: imageData,
+            },
+          ],
+        },
       ],
-      maxTokens: 4000,
       temperature: 0.7,
     })
 
@@ -122,45 +121,48 @@ Be thorough and compassionate in your analysis. Focus on understanding the emoti
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError)
       console.error('Raw response:', analysisResult)
-      
+
       // Fallback analysis
       analysisData = {
         appUsage: [
           {
-            appName: "Unknown Apps",
+            appName: 'Unknown Apps',
             hours: 0,
-            category: "Unknown",
+            category: 'Unknown',
             isProblematic: false,
-            insights: "Unable to parse screen time data. Please ensure the screenshot is clear and shows app usage statistics."
-          }
+            insights:
+              'Unable to parse screen time data. Please ensure the screenshot is clear and shows app usage statistics.',
+          },
         ],
         totalScreenTime: 0,
         problematicApps: [],
         insights: [
           {
-            type: "error",
-            description: "Could not analyze the screenshot. Please try uploading a clearer image of your screen time summary.",
-            severity: "low",
-            suggestions: ["Ensure the screenshot shows app names and usage hours clearly", "Try taking a screenshot in better lighting"]
-          }
+            type: 'error',
+            description:
+              'Could not analyze the screenshot. Please try uploading a clearer image of your screen time summary.',
+            severity: 'low',
+            suggestions: [
+              'Ensure the screenshot shows app names and usage hours clearly',
+              'Try taking a screenshot in better lighting',
+            ],
+          },
         ],
         suggestedGoals: [],
         suggestedHabits: [],
-        suggestedProjects: []
+        suggestedProjects: [],
       }
     }
 
     // Store the analysis in the database for future reference
-    const { error: insertError } = await supabase
-      .from('focus_analyses')
-      .insert({
-        user_id: user.id,
-        app_usage_data: analysisData.appUsage,
-        total_screen_time: analysisData.totalScreenTime,
-        problematic_apps: analysisData.problematicApps,
-        insights: analysisData.insights,
-        created_at: new Date().toISOString()
-      })
+    const { error: insertError } = await supabase.from('focus_analyses').insert({
+      user_id: user.id,
+      app_usage_data: analysisData.appUsage,
+      total_screen_time: analysisData.totalScreenTime,
+      problematic_apps: analysisData.problematicApps,
+      insights: analysisData.insights,
+      created_at: new Date().toISOString(),
+    })
 
     if (insertError) {
       console.error('Error storing analysis:', insertError)
@@ -174,9 +176,8 @@ Be thorough and compassionate in your analysis. Focus on understanding the emoti
       insights: analysisData.insights,
       suggestedGoals: analysisData.suggestedGoals,
       suggestedHabits: analysisData.suggestedHabits,
-      suggestedProjects: analysisData.suggestedProjects
+      suggestedProjects: analysisData.suggestedProjects,
     })
-
   } catch (error: any) {
     console.error('Error analyzing screen time:', error)
     return NextResponse.json(

@@ -80,14 +80,13 @@ Format your response as JSON:
 
 Focus on suggesting HABITS (daily behaviors) and PROJECTS (multi-week challenges), not goals. Habits are daily actions that build better digital wellness.
 
-If no dynamic suggestions are needed, return an empty array for dynamicSuggestions.`
+If no dynamic suggestions are needed, return an empty array for dynamicSuggestions.`,
         },
         {
           role: 'user',
-          content: message
-        }
+          content: message,
+        },
       ],
-      maxTokens: 800,
       temperature: 0.8,
     })
 
@@ -102,7 +101,7 @@ If no dynamic suggestions are needed, return an empty array for dynamicSuggestio
         responseData = {
           therapeuticResponse: response,
           suggestFearExercise: false,
-          dynamicSuggestions: []
+          dynamicSuggestions: [],
         }
       }
     } catch (parseError) {
@@ -110,7 +109,7 @@ If no dynamic suggestions are needed, return an empty array for dynamicSuggestio
       responseData = {
         therapeuticResponse: response,
         suggestFearExercise: false,
-        dynamicSuggestions: []
+        dynamicSuggestions: [],
       }
     }
 
@@ -119,21 +118,23 @@ If no dynamic suggestions are needed, return an empty array for dynamicSuggestio
     if (responseData.therapeuticResponse.toLowerCase().includes('?')) {
       responseType = 'question'
     }
-    if (responseData.therapeuticResponse.toLowerCase().includes('suggest') || responseData.therapeuticResponse.toLowerCase().includes('try') || responseData.therapeuticResponse.toLowerCase().includes('consider')) {
+    if (
+      responseData.therapeuticResponse.toLowerCase().includes('suggest') ||
+      responseData.therapeuticResponse.toLowerCase().includes('try') ||
+      responseData.therapeuticResponse.toLowerCase().includes('consider')
+    ) {
       responseType = 'suggestion'
     }
 
     // Store conversation in database
-    const { error: insertError } = await supabase
-      .from('focus_conversations')
-      .insert({
-        user_id: user.id,
-        user_message: message,
-        ai_response: responseData.therapeuticResponse,
-        app_usage_context: appUsage,
-        therapeutic_insights: therapeuticInsights,
-        created_at: new Date().toISOString()
-      })
+    const { error: insertError } = await supabase.from('focus_conversations').insert({
+      user_id: user.id,
+      user_message: message,
+      ai_response: responseData.therapeuticResponse,
+      app_usage_context: appUsage,
+      therapeutic_insights: therapeuticInsights,
+      created_at: new Date().toISOString(),
+    })
 
     if (insertError) {
       console.error('Error storing conversation:', insertError)
@@ -144,9 +145,8 @@ If no dynamic suggestions are needed, return an empty array for dynamicSuggestio
       response: responseData.therapeuticResponse,
       type: responseType,
       suggestFearExercise: responseData.suggestFearExercise,
-      dynamicSuggestions: responseData.dynamicSuggestions || []
+      dynamicSuggestions: responseData.dynamicSuggestions || [],
     })
-
   } catch (error: any) {
     console.error('Error generating conversation response:', error)
     return NextResponse.json(

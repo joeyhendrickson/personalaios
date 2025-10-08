@@ -24,13 +24,17 @@ export async function POST(request: NextRequest) {
     const zipCode = formData.get('zipCode') as string
 
     console.log('Received zip code:', zipCode)
-    console.log('Received file:', receiptFile?.name, 'Type:', receiptFile?.type, 'Size:', receiptFile?.size)
+    console.log(
+      'Received file:',
+      receiptFile?.name,
+      'Type:',
+      receiptFile?.type,
+      'Size:',
+      receiptFile?.size
+    )
 
     if (!receiptFile || !zipCode) {
-      return NextResponse.json(
-        { error: 'Receipt file and zip code are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Receipt file and zip code are required' }, { status: 400 })
     }
 
     // Check if OpenAI API key is configured
@@ -54,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     // Step 1: Extract receipt data using GPT-4 Vision
     console.log('Calling OpenAI Vision API to extract receipt data...')
-    
+
     const extractionPrompt = `Extract all items from this grocery receipt. For each item, provide:
 - Item name
 - Price per unit
@@ -92,11 +96,10 @@ Image (base64): data:${mimeType};base64,${base64Image}`
           ],
         },
       ],
-      maxTokens: 2000,
     })
     console.log('Extraction response received:', receiptDataText.substring(0, 200))
     let receiptItems
-    
+
     try {
       // Try to parse the JSON directly
       receiptItems = JSON.parse(receiptDataText)
@@ -176,18 +179,18 @@ Be realistic with prices and savings. Base recommendations on actual store locat
       messages: [
         {
           role: 'system',
-          content: 'You are a grocery shopping expert who helps people save money by finding better deals at different stores. Provide realistic price comparisons based on actual store chains and typical prices. Return ONLY valid JSON, no markdown formatting.',
+          content:
+            'You are a grocery shopping expert who helps people save money by finding better deals at different stores. Provide realistic price comparisons based on actual store chains and typical prices. Return ONLY valid JSON, no markdown formatting.',
         },
         {
           role: 'user',
           content: analysisPrompt,
         },
       ],
-      maxTokens: 3000,
     })
     console.log('Analysis response received:', analysisText.substring(0, 200))
     let analysis
-    
+
     try {
       analysis = JSON.parse(analysisText)
       console.log('Successfully parsed analysis JSON')
@@ -201,10 +204,8 @@ Be realistic with prices and savings. Base recommendations on actual store locat
     }
 
     // Calculate total potential savings
-    const totalPotentialSavings = analysis.alternatives?.reduce(
-      (sum: number, alt: any) => sum + alt.savings,
-      0
-    ) || 0
+    const totalPotentialSavings =
+      analysis.alternatives?.reduce((sum: number, alt: any) => sum + alt.savings, 0) || 0
 
     // Prepare response
     const result = {
@@ -215,9 +216,8 @@ Be realistic with prices and savings. Base recommendations on actual store locat
         address: '',
         distance: 0,
         totalSavings: totalPotentialSavings,
-        savingsPercentage: totalCurrentSpending > 0 
-          ? (totalPotentialSavings / totalCurrentSpending) * 100 
-          : 0,
+        savingsPercentage:
+          totalCurrentSpending > 0 ? (totalPotentialSavings / totalCurrentSpending) * 100 : 0,
       },
       totalCurrentSpending,
       totalPotentialSavings,
@@ -248,9 +248,9 @@ Be realistic with prices and savings. Base recommendations on actual store locat
     console.error('Error details:', error instanceof Error ? error.message : 'Unknown error')
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to analyze receipt. Please try again.',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     )

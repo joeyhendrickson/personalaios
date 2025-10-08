@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { generateText, openai } from 'ai'
+import { generateText } from 'ai'
+import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 
 const generateMessageSchema = z.object({
   relationshipId: z.string().uuid(),
-  context: z.enum(['casual_check_in', 'birthday', 'holiday', 'follow_up', 'thank_you']).optional()
+  context: z.enum(['casual_check_in', 'birthday', 'holiday', 'follow_up', 'thank_you']).optional(),
 })
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -51,24 +55,32 @@ export async function POST(request: NextRequest) {
       .limit(3)
 
     // Build context for AI
-    const photoContext = photos?.length > 0 
-      ? `Recent photos together: ${photos.map(p => 
-          `${p.description || 'Photo'} from ${p.photo_date} at ${p.location || 'unknown location'}. Activities: ${p.ai_tags?.join(', ') || 'general'}`
-        ).join('; ')}`
-      : 'No recent photos available'
+    const photoContext =
+      photos?.length > 0
+        ? `Recent photos together: ${photos
+            .map(
+              (p) =>
+                `${p.description || 'Photo'} from ${p.photo_date} at ${p.location || 'unknown location'}. Activities: ${p.ai_tags?.join(', ') || 'general'}`
+            )
+            .join('; ')}`
+        : 'No recent photos available'
 
-    const contactContext = contactHistory?.length > 0
-      ? `Recent contacts: ${contactHistory.map(c => 
-          `${c.contact_type} on ${new Date(c.created_at).toLocaleDateString()}: ${c.outcome || 'no specific outcome'}`
-        ).join('; ')}`
-      : 'No recent contact history'
+    const contactContext =
+      contactHistory?.length > 0
+        ? `Recent contacts: ${contactHistory
+            .map(
+              (c) =>
+                `${c.contact_type} on ${new Date(c.created_at).toLocaleDateString()}: ${c.outcome || 'no specific outcome'}`
+            )
+            .join('; ')}`
+        : 'No recent contact history'
 
     const contextPrompts = {
       casual_check_in: `Write a warm, casual message to check in and see how they're doing`,
       birthday: `Write a heartfelt birthday message with personal touches`,
       holiday: `Write a warm holiday greeting message`,
       follow_up: `Write a follow-up message based on your last interaction`,
-      thank_you: `Write a sincere thank you message`
+      thank_you: `Write a sincere thank you message`,
     }
 
     const prompt = `You are helping me write a personal message to ${relationship.name}, who is a ${relationship.relationship_type}.
@@ -101,24 +113,27 @@ Generate a natural, personalized message:`
       model: openai('gpt-4.1-mini'),
       prompt,
       temperature: 0.8,
-      maxTokens: 200
+      maxTokens: 200,
     })
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: message.trim(),
       context: {
         relationshipName: relationship.name,
         relationshipType: relationship.relationship_type,
         photosUsed: photos?.length || 0,
-        contactHistoryUsed: contactHistory?.length || 0
-      }
+        contactHistoryUsed: contactHistory?.length || 0,
+      },
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ 
-        error: 'Invalid request data', 
-        details: error.issues 
-      }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: 'Invalid request data',
+          details: error.issues,
+        },
+        { status: 400 }
+      )
     }
 
     console.error('Error generating message:', error)

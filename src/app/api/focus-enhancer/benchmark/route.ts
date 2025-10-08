@@ -38,16 +38,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate benchmark metrics
-    const historicalScreenTimes = historicalAnalyses.map(a => a.total_screen_time).filter(t => t > 0)
-    const averageTotalHours = historicalScreenTimes.length > 0 
-      ? historicalScreenTimes.reduce((sum, time) => sum + time, 0) / historicalScreenTimes.length 
-      : 0
+    const historicalScreenTimes = historicalAnalyses
+      .map((a) => a.total_screen_time)
+      .filter((t) => t > 0)
+    const averageTotalHours =
+      historicalScreenTimes.length > 0
+        ? historicalScreenTimes.reduce((sum, time) => sum + time, 0) / historicalScreenTimes.length
+        : 0
 
     const currentTotalHours = currentAnalysis.totalScreenTime
-    const trend = historicalScreenTimes.length > 0 
-      ? (currentTotalHours < averageTotalHours ? 'improving' : 
-         currentTotalHours > averageTotalHours ? 'declining' : 'stable')
-      : 'baseline'
+    const trend =
+      historicalScreenTimes.length > 0
+        ? currentTotalHours < averageTotalHours
+          ? 'improving'
+          : currentTotalHours > averageTotalHours
+            ? 'declining'
+            : 'stable'
+        : 'baseline'
 
     // Calculate app-specific comparisons
     const appComparisons = []
@@ -55,12 +62,15 @@ export async function POST(request: NextRequest) {
       for (const currentApp of currentAnalysis.appUsage) {
         // Find historical usage for this app
         const historicalUsages = historicalAnalyses
-          .map(analysis => analysis.app_usage_data?.find((app: any) => app.appName === currentApp.appName))
-          .filter(app => app && app.hours > 0)
-          .map(app => app.hours)
+          .map((analysis) =>
+            analysis.app_usage_data?.find((app: any) => app.appName === currentApp.appName)
+          )
+          .filter((app) => app && app.hours > 0)
+          .map((app) => app.hours)
 
         if (historicalUsages.length > 0) {
-          const averageHours = historicalUsages.reduce((sum, hours) => sum + hours, 0) / historicalUsages.length
+          const averageHours =
+            historicalUsages.reduce((sum, hours) => sum + hours, 0) / historicalUsages.length
           const change = currentApp.hours - averageHours
 
           appComparisons.push({
@@ -68,7 +78,7 @@ export async function POST(request: NextRequest) {
             currentHours: currentApp.hours,
             averageHours,
             change,
-            isProblematic: currentApp.isProblematic
+            isProblematic: currentApp.isProblematic,
           })
         }
       }
@@ -88,17 +98,16 @@ Trend: ${trend}
 Problematic Apps: ${currentAnalysis.problematicAppsCount}
 
 App Comparisons:
-${appComparisons.map(app => `${app.appName}: ${app.currentHours.toFixed(1)}h (avg: ${app.averageHours.toFixed(1)}h, change: ${app.change >= 0 ? '+' : ''}${app.change.toFixed(1)}h)`).join('\n')}
+${appComparisons.map((app) => `${app.appName}: ${app.currentHours.toFixed(1)}h (avg: ${app.averageHours.toFixed(1)}h, change: ${app.change >= 0 ? '+' : ''}${app.change.toFixed(1)}h)`).join('\n')}
 
 Provide 2-3 concise insights about their progress and recommendations. Focus on:
 1. Overall screen time trends
 2. Specific app usage patterns
 3. Actionable recommendations
 
-Keep it under 150 words.`
-        }
+Keep it under 150 words.`,
+        },
       ],
-      maxTokens: 200,
       temperature: 0.7,
     })
 
@@ -109,13 +118,12 @@ Keep it under 150 words.`
       appComparisons,
       insights: benchmarkInsights,
       analysisCount: historicalAnalyses.length,
-      lastAnalysisDate: historicalAnalyses.length > 0 ? historicalAnalyses[0].created_at : null
+      lastAnalysisDate: historicalAnalyses.length > 0 ? historicalAnalyses[0].created_at : null,
     }
 
     return NextResponse.json({
-      benchmark
+      benchmark,
     })
-
   } catch (error: any) {
     console.error('Error generating benchmark:', error)
     return NextResponse.json(

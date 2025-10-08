@@ -30,7 +30,12 @@ export async function POST() {
       supabase.from('tasks').select('*').eq('user_id', user.id),
       supabase.from('daily_habits').select('*').eq('user_id', user.id),
       supabase.from('priorities').select('*').eq('user_id', user.id).eq('deleted', false),
-      supabase.from('accomplishments').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(20),
+      supabase
+        .from('accomplishments')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20),
       supabase.from('points_ledger').select('points, created_at').eq('user_id', user.id),
     ])
 
@@ -60,16 +65,34 @@ USER DATA SUMMARY:
 - Recent Accomplishments: ${accomplishments?.length || 0}
 
 PROJECTS BREAKDOWN:
-${goals?.slice(0, 10).map((g: any) => `- ${g.title} (${g.category}) - ${g.is_completed ? 'COMPLETED' : 'IN PROGRESS'} - ${g.current_points}/${g.target_points} points`).join('\n') || 'No projects'}
+${
+  goals
+    ?.slice(0, 10)
+    .map(
+      (g: any) =>
+        `- ${g.title} (${g.category}) - ${g.is_completed ? 'COMPLETED' : 'IN PROGRESS'} - ${g.current_points}/${g.target_points} points`
+    )
+    .join('\n') || 'No projects'
+}
 
 ACTIVE PRIORITIES:
-${priorities?.slice(0, 5).map((p: any) => `- ${p.title} (Priority: ${p.priority || 'N/A'})`).join('\n') || 'No priorities'}
+${
+  priorities
+    ?.slice(0, 5)
+    .map((p: any) => `- ${p.title} (Priority: ${p.priority || 'N/A'})`)
+    .join('\n') || 'No priorities'
+}
 
 HABITS:
 ${habits?.map((h: any) => `- ${h.title}`).join('\n') || 'No habits'}
 
 RECENT ACCOMPLISHMENTS:
-${accomplishments?.slice(0, 10).map((a: any) => `- ${a.title} (+${a.points} pts) - ${a.accomplishment_type}`).join('\n') || 'No accomplishments'}
+${
+  accomplishments
+    ?.slice(0, 10)
+    .map((a: any) => `- ${a.title} (+${a.points} pts) - ${a.accomplishment_type}`)
+    .join('\n') || 'No accomplishments'
+}
 
 Based on this data, provide a comprehensive analysis in the following JSON structure:
 
@@ -101,7 +124,6 @@ Return ONLY valid JSON, no markdown.`
           content: analysisPrompt,
         },
       ],
-      maxTokens: 3000,
     })
 
     console.log('AI response received')
@@ -120,10 +142,7 @@ Return ONLY valid JSON, no markdown.`
     // Validate the response structure
     if (!insights.overallProgress || !insights.strengths || !insights.actionableRecommendations) {
       console.error('Invalid AI response structure:', insights)
-      return NextResponse.json(
-        { error: 'Invalid AI response. Please try again.' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Invalid AI response. Please try again.' }, { status: 500 })
     }
 
     console.log('AI insights generated successfully')
@@ -139,4 +158,3 @@ Return ONLY valid JSON, no markdown.`
     )
   }
 }
-
