@@ -48,6 +48,62 @@ import { useAdminAuth } from '@/hooks/use-admin-auth'
 
 // Type definitions
 
+// Cascading Section Component
+interface CascadingSectionProps {
+  title: string
+  icon: React.ReactNode
+  isExpanded: boolean
+  onToggle: () => void
+  children: React.ReactNode
+  className?: string
+}
+
+const CascadingSection = ({ 
+  title, 
+  icon, 
+  isExpanded, 
+  onToggle, 
+  children, 
+  className = "" 
+}: CascadingSectionProps) => {
+  return (
+    <div className={`bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg ${className}`}>
+      {/* Title Row - Double Click to Toggle */}
+      <div 
+        className="p-6 pb-4 cursor-pointer select-none hover:bg-gray-50/50 transition-colors duration-200"
+        onDoubleClick={onToggle}
+        title="Double-click to expand/collapse"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            {icon}
+            <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-gray-500">Double-click to cascade</span>
+            {isExpanded ? (
+              <ChevronUp className="h-5 w-5 text-gray-400 transition-transform duration-200" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-gray-400 transition-transform duration-200" />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Content - Animated Expand/Collapse */}
+      <div 
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+          isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <div className="px-6 pb-6">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 interface Week {
   id: string
   week_start: string
@@ -146,6 +202,18 @@ export default function DashboardPage() {
     accomplishments: true,
     categories: true,
   })
+
+  // State for cascading/accordion functionality
+  const [expandedSections, setExpandedSections] = useState({
+    priorities: true,
+    goals: true,
+    projects: true,
+    tasks: true,
+    habits: true,
+    education: true,
+    accomplishments: true,
+    categories: true,
+  })
   const [highLevelGoals, setHighLevelGoals] = useState<Record<string, unknown>[]>([])
   const [priorities, setPriorities] = useState<Record<string, unknown>[]>([])
   const [showAddGoal, setShowAddGoal] = useState(false)
@@ -212,6 +280,14 @@ export default function DashboardPage() {
 
   const toggleSectionVisibility = (section: keyof typeof sectionVisibility) => {
     setSectionVisibility((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }))
+  }
+
+  // Toggle cascading/accordion functionality
+  const toggleSectionExpansion = (section: keyof typeof expandedSections) => {
+    setExpandedSections((prev) => ({
       ...prev,
       [section]: !prev[section],
     }))
@@ -1417,18 +1493,16 @@ export default function DashboardPage() {
           <div className="xl:col-span-2 space-y-6">
             {/* Priorities Section - TOP */}
             {sectionVisibility.priorities && (
-              <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
-                <div className="p-6 pb-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="font-semibold tracking-tight flex items-center text-xl">
-                        <Brain className="h-6 w-6 mr-2 text-purple-500" />
-                        Priorities
-                      </h2>
-                      <p className="text-sm text-gray-600">
-                        AI-recommended priorities I should do now
-                      </p>
-                    </div>
+              <CascadingSection
+                title="Priorities"
+                icon={<Brain className="h-6 w-6 text-purple-500" />}
+                isExpanded={expandedSections.priorities}
+                onToggle={() => toggleSectionExpansion('priorities')}
+              >
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-4">
+                    AI-recommended priorities I should do now
+                  </p>
                     <div className="flex space-x-2">
                       <button
                         onClick={() => setShowConversationalPriorityInput(true)}
@@ -1454,7 +1528,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-                <div className="p-6 pt-0">
+                <div>
                   {priorities.length === 0 ? (
                     <div className="text-center py-8">
                       <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -1598,7 +1672,7 @@ export default function DashboardPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </CascadingSection>
             )}
 
             {/* Goals Section - SECOND */}
