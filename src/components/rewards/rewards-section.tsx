@@ -42,6 +42,8 @@ import {
   CheckCircle,
   Lock,
   Unlock,
+  Trash2,
+  Clock,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 
@@ -94,7 +96,9 @@ interface PartnerReward {
   point_cost: number
   partner_name: string
   is_active: boolean
+  requires_approval: boolean
   redemption_code?: string
+  status?: string
 }
 
 const iconMap: Record<string, any> = {
@@ -314,6 +318,29 @@ export default function RewardsSection() {
     }
   }
 
+  const handleDeleteReward = async (userRewardId: string) => {
+    if (!confirm('Are you sure you want to delete this reward? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/rewards/${userRewardId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        await fetchRewardsData()
+        alert('Reward deleted successfully!')
+      } else {
+        const error = await response.json()
+        alert(`Error: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error deleting reward:', error)
+      alert('Failed to delete reward')
+    }
+  }
+
   const getRewardIcon = (reward: Reward) => {
     const categoryIcon = reward.reward_categories?.icon
     if (categoryIcon && iconMap[categoryIcon]) {
@@ -379,11 +406,10 @@ export default function RewardsSection() {
         </div>
 
         <Tabs defaultValue="available" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="available">Available Rewards</TabsTrigger>
             <TabsTrigger value="partner">Partner Rewards</TabsTrigger>
             <TabsTrigger value="rewards">Redeemed Awards</TabsTrigger>
-            <TabsTrigger value="milestones">Milestones</TabsTrigger>
           </TabsList>
 
           {/* Redeemed Awards Tab */}
@@ -420,10 +446,20 @@ export default function RewardsSection() {
                           {getRewardCost(userReward)} pts
                         </Badge>
                         {userReward.is_redeemed ? (
-                          <Badge variant="secondary">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Redeemed
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Redeemed
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDeleteReward(userReward.id)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         ) : userReward.is_unlocked ? (
                           <Button
                             size="sm"
@@ -580,13 +616,29 @@ export default function RewardsSection() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">{reward.point_cost} pts</Badge>
-                        <Button
-                          size="sm"
-                          onClick={() => handleRedeemPartnerReward(reward.id)}
-                          disabled={currentPoints < reward.point_cost}
-                        >
-                          Redeem
-                        </Button>
+                        {reward.requires_approval ? (
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-orange-600 border-orange-200">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Requires Approval
+                            </Badge>
+                            <Button
+                              size="sm"
+                              disabled={true}
+                              className="opacity-50 cursor-not-allowed"
+                            >
+                              Redeem
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => handleRedeemPartnerReward(reward.id)}
+                            disabled={currentPoints < reward.point_cost}
+                          >
+                            Redeem
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardContent>

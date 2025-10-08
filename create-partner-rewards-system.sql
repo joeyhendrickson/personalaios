@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS partner_rewards (
   partner_name VARCHAR(255) NOT NULL,
   partner_contact_email VARCHAR(255),
   is_active BOOLEAN DEFAULT true,
+  requires_approval BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -21,7 +22,7 @@ CREATE TABLE IF NOT EXISTS partner_redemptions (
   partner_reward_id UUID NOT NULL REFERENCES partner_rewards(id) ON DELETE CASCADE,
   points_redeemed INTEGER NOT NULL CHECK (points_redeemed > 0),
   redemption_code VARCHAR(50) UNIQUE NOT NULL,
-  status VARCHAR(20) DEFAULT 'redeemed' CHECK (status IN ('redeemed', 'used', 'expired')),
+  status VARCHAR(20) DEFAULT 'pending_approval' CHECK (status IN ('pending_approval', 'approved', 'redeemed', 'used', 'expired', 'rejected')),
   redeemed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   used_at TIMESTAMP WITH TIME ZONE,
   expires_at TIMESTAMP WITH TIME ZONE,
@@ -76,6 +77,11 @@ CREATE POLICY "Admins can manage partner rewards" ON partner_rewards
 
 CREATE POLICY "Admins can view all partner redemptions" ON partner_redemptions
   FOR SELECT USING (
+    auth.uid() = '94a93832-cd8e-47fe-aeae-dbd945557f79'::uuid
+  );
+
+CREATE POLICY "Admins can update partner redemptions" ON partner_redemptions
+  FOR UPDATE USING (
     auth.uid() = '94a93832-cd8e-47fe-aeae-dbd945557f79'::uuid
   );
 

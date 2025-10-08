@@ -34,7 +34,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch categories' }, { status: 500 })
     }
 
-    // Get all default rewards
+    // Get all available rewards (both default and user's custom rewards)
     const { data: defaultRewards, error: defaultRewardsError } = await supabase
       .from('rewards')
       .select(
@@ -49,7 +49,7 @@ export async function GET() {
       `
       )
       .eq('is_active', true)
-      .eq('is_custom', false)
+      .or(`is_custom.eq.false,and(is_custom.eq.true,created_by.eq.${user.id})`)
       .order('point_cost')
 
     if (defaultRewardsError) {
@@ -99,11 +99,11 @@ export async function GET() {
     // Get total points redeemed
     const { data: redeemedData } = await supabase
       .from('point_redemptions')
-      .select('points_redeemed')
+      .select('points_spent')
       .eq('user_id', user.id)
 
     const totalRedeemed =
-      redeemedData?.reduce((sum, redemption) => sum + redemption.points_redeemed, 0) || 0
+      redeemedData?.reduce((sum, redemption) => sum + redemption.points_spent, 0) || 0
 
     // Calculate current available points
     const currentPoints = totalPoints - totalRedeemed
@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
         point_cost: validatedData.point_cost,
         category_id: validatedData.category_id,
         is_custom: true,
+        created_by: user.id,
       })
       .select()
       .single()
@@ -154,26 +155,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create reward' }, { status: 500 })
     }
 
-    // Add the reward to user's personal rewards
-    const { data: userReward, error: userRewardError } = await supabase
-      .from('user_rewards')
-      .insert({
-        user_id: user.id,
-        reward_id: reward.id,
-        is_custom: true,
-        custom_name: validatedData.name,
-        custom_description: validatedData.description,
-        custom_point_cost: validatedData.point_cost,
-      })
-      .select()
-      .single()
-
-    if (userRewardError) {
-      console.error('Error adding reward to user:', userRewardError)
-      return NextResponse.json({ error: 'Failed to add reward to user' }, { status: 500 })
-    }
-
-    return NextResponse.json({ reward, userReward }, { status: 201 })
+    return NextResponse.json({ reward }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid input', details: error.errors }, { status: 400 })
