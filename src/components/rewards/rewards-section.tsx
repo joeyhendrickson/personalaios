@@ -61,6 +61,7 @@ interface Reward {
   description: string
   point_cost: number
   is_custom: boolean
+  created_by?: string
   reward_categories?: RewardCategory
 }
 
@@ -488,7 +489,7 @@ export default function RewardsSection() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        {getRewardIcon(userReward.rewards || {})}
+                        {userReward.rewards && getRewardIcon(userReward.rewards)}
                         <div>
                           <h4 className="font-semibold">{getRewardName(userReward)}</h4>
                           <p className="text-sm text-gray-600">

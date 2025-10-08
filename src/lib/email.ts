@@ -22,7 +22,7 @@ export async function sendBugReportEmail(data: BugReportEmailData) {
   try {
     const { data: emailData, error } = await resend.emails.send({
       from: 'Life Stacks <noreply@lifestacks.ai>',
-      to: [env.BUG_REPORT_EMAIL],
+      to: [env.BUG_REPORT_EMAIL || 'joeyhendrickson@me.com'],
       subject: `[${data.type.toUpperCase()}] ${data.title}`,
       html: generateBugReportHTML(data),
       text: generateBugReportText(data),

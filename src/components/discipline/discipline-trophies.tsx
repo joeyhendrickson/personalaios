@@ -32,6 +32,7 @@ interface DisciplineTrophy {
 
 interface UserTrophy {
   id: string
+  habit_id: string
   earned_at: string
   discipline_trophies: DisciplineTrophy
   daily_habits: {
