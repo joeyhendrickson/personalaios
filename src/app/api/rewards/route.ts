@@ -6,7 +6,7 @@ import { z } from 'zod'
 const createRewardSchema = z.object({
   name: z.string().min(1, 'Reward name is required').max(200, 'Name too long'),
   description: z.string().optional(),
-  point_cost: z.number().int().min(1, 'Point cost must be at least 1'),
+  point_cost: z.number().int().min(500, 'Point cost must be at least 500'),
   category_id: z.string().uuid().optional(),
 })
 
