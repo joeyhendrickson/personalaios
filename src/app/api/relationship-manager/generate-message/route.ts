@@ -56,20 +56,20 @@ export async function POST(request: NextRequest) {
 
     // Build context for AI
     const photoContext =
-      photos?.length > 0
+      photos && photos.length > 0
         ? `Recent photos together: ${photos
             .map(
-              (p) =>
+              (p: any) =>
                 `${p.description || 'Photo'} from ${p.photo_date} at ${p.location || 'unknown location'}. Activities: ${p.ai_tags?.join(', ') || 'general'}`
             )
             .join('; ')}`
         : 'No recent photos available'
 
     const contactContext =
-      contactHistory?.length > 0
+      contactHistory && contactHistory.length > 0
         ? `Recent contacts: ${contactHistory
             .map(
-              (c) =>
+              (c: any) =>
                 `${c.contact_type} on ${new Date(c.created_at).toLocaleDateString()}: ${c.outcome || 'no specific outcome'}`
             )
             .join('; ')}`
@@ -113,7 +113,6 @@ Generate a natural, personalized message:`
       model: openai('gpt-4.1-mini'),
       prompt,
       temperature: 0.8,
-      maxTokens: 200,
     })
 
     return NextResponse.json({

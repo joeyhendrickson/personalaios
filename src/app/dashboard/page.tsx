@@ -53,7 +53,9 @@ interface CategoryItemProps {
   category: {
     id: string
     name: string
-    color: string | null
+    description?: string
+    color?: string | null
+    icon_name?: string
   }
   categoryPoints: {
     current: number
@@ -2757,7 +2759,7 @@ export default function DashboardPage() {
                                 acc.target += item.target_points || 0
                               } else if ('points_value' in item) {
                                 const pointsValue = item.points_value || 0
-                                if (item.is_completed) {
+                                if ('status' in item && item.status === 'completed') {
                                   acc.current += pointsValue
                                 }
                                 acc.target += pointsValue

@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { generateText, openai } from 'ai'
+import { generateText } from 'ai'
+import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 
 const processPhotosSchema = z.object({
   relationshipId: z.string().uuid().optional(),
-  autoMatch: z.boolean().default(true)
+  autoMatch: z.boolean().default(true),
 })
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -51,9 +55,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (!unprocessedPhotos || unprocessedPhotos.length === 0) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         message: 'No photos need processing',
-        processed: 0
+        processed: 0,
       })
     }
 
@@ -88,7 +92,6 @@ Focus on:
 
 Be specific and helpful for relationship management.`,
           temperature: 0.3,
-          maxTokens: 500
         })
 
         // Parse AI response
@@ -102,15 +105,16 @@ Be specific and helpful for relationship management.`,
 
         // Auto-match people if enabled
         let matchedRelationshipId = photo.relationship_id
-        
+
         if (autoMatch && !matchedRelationshipId && analysis.suggested_people?.length > 0) {
           // Find best matching relationship
           for (const suggestedName of analysis.suggested_people) {
-            const matchingRelationship = relationships.find(rel => 
-              rel.name.toLowerCase().includes(suggestedName.toLowerCase()) ||
-              suggestedName.toLowerCase().includes(rel.name.toLowerCase())
+            const matchingRelationship = relationships.find(
+              (rel) =>
+                rel.name.toLowerCase().includes(suggestedName.toLowerCase()) ||
+                suggestedName.toLowerCase().includes(rel.name.toLowerCase())
             )
-            
+
             if (matchingRelationship) {
               matchedRelationshipId = matchingRelationship.id
               break
@@ -120,7 +124,7 @@ Be specific and helpful for relationship management.`,
 
         // Calculate relevance score based on AI analysis
         let relevanceScore = 0.5 // Default score
-        
+
         if (analysis.activities?.length > 0) relevanceScore += 0.1
         if (analysis.emotions?.length > 0) relevanceScore += 0.1
         if (analysis.people_count > 1) relevanceScore += 0.1
@@ -138,7 +142,7 @@ Be specific and helpful for relationship management.`,
             people_in_photo: analysis.suggested_people || [],
             relevance_score: relevanceScore,
             relationship_id: matchedRelationshipId,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
           .eq('id', photo.id)
 
@@ -150,25 +154,27 @@ Be specific and helpful for relationship management.`,
         processedCount++
 
         // Add a small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1000))
-
+        await new Promise((resolve) => setTimeout(resolve, 1000))
       } catch (photoError) {
         console.error(`Error processing photo ${photo.id}:`, photoError)
         continue
       }
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: `Successfully processed ${processedCount} photos`,
       processed: processedCount,
-      total: unprocessedPhotos.length
+      total: unprocessedPhotos.length,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ 
-        error: 'Invalid request data', 
-        details: error.issues 
-      }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: 'Invalid request data',
+          details: error.issues,
+        },
+        { status: 400 }
+      )
     }
 
     console.error('Error processing photos:', error)
