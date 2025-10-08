@@ -1,7 +1,8 @@
 import { Resend } from 'resend'
 import { env } from './env'
 
-const resend = new Resend(env.RESEND_API_KEY)
+// Initialize Resend client only if API key is available
+const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null
 
 export interface BugReportEmailData {
   type: 'bug' | 'feature'
@@ -14,7 +15,7 @@ export interface BugReportEmailData {
 }
 
 export async function sendBugReportEmail(data: BugReportEmailData) {
-  if (!env.RESEND_API_KEY) {
+  if (!env.RESEND_API_KEY || !resend) {
     console.warn('RESEND_API_KEY not configured, skipping email send')
     return { success: false, error: 'Email service not configured' }
   }
