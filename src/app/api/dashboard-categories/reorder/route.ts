@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid data', details: error.errors }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid data', details: error.issues }, { status: 400 })
     }
     console.error('Error in dashboard categories reorder:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
