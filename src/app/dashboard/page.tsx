@@ -799,28 +799,47 @@ export default function DashboardPage() {
   const taskCompletionRate = totalPoints > 0 ? Math.round((completedPoints / totalPoints) * 100) : 0
 
   const handleAddGoal = async () => {
-    if (newGoal.title.trim() && currentWeek) {
-      try {
-        const response = await fetch('/api/projects', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: newGoal.title,
-            description: newGoal.description,
-            category: newGoal.category,
-            target_points: newGoal.target_points,
-            target_money: 0,
-          }),
-        })
+    if (!newGoal.title.trim()) {
+      alert('Please enter a project title')
+      return
+    }
 
-        if (response.ok) {
-          await fetchDashboardData() // Refresh data
-          setNewGoal({ title: '', description: '', category: 'other', target_points: 10 })
-          setShowAddGoal(false)
-        }
-      } catch (error) {
-        console.error('Error creating goal:', error)
+    if (!newGoal.category) {
+      alert('Please select a category')
+      return
+    }
+
+    try {
+      console.log('Creating project with data:', newGoal)
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newGoal.title,
+          description: newGoal.description,
+          category: newGoal.category,
+          target_points: newGoal.target_points,
+          target_money: 0,
+        }),
+      })
+
+      console.log('Project creation response status:', response.status)
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Project created successfully:', data)
+        await fetchDashboardData() // Refresh data
+        setNewGoal({ title: '', description: '', category: 'other', target_points: 10 })
+        setShowAddGoal(false)
+        alert('Project created successfully!')
+      } else {
+        const errorData = await response.json()
+        console.error('Error creating project:', errorData)
+        alert(`Failed to create project: ${errorData.error || 'Unknown error'}`)
       }
+    } catch (error) {
+      console.error('Error creating project:', error)
+      alert('Failed to create project. Please try again.')
     }
   }
 
@@ -3042,27 +3061,34 @@ export default function DashboardPage() {
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Title <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   value={newGoal.title}
                   onChange={(e) => setNewGoal({ ...newGoal, title: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter goal title"
+                  placeholder="Enter project title (required)"
+                  required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description <span className="text-gray-400 text-xs">(optional)</span>
+                </label>
                 <textarea
                   value={newGoal.description}
                   onChange={(e) => setNewGoal({ ...newGoal, description: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter goal description"
+                  placeholder="Enter project description (optional)"
                   rows={3}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category <span className="text-red-500">*</span>
+                </label>
                 {dashboardCategories.length === 0 ? (
                   <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 text-sm">
                     No categories available. Add categories first.
@@ -3073,18 +3099,32 @@ export default function DashboardPage() {
                     onChange={(e) => setNewGoal({ ...newGoal, category: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Select a category</option>
-                    {dashboardCategories.map((category) => (
-                      <option key={category.id} value={category.name}>
-                        {category.name}
-                      </option>
-                    ))}
+                    <option value="">Select a category (required)</option>
+                    <option value="quick_money">Quick Money</option>
+                    <option value="save_money">Save Money</option>
+                    <option value="health">Health</option>
+                    <option value="network_expansion">Network Expansion</option>
+                    <option value="business_growth">Business Growth</option>
+                    <option value="fires">Fires</option>
+                    <option value="good_living">Good Living</option>
+                    <option value="big_vision">Big Vision</option>
+                    <option value="job">Job</option>
+                    <option value="organization">Organization</option>
+                    <option value="tech_issues">Tech Issues</option>
+                    <option value="business_launch">Business Launch</option>
+                    <option value="future_planning">Future Planning</option>
+                    <option value="innovation">Innovation</option>
+                    <option value="productivity">Productivity</option>
+                    <option value="learning">Learning</option>
+                    <option value="financial">Financial</option>
+                    <option value="personal">Personal</option>
+                    <option value="other">Other</option>
                   </select>
                 )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Target Points
+                  Target Points <span className="text-gray-400 text-xs">(optional)</span>
                 </label>
                 <input
                   type="number"
@@ -3094,6 +3134,7 @@ export default function DashboardPage() {
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   min="1"
+                  placeholder="Default: 10 points"
                 />
               </div>
               <div className="flex space-x-3">

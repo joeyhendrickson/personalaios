@@ -116,11 +116,15 @@ export async function POST(request: NextRequest) {
       error: authError,
     } = await supabase.auth.getUser()
     if (authError || !user) {
+      console.error('Auth error:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
+    console.log('[Projects API] Received request body:', body)
+
     const validatedData = createProjectSchema.parse(body)
+    console.log('[Projects API] Validated data:', validatedData)
 
     // Get current week - try to find existing week or create one
     const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD format

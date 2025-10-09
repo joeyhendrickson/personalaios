@@ -199,7 +199,7 @@ What would you like to focus on today? Try asking me about having a "happy day" 
 First, let me review your priorities, tasks, and goals for today...
 
 Is there a specific area you'd like to focus on today? (e.g., a particular project, goal category, or type of work)`,
-      color: 'bg-blue-600 hover:bg-blue-700',
+      color: 'bg-black hover:bg-gray-800',
     },
     {
       label: 'Happy Day',
@@ -213,7 +213,7 @@ Is there a specific area you'd like to focus on today? (e.g., a particular proje
 5. ✨ Fun things aligned with your interests and projects
 
 Let me gather this information for you...`,
-      color: 'bg-pink-600 hover:bg-pink-700',
+      color: 'bg-black hover:bg-gray-800',
     },
     {
       label: 'Check-In',
@@ -226,7 +226,7 @@ Let me gather this information for you...`,
 🎯 Strategic recommendations if you're stuck
 
 Analyzing your day's progress now...`,
-      color: 'bg-green-600 hover:bg-green-700',
+      color: 'bg-black hover:bg-gray-800',
     },
     {
       label: 'Wellness Update',
@@ -240,7 +240,7 @@ Are you experiencing:
 - Need for rest or recovery?
 
 Tell me what you're feeling, and I'll provide personalized suggestions for better energy, health improvement, or how to rest and heal while staying on track for the day.`,
-      color: 'bg-purple-600 hover:bg-purple-700',
+      color: 'bg-black hover:bg-gray-800',
     },
   ]
 

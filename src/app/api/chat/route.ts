@@ -130,10 +130,19 @@ export async function POST(req: Request) {
             'budget_periods',
           ],
           'day-trader': ['trading_analyses'],
-          'relationship-manager': ['relationship_types', 'relationship_goals'],
-          'grocery-optimizer': ['grocery_receipts', 'grocery_items'],
+          'relationship-manager': ['relationships', 'relationship_types', 'relationship_goals'],
+          'grocery-optimizer': ['grocery_receipts', 'grocery_items', 'grocery_analyses'],
           'ai-coach': ['ai_coach_sessions', 'ai_coach_insights'],
           'time-blocker': ['time_blocks', 'time_block_sessions'],
+          'post-creator': [
+            'post_creator_jobs',
+            'post_creator_posts',
+            'post_creator_voice_profiles',
+          ],
+          'project-plan-builder': ['project_plan_builder_jobs', 'project_plan_builder_projects'],
+          'raid-monitoring': ['raid_monitoring_jobs', 'raid_monitoring_entries'],
+          'focus-enhancer': ['focus_sessions', 'focus_benchmarks', 'focus_analyses'],
+          'habit-master': ['habit_master_templates', 'habit_master_insights'],
         }
 
         // Get tables for this specific module, or try to discover them dynamically
