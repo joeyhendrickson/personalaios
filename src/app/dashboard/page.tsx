@@ -28,6 +28,8 @@ import {
   EyeOff,
   Lightbulb,
   Bug,
+  Trophy,
+  GraduationCap,
 } from 'lucide-react'
 import Link from 'next/link'
 import { ChatInterface } from '@/components/chat/chat-interface'
@@ -2719,7 +2721,7 @@ export default function DashboardPage() {
             {sectionVisibility.accomplishments && (
               <CascadingSection
                 title="Recent Accomplishments"
-                icon={<Activity className="h-6 w-6 text-orange-500" />}
+                icon={<Trophy className="h-6 w-6 text-orange-500" />}
                 isExpanded={expandedSections.accomplishments}
                 onToggle={() => toggleSectionExpansion('accomplishments')}
               >
@@ -2956,7 +2958,7 @@ export default function DashboardPage() {
             {sectionVisibility.education && (
               <CascadingSection
                 title="Education"
-                icon={<Lightbulb className="h-6 w-6 text-yellow-500" />}
+                icon={<GraduationCap className="h-6 w-6 text-yellow-500" />}
                 isExpanded={expandedSections.education}
                 onToggle={() => toggleSectionExpansion('education')}
               >

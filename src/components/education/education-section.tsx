@@ -252,9 +252,7 @@ export default function EducationSection() {
       <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-sm text-gray-600">
-              things I'm learning or certificates I'm completing
-            </p>
+            <p className="text-sm text-gray-600">learning and certifications</p>
           </div>
           <button
             onClick={() => {
