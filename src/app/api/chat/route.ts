@@ -30,6 +30,9 @@ export async function POST(req: Request) {
       prioritiesResult,
       pointsResult,
       installedModulesResult,
+      completedTasksTodayResult,
+      relationshipsResult,
+      habitCompletionsResult,
     ] = await Promise.all([
       // Weekly goals
       supabase
@@ -79,6 +82,28 @@ export async function POST(req: Request) {
         .eq('user_id', user.id)
         .eq('is_active', true)
         .order('last_accessed', { ascending: false }),
+
+      // Completed tasks today
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .gte('updated_at', new Date().setHours(0, 0, 0, 0)),
+
+      // Relationships for social suggestions
+      supabase
+        .from('relationships')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('last_interaction', { ascending: false }),
+
+      // Today's habit completions
+      supabase
+        .from('daily_habit_completions')
+        .select('*, daily_habits(title)')
+        .eq('user_id', user.id)
+        .gte('completed_at', new Date().setHours(0, 0, 0, 0)),
     ])
 
     // Fetch data from installed life hack modules
@@ -195,6 +220,9 @@ export async function POST(req: Request) {
     const educationItems = educationResult.data || []
     const priorities = prioritiesResult.data || []
     const recentPoints = pointsResult.data || []
+    const completedTasksToday = completedTasksTodayResult.data || []
+    const relationships = relationshipsResult.data || []
+    const habitCompletionsToday = habitCompletionsResult.data || []
     // const installedModules = installedModulesResult.data || []
 
     // Calculate current week's points
@@ -227,6 +255,11 @@ export async function POST(req: Request) {
         cat.toLowerCase().includes('health')
     )
 
+    // Identify fire priorities
+    const firePriorities = priorities.filter(
+      (p) => p.title?.includes('🔥') || p.priority_level === 'fire' || p.priority_score >= 90
+    )
+
     const userContext = {
       weeklyPoints,
       dailyPoints,
@@ -235,19 +268,24 @@ export async function POST(req: Request) {
       totalHabits: habits.length,
       totalEducationItems: educationItems.length,
       activePriorities: priorities.length,
+      completedTasksToday: completedTasksToday.length,
       categories: allCategories,
       hasGoodLiving,
       goals: goals.slice(0, 5), // Top 5 goals for context
       recentTasks: tasks.slice(0, 10), // Recent 10 tasks
       habits: habits.slice(0, 5), // Top 5 habits
       priorities: priorities.slice(0, 5), // Top 5 priorities
+      firePriorities: firePriorities.slice(0, 3), // Top 3 fire priorities
+      completedToday: completedTasksToday.slice(0, 10), // Today's completions
+      relationships: relationships.slice(0, 5), // Top 5 relationships
+      habitCompletionsToday: habitCompletionsToday.length,
       installedModules: installedModulesList.map((m) => m.module_id),
       moduleData: moduleDataResults,
     }
 
     console.log('Calling OpenAI with user context...')
     const result = await streamText({
-      model: openai('gpt-4o-mini'),
+      model: openai('gpt-4.1-mini'),
       messages,
       system: `You are an intelligent AI assistant for a Personal AI OS dashboard. You have access to the user's complete dashboard data and can provide personalized advice based on their goals, tasks, habits, education items, and priorities.
 
@@ -259,6 +297,8 @@ USER'S CURRENT DASHBOARD DATA:
 - Total Habits: ${userContext.totalHabits}
 - Total Education Items: ${userContext.totalEducationItems}
 - Active Priorities: ${userContext.activePriorities}
+- Completed Tasks Today: ${userContext.completedTasksToday}
+- Habit Completions Today: ${userContext.habitCompletionsToday}
 - Categories: ${userContext.categories.join(', ')}
 - Has Good Living Category: ${userContext.hasGoodLiving}
 - Installed Life Hacks: ${userContext.installedModules.join(', ') || 'None'}
@@ -269,11 +309,20 @@ ${userContext.goals.map((g) => `- ${g.title} (${g.category}) - Progress: ${g.cur
 RECENT TASKS:
 ${userContext.recentTasks.map((t) => `- ${t.title} (${t.category}) - Status: ${t.status}`).join('\n')}
 
+COMPLETED TODAY:
+${userContext.completedToday.length > 0 ? userContext.completedToday.map((t: any) => `- ${t.title} (${t.category})`).join('\n') : '- No tasks completed yet today'}
+
 ACTIVE HABITS:
 ${userContext.habits.map((h) => `- ${h.title}`).join('\n')}
 
 TOP PRIORITIES:
 ${userContext.priorities.map((p) => `- ${p.title} - Priority Level: ${p.priority_score > 80 ? 'High' : p.priority_score > 60 ? 'Medium' : 'Low'}`).join('\n')}
+
+🔥 FIRE PRIORITIES (Emergency Items):
+${userContext.firePriorities.length > 0 ? userContext.firePriorities.map((p: any) => `- ${p.title}`).join('\n') : '- No fire priorities'}
+
+RELATIONSHIPS (for social suggestions):
+${userContext.relationships.length > 0 ? userContext.relationships.map((r: any) => `- ${r.name || r.contact_name || 'Unknown'} (Last interaction: ${r.last_interaction ? new Date(r.last_interaction).toLocaleDateString() : 'Never'})`).join('\n') : '- No relationships tracked yet'}
 
 LIFE HACKS DATA:
 ${userContext.moduleData
@@ -346,14 +395,38 @@ CONVERSATION GUIDELINES:
 - Use descriptive language like "high priority", "valuable", "important", "significant", "worthwhile"
 - When referencing progress, use percentages or descriptive terms rather than raw point numbers
 
-When user asks about having a "happy day":
-1. Check if they have "Good Living" category goals/tasks
-2. If not, suggest creating "Good Living" or "Enjoyment" category
-3. Ask what makes them happy (social connections, health, hobbies, etc.)
-4. Suggest specific tasks for their happiness goals
-5. Reference their current habits that support well-being
-6. Consider their energy level and time available
-7. Leverage life hacks data (e.g., fitness goals for physical wellness, relationship goals for social connections, budget goals for financial peace)
+SPECIAL BUTTON PROMPTS:
+
+**Wake Up Button** (Morning Planning):
+1. Show a clear, organized view of the day's priorities, tasks, and goals
+2. Ask if there's a specific area they want to focus on today
+3. Based on their focus area response, suggest updating/reordering their priorities
+4. After providing the updated plan, ask: "Would you like me to reset your priorities list on the dashboard with this day's plan?"
+5. Provide morning motivation and set the tone for a productive day
+
+**Happy Day Button** (Balanced Day Planning):
+1. 🔥 Show fire/emergency items from their priorities that need immediate attention
+2. 👥 Suggest social activities - reference friends from relationship_manager data if available
+3. 🎉 Recommend nearby events based on their interests (use location data from grocery_optimizer if available)
+4. 😌 Suggest relaxing activities from their daily_habits list
+5. ✨ Recommend fun activities based on their interests (psychographic analysis of goals, tasks, projects)
+6. Balance urgency with enjoyment for a fulfilling day
+
+**Check-In Button** (Progress Review):
+1. ✅ List items they've completed today (check task statuses)
+2. 📊 Show progress report on points and priorities completion
+3. ⏳ Call out pending priorities that haven't been touched
+4. 🎯 If stuck (low points, no activity), provide strategic approach to make progress
+5. Celebrate wins and provide encouragement for remaining work
+
+**Wellness Update Button** (Health & Energy):
+1. Ask what they're experiencing (low energy, health issues, mental fog, need rest)
+2. Provide personalized suggestions based on their response
+3. Reference fitness goals/data if available from fitness_tracker module
+4. Suggest rest/recovery strategies
+5. Show how to rest while staying on track
+6. Provide energy-boosting suggestions (habits, nutrition, movement)
+7. Adjust day's plan to accommodate wellness needs
 
 LIFE HACKS INTEGRATION GUIDELINES:
 - **Dynamic Module Support**: Reference data from ANY installed life hack module, regardless of type

@@ -13,6 +13,10 @@ import {
   MicOff,
   Volume2,
   VolumeX,
+  Clock,
+  Heart,
+  CheckCircle2,
+  Activity,
 } from 'lucide-react'
 
 interface ChatMessage {
@@ -188,29 +192,55 @@ What would you like to focus on today? Try asking me about having a "happy day" 
 
   const quickActions = [
     {
+      label: 'Wake Up',
+      icon: Clock,
+      prompt: `Good morning! Let me give you a clear view of your day's plan.
+
+First, let me review your priorities, tasks, and goals for today...
+
+Is there a specific area you'd like to focus on today? (e.g., a particular project, goal category, or type of work)`,
+      color: 'bg-blue-600 hover:bg-blue-700',
+    },
+    {
       label: 'Happy Day',
-      icon: Lightbulb,
-      prompt: 'Today I want to have a happy day. What should I do?',
-      color: 'bg-black hover:bg-gray-800',
+      icon: Heart,
+      prompt: `Let me help you plan a happy, balanced day! I'll review:
+
+1. 🔥 Emergency/Fire items that need attention
+2. 👥 Social opportunities (friends from your relationship manager, if available)
+3. 🎉 Nearby events matching your interests (based on your location data)
+4. 😌 Relaxing activities from your habits list
+5. ✨ Fun things aligned with your interests and projects
+
+Let me gather this information for you...`,
+      color: 'bg-pink-600 hover:bg-pink-700',
     },
     {
-      label: 'Today Plan',
-      icon: Calendar,
-      prompt: 'Help me plan my day and prioritize my tasks based on my weekly goals.',
-      color: 'bg-black hover:bg-gray-800',
+      label: 'Check-In',
+      icon: CheckCircle2,
+      prompt: `Time for a progress check-in! Let me review:
+
+✅ What you've completed today
+📊 Your points and priority progress
+⏳ Pending priorities still on your list
+🎯 Strategic recommendations if you're stuck
+
+Analyzing your day's progress now...`,
+      color: 'bg-green-600 hover:bg-green-700',
     },
     {
-      label: '+ Goal',
-      icon: Target,
-      prompt:
-        'I want to create a new goal for this week. Help me set it up with appropriate target points.',
-      color: 'bg-black hover:bg-gray-800',
-    },
-    {
-      label: '+ Task',
-      icon: Plus,
-      prompt: 'I want to add a new task. Help me create it and link it to one of my goals.',
-      color: 'bg-black hover:bg-gray-800',
+      label: 'Wellness Update',
+      icon: Activity,
+      prompt: `I'm here to help with your wellness and energy. 
+
+Are you experiencing:
+- Low energy or fatigue?
+- Health issues or discomfort?
+- Mental fog or difficulty focusing?
+- Need for rest or recovery?
+
+Tell me what you're feeling, and I'll provide personalized suggestions for better energy, health improvement, or how to rest and heal while staying on track for the day.`,
+      color: 'bg-purple-600 hover:bg-purple-700',
     },
   ]
 
