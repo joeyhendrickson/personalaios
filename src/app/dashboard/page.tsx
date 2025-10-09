@@ -34,7 +34,9 @@ import {
 import Link from 'next/link'
 import { ChatInterface } from '@/components/chat/chat-interface'
 import { useAuth } from '@/contexts/auth-context'
+import { useLanguage } from '@/contexts/language-context'
 import { Slider } from '@/components/ui/slider'
+import { LanguageToggle } from '@/components/ui/language-toggle'
 import { AccomplishmentsHistory } from '@/components/accomplishments/accomplishments-history'
 import ManualPriorityForm from '@/components/priorities/manual-priority-form'
 import ConversationalPriorityInput from '@/components/priorities/conversational-priority-input'
@@ -307,6 +309,7 @@ export default function DashboardPage() {
   const { user, signOut } = useAuth()
   const { logActivity } = useActivityTracking()
   const { isAdmin } = useAdminAuth()
+  const { language, t } = useLanguage()
   const [goals, setGoals] = useState<Goal[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [currentWeek, setCurrentWeek] = useState<Week | null>(null)
@@ -1440,7 +1443,11 @@ export default function DashboardPage() {
                       'Loading...'
                     )}
                   </p>
-                  {user && <p className="text-xs text-gray-500 mt-1">Welcome back, {user.email}</p>}
+                  {user && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {t('dashboard.welcome')}, {user.email}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1448,25 +1455,25 @@ export default function DashboardPage() {
               <Link href="/modules">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black text-white hover:bg-gray-800 h-9 rounded-md px-3">
                   <Plus className="h-4 w-4" />
-                  Life Hacks
+                  {t('dashboard.lifeHacks')}
                 </button>
               </Link>
               <Link href="/bug-report">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 h-9 rounded-md px-3">
                   <Bug className="h-4 w-4" />
-                  Report Bug
+                  {t('dashboard.reportBug')}
                 </button>
               </Link>
               <Link href="/import">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3">
                   <FileSpreadsheet className="h-4 w-4" />
-                  Import
+                  {t('dashboard.import')}
                 </button>
               </Link>
               <Link href="/profile">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3">
                   <Settings className="h-4 w-4" />
-                  Profile
+                  {t('dashboard.profile')}
                 </button>
               </Link>
               {isAdmin && (
@@ -1481,7 +1488,7 @@ export default function DashboardPage() {
                 onClick={() => signOut()}
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 h-9 rounded-md px-3"
               >
-                Sign Out
+                {t('dashboard.signOut')}
               </button>
             </div>
           </div>
@@ -1489,6 +1496,11 @@ export default function DashboardPage() {
       </div>
 
       <div className="container mx-auto px-6 pt-8 pb-24">
+        {/* Language Toggle */}
+        <div className="flex justify-end mb-6">
+          <LanguageToggle />
+        </div>
+
         {/* Main Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {/* Daily Points Chart */}
@@ -1756,7 +1768,7 @@ export default function DashboardPage() {
             {/* Priorities Section - TOP */}
             {sectionVisibility.priorities && (
               <CascadingSection
-                title="Priorities"
+                title={t('dashboard.priorities')}
                 icon={<Brain className="h-6 w-6 text-purple-500" />}
                 isExpanded={expandedSections.priorities}
                 onToggle={() => toggleSectionExpansion('priorities')}
@@ -2166,7 +2178,7 @@ export default function DashboardPage() {
             {/* Projects Section - THIRD */}
             {sectionVisibility.projects && (
               <CascadingSection
-                title="Projects"
+                title={t('dashboard.projects')}
                 icon={<Target className="h-6 w-6 text-blue-500" />}
                 isExpanded={expandedSections.projects}
                 onToggle={() => toggleSectionExpansion('projects')}
@@ -2581,7 +2593,7 @@ export default function DashboardPage() {
             {/* Tasks Section */}
             {sectionVisibility.tasks && (
               <CascadingSection
-                title="Tasks"
+                title={t('dashboard.tasks')}
                 icon={<CheckCircle className="h-6 w-6 text-green-500" />}
                 isExpanded={expandedSections.tasks}
                 onToggle={() => toggleSectionExpansion('tasks')}
@@ -2704,11 +2716,9 @@ export default function DashboardPage() {
               <div className="p-6 pb-4">
                 <h2 className="font-semibold tracking-tight flex items-center text-xl">
                   <Brain className="h-6 w-6 mr-2 text-purple-500" />
-                  AI Advisor
+                  {t('dashboard.aiAdvisor')}
                 </h2>
-                <p className="text-sm text-gray-600">
-                  help me organize my life and get things done
-                </p>
+                <p className="text-sm text-gray-600">{t('chat.description')}</p>
               </div>
               <div className="p-6 pt-0">
                 <div className="space-y-4">
@@ -2739,7 +2749,7 @@ export default function DashboardPage() {
             {/* Recent Accomplishments */}
             {sectionVisibility.accomplishments && (
               <CascadingSection
-                title="Recent Accomplishments"
+                title={t('dashboard.accomplishments')}
                 icon={<Trophy className="h-6 w-6 text-orange-500" />}
                 isExpanded={expandedSections.accomplishments}
                 onToggle={() => toggleSectionExpansion('accomplishments')}
@@ -2964,7 +2974,7 @@ export default function DashboardPage() {
             {/* Daily Habits Section */}
             {sectionVisibility.habits && (
               <CascadingSection
-                title="Daily Habits"
+                title={t('dashboard.habits')}
                 icon={<Target className="h-6 w-6 text-pink-500" />}
                 isExpanded={expandedSections.habits}
                 onToggle={() => toggleSectionExpansion('habits')}
@@ -2976,7 +2986,7 @@ export default function DashboardPage() {
             {/* Education Section */}
             {sectionVisibility.education && (
               <CascadingSection
-                title="Education"
+                title={t('dashboard.education')}
                 icon={<GraduationCap className="h-6 w-6 text-yellow-500" />}
                 isExpanded={expandedSections.education}
                 onToggle={() => toggleSectionExpansion('education')}

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './global.css'
 import { AuthProvider } from '@/contexts/auth-context'
+import { LanguageProvider } from '@/contexts/language-context'
 import { ChatProvider } from '@/components/chat/chat-provider'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { DevModeBanner } from '@/components/dev-mode-banner'
@@ -30,12 +31,14 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ErrorBoundary>
-          <AuthProvider>
-            <ChatProvider>
-              <DevModeBanner />
-              {children}
-            </ChatProvider>
-          </AuthProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <ChatProvider>
+                <DevModeBanner />
+                {children}
+              </ChatProvider>
+            </AuthProvider>
+          </LanguageProvider>
         </ErrorBoundary>
       </body>
     </html>
