@@ -20,20 +20,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Habit ID is required' }, { status: 400 })
     }
 
-    // Get the habit completion count for this user and habit
-    const { data: completionData, error: completionError } = await supabase
-      .from('habit_completion_counts')
-      .select('*')
+    // Get actual habit completions and calculate count
+    const { data: habitCompletions, error: completionError } = await supabase
+      .from('daily_habit_completions')
+      .select('id')
       .eq('user_id', user.id)
       .eq('habit_id', habitId)
-      .single()
 
-    if (completionError && completionError.code !== 'PGRST116') {
-      console.error('Error fetching completion count:', completionError)
-      return NextResponse.json({ error: 'Failed to fetch completion count' }, { status: 500 })
+    if (completionError) {
+      console.error('Error fetching habit completions:', completionError)
+      return NextResponse.json({ error: 'Failed to fetch completions' }, { status: 500 })
     }
 
-    const currentCount = completionData?.completion_count || 0
+    const currentCount = habitCompletions?.length || 0
 
     // Get all trophies that could be earned at this count
     const { data: availableTrophies, error: trophiesError } = await supabase

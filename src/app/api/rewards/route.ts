@@ -34,8 +34,16 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch categories' }, { status: 500 })
     }
 
+    // Get user's hidden rewards
+    const { data: hiddenRewards, error: hiddenError } = await supabase
+      .from('hidden_rewards')
+      .select('reward_id')
+      .eq('user_id', user.id)
+
+    const hiddenRewardIds = hiddenRewards?.map((hr) => hr.reward_id) || []
+
     // Get all available rewards (both default and user's custom rewards)
-    const { data: defaultRewards, error: defaultRewardsError } = await supabase
+    const { data: allRewards, error: defaultRewardsError } = await supabase
       .from('rewards')
       .select(
         `
@@ -56,6 +64,10 @@ export async function GET() {
       console.error('Error fetching default rewards:', defaultRewardsError)
       return NextResponse.json({ error: 'Failed to fetch default rewards' }, { status: 500 })
     }
+
+    // Filter out hidden rewards
+    const defaultRewards =
+      allRewards?.filter((reward) => !hiddenRewardIds.includes(reward.id)) || []
 
     // Get user's personal rewards (both default and custom)
     const { data: userRewards, error: userRewardsError } = await supabase

@@ -1,24 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { CheckCircle, Star, Settings, Target, Trash2, GripVertical } from 'lucide-react'
+import { CheckCircle, Star, Settings, Target, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
 import { Task } from '@/types'
 
 interface DraggableTasksProps {
@@ -30,49 +13,66 @@ interface DraggableTasksProps {
   onDeleteTask: (taskId: string) => void
 }
 
-interface SortableTaskItemProps {
+interface TaskItemProps {
   task: Task
+  index: number
+  totalTasks: number
   onToggleTask: (taskId: string) => void
   onEditTask: (task: Task) => void
   onConvertToGoal: (task: Task) => void
   onDeleteTask: (taskId: string) => void
+  onMoveUp: (index: number) => void
+  onMoveDown: (index: number) => void
+  isReordering: boolean
 }
 
-function SortableTaskItem({
+function TaskItem({
   task,
+  index,
+  totalTasks,
   onToggleTask,
   onEditTask,
   onConvertToGoal,
   onDeleteTask,
-}: SortableTaskItemProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: task.id,
-  })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
-
+  onMoveUp,
+  onMoveDown,
+  isReordering,
+}: TaskItemProps) {
   return (
     <div
-      ref={setNodeRef}
-      style={style}
       className={`bg-white/50 rounded-lg p-4 border transition-all duration-200 hover:shadow-sm ${
         task.status === 'completed'
           ? 'border-green-200 bg-green-50/50'
           : 'border-gray-200 hover:border-blue-200'
-      }`}
+      } ${isReordering ? 'opacity-50' : ''}`}
     >
       <div className="flex items-start space-x-4">
-        {/* Drag Handle */}
-        <div
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 mt-1"
-        >
-          <GripVertical className="h-4 w-4" />
+        {/* Move Up/Down Buttons */}
+        <div className="flex flex-col gap-1 mt-1">
+          <button
+            onClick={() => onMoveUp(index)}
+            disabled={index === 0 || isReordering}
+            className={`p-0.5 rounded transition-colors ${
+              index === 0 || isReordering
+                ? 'text-gray-300 cursor-not-allowed'
+                : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+            }`}
+            title="Move up"
+          >
+            <ChevronUp className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => onMoveDown(index)}
+            disabled={index === totalTasks - 1 || isReordering}
+            className={`p-0.5 rounded transition-colors ${
+              index === totalTasks - 1 || isReordering
+                ? 'text-gray-300 cursor-not-allowed'
+                : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+            }`}
+            title="Move down"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </button>
         </div>
 
         <button
@@ -145,39 +145,51 @@ export function DraggableTasks({
 }: DraggableTasksProps) {
   const [isReordering, setIsReordering] = useState(false)
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  )
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event
-
-    if (!over || active.id === over.id) {
-      return
-    }
+  const handleMoveUp = async (index: number) => {
+    if (index === 0 || isReordering) return
 
     setIsReordering(true)
-
     try {
-      const oldIndex = tasks.findIndex((task) => task.id === active.id)
-      const newIndex = tasks.findIndex((task) => task.id === over.id)
+      // Swap with the item above
+      const newTasks = [...tasks]
+      const temp = newTasks[index]
+      newTasks[index] = newTasks[index - 1]
+      newTasks[index - 1] = temp
 
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const reorderedTasks = arrayMove(tasks, oldIndex, newIndex)
+      // Create new sort orders
+      const taskOrders = newTasks.map((task, idx) => ({
+        id: task.id,
+        sort_order: idx + 1,
+      }))
 
-        // Create new sort orders (lower numbers = higher priority)
-        const taskOrders = reorderedTasks.map((task, index) => ({
-          id: task.id,
-          sort_order: index + 1,
-        }))
-
-        await onReorder(taskOrders)
-      }
+      await onReorder(taskOrders)
     } catch (error) {
-      console.error('Error reordering tasks:', error)
+      console.error('Error moving task up:', error)
+    } finally {
+      setIsReordering(false)
+    }
+  }
+
+  const handleMoveDown = async (index: number) => {
+    if (index === tasks.length - 1 || isReordering) return
+
+    setIsReordering(true)
+    try {
+      // Swap with the item below
+      const newTasks = [...tasks]
+      const temp = newTasks[index]
+      newTasks[index] = newTasks[index + 1]
+      newTasks[index + 1] = temp
+
+      // Create new sort orders
+      const taskOrders = newTasks.map((task, idx) => ({
+        id: task.id,
+        sort_order: idx + 1,
+      }))
+
+      await onReorder(taskOrders)
+    } catch (error) {
+      console.error('Error moving task down:', error)
     } finally {
       setIsReordering(false)
     }
@@ -193,21 +205,22 @@ export function DraggableTasks({
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={tasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-3">
-          {tasks.map((task) => (
-            <SortableTaskItem
-              key={task.id}
-              task={task}
-              onToggleTask={onToggleTask}
-              onEditTask={onEditTask}
-              onConvertToGoal={onConvertToGoal}
-              onDeleteTask={onDeleteTask}
-            />
-          ))}
-        </div>
-      </SortableContext>
-    </DndContext>
+    <div className="space-y-3">
+      {tasks.map((task, index) => (
+        <TaskItem
+          key={task.id}
+          task={task}
+          index={index}
+          totalTasks={tasks.length}
+          onToggleTask={onToggleTask}
+          onEditTask={onEditTask}
+          onConvertToGoal={onConvertToGoal}
+          onDeleteTask={onDeleteTask}
+          onMoveUp={handleMoveUp}
+          onMoveDown={handleMoveDown}
+          isReordering={isReordering}
+        />
+      ))}
+    </div>
   )
 }

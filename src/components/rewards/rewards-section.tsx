@@ -44,6 +44,7 @@ import {
   Unlock,
   Trash2,
   Clock,
+  Pencil,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 
@@ -132,6 +133,8 @@ export default function RewardsSection() {
   })
   const [editingReward, setEditingReward] = useState<any>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editingUserReward, setEditingUserReward] = useState<any>(null)
+  const [showEditUserRewardDialog, setShowEditUserRewardDialog] = useState(false)
   const [newMilestone, setNewMilestone] = useState({
     milestone_name: '',
     description: '',
@@ -344,10 +347,54 @@ export default function RewardsSection() {
     }
   }
 
+  const handleEditUserReward = (userReward: UserReward) => {
+    setEditingUserReward({
+      id: userReward.id,
+      name: getRewardName(userReward),
+      description: getRewardDescription(userReward),
+      point_cost: getRewardCost(userReward),
+      is_custom: userReward.is_custom,
+    })
+    setShowEditUserRewardDialog(true)
+  }
+
+  const handleUpdateUserReward = async () => {
+    if (!editingUserReward) return
+
+    try {
+      const response = await fetch('/api/rewards/update-user-reward', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userRewardId: editingUserReward.id,
+          custom_name: editingUserReward.name,
+          custom_description: editingUserReward.description,
+          custom_point_cost: editingUserReward.point_cost,
+        }),
+      })
+
+      if (response.ok) {
+        setShowEditUserRewardDialog(false)
+        setEditingUserReward(null)
+        await fetchRewardsData()
+        alert('Reward updated successfully!')
+      } else {
+        const error = await response.json()
+        alert(`Error: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error updating user reward:', error)
+      alert('Failed to update reward')
+    }
+  }
+
   const handleEditReward = async (rewardId: string) => {
     const reward = defaultRewards.find((r) => r.id === rewardId)
-    if (reward && reward.is_custom && reward.created_by === user?.id) {
-      setEditingReward(reward)
+    if (reward) {
+      setEditingReward({
+        ...reward,
+        isSystemReward: !reward.is_custom || reward.created_by !== user?.id,
+      })
       setShowEditDialog(true)
     }
   }
@@ -356,25 +403,59 @@ export default function RewardsSection() {
     if (!editingReward) return
 
     try {
-      const response = await fetch('/api/rewards/update', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rewardId: editingReward.id,
-          name: editingReward.name,
-          description: editingReward.description,
-          point_cost: editingReward.point_cost,
-        }),
-      })
+      // If this is a system reward or someone else's custom reward, create a new custom reward for the user
+      if (editingReward.isSystemReward) {
+        const response = await fetch('/api/rewards', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: editingReward.name,
+            description: editingReward.description,
+            point_cost: editingReward.point_cost,
+            category_id: editingReward.reward_categories?.id || editingReward.category_id || '',
+          }),
+        })
 
-      if (response.ok) {
-        setShowEditDialog(false)
-        setEditingReward(null)
-        await fetchRewardsData()
-        alert('Reward updated successfully!')
+        if (response.ok) {
+          // Now hide the original reward from their view
+          await fetch('/api/rewards/hide', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rewardId: editingReward.id }),
+          })
+
+          setShowEditDialog(false)
+          setEditingReward(null)
+          await fetchRewardsData()
+          alert(
+            'Custom reward created successfully! The original reward has been hidden from your view.'
+          )
+        } else {
+          const error = await response.json()
+          alert(`Error: ${error.error}`)
+        }
       } else {
-        const error = await response.json()
-        alert(`Error: ${error.error}`)
+        // Update the user's own custom reward
+        const response = await fetch('/api/rewards/update', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rewardId: editingReward.id,
+            name: editingReward.name,
+            description: editingReward.description,
+            point_cost: editingReward.point_cost,
+          }),
+        })
+
+        if (response.ok) {
+          setShowEditDialog(false)
+          setEditingReward(null)
+          await fetchRewardsData()
+          alert('Reward updated successfully!')
+        } else {
+          const error = await response.json()
+          alert(`Error: ${error.error}`)
+        }
       }
     } catch (error) {
       console.error('Error updating reward:', error)
@@ -383,24 +464,49 @@ export default function RewardsSection() {
   }
 
   const handleDeleteCustomReward = async (rewardId: string) => {
-    if (confirm('Are you sure you want to delete this reward? This action cannot be undone.')) {
-      try {
-        const response = await fetch('/api/rewards/delete', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rewardId }),
-        })
+    const reward = defaultRewards.find((r) => r.id === rewardId)
+    const isOwnCustomReward = reward?.is_custom && reward?.created_by === user?.id
 
-        if (response.ok) {
-          await fetchRewardsData()
-          alert('Reward deleted successfully!')
+    const confirmMessage = isOwnCustomReward
+      ? 'Are you sure you want to permanently delete this reward?'
+      : 'Are you sure you want to hide this reward from your available rewards list?'
+
+    if (confirm(confirmMessage)) {
+      try {
+        if (isOwnCustomReward) {
+          // Actually delete the user's custom reward
+          const response = await fetch('/api/rewards/delete', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rewardId }),
+          })
+
+          if (response.ok) {
+            await fetchRewardsData()
+            alert('Reward deleted successfully!')
+          } else {
+            const error = await response.json()
+            alert(`Error: ${error.error}`)
+          }
         } else {
-          const error = await response.json()
-          alert(`Error: ${error.error}`)
+          // Hide system reward or other user's reward from this user's view
+          const response = await fetch('/api/rewards/hide', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rewardId }),
+          })
+
+          if (response.ok) {
+            await fetchRewardsData()
+            alert('Reward hidden from your view!')
+          } else {
+            const error = await response.json()
+            alert(`Error: ${error.error}`)
+          }
         }
       } catch (error) {
-        console.error('Error deleting reward:', error)
-        alert('Failed to delete reward')
+        console.error('Error deleting/hiding reward:', error)
+        alert('Failed to remove reward')
       }
     }
   }
@@ -480,6 +586,63 @@ export default function RewardsSection() {
           <TabsContent value="rewards" className="space-y-4">
             <h3 className="text-lg font-semibold">Redeemed Awards</h3>
 
+            {/* Edit User Reward Dialog */}
+            <Dialog open={showEditUserRewardDialog} onOpenChange={setShowEditUserRewardDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Reward</DialogTitle>
+                  <DialogDescription>Update your reward details</DialogDescription>
+                </DialogHeader>
+                {editingUserReward && (
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="edit-user-reward-name">Reward Name</Label>
+                      <Input
+                        id="edit-user-reward-name"
+                        value={editingUserReward.name}
+                        onChange={(e) =>
+                          setEditingUserReward({ ...editingUserReward, name: e.target.value })
+                        }
+                        placeholder="e.g., Buy myself a nice dinner"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-user-reward-description">Description</Label>
+                      <Textarea
+                        id="edit-user-reward-description"
+                        value={editingUserReward.description || ''}
+                        onChange={(e) =>
+                          setEditingUserReward({
+                            ...editingUserReward,
+                            description: e.target.value,
+                          })
+                        }
+                        placeholder="Optional description"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-user-reward-cost">Point Cost</Label>
+                      <Input
+                        id="edit-user-reward-cost"
+                        type="number"
+                        value={editingUserReward.point_cost}
+                        onChange={(e) =>
+                          setEditingUserReward({
+                            ...editingUserReward,
+                            point_cost: parseInt(e.target.value) || 0,
+                          })
+                        }
+                        min="0"
+                      />
+                    </div>
+                    <Button onClick={handleUpdateUserReward} className="w-full">
+                      Update Reward
+                    </Button>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+
             <div className="grid gap-4">
               {userRewards.map((userReward) => (
                 <Card
@@ -518,6 +681,14 @@ export default function RewardsSection() {
                             <Button
                               size="sm"
                               variant="outline"
+                              onClick={() => handleEditUserReward(userReward)}
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
                               onClick={() => handleDeleteReward(userReward.id)}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             >
@@ -525,13 +696,23 @@ export default function RewardsSection() {
                             </Button>
                           </div>
                         ) : userReward.is_unlocked ? (
-                          <Button
-                            size="sm"
-                            onClick={() => handleRedeemReward(userReward.id)}
-                            disabled={currentPoints < (getRewardCost(userReward) || 0)}
-                          >
-                            Redeem
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditUserReward(userReward)}
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleRedeemReward(userReward.id)}
+                              disabled={currentPoints < (getRewardCost(userReward) || 0)}
+                            >
+                              Redeem
+                            </Button>
+                          </div>
                         ) : (
                           <Badge variant="outline">
                             <Lock className="h-3 w-3 mr-1" />
@@ -699,30 +880,32 @@ export default function RewardsSection() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">{reward.point_cost} pts</Badge>
-                        {reward.is_custom && reward.created_by === user?.id && (
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleEditReward(reward.id)}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleDeleteCustomReward(reward.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditReward(reward.id)}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            title="Edit reward"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteCustomReward(reward.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Delete reward"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                         <Button
                           size="sm"
                           onClick={() => handleAddRewardToUser(reward.id)}
                           disabled={currentPoints < reward.point_cost}
                         >
-                          Redeem
+                          Add
                         </Button>
                       </div>
                     </div>
