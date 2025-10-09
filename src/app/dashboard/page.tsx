@@ -816,35 +816,48 @@ export default function DashboardPage() {
   }
 
   const handleAddTask = async () => {
-    if (newTask.title.trim()) {
-      try {
-        const response = await fetch('/api/tasks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            weekly_goal_id: newTask.weekly_goal_id || undefined,
-            title: newTask.title,
-            description: newTask.description,
-            category: newTask.category,
-            points_value: newTask.points_value,
-            money_value: 0,
-          }),
-        })
+    if (!newTask.title.trim()) {
+      alert('Please enter a task title')
+      return
+    }
 
-        if (response.ok) {
-          await fetchDashboardData() // Refresh data
-          setNewTask({
-            title: '',
-            description: '',
-            category: 'other',
-            points_value: 5,
-            weekly_goal_id: '',
-          })
-          setShowAddTask(false)
-        }
-      } catch (error) {
-        console.error('Error creating task:', error)
+    if (!newTask.weekly_goal_id) {
+      alert('Please select a project for this task')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          weekly_goal_id: newTask.weekly_goal_id,
+          title: newTask.title,
+          description: newTask.description,
+          category: newTask.category,
+          points_value: newTask.points_value,
+          money_value: 0,
+        }),
+      })
+
+      if (response.ok) {
+        await fetchDashboardData() // Refresh data
+        setNewTask({
+          title: '',
+          description: '',
+          category: 'other',
+          points_value: 5,
+          weekly_goal_id: '',
+        })
+        setShowAddTask(false)
+        alert('Task created successfully!')
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to create task: ${errorData.error || 'Unknown error'}`)
       }
+    } catch (error) {
+      console.error('Error creating task:', error)
+      alert('Error creating task. Please try again.')
     }
   }
 
@@ -3071,14 +3084,15 @@ export default function DashboardPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Project (Optional)
+                  Project <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={newTask.weekly_goal_id}
                   onChange={(e) => setNewTask({ ...newTask, weekly_goal_id: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
                 >
-                  <option value="">Select a project</option>
+                  <option value="">Select a project (required)</option>
                   {goals.map((goal) => (
                     <option key={goal.id} value={goal.id}>
                       {(goal as any).title}
