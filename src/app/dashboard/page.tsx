@@ -61,11 +61,18 @@ interface CategoryItemProps {
     current: number
     target: number
   }
+  maxCategoryPoints: number
   onDelete: (id: string) => void
   onUpdate: (id: string, newName: string, newColor: string) => void
 }
 
-const CategoryItem = ({ category, categoryPoints, onDelete, onUpdate }: CategoryItemProps) => {
+const CategoryItem = ({
+  category,
+  categoryPoints,
+  maxCategoryPoints,
+  onDelete,
+  onUpdate,
+}: CategoryItemProps) => {
   const [isEditing, setIsEditing] = useState(false)
   const [editedName, setEditedName] = useState(category.name)
   const [editedColor, setEditedColor] = useState(category.color || '#3B82F6')
@@ -127,10 +134,9 @@ const CategoryItem = ({ category, categoryPoints, onDelete, onUpdate }: Category
     )
   }
 
-  const progress =
-    categoryPoints.target > 0
-      ? Math.min((categoryPoints.current / categoryPoints.target) * 100, 100)
-      : 0
+  // Calculate bar width based on points earned relative to highest category
+  const barWidth =
+    maxCategoryPoints > 0 ? Math.min((categoryPoints.current / maxCategoryPoints) * 100, 100) : 0
 
   return (
     <div className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
@@ -143,12 +149,12 @@ const CategoryItem = ({ category, categoryPoints, onDelete, onUpdate }: Category
           <span className="text-sm font-medium text-gray-900">{category.name}</span>
         </div>
         <div className="flex items-center space-x-2">
-          {categoryPoints.current > 0 && (
-            <div className="text-right">
-              <span className="text-sm font-bold text-gray-900">{categoryPoints.current}</span>
-              <span className="text-xs text-gray-500 ml-1">/ {categoryPoints.target} pts</span>
-            </div>
-          )}
+          <div className="text-right">
+            <span className="text-sm font-bold text-gray-900">
+              {categoryPoints.current.toLocaleString()}
+            </span>
+            <span className="text-xs text-gray-500 ml-1">pts</span>
+          </div>
           <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => setIsEditing(true)}
@@ -167,17 +173,15 @@ const CategoryItem = ({ category, categoryPoints, onDelete, onUpdate }: Category
           </div>
         </div>
       </div>
-      {categoryPoints.target > 0 && (
-        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-500 ease-out"
-            style={{
-              width: `${progress}%`,
-              backgroundColor: category.color || '#3B82F6',
-            }}
-          />
-        </div>
-      )}
+      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500 ease-out"
+          style={{
+            width: `${barWidth}%`,
+            backgroundColor: category.color || '#3B82F6',
+          }}
+        />
+      </div>
     </div>
   )
 }
@@ -1443,7 +1447,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-8">
+      <div className="container mx-auto px-6 pt-8 pb-24">
         {/* Main Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {/* Daily Points Chart */}
@@ -2750,36 +2754,47 @@ export default function DashboardPage() {
                         </p>
                       </div>
                     ) : (
-                      dashboardCategories.map((category) => {
-                        const categoryPoints = [...goals, ...tasks].reduce(
-                          (acc, item) => {
-                            if (item.category === category.name) {
-                              if ('current_points' in item) {
-                                acc.current += item.current_points || 0
-                                acc.target += item.target_points || 0
-                              } else if ('points_value' in item) {
-                                const pointsValue = item.points_value || 0
-                                if ('status' in item && item.status === 'completed') {
-                                  acc.current += pointsValue
+                      (() => {
+                        // Calculate points for all categories first
+                        const allCategoryPoints = dashboardCategories.map((category) => {
+                          const categoryPoints = [...goals, ...tasks].reduce(
+                            (acc, item) => {
+                              if (item.category === category.name) {
+                                if ('current_points' in item) {
+                                  acc.current += item.current_points || 0
+                                  acc.target += item.target_points || 0
+                                } else if ('points_value' in item) {
+                                  const pointsValue = item.points_value || 0
+                                  if ('status' in item && item.status === 'completed') {
+                                    acc.current += pointsValue
+                                  }
+                                  acc.target += pointsValue
                                 }
-                                acc.target += pointsValue
                               }
-                            }
-                            return acc
-                          },
-                          { current: 0, target: 0 }
+                              return acc
+                            },
+                            { current: 0, target: 0 }
+                          )
+                          return { category, categoryPoints }
+                        })
+
+                        // Find the maximum current points across all categories
+                        const maxCategoryPoints = Math.max(
+                          ...allCategoryPoints.map(({ categoryPoints }) => categoryPoints.current),
+                          1 // Minimum of 1 to prevent division by zero
                         )
 
-                        return (
+                        return allCategoryPoints.map(({ category, categoryPoints }) => (
                           <CategoryItem
                             key={category.id}
                             category={category}
                             categoryPoints={categoryPoints}
+                            maxCategoryPoints={maxCategoryPoints}
                             onDelete={deleteCategory}
                             onUpdate={updateCategory}
                           />
-                        )
-                      })
+                        ))
+                      })()
                     )}
                   </div>
                 </div>
