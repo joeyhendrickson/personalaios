@@ -1508,12 +1508,14 @@ export default function DashboardPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-medium text-black">Daily Points</p>
+                  <p className="text-sm font-medium text-black">{t('stats.dailyPoints')}</p>
                   <p className="text-2xl font-bold text-black">
                     {pointsData?.dailyPoints || 0}
                     {pointsLoading && <span className="text-sm text-blue-400 ml-2">⟳</span>}
                   </p>
-                  <p className="text-sm text-black mt-1">Weekly: {pointsData?.weeklyPoints || 0}</p>
+                  <p className="text-sm text-black mt-1">
+                    {t('stats.weekly')}: {pointsData?.weeklyPoints || 0}
+                  </p>
                 </div>
                 <div className="flex items-center space-x-2">
                   <BarChart3 className="h-8 w-8 text-blue-400" />
@@ -1713,7 +1715,7 @@ export default function DashboardPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-medium text-black">Tasks Done</p>
+                  <p className="text-sm font-medium text-black">{t('stats.tasksDone')}</p>
                   <p className="text-2xl font-bold text-black">
                     {completedTasksCount}/{totalTasks}
                   </p>
@@ -1783,21 +1785,21 @@ export default function DashboardPage() {
                       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black hover:bg-gray-800 text-white h-10 px-4 py-2"
                     >
                       <Brain className="h-4 w-4" />
-                      AI Recommend
+                      {t('buttons.aiRecommend')}
                     </button>
                     <button
                       onClick={() => setShowManualPriorityForm(true)}
                       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                     >
                       <Plus className="h-4 w-4" />
-                      Add Priority
+                      {t('buttons.addPriority')}
                     </button>
                     <button
                       onClick={() => setShowDeletedPriorities(true)}
                       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                     >
                       <Trash2 className="h-4 w-4" />
-                      View Deleted
+                      {t('buttons.viewDeleted')}
                     </button>
                   </div>
                 </div>
@@ -1971,7 +1973,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       <History className="h-4 w-4 mr-2" />
-                      {showCompletedGoals ? 'Active' : 'Completed'}
+                      {showCompletedGoals ? t('buttons.active') : t('buttons.completed')}
                     </button>
                     {!showCompletedGoals && (
                       <button
@@ -2195,7 +2197,7 @@ export default function DashboardPage() {
                       title="Use AI to automatically categorize your goals with smart financial detection"
                     >
                       <Brain className="h-4 w-4 mr-2" />
-                      {isCategorizing ? 'Categorizing...' : 'Categorize'}
+                      {isCategorizing ? t('buttons.categorizing') : t('buttons.categorize')}
                     </button>
                     <button
                       onClick={() => setShowCompleted(!showCompleted)}
@@ -2206,7 +2208,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       <History className="h-4 w-4 mr-2" />
-                      {showCompleted ? 'Active' : 'Completed'}
+                      {showCompleted ? t('buttons.active') : t('buttons.completed')}
                     </button>
                     {!showCompleted && (
                       <button
@@ -2214,7 +2216,7 @@ export default function DashboardPage() {
                         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-white hover:bg-gray-800 h-10 px-4 py-2 bg-black"
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Project
+                        {t('buttons.addProject')}
                       </button>
                     )}
                   </div>
@@ -2612,7 +2614,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       <History className="h-4 w-4 mr-2" />
-                      {showCompleted ? 'Active' : 'Completed'}
+                      {showCompleted ? t('buttons.active') : t('buttons.completed')}
                     </button>
                     {!showCompleted && (
                       <button
@@ -2620,7 +2622,7 @@ export default function DashboardPage() {
                         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Task
+                        {t('buttons.addTask')}
                       </button>
                     )}
                   </div>
@@ -2739,7 +2741,7 @@ export default function DashboardPage() {
                       className="w-full bg-black hover:bg-gray-800 text-white font-medium py-2 px-4 rounded-md transition-all duration-200"
                     >
                       <MessageSquare className="h-4 w-4 mr-2 inline" />
-                      Start Chat
+                      {t('buttons.startChat')}
                     </button>
                   </div>
                 </div>
@@ -2762,7 +2764,7 @@ export default function DashboardPage() {
                     onClick={() => setShowAccomplishmentsHistory(true)}
                     className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                   >
-                    View All
+                    {t('buttons.viewAll')}
                   </button>
                 </div>
 
@@ -2870,7 +2872,7 @@ export default function DashboardPage() {
             {/* Category Breakdown */}
             {sectionVisibility.categories && (
               <CascadingSection
-                title="Category Progress"
+                title={t('stats.categoryProgress')}
                 icon={<PieChart className="h-6 w-6 text-indigo-500" />}
                 isExpanded={expandedSections.categories}
                 onToggle={() => toggleSectionExpansion('categories')}
@@ -3152,7 +3154,7 @@ export default function DashboardPage() {
                   onClick={handleAddGoal}
                   className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
                 >
-                  Add Project
+                  {t('buttons.addProject')}
                 </button>
                 <button
                   onClick={() => setShowAddGoal(false)}
@@ -3263,7 +3265,7 @@ export default function DashboardPage() {
                   onClick={handleAddTask}
                   className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
                 >
-                  Add Task
+                  {t('buttons.addTask')}
                 </button>
                 <button
                   onClick={() => setShowAddTask(false)}
