@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       `
       )
       .eq('user_id', user.id)
-      .order('sort_order', { ascending: true })
+      .order('sort_order', { ascending: false })
       .order('created_at', { ascending: false })
 
     if (goalId) {

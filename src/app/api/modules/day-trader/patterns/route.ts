@@ -176,9 +176,9 @@ Format your response as JSON with this structure:
 Provide REAL market analysis based on actual data for ${stockSymbol}.
 `
 
-    // Use the same model as the chatbot (gpt-4.1-mini)
+    // Use the same model as the chatbot (gpt-4o-mini)
     const { text: analysis } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: openai('gpt-4o-mini'),
       messages: [
         {
           role: 'system',

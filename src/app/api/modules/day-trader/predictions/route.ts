@@ -129,9 +129,9 @@ Format your response as JSON with this structure:
 Focus on actionable, time-specific advice for a ${investorType} with $${buyingPower} buying power. Provide specific strike prices and time windows for options execution based on current market data.
 `
 
-    // Use the same model as the chatbot (gpt-4.1-mini)
+    // Use the same model as the chatbot (gpt-4o-mini)
     const { text: prediction } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: openai('gpt-4o-mini'),
       messages: [
         {
           role: 'system',

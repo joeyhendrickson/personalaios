@@ -128,7 +128,7 @@ Example format:
 
     try {
       const result = await generateText({
-        model: openai('gpt-4.1-mini'),
+        model: openai('gpt-4o-mini'),
         messages: [
           {
             role: 'system',

@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     // Generate AI insights using psychological frameworks
     const { text: insights } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: openai('gpt-4o-mini'),
       prompt: `You are a behavioral psychologist and habit formation expert. Analyze the following habit data and provide insights based on psychological frameworks like CBT, Self-Determination Theory, Atomic Habits, and ACT.
 
 Habit Data:

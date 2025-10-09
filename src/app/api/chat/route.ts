@@ -247,7 +247,7 @@ export async function POST(req: Request) {
 
     console.log('Calling OpenAI with user context...')
     const result = await streamText({
-      model: openai('gpt-4.1-mini'),
+      model: openai('gpt-4o-mini'),
       messages,
       system: `You are an intelligent AI assistant for a Personal AI OS dashboard. You have access to the user's complete dashboard data and can provide personalized advice based on their goals, tasks, habits, education items, and priorities.
 

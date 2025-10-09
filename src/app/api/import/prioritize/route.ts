@@ -118,7 +118,7 @@ Please respond with a JSON object in this exact format:
 `
 
         const completion = await openai.completions.create({
-          model: 'gpt-4.1-mini',
+          model: 'gpt-4o-mini',
           prompt: `You are an expert productivity coach and project manager. Always respond with valid JSON format as requested.\n\n${prompt}`,
           temperature: 0.7,
           max_tokens: 4000,

@@ -156,7 +156,7 @@ Be encouraging and realistic in your assessment. Focus on actionable advice.
 `
 
   const { text: analysis } = await generateText({
-    model: openai('gpt-4.1-mini'),
+    model: openai('gpt-4o-mini'),
     messages: [
       {
         role: 'user',

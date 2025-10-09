@@ -386,9 +386,9 @@ Focus on creating priorities that make the user feel like they're making progres
     console.log('Calling OpenAI with prompt length:', prompt.length)
 
     // Use available model from your API key
-    console.log('Calling OpenAI with available model: gpt-4.1-mini')
+    console.log('Calling OpenAI with available model: gpt-4o-mini')
     const { text: aiResponse } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: openai('gpt-4o-mini'),
       messages: [
         {
           role: 'system',

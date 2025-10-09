@@ -5,17 +5,22 @@ import { openai } from '@ai-sdk/openai'
 
 export async function POST() {
   try {
+    console.log('[Project-Goal-Alignment] Starting API call...')
     const supabase = await createClient()
 
+    console.log('[Project-Goal-Alignment] Getting authenticated user...')
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser()
     if (authError || !user) {
+      console.error('[Project-Goal-Alignment] Auth error:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    console.log('[Project-Goal-Alignment] User authenticated:', user.id)
 
     // Fetch user's goals and projects
+    console.log('[Project-Goal-Alignment] Fetching goals...')
     const { data: goals, error: goalsError } = await supabase
       .from('weekly_goals')
       .select('*')
@@ -23,11 +28,13 @@ export async function POST() {
       .eq('is_completed', false)
 
     if (goalsError) {
-      console.error('Error fetching goals:', goalsError)
+      console.error('[Project-Goal-Alignment] Error fetching goals:', goalsError)
       return NextResponse.json({ error: 'Failed to fetch goals' }, { status: 500 })
     }
+    console.log('[Project-Goal-Alignment] Goals fetched:', goals?.length || 0)
 
     // Fetch user's tasks
+    console.log('[Project-Goal-Alignment] Fetching tasks...')
     const { data: tasks, error: tasksError } = await supabase
       .from('tasks')
       .select('*')
@@ -35,11 +42,13 @@ export async function POST() {
       .in('status', ['pending'])
 
     if (tasksError) {
-      console.error('Error fetching tasks:', tasksError)
+      console.error('[Project-Goal-Alignment] Error fetching tasks:', tasksError)
       return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 })
     }
+    console.log('[Project-Goal-Alignment] Tasks fetched:', tasks?.length || 0)
 
     // Fetch user's habits
+    console.log('[Project-Goal-Alignment] Fetching habits...')
     const { data: habits, error: habitsError } = await supabase
       .from('daily_habits')
       .select('*')
@@ -47,11 +56,13 @@ export async function POST() {
       .eq('is_active', true)
 
     if (habitsError) {
-      console.error('Error fetching habits:', habitsError)
+      console.error('[Project-Goal-Alignment] Error fetching habits:', habitsError)
       return NextResponse.json({ error: 'Failed to fetch habits' }, { status: 500 })
     }
+    console.log('[Project-Goal-Alignment] Habits fetched:', habits?.length || 0)
 
     // Fetch user's priorities
+    console.log('[Project-Goal-Alignment] Fetching priorities...')
     const { data: priorities, error: prioritiesError } = await supabase
       .from('priorities')
       .select('*')
@@ -60,20 +71,34 @@ export async function POST() {
       .order('order_index', { ascending: true })
 
     if (prioritiesError) {
-      console.error('Error fetching priorities:', prioritiesError)
+      console.error('[Project-Goal-Alignment] Error fetching priorities:', prioritiesError)
       return NextResponse.json({ error: 'Failed to fetch priorities' }, { status: 500 })
     }
+    console.log('[Project-Goal-Alignment] Priorities fetched:', priorities?.length || 0)
 
     // Calculate progress metrics
-    const totalTargetPoints = goals.reduce((sum, goal) => sum + (goal.target_points || 0), 0)
-    const totalCurrentPoints = goals.reduce((sum, goal) => sum + (goal.current_points || 0), 0)
+    console.log('[Project-Goal-Alignment] Calculating progress metrics...')
+    const safeGoals = goals || []
+    const safeTasks = tasks || []
+    const safeHabits = habits || []
+    const safePriorities = priorities || []
+
+    const totalTargetPoints = safeGoals.reduce((sum, goal) => sum + (goal.target_points || 0), 0)
+    const totalCurrentPoints = safeGoals.reduce((sum, goal) => sum + (goal.current_points || 0), 0)
     const progressPercentage =
       totalTargetPoints > 0 ? Math.round((totalCurrentPoints / totalTargetPoints) * 100) : 0
 
+    console.log('[Project-Goal-Alignment] Progress calculated:', {
+      totalTargetPoints,
+      totalCurrentPoints,
+      progressPercentage,
+    })
+
     // Calculate points by category
-    const categoryPoints = [...goals, ...tasks].reduce(
+    console.log('[Project-Goal-Alignment] Calculating category points...')
+    const categoryPoints = [...safeGoals, ...safeTasks].reduce(
       (acc, item) => {
-        const category = item.category
+        const category = item.category || 'Uncategorized'
         if (!acc[category]) {
           acc[category] = { current: 0, target: 0 }
         }
@@ -93,28 +118,34 @@ export async function POST() {
       },
       {} as Record<string, { current: number; target: number }>
     )
+    console.log(
+      '[Project-Goal-Alignment] Category points calculated:',
+      Object.keys(categoryPoints).length,
+      'categories'
+    )
 
     // Generate AI assessment
+    console.log('[Project-Goal-Alignment] Generating AI prompt...')
     const prompt = `You are a personal productivity and goal achievement expert. Analyze this user's current project-goal alignment and provide actionable insights.
 
 USER'S CURRENT SITUATION:
 - Total Progress: ${progressPercentage}% (${totalCurrentPoints}/${totalTargetPoints} points)
-- Active Goals: ${goals.length}
-- Active Tasks: ${tasks.length}
-- Active Habits: ${habits.length}
-- Current Priorities: ${priorities.length}
+- Active Goals: ${safeGoals.length}
+- Active Tasks: ${safeTasks.length}
+- Active Habits: ${safeHabits.length}
+- Current Priorities: ${safePriorities.length}
 
 GOALS BREAKDOWN:
-${goals.map((goal) => `- ${goal.title}: ${goal.current_points || 0}/${goal.target_points} points (${goal.category})`).join('\n')}
+${safeGoals.length > 0 ? safeGoals.map((goal) => `- ${goal.title || 'Untitled'}: ${goal.current_points || 0}/${goal.target_points || 0} points (${goal.category || 'Uncategorized'})`).join('\n') : '- No active goals'}
 
 TASKS BREAKDOWN:
-${tasks.map((task) => `- ${task.title}: ${task.status} (${task.category})`).join('\n')}
+${safeTasks.length > 0 ? safeTasks.map((task) => `- ${task.title || 'Untitled'}: ${task.status || 'unknown'} (${task.category || 'Uncategorized'})`).join('\n') : '- No active tasks'}
 
 HABITS BREAKDOWN:
-${habits.map((habit) => `- ${habit.title}: ${habit.weekly_completion_count || 0} times this week`).join('\n')}
+${safeHabits.length > 0 ? safeHabits.map((habit) => `- ${habit.title || 'Untitled'}: ${habit.weekly_completion_count || 0} times this week`).join('\n') : '- No active habits'}
 
 PRIORITIES:
-${priorities.map((priority) => `- ${priority.title}: Level ${priority.priority_level}`).join('\n')}
+${safePriorities.length > 0 ? safePriorities.map((priority) => `- ${priority.title || 'Untitled'}: Level ${priority.priority_level || 'N/A'}`).join('\n') : '- No current priorities'}
 
 CATEGORY PROGRESS:
 ${Object.entries(categoryPoints)
@@ -162,29 +193,33 @@ Return your response as a JSON object with this structure:
     "Immediate action 3"
   ]
 }`
+    console.log('[Project-Goal-Alignment] Prompt generated, length:', prompt.length)
 
-    // Use gpt-4.1-mini (the model you actually have access to)
+    // Use gpt-4.1-mini
     let text: string
     try {
+      console.log('[Project-Goal-Alignment] Calling OpenAI API with gpt-4.1-mini...')
       const result = await generateText({
         model: openai('gpt-4.1-mini'),
         prompt,
       })
       text = result.text
-    } catch {
-      console.log('gpt-4.1-mini failed, trying fallback')
-      const result = await generateText({
-        model: openai('gpt-4.1-mini'),
-        prompt,
-      })
-      text = result.text
+      console.log('[Project-Goal-Alignment] OpenAI API call successful')
+    } catch (aiError) {
+      console.error('[Project-Goal-Alignment] OpenAI API call failed:', aiError)
+      const aiErrorMessage = aiError instanceof Error ? aiError.message : 'Unknown AI error'
+      console.error('[Project-Goal-Alignment] AI Error details:', aiErrorMessage)
+      throw new Error(`AI generation failed: ${aiErrorMessage}`)
     }
 
     let assessment
     try {
+      console.log('[Project-Goal-Alignment] Parsing AI response...')
       assessment = JSON.parse(text)
+      console.log('[Project-Goal-Alignment] AI response parsed successfully')
     } catch (parseError) {
-      console.error('Error parsing AI response:', parseError)
+      console.error('[Project-Goal-Alignment] Error parsing AI response:', parseError)
+      console.log('[Project-Goal-Alignment] Raw AI response:', text?.substring(0, 500))
       // Fallback assessment
       assessment = {
         alignment_score: progressPercentage,
@@ -209,11 +244,22 @@ Return your response as a JSON object with this structure:
           'Focus on the most impactful activities',
         ],
       }
+      console.log('[Project-Goal-Alignment] Using fallback assessment')
     }
 
+    console.log('[Project-Goal-Alignment] Returning assessment')
     return NextResponse.json({ assessment })
   } catch (error) {
     console.error('Error in project-goal alignment API:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorStack = error instanceof Error ? error.stack : undefined
+    console.error('Error details:', { message: errorMessage, stack: errorStack })
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        details: errorMessage,
+      },
+      { status: 500 }
+    )
   }
 }

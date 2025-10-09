@@ -7,10 +7,10 @@ export async function middleware(request: NextRequest) {
     request,
   })
 
-  // Skip middleware for static files only
+  // Skip middleware for static files only (but not API routes)
   if (
     request.nextUrl.pathname.startsWith('/_next') ||
-    request.nextUrl.pathname.includes('.') // Skip files with extensions
+    (request.nextUrl.pathname.includes('.') && !request.nextUrl.pathname.startsWith('/api/'))
   ) {
     return supabaseResponse
   }
@@ -48,13 +48,21 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Debug logging for API routes
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    console.log(
+      `[Middleware] API Route: ${request.nextUrl.pathname}, User: ${user ? user.id : 'none'}`
+    )
+  }
+
+  // Only redirect to login for page routes (not API routes)
   if (
     !user &&
     !request.nextUrl.pathname.startsWith('/login') &&
     !request.nextUrl.pathname.startsWith('/auth') &&
     !request.nextUrl.pathname.startsWith('/setup') &&
     !request.nextUrl.pathname.startsWith('/demo') &&
-    !request.nextUrl.pathname.startsWith('/api/') && // Skip all API routes - let them handle auth
+    !request.nextUrl.pathname.startsWith('/api/') && // Don't redirect API routes - they return 401 instead
     request.nextUrl.pathname !== '/'
   ) {
     // no user, potentially respond by redirecting the user to the login page

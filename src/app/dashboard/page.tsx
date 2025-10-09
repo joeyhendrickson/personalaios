@@ -233,10 +233,10 @@ const CascadingSection = ({
       {/* Content - Animated Expand/Collapse */}
       <div
         className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+          isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
-        <div className="px-6 pb-6">{children}</div>
+        <div className="px-6 pb-8">{children}</div>
       </div>
     </div>
   )
@@ -369,7 +369,9 @@ export default function DashboardPage() {
   const [newCategoryName, setNewCategoryName] = useState('')
   const [showAddTask, setShowAddTask] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
+  const [showCompletedGoals, setShowCompletedGoals] = useState(false)
   const [completedProjects, setCompletedProjects] = useState<Goal[]>([])
+  const [completedGoals, setCompletedGoals] = useState<Record<string, unknown>[]>([])
   const [completedTasks, setCompletedTasks] = useState<Task[]>([])
   const [allTasks, setAllTasks] = useState<Task[]>([])
   const [showEditGoal, setShowEditGoal] = useState(false)
@@ -624,7 +626,12 @@ export default function DashboardPage() {
       const response = await fetch('/api/goals')
       if (response.ok) {
         const data = await response.json()
-        setHighLevelGoals(data.goals || [])
+        const allGoals = data.goals || []
+        // Separate active and completed goals
+        const activeGoals = allGoals.filter((goal: any) => goal.status !== 'completed')
+        const completedGoals = allGoals.filter((goal: any) => goal.status === 'completed')
+        setHighLevelGoals(activeGoals)
+        setCompletedGoals(completedGoals)
       }
     } catch (error) {
       console.error('Error fetching high-level goals:', error)
@@ -1921,32 +1928,118 @@ export default function DashboardPage() {
                   <p className="text-sm text-gray-600 mb-4">
                     measurable things I really need to achieve in my life right now
                   </p>
-                  <button
-                    onClick={() => setShowAddHighLevelGoal(true)}
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Goal
-                  </button>
-                </div>
-                <div>
-                  {highLevelGoals.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">No goals yet</h3>
-                      <p className="text-gray-600 mb-4">
-                        Create your first goal to start building your roadmap
-                      </p>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setShowCompletedGoals(!showCompletedGoals)}
+                      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-10 px-4 py-2 ${
+                        showCompletedGoals
+                          ? 'bg-green-600 text-white hover:bg-green-700'
+                          : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      <History className="h-4 w-4 mr-2" />
+                      {showCompletedGoals ? 'Active' : 'Completed'}
+                    </button>
+                    {!showCompletedGoals && (
                       <button
                         onClick={() => setShowAddHighLevelGoal(true)}
-                        className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                       >
-                        Add Your First Goal
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Goal
                       </button>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {highLevelGoals.map((goal) => (
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {loading ? (
+                      <div className="col-span-2 text-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500 mx-auto"></div>
+                        <p className="text-gray-600 mt-2">Loading goals...</p>
+                      </div>
+                    ) : showCompletedGoals ? (
+                      // Show completed goals
+                      completedGoals.length === 0 ? (
+                        <div className="col-span-2 text-center py-8">
+                          <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                          <p className="text-gray-600">
+                            No completed goals yet. Complete a goal to see it here!
+                          </p>
+                        </div>
+                      ) : (
+                        completedGoals.map((goal) => (
+                          <div
+                            key={(goal as any).id}
+                            className="bg-green-50 rounded-xl p-6 border border-green-200 hover:shadow-md transition-all duration-200"
+                          >
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-gray-900 mb-2">
+                                  {(goal as any).title}
+                                </h3>
+                                <p className="text-sm text-gray-600 mb-2">
+                                  {(goal as any).description}
+                                </p>
+                                <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
+                                    {(goal as any).goal_type}
+                                  </span>
+                                  <span>Priority: {(goal as any).priority_level}/5</span>
+                                </div>
+                              </div>
+                              <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 border-green-200 text-green-700">
+                                Completed
+                              </span>
+                            </div>
+
+                            {(goal as any).target_value && (
+                              <div className="mb-3">
+                                <div className="space-y-2">
+                                  <div className="flex justify-between text-sm mb-1">
+                                    <span>Progress</span>
+                                    <span>100%</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div
+                                      className="bg-green-500 h-2 rounded-full"
+                                      style={{ width: '100%' }}
+                                    ></div>
+                                  </div>
+                                  <div className="flex items-center justify-between text-xs text-gray-500">
+                                    <span>
+                                      {(goal as any).target_value} {(goal as any).target_unit || ''}
+                                    </span>
+                                    <span>Achieved</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="text-xs text-gray-500">
+                              {(goal as any).target_date &&
+                                `Target: ${new Date((goal as any).target_date).toLocaleDateString()}`}
+                            </div>
+                          </div>
+                        ))
+                      )
+                    ) : // Show active goals
+                    highLevelGoals.length === 0 ? (
+                      <div className="col-span-2 text-center py-8">
+                        <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No goals yet</h3>
+                        <p className="text-gray-600 mb-4">
+                          Create your first goal to start building your roadmap
+                        </p>
+                        <button
+                          onClick={() => setShowAddHighLevelGoal(true)}
+                          className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                        >
+                          Add Your First Goal
+                        </button>
+                      </div>
+                    ) : (
+                      highLevelGoals.map((goal) => (
                         <div
                           key={(goal as any).id}
                           className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -2042,9 +2135,9 @@ export default function DashboardPage() {
                               `Target: ${new Date((goal as any).target_date).toLocaleDateString()}`}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
               </CascadingSection>
             )}

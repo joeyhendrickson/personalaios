@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     // Generate growth suggestions based on the fear
     const { text: growthResponse } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: openai('gpt-4o-mini'),
       messages: [
         {
           role: 'system',

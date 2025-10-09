@@ -172,7 +172,7 @@ Be strategic, practical, and focused on measurable improvements to project compl
     console.log('Calling OpenAI with prompt length:', prompt.length)
 
     const { text } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: openai('gpt-4o-mini'),
       prompt,
       temperature: 0.8, // High creativity for strategic thinking
     })

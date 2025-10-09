@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     // Generate therapeutic response with real-time suggestions
     const { text: response } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: openai('gpt-4o-mini'),
       messages: [
         {
           role: 'system',
