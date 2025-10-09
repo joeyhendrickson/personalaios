@@ -260,32 +260,24 @@ export default function EducationSection() {
               things I'm learning or certificates I'm completing
             </p>
           </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => {
-                setEditingItem(null)
-                setFormData({
-                  title: '',
-                  description: '',
-                  points_value: 100,
-                  cost: 0,
-                  priority_level: 3,
-                  target_date: '',
-                })
-                setShowAddForm(true)
-              }}
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Item
-            </button>
-            <button
-              onClick={fetchEducationItems}
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
-            >
-              🔄 Refresh
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setEditingItem(null)
+              setFormData({
+                title: '',
+                description: '',
+                points_value: 100,
+                cost: 0,
+                priority_level: 3,
+                target_date: '',
+              })
+              setShowAddForm(true)
+            }}
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add Item
+          </button>
         </div>
 
         {showAddForm && (
