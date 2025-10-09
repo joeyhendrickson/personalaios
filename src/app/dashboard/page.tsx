@@ -2069,13 +2069,15 @@ export default function DashboardPage() {
                       <History className="h-4 w-4 mr-2" />
                       {showCompleted ? 'Active' : 'Completed'}
                     </button>
-                    <button
-                      onClick={() => setShowAddGoal(true)}
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-white hover:bg-gray-800 h-10 px-4 py-2 bg-black"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Project
-                    </button>
+                    {!showCompleted && (
+                      <button
+                        onClick={() => setShowAddGoal(true)}
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-white hover:bg-gray-800 h-10 px-4 py-2 bg-black"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Project
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -2473,13 +2475,15 @@ export default function DashboardPage() {
                       <History className="h-4 w-4 mr-2" />
                       {showCompleted ? 'Active' : 'Completed'}
                     </button>
-                    <button
-                      onClick={() => setShowAddTask(true)}
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Task
-                    </button>
+                    {!showCompleted && (
+                      <button
+                        onClick={() => setShowAddTask(true)}
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Task
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -2755,11 +2759,40 @@ export default function DashboardPage() {
                       </div>
                     ) : (
                       (() => {
+                        // Mapping function to convert display names to database format
+                        const categoryNameToDbFormat = (displayName: string): string => {
+                          const mapping: Record<string, string> = {
+                            'Quick Money': 'quick_money',
+                            'Save Money': 'save_money',
+                            Health: 'health',
+                            'Network Expansion': 'network_expansion',
+                            'Business Growth': 'business_growth',
+                            Fires: 'fires',
+                            'Good Living': 'good_living',
+                            'Big Vision': 'big_vision',
+                            Job: 'job',
+                            Organization: 'organization',
+                            'Tech Issues': 'tech_issues',
+                            'Business Launch': 'business_launch',
+                            'Future Planning': 'future_planning',
+                            Innovation: 'innovation',
+                            Productivity: 'productivity',
+                            Learning: 'learning',
+                            Financial: 'financial',
+                            Personal: 'personal',
+                            Other: 'other',
+                          }
+                          return (
+                            mapping[displayName] || displayName.toLowerCase().replace(/\s+/g, '_')
+                          )
+                        }
+
                         // Calculate points for all categories first
                         const allCategoryPoints = dashboardCategories.map((category) => {
+                          const dbCategoryName = categoryNameToDbFormat(category.name)
                           const categoryPoints = [...goals, ...tasks].reduce(
                             (acc, item) => {
-                              if (item.category === category.name) {
+                              if (item.category === dbCategoryName) {
                                 if ('current_points' in item) {
                                   acc.current += item.current_points || 0
                                   acc.target += item.target_points || 0
