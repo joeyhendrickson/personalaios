@@ -252,10 +252,6 @@ export default function EducationSection() {
       <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="font-semibold tracking-tight flex items-center text-xl">
-              <GraduationCap className="h-6 w-6 mr-2 text-blue-500" />
-              Education
-            </h2>
             <p className="text-sm text-gray-600">
               things I'm learning or certificates I'm completing
             </p>
