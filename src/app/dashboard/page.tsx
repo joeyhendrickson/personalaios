@@ -30,6 +30,7 @@ import {
   Bug,
   Trophy,
   GraduationCap,
+  RefreshCw,
 } from 'lucide-react'
 import Link from 'next/link'
 import { ChatInterface } from '@/components/chat/chat-interface'
@@ -643,14 +644,8 @@ export default function DashboardPage() {
   const fetchPriorities = async (skipSync = false) => {
     try {
       console.log('Fetching priorities...')
-      // Only sync fires priorities if not explicitly skipped (to avoid duplicates)
-      if (!skipSync) {
-        const syncResponse = await fetch('/api/priorities/sync-fires', { method: 'POST' })
-        if (!syncResponse.ok && syncResponse.status === 401) {
-          console.log('User not authenticated, skipping priorities sync')
-          return
-        }
-      }
+      // DISABLED: Automatic sync is causing duplicates
+      // Sync will only run when manually triggered via button
 
       // Then fetch all priorities
       const response = await fetch('/api/priorities')
@@ -1809,6 +1804,53 @@ export default function DashboardPage() {
                     >
                       <X className="h-4 w-4" />
                       Clean Duplicates
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/priorities/sync-fires', {
+                            method: 'POST',
+                          })
+                          if (response.ok) {
+                            alert('Fire priorities synced successfully!')
+                            await fetchPriorities(true)
+                          } else {
+                            alert('Failed to sync fire priorities')
+                          }
+                        } catch (error) {
+                          console.error('Error syncing priorities:', error)
+                          alert('Error syncing priorities')
+                        }
+                      }}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700 h-10 px-4 py-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Sync Fires
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/priorities/smart-deduplicate', {
+                            method: 'POST',
+                          })
+                          if (response.ok) {
+                            const result = await response.json()
+                            alert(
+                              `Smart cleanup removed ${result.removedCount} duplicate priorities!`
+                            )
+                            await fetchPriorities(true)
+                          } else {
+                            alert('Failed to perform smart deduplication')
+                          }
+                        } catch (error) {
+                          console.error('Error in smart deduplication:', error)
+                          alert('Error in smart deduplication')
+                        }
+                      }}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-700 h-10 px-4 py-2"
+                    >
+                      <Brain className="h-4 w-4" />
+                      Smart Cleanup
                     </button>
                   </div>
                 </div>
