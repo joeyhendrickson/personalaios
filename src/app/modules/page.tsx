@@ -35,7 +35,6 @@ import {
   Briefcase,
 } from 'lucide-react'
 import RatingStars from '@/components/rating-stars'
-import { useLanguage } from '@/contexts/language-context'
 
 interface Module {
   id: string
@@ -201,7 +200,6 @@ const modules: Module[] = [
 const categories = ['All', 'Finance', 'Productivity', 'Health', 'Social', 'Education', 'Analytics']
 
 export default function ModulesPage() {
-  const { language, t } = useLanguage()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedComplexity, setSelectedComplexity] = useState('All')
@@ -389,15 +387,17 @@ export default function ModulesPage() {
               <Link href="/dashboard">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 hover:bg-gray-100">
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  {t('modules.backToDashboard')}
+                  Back to Dashboard
                 </button>
               </Link>
               <div>
                 <h1 className="text-3xl font-bold text-black flex items-center">
                   <Plus className="h-8 w-8 mr-3 text-black" />
-                  {t('modules.lifeHacks')}
+                  Life Hacks
                 </h1>
-                <p className="text-sm text-gray-600">{t('modules.subtitle')}</p>
+                <p className="text-sm text-gray-600">
+                  Enhance your productivity with AI-powered tools
+                </p>
               </div>
             </div>
           </div>
@@ -414,7 +414,7 @@ export default function ModulesPage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <input
                   type="text"
-                  placeholder={t('modules.searchPlaceholder')}
+                  placeholder="Search modules..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -445,10 +445,10 @@ export default function ModulesPage() {
                 onChange={(e) => setSelectedComplexity(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="All">{t('modules.all')} Levels</option>
-                <option value="beginner">{t('modules.beginner')}</option>
-                <option value="intermediate">{t('modules.intermediate')}</option>
-                <option value="advanced">{t('modules.advanced')}</option>
+                <option value="All">All Levels</option>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
               </select>
             </div>
           </div>

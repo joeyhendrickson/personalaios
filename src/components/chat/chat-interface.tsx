@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useLanguage } from '@/contexts/language-context'
 import {
   Send,
   Plus,
@@ -43,7 +42,6 @@ export function ChatInterface({
   void onGoalCreated
   void onTaskCreated
   void onTaskCompleted
-  const { language } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(false)
   const [dimensions, setDimensions] = useState({ width: 384, height: 600 }) // w-96 = 384px
   const [position, setPosition] = useState({ x: 16, y: 16 }) // Default position (top-4 right-4 = 16px)
@@ -283,7 +281,6 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         },
         body: JSON.stringify({
           messages: [...messages, userMessage],
-          language: language,
         }),
       })
 

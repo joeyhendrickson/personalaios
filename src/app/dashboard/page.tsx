@@ -34,9 +34,7 @@ import {
 import Link from 'next/link'
 import { ChatInterface } from '@/components/chat/chat-interface'
 import { useAuth } from '@/contexts/auth-context'
-import { useLanguage } from '@/contexts/language-context'
 import { Slider } from '@/components/ui/slider'
-import { LanguageToggle } from '@/components/ui/language-toggle'
 import { AccomplishmentsHistory } from '@/components/accomplishments/accomplishments-history'
 import ManualPriorityForm from '@/components/priorities/manual-priority-form'
 import ConversationalPriorityInput from '@/components/priorities/conversational-priority-input'
@@ -309,7 +307,6 @@ export default function DashboardPage() {
   const { user, signOut } = useAuth()
   const { logActivity } = useActivityTracking()
   const { isAdmin } = useAdminAuth()
-  const { language, t } = useLanguage()
   const [goals, setGoals] = useState<Goal[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [currentWeek, setCurrentWeek] = useState<Week | null>(null)
@@ -1443,11 +1440,7 @@ export default function DashboardPage() {
                       'Loading...'
                     )}
                   </p>
-                  {user && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {t('dashboard.welcome')}, {user.email}
-                    </p>
-                  )}
+                  {user && <p className="text-xs text-gray-500 mt-1">Welcome, {user.email}</p>}
                 </div>
               </div>
             </div>
@@ -1455,25 +1448,25 @@ export default function DashboardPage() {
               <Link href="/modules">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black text-white hover:bg-gray-800 h-9 rounded-md px-3">
                   <Plus className="h-4 w-4" />
-                  {t('dashboard.lifeHacks')}
+                  Life Hacks
                 </button>
               </Link>
               <Link href="/bug-report">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 h-9 rounded-md px-3">
                   <Bug className="h-4 w-4" />
-                  {t('dashboard.reportBug')}
+                  Report Bug
                 </button>
               </Link>
               <Link href="/import">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3">
                   <FileSpreadsheet className="h-4 w-4" />
-                  {t('dashboard.import')}
+                  Import
                 </button>
               </Link>
               <Link href="/profile">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3">
                   <Settings className="h-4 w-4" />
-                  {t('dashboard.profile')}
+                  Profile
                 </button>
               </Link>
               {isAdmin && (
@@ -1488,7 +1481,7 @@ export default function DashboardPage() {
                 onClick={() => signOut()}
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 h-9 rounded-md px-3"
               >
-                {t('dashboard.signOut')}
+                Sign Out
               </button>
             </div>
           </div>
@@ -1496,11 +1489,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="container mx-auto px-6 pt-8 pb-24">
-        {/* Language Toggle */}
-        <div className="flex justify-end mb-6">
-          <LanguageToggle />
-        </div>
-
         {/* Main Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {/* Daily Points Chart */}
@@ -1508,14 +1496,12 @@ export default function DashboardPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-medium text-black">{t('stats.dailyPoints')}</p>
+                  <p className="text-sm font-medium text-black">Daily Points</p>
                   <p className="text-2xl font-bold text-black">
                     {pointsData?.dailyPoints || 0}
                     {pointsLoading && <span className="text-sm text-blue-400 ml-2">⟳</span>}
                   </p>
-                  <p className="text-sm text-black mt-1">
-                    {t('stats.weekly')}: {pointsData?.weeklyPoints || 0}
-                  </p>
+                  <p className="text-sm text-black mt-1">Weekly: {pointsData?.weeklyPoints || 0}</p>
                 </div>
                 <div className="flex items-center space-x-2">
                   <BarChart3 className="h-8 w-8 text-blue-400" />
@@ -1715,7 +1701,7 @@ export default function DashboardPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-medium text-black">{t('stats.tasksDone')}</p>
+                  <p className="text-sm font-medium text-black">Tasks Done</p>
                   <p className="text-2xl font-bold text-black">
                     {completedTasksCount}/{totalTasks}
                   </p>
@@ -1770,34 +1756,34 @@ export default function DashboardPage() {
             {/* Priorities Section - TOP */}
             {sectionVisibility.priorities && (
               <CascadingSection
-                title={t('dashboard.priorities')}
+                title="Priorities"
                 icon={<Brain className="h-6 w-6 text-purple-500" />}
                 isExpanded={expandedSections.priorities}
                 onToggle={() => toggleSectionExpansion('priorities')}
               >
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-4">{t('priorities.description')}</p>
+                  <p className="text-sm text-gray-600 mb-4">Things I need to focus on right now</p>
                   <div className="flex space-x-2">
                     <button
                       onClick={() => setShowConversationalPriorityInput(true)}
                       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black hover:bg-gray-800 text-white h-10 px-4 py-2"
                     >
                       <Brain className="h-4 w-4" />
-                      {t('buttons.aiRecommend')}
+                      AI Recommend
                     </button>
                     <button
                       onClick={() => setShowManualPriorityForm(true)}
                       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                     >
                       <Plus className="h-4 w-4" />
-                      {t('buttons.addPriority')}
+                      Add Priority
                     </button>
                     <button
                       onClick={() => setShowDeletedPriorities(true)}
                       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                     >
                       <Trash2 className="h-4 w-4" />
-                      {t('buttons.viewDeleted')}
+                      View Deleted
                     </button>
                   </div>
                 </div>
@@ -1971,7 +1957,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       <History className="h-4 w-4 mr-2" />
-                      {showCompletedGoals ? t('buttons.active') : t('buttons.completed')}
+                      {showCompletedGoals ? 'Active' : 'Completed'}
                     </button>
                     {!showCompletedGoals && (
                       <button
@@ -2178,13 +2164,15 @@ export default function DashboardPage() {
             {/* Projects Section - THIRD */}
             {sectionVisibility.projects && (
               <CascadingSection
-                title={t('dashboard.projects')}
+                title="Goals"
                 icon={<Target className="h-6 w-6 text-blue-500" />}
                 isExpanded={expandedSections.projects}
                 onToggle={() => toggleSectionExpansion('projects')}
               >
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-4">{t('projects.description')}</p>
+                  <p className="text-sm text-gray-600 mb-4">
+                    measurable things I really need to achieve in my life right now
+                  </p>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={categorizeGoalsWithAI}
@@ -2193,7 +2181,7 @@ export default function DashboardPage() {
                       title="Use AI to automatically categorize your goals with smart financial detection"
                     >
                       <Brain className="h-4 w-4 mr-2" />
-                      {isCategorizing ? t('buttons.categorizing') : t('buttons.categorize')}
+                      {isCategorizing ? 'Categorizing...' : 'Categorize'}
                     </button>
                     <button
                       onClick={() => setShowCompleted(!showCompleted)}
@@ -2204,7 +2192,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       <History className="h-4 w-4 mr-2" />
-                      {showCompleted ? t('buttons.active') : t('buttons.completed')}
+                      {showCompleted ? 'Active' : 'Completed'}
                     </button>
                     {!showCompleted && (
                       <button
@@ -2212,7 +2200,7 @@ export default function DashboardPage() {
                         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-white hover:bg-gray-800 h-10 px-4 py-2 bg-black"
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        {t('buttons.addProject')}
+                        Add Goal
                       </button>
                     )}
                   </div>
@@ -2591,7 +2579,7 @@ export default function DashboardPage() {
             {/* Tasks Section */}
             {sectionVisibility.tasks && (
               <CascadingSection
-                title={t('dashboard.tasks')}
+                title="Tasks"
                 icon={<CheckCircle className="h-6 w-6 text-green-500" />}
                 isExpanded={expandedSections.tasks}
                 onToggle={() => toggleSectionExpansion('tasks')}
@@ -2610,7 +2598,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       <History className="h-4 w-4 mr-2" />
-                      {showCompleted ? t('buttons.active') : t('buttons.completed')}
+                      {showCompleted ? 'Active' : 'Completed'}
                     </button>
                     {!showCompleted && (
                       <button
@@ -2618,7 +2606,7 @@ export default function DashboardPage() {
                         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        {t('buttons.addTask')}
+                        Add Task
                       </button>
                     )}
                   </div>
@@ -2687,7 +2675,9 @@ export default function DashboardPage() {
                     tasks.length === 0 ? (
                       <div className="text-center py-8">
                         <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">{t('tasks.noTasks')}</p>
+                        <p className="text-gray-600">
+                          No tasks found. Create your first task to get started!
+                        </p>
                       </div>
                     ) : (
                       <DraggableTasks
@@ -2712,9 +2702,11 @@ export default function DashboardPage() {
               <div className="p-6 pb-4">
                 <h2 className="font-semibold tracking-tight flex items-center text-xl">
                   <Brain className="h-6 w-6 mr-2 text-purple-500" />
-                  {t('dashboard.aiAdvisor')}
+                  AI Advisor
                 </h2>
-                <p className="text-sm text-gray-600">{t('chat.description')}</p>
+                <p className="text-sm text-gray-600">
+                  help me organize my life and get things done
+                </p>
               </div>
               <div className="p-6 pt-0">
                 <div className="space-y-4">
@@ -2735,7 +2727,7 @@ export default function DashboardPage() {
                       className="w-full bg-black hover:bg-gray-800 text-white font-medium py-2 px-4 rounded-md transition-all duration-200"
                     >
                       <MessageSquare className="h-4 w-4 mr-2 inline" />
-                      {t('buttons.startChat')}
+                      Start Chat
                     </button>
                   </div>
                 </div>
@@ -2745,7 +2737,7 @@ export default function DashboardPage() {
             {/* Recent Accomplishments */}
             {sectionVisibility.accomplishments && (
               <CascadingSection
-                title={t('dashboard.accomplishments')}
+                title="Recent Accomplishments"
                 icon={<Trophy className="h-6 w-6 text-orange-500" />}
                 isExpanded={expandedSections.accomplishments}
                 onToggle={() => toggleSectionExpansion('accomplishments')}
@@ -2758,7 +2750,7 @@ export default function DashboardPage() {
                     onClick={() => setShowAccomplishmentsHistory(true)}
                     className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                   >
-                    {t('buttons.viewAll')}
+                    View All
                   </button>
                 </div>
 
@@ -2866,7 +2858,7 @@ export default function DashboardPage() {
             {/* Category Breakdown */}
             {sectionVisibility.categories && (
               <CascadingSection
-                title={t('stats.categoryProgress')}
+                title="Progress by Category"
                 icon={<PieChart className="h-6 w-6 text-indigo-500" />}
                 isExpanded={expandedSections.categories}
                 onToggle={() => toggleSectionExpansion('categories')}
@@ -2970,7 +2962,7 @@ export default function DashboardPage() {
             {/* Daily Habits Section */}
             {sectionVisibility.habits && (
               <CascadingSection
-                title={t('dashboard.habits')}
+                title="Habits"
                 icon={<Target className="h-6 w-6 text-pink-500" />}
                 isExpanded={expandedSections.habits}
                 onToggle={() => toggleSectionExpansion('habits')}
@@ -2982,7 +2974,7 @@ export default function DashboardPage() {
             {/* Education Section */}
             {sectionVisibility.education && (
               <CascadingSection
-                title={t('dashboard.education')}
+                title="Education"
                 icon={<GraduationCap className="h-6 w-6 text-yellow-500" />}
                 isExpanded={expandedSections.education}
                 onToggle={() => toggleSectionExpansion('education')}
@@ -3148,7 +3140,7 @@ export default function DashboardPage() {
                   onClick={handleAddGoal}
                   className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
                 >
-                  {t('buttons.addProject')}
+                  Add Goal
                 </button>
                 <button
                   onClick={() => setShowAddGoal(false)}
@@ -3259,7 +3251,7 @@ export default function DashboardPage() {
                   onClick={handleAddTask}
                   className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
                 >
-                  {t('buttons.addTask')}
+                  Add Task
                 </button>
                 <button
                   onClick={() => setShowAddTask(false)}
