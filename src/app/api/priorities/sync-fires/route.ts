@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Clear existing fire_auto priorities (only non-deleted ones)
+    // But first check if we already have priorities for the same goals/tasks to avoid duplicates
     const { error: deleteError } = await supabase
       .from('priorities')
       .delete()

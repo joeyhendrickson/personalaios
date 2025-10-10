@@ -640,14 +640,16 @@ export default function DashboardPage() {
     }
   }
 
-  const fetchPriorities = async () => {
+  const fetchPriorities = async (skipSync = false) => {
     try {
       console.log('Fetching priorities...')
-      // First sync fires priorities to ensure they're included
-      const syncResponse = await fetch('/api/priorities/sync-fires', { method: 'POST' })
-      if (!syncResponse.ok && syncResponse.status === 401) {
-        console.log('User not authenticated, skipping priorities sync')
-        return
+      // Only sync fires priorities if not explicitly skipped (to avoid duplicates)
+      if (!skipSync) {
+        const syncResponse = await fetch('/api/priorities/sync-fires', { method: 'POST' })
+        if (!syncResponse.ok && syncResponse.status === 401) {
+          console.log('User not authenticated, skipping priorities sync')
+          return
+        }
       }
 
       // Then fetch all priorities
@@ -1833,7 +1835,7 @@ export default function DashboardPage() {
                                     }
                                   )
                                   if (response.ok) {
-                                    await fetchPriorities()
+                                    await fetchPriorities(true) // Skip sync to avoid duplicates
                                   }
                                 } catch (error) {
                                   console.error('Error updating priority:', error)
