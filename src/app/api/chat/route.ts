@@ -4,8 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json()
-    console.log('Chat API called with messages:', messages.length)
+    const { messages, language = 'en' } = await req.json()
+    console.log('Chat API called with messages:', messages.length, 'language:', language)
 
     // Get user data for context
     const supabase = await createClient()
@@ -293,10 +293,17 @@ export async function POST(req: Request) {
     }
 
     console.log('Calling OpenAI with user context...')
+
+    // Language-specific instruction
+    const languageInstruction =
+      language === 'es'
+        ? '\n\n**IMPORTANTE: El usuario ha seleccionado ESPAÑOL como idioma. Debes responder EXCLUSIVAMENTE EN ESPAÑOL. Todas tus respuestas, sugerencias, análisis y conversaciones deben ser en español.**'
+        : ''
+
     const result = await streamText({
       model: openai('gpt-4.1-mini'),
       messages,
-      system: `You are an intelligent AI assistant for a Personal AI OS dashboard. You have access to the user's complete dashboard data and can provide personalized advice based on their goals, tasks, habits, education items, and priorities.
+      system: `You are an intelligent AI assistant for a Personal AI OS dashboard. You have access to the user's complete dashboard data and can provide personalized advice based on their goals, tasks, habits, education items, and priorities.${languageInstruction}
 
 USER'S CURRENT DASHBOARD DATA:
 - Weekly Points: ${userContext.weeklyPoints}

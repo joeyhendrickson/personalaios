@@ -1776,9 +1776,7 @@ export default function DashboardPage() {
                 onToggle={() => toggleSectionExpansion('priorities')}
               >
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-4">
-                    AI-recommended priorities I should do now
-                  </p>
+                  <p className="text-sm text-gray-600 mb-4">{t('priorities.description')}</p>
                   <div className="flex space-x-2">
                     <button
                       onClick={() => setShowConversationalPriorityInput(true)}
@@ -2186,9 +2184,7 @@ export default function DashboardPage() {
                 onToggle={() => toggleSectionExpansion('projects')}
               >
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-4">
-                    Tracking my progress on big ideas and things I'm doing to reach my goals
-                  </p>
+                  <p className="text-sm text-gray-600 mb-4">{t('projects.description')}</p>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={categorizeGoalsWithAI}
@@ -2691,9 +2687,7 @@ export default function DashboardPage() {
                     tasks.length === 0 ? (
                       <div className="text-center py-8">
                         <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">
-                          No active tasks yet. Create your first task to get started!
-                        </p>
+                        <p className="text-gray-600">{t('tasks.noTasks')}</p>
                       </div>
                     ) : (
                       <DraggableTasks
