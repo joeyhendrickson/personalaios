@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 // POST /api/priorities/sync-fires - Automatically sync fires category items to priorities
+// Simple in-memory rate limiting (in production, use Redis or similar)
+const syncCooldown = new Map<string, number>()
+const SYNC_COOLDOWN_MS = 5000 // 5 seconds cooldown between syncs
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -14,7 +18,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    console.log('Syncing fires priorities for user:', user.id)
+    // Rate limiting check
+    const now = Date.now()
+    const lastSync = syncCooldown.get(user.id)
+
+    if (lastSync && now - lastSync < SYNC_COOLDOWN_MS) {
+      console.log(`⏰ Sync rate limited for user ${user.id}, last sync was ${now - lastSync}ms ago`)
+      return NextResponse.json(
+        {
+          message: 'Sync rate limited, please wait before syncing again',
+          cooldownRemaining: SYNC_COOLDOWN_MS - (now - lastSync),
+        },
+        { status: 429 }
+      )
+    }
+
+    // Update last sync time
+    syncCooldown.set(user.id, now)
+
+    console.log('🔄 Syncing fires priorities for user:', user.id)
 
     // Get all active fires category goals
     const { data: firesGoals, error: goalsError } = await supabase
@@ -43,8 +65,65 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch fires tasks' }, { status: 500 })
     }
 
-    // Clear existing fire_auto priorities (only non-deleted ones)
-    // But first check if we already have priorities for the same goals/tasks to avoid duplicates
+    // First, let's clean up any existing duplicates before adding new ones
+    console.log('🧹 Cleaning up existing fire_auto duplicates before sync...')
+
+    // Get all existing fire_auto priorities
+    const { data: existingFirePriorities, error: existingError } = await supabase
+      .from('priorities')
+      .select('id, title, priority_type, project_id, task_id, created_at')
+      .eq('user_id', user.id)
+      .eq('priority_type', 'fire_auto')
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: true })
+
+    if (existingError) {
+      console.error('Error fetching existing fire priorities:', existingError)
+      return NextResponse.json({ error: 'Failed to fetch existing priorities' }, { status: 500 })
+    }
+
+    // Remove duplicates from existing fire priorities
+    if (existingFirePriorities && existingFirePriorities.length > 0) {
+      const uniquePriorities = new Map<string, any>()
+
+      // Keep only the oldest priority for each unique title+type combination
+      existingFirePriorities.forEach((priority) => {
+        const key = `${priority.title}|${priority.priority_type}`
+        if (!uniquePriorities.has(key)) {
+          uniquePriorities.set(key, priority)
+        } else {
+          // This is a duplicate, mark it for deletion
+          console.log(
+            `🗑️ Marking duplicate fire priority for deletion: ${priority.title} (ID: ${priority.id})`
+          )
+        }
+      })
+
+      // Get duplicates to delete
+      const duplicatesToDelete = existingFirePriorities.filter((priority) => {
+        const key = `${priority.title}|${priority.priority_type}`
+        return uniquePriorities.get(key)?.id !== priority.id
+      })
+
+      if (duplicatesToDelete.length > 0) {
+        console.log(`🧹 Removing ${duplicatesToDelete.length} existing fire priority duplicates`)
+        const duplicateIds = duplicatesToDelete.map((d) => d.id)
+
+        const { error: deleteError } = await supabase
+          .from('priorities')
+          .update({
+            is_deleted: true,
+            deleted_at: new Date().toISOString(),
+          })
+          .in('id', duplicateIds)
+
+        if (deleteError) {
+          console.error('Error removing existing duplicates:', deleteError)
+        }
+      }
+    }
+
+    // Now clear any remaining fire_auto priorities that might conflict
     const { error: deleteError } = await supabase
       .from('priorities')
       .delete()

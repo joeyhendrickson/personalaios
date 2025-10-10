@@ -1787,6 +1787,29 @@ export default function DashboardPage() {
                       <Trash2 className="h-4 w-4" />
                       View Deleted
                     </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/priorities/clean-duplicates-now', {
+                            method: 'POST',
+                          })
+                          if (response.ok) {
+                            const result = await response.json()
+                            alert(`Cleaned up ${result.removedCount} duplicate priorities!`)
+                            await fetchPriorities(true)
+                          } else {
+                            alert('Failed to clean duplicates')
+                          }
+                        } catch (error) {
+                          console.error('Error cleaning duplicates:', error)
+                          alert('Error cleaning duplicates')
+                        }
+                      }}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-orange-300 bg-orange-50 hover:bg-orange-100 text-orange-700 h-10 px-4 py-2"
+                    >
+                      <X className="h-4 w-4" />
+                      Clean Duplicates
+                    </button>
                   </div>
                 </div>
 
