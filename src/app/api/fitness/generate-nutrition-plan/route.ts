@@ -247,7 +247,7 @@ Be realistic about calorie needs based on goals and current stats. Focus on whol
 `
 
   const { text: aiResponse } = await generateText({
-    model: openai('gpt-4o-mini'),
+    model: openai('gpt-4.1-mini'),
     messages: [
       {
         role: 'system',

@@ -5,7 +5,7 @@ import { generateText } from 'ai'
 export async function GET(request: NextRequest) {
   try {
     // Test different models to see which ones work
-    const modelsToTest = ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo', 'gpt-4', 'gpt-3.5-turbo-16k']
+    const modelsToTest = ['gpt-4o', 'gpt-4.1-mini', 'gpt-3.5-turbo', 'gpt-4', 'gpt-3.5-turbo-16k']
 
     const results: { [key: string]: string } = {}
 

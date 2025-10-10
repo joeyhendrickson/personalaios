@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       try {
         // Generate AI analysis of the photo
         const { text: aiAnalysis } = await generateText({
-          model: openai('gpt-4o-mini'),
+          model: openai('gpt-4.1-mini'),
           prompt: `Analyze this photo and provide the following information in JSON format:
 
 PHOTO URL: ${photo.photo_url}

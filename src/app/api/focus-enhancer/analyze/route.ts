@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     // Analyze the screen time screenshot using AI
     const { text: analysisResult } = await generateText({
-      model: openai('gpt-4o-mini'),
+      model: openai('gpt-4.1-mini'),
       messages: [
         {
           role: 'user',

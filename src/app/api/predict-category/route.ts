@@ -74,7 +74,7 @@ PRIORITY RULES:
 Respond with ONLY the category name (use underscores, not spaces).`
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1-mini',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 10,
       temperature: 0.1,

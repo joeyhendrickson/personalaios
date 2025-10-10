@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
     // Simple AI call without streaming
     const { text } = await generateText({
-      model: openai('gpt-4o-mini'),
+      model: openai('gpt-4.1-mini'),
       messages: [
         {
           role: 'system',

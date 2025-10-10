@@ -179,7 +179,7 @@ Provide REALISTIC and ACHIEVABLE trade recommendations based on the actual patte
 
     // Use the same model as other endpoints
     const { text: advisorResponse } = await generateText({
-      model: openai('gpt-4o-mini'),
+      model: openai('gpt-4.1-mini'),
       messages: [
         {
           role: 'system',

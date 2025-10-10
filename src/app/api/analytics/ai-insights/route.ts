@@ -112,7 +112,7 @@ Return ONLY valid JSON, no markdown.`
 
     console.log('Calling AI for insights...')
     const { text: aiResponse } = await generateText({
-      model: openai('gpt-4o-mini'),
+      model: openai('gpt-4.1-mini'),
       messages: [
         {
           role: 'system',

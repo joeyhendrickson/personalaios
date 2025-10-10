@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     // Generate AI insights about the benchmark
     const { text: benchmarkInsights } = await generateText({
-      model: openai('gpt-4o-mini'),
+      model: openai('gpt-4.1-mini'),
       messages: [
         {
           role: 'user',

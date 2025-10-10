@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('Using AI SDK with gpt-4o-mini model')
+    console.log('Using AI SDK with gpt-4.1-mini model')
 
     // Convert file to base64 for OpenAI Vision API
     console.log('Converting file to base64...')
@@ -80,7 +80,7 @@ Be precise with numbers. If quantity is not shown, assume 1. Return ONLY the JSO
 Image (base64): data:${mimeType};base64,${base64Image}`
 
     const { text: receiptDataText } = await generateText({
-      model: openai('gpt-4o-mini'),
+      model: openai('gpt-4.1-mini'),
       messages: [
         {
           role: 'user',
@@ -175,7 +175,7 @@ Return ONLY valid JSON with this EXACT structure (no markdown, no code blocks):
 Be realistic with prices and savings. Base recommendations on actual store locations and prices typical for that area.`
 
     const { text: analysisText } = await generateText({
-      model: openai('gpt-4o-mini'),
+      model: openai('gpt-4.1-mini'),
       messages: [
         {
           role: 'system',
