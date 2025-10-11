@@ -17,7 +17,7 @@ export default function CreateAccountPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    message: ''
+    message: '',
   })
 
   const handlePlanSelection = (plan: 'trial' | 'basic' | 'premium') => {
@@ -29,7 +29,7 @@ export default function CreateAccountPage() {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsProcessing(true)
-    
+
     try {
       if (showForm === 'trial') {
         // Create trial account
@@ -39,8 +39,8 @@ export default function CreateAccountPage() {
           body: JSON.stringify({
             email: formData.email,
             name: formData.name,
-            plan_type: 'basic'
-          })
+            plan_type: 'basic',
+          }),
         })
 
         if (!response.ok) {
@@ -55,8 +55,8 @@ export default function CreateAccountPage() {
           body: JSON.stringify({
             email: formData.email,
             password: 'temp123', // Temporary password, user will set their own
-            name: formData.name
-          })
+            name: formData.name,
+          }),
         })
 
         if (!signupResponse.ok) {
@@ -66,18 +66,16 @@ export default function CreateAccountPage() {
 
         // Redirect to dashboard
         window.location.href = '/dashboard'
-        
       } else if (showForm === 'basic') {
-        // TODO: Integrate PayPal checkout
-        // For now, create account and redirect to dashboard
+        // Create account first, then redirect to PayPal payment
         const signupResponse = await fetch('/api/auth/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: formData.email,
             password: 'temp123', // Temporary password
-            name: formData.name
-          })
+            name: formData.name,
+          }),
         })
 
         if (!signupResponse.ok) {
@@ -85,9 +83,14 @@ export default function CreateAccountPage() {
           throw new Error(errorData.error || 'Failed to create account')
         }
 
-        // TODO: Redirect to PayPal checkout
-        window.location.href = '/dashboard'
-        
+        // Redirect to PayPal checkout page with user info
+        const params = new URLSearchParams({
+          email: formData.email,
+          name: formData.name,
+          plan: 'basic',
+          amount: '19.99',
+        })
+        window.location.href = `/paypal-checkout?${params.toString()}`
       } else if (showForm === 'premium') {
         // Send email to Joseph
         const emailBody = `Hi Joseph,
@@ -136,28 +139,23 @@ Thank you!`
               </div>
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-white mb-4">
-            Choose Your Plan
-          </h1>
+          <h1 className="text-4xl font-bold text-white mb-4">Choose Your Plan</h1>
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-            Direct your life and build your focus with our AI-driven Personal OS. 
-            Start your transformation with the plan that's right for you.
+            Direct your life and build your focus with our AI-driven Personal OS. Start your
+            transformation with the plan that's right for you.
           </p>
         </div>
 
         {/* Plans Grid */}
         <div className="grid md:grid-cols-3 gap-8 mb-12">
-          
           {/* Free Trial Plan */}
-          <Card className={`relative ${selectedPlan === 'trial' ? 'ring-2 ring-green-500 shadow-lg' : ''}`}>
+          <Card
+            className={`relative ${selectedPlan === 'trial' ? 'ring-2 ring-green-500 shadow-lg' : ''}`}
+          >
             <CardHeader className="text-center pb-4">
-              <Badge className="w-fit mx-auto mb-2 bg-green-100 text-green-800">
-                RECOMMENDED
-              </Badge>
+              <Badge className="w-fit mx-auto mb-2 bg-green-100 text-green-800">RECOMMENDED</Badge>
               <CardTitle className="text-2xl">7-Day Free Trial</CardTitle>
-              <CardDescription className="text-lg">
-                Experience Life Stacks
-              </CardDescription>
+              <CardDescription className="text-lg">Experience Life Stacks</CardDescription>
               <div className="text-3xl font-bold text-green-600 mt-4">
                 $0
                 <span className="text-sm font-normal text-gray-500">/week</span>
@@ -186,7 +184,7 @@ Thank you!`
                   <span>After 7 Days, Buy Standard Plan</span>
                 </li>
               </ul>
-              <Button 
+              <Button
                 onClick={() => handlePlanSelection('trial')}
                 disabled={isProcessing}
                 className="w-full bg-green-600 hover:bg-green-700"
@@ -197,15 +195,15 @@ Thank you!`
           </Card>
 
           {/* Standard Plan */}
-          <Card className={`relative ${selectedPlan === 'basic' ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}>
+          <Card
+            className={`relative ${selectedPlan === 'basic' ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}
+          >
             <CardHeader className="text-center pb-4">
               <div className="flex items-center justify-center mb-2">
                 <Zap className="h-6 w-6 text-black mr-2" />
               </div>
               <CardTitle className="text-2xl">Standard</CardTitle>
-              <CardDescription className="text-lg">
-                Ongoing Access
-              </CardDescription>
+              <CardDescription className="text-lg">Ongoing Access</CardDescription>
               <div className="text-3xl font-bold text-black mt-4">
                 $19.99
                 <span className="text-sm font-normal text-gray-500">/month</span>
@@ -234,7 +232,7 @@ Thank you!`
                   <span>Monthly Meeting Access</span>
                 </li>
               </ul>
-              <Button 
+              <Button
                 onClick={() => handlePlanSelection('basic')}
                 disabled={isProcessing}
                 className="w-full bg-black hover:bg-gray-800 text-white"
@@ -246,18 +244,16 @@ Thank you!`
           </Card>
 
           {/* Premium Coaching Plan */}
-          <Card className={`relative ${selectedPlan === 'premium' ? 'ring-2 ring-yellow-500 shadow-lg' : ''}`}>
+          <Card
+            className={`relative ${selectedPlan === 'premium' ? 'ring-2 ring-yellow-500 shadow-lg' : ''}`}
+          >
             <CardHeader className="text-center pb-4">
               <div className="flex items-center justify-center mb-2">
                 <Star className="h-6 w-6 text-yellow-500 mr-2" />
-                <Badge className="bg-yellow-100 text-yellow-800">
-                  PREMIUM
-                </Badge>
+                <Badge className="bg-yellow-100 text-yellow-800">PREMIUM</Badge>
               </div>
               <CardTitle className="text-2xl">Coaching</CardTitle>
-              <CardDescription className="text-lg">
-                Personalized Growth
-              </CardDescription>
+              <CardDescription className="text-lg">Personalized Growth</CardDescription>
               <div className="text-3xl font-bold text-yellow-600 mt-4">
                 $250
                 <span className="text-sm font-normal text-gray-500">/month</span>
@@ -286,13 +282,13 @@ Thank you!`
                   <span>Launch Your Own Lifehack</span>
                 </li>
               </ul>
-              <Button 
+              <Button
                 onClick={() => handlePlanSelection('premium')}
                 disabled={isProcessing}
                 className="w-full bg-yellow-600 hover:bg-yellow-700"
               >
                 <Mail className="h-4 w-4 mr-2" />
-Contact Founder
+                Contact Founder
               </Button>
             </CardContent>
           </Card>
@@ -317,7 +313,9 @@ Contact Founder
                 <form onSubmit={handleFormSubmit} className="space-y-4">
                   <div className="grid md:grid-cols-3 gap-4 items-end">
                     <div className="space-y-1">
-                      <Label htmlFor="name" className="text-black text-sm">Full Name</Label>
+                      <Label htmlFor="name" className="text-black text-sm">
+                        Full Name
+                      </Label>
                       <Input
                         id="name"
                         type="text"
@@ -330,7 +328,9 @@ Contact Founder
                     </div>
 
                     <div className="space-y-1">
-                      <Label htmlFor="email" className="text-black text-sm">Email</Label>
+                      <Label htmlFor="email" className="text-black text-sm">
+                        Email
+                      </Label>
                       <Input
                         id="email"
                         type="email"
@@ -355,19 +355,27 @@ Contact Founder
                         type="submit"
                         disabled={isProcessing}
                         className={`flex-1 ${
-                          showForm === 'trial' ? 'bg-green-600 hover:bg-green-700' :
-                          showForm === 'basic' ? 'bg-black hover:bg-gray-800' :
-                          'bg-yellow-600 hover:bg-yellow-700'
+                          showForm === 'trial'
+                            ? 'bg-green-600 hover:bg-green-700'
+                            : showForm === 'basic'
+                              ? 'bg-black hover:bg-gray-800'
+                              : 'bg-yellow-600 hover:bg-yellow-700'
                         }`}
                       >
-{isProcessing ? 'Processing...' : (showForm === 'premium' ? 'Send It' : 'Get It')}
+                        {isProcessing
+                          ? 'Processing...'
+                          : showForm === 'premium'
+                            ? 'Send It'
+                            : 'Get It'}
                       </Button>
                     </div>
                   </div>
 
                   {showForm === 'premium' && (
                     <div className="space-y-1">
-                      <Label htmlFor="message" className="text-black text-sm">Message (Optional)</Label>
+                      <Label htmlFor="message" className="text-black text-sm">
+                        Message (Optional)
+                      </Label>
                       <Textarea
                         id="message"
                         value={formData.message}
@@ -385,32 +393,44 @@ Contact Founder
 
         {/* FAQ Section */}
         <div className="bg-white rounded-lg shadow-sm p-8">
-          <h2 className="text-2xl font-bold text-center mb-8 text-black">Frequently Asked Questions</h2>
+          <h2 className="text-2xl font-bold text-center mb-8 text-black">
+            Frequently Asked Questions
+          </h2>
           <div className="grid md:grid-cols-2 gap-8">
             <div>
-              <h3 className="font-semibold text-lg mb-2 text-black">What happens after my free trial?</h3>
+              <h3 className="font-semibold text-lg mb-2 text-black">
+                What happens after my free trial?
+              </h3>
               <p className="text-gray-600">
-                During your final days, you'll be asked to buy the Standard Plan ($19.99/month). 
+                During your final days, you'll be asked to buy the Standard Plan ($19.99/month).
                 You'll receive email notifications 48 hours prior.
               </p>
             </div>
             <div>
               <h3 className="font-semibold text-lg mb-2 text-black">Can I cancel anytime?</h3>
               <p className="text-gray-600">
-                Yes! You can cancel your subscription at any time. Your access continues until the end of your current billing period.
+                Yes! You can cancel your subscription at any time. Your access continues until the
+                end of your current billing period.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold text-lg mb-2 text-black">What's included in Premium Coaching?</h3>
+              <h3 className="font-semibold text-lg mb-2 text-black">
+                What's included in Premium Coaching?
+              </h3>
               <p className="text-gray-600">
-                Premium Coaching includes everything in the Standard Plan plus 1-on-1 coaching sessions, 
-                group coaching, personalized strategies, and Founder access and your feedback to improve LifeStacks.ai
+                Premium Coaching includes everything in the Standard Plan plus 1-on-1 coaching
+                sessions, group coaching, personalized strategies, and Founder access and your
+                feedback to improve LifeStacks.ai
               </p>
             </div>
             <div>
-              <h3 className="font-semibold text-lg mb-2 text-black">How does PayPal billing work?</h3>
+              <h3 className="font-semibold text-lg mb-2 text-black">
+                How does PayPal billing work?
+              </h3>
               <p className="text-gray-600">
-                For Standard and Premium, your subscription is billed monthly through PayPal. You can manage your subscription and payment methods directly through your PayPal account.
+                For Standard and Premium, your subscription is billed monthly through PayPal. You
+                can manage your subscription and payment methods directly through your PayPal
+                account.
               </p>
             </div>
           </div>
