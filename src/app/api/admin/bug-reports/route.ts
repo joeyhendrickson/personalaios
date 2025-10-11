@@ -27,7 +27,8 @@ export async function GET() {
     // Fetch bug reports with user email
     const { data: bugReports, error: bugError } = await supabase
       .from('bug_reports')
-      .select(`
+      .select(
+        `
         id,
         user_id,
         type,
@@ -39,11 +40,9 @@ export async function GET() {
         admin_notes,
         completed_at,
         created_at,
-        updated_at,
-        auth:user_id (
-          email
-        )
-      `)
+        updated_at
+      `
+      )
       .order('created_at', { ascending: false })
 
     if (bugError) {
@@ -51,24 +50,41 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch bug reports' }, { status: 500 })
     }
 
+    // Get user emails separately
+    const userIds = bugReports?.map((report) => report.user_id) || []
+    const { data: users, error: usersError } = await supabase.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    })
+
+    // Create a map of user_id to email
+    const userEmailMap = new Map<string, string>()
+    if (users?.users) {
+      users.users.forEach((user) => {
+        if (user.email) {
+          userEmailMap.set(user.id, user.email)
+        }
+      })
+    }
+
     // Transform the data to include user email directly
-    const transformedReports = bugReports?.map((report) => ({
-      ...report,
-      user_email: report.auth?.email || `User ${report.user_id.substring(0, 8)}`,
-      auth: undefined // Remove the nested auth object
-    })) || []
+    const transformedReports =
+      bugReports?.map((report) => ({
+        ...report,
+        user_email: userEmailMap.get(report.user_id) || `User ${report.user_id.substring(0, 8)}`,
+      })) || []
 
     return NextResponse.json({
       success: true,
       bugReports: transformedReports,
       counts: {
         total: transformedReports.length,
-        open: transformedReports.filter(r => r.status === 'open').length,
-        in_progress: transformedReports.filter(r => r.status === 'in_progress').length,
-        completed: transformedReports.filter(r => r.status === 'completed').length,
-        critical: transformedReports.filter(r => r.priority === 'critical').length,
-        high: transformedReports.filter(r => r.priority === 'high').length,
-      }
+        open: transformedReports.filter((r) => r.status === 'open').length,
+        in_progress: transformedReports.filter((r) => r.status === 'in_progress').length,
+        completed: transformedReports.filter((r) => r.status === 'completed').length,
+        critical: transformedReports.filter((r) => r.priority === 'critical').length,
+        high: transformedReports.filter((r) => r.priority === 'high').length,
+      },
     })
   } catch (error) {
     console.error('Unexpected error in bug reports API:', error)
