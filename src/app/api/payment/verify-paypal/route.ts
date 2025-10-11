@@ -128,7 +128,7 @@ async function verifyPayPalPayment(orderID: string) {
       success: true,
       amount: capture.amount.value,
       currency: capture.amount.currency_code,
-      email: orderDetails.purchase_units[0]?.payee?.email_address || null,
+      email: null, // Email is handled separately in the calling function
     }
   } catch (error) {
     console.error('PayPal verification error:', error)
