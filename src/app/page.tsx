@@ -15,10 +15,13 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
+import { useLanguage } from '@/contexts/language-context'
+import { LanguageToggle } from '@/components/ui/language-toggle'
 
 export default function HomePage() {
   const router = useRouter()
   const { user, loading } = useAuth()
+  const { t } = useLanguage()
 
   const features = [
     {
@@ -51,16 +54,17 @@ export default function HomePage() {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-end">
             <div className="flex items-center space-x-4">
+              <LanguageToggle />
               {user && !loading ? (
                 <Link href="/dashboard">
                   <button className="px-6 py-2.5 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-all text-sm">
-                    Dashboard
+                    {t('home.dashboard')}
                   </button>
                 </Link>
               ) : (
                 <Link href="/login">
                   <button className="px-6 py-2.5 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-all text-sm">
-                    Sign In
+                    {t('home.signIn')}
                   </button>
                 </Link>
               )}
@@ -93,12 +97,12 @@ export default function HomePage() {
             </div>
           </div>
           <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight tracking-tight">
-            Stack your life,
+            {t('home.tagline').split(',')[0]},
             <br />
-            powered by AI.
+            {t('home.tagline').split(',')[1]}
           </h1>
           <p className="text-xl md:text-2xl text-gray-400 max-w-3xl mx-auto mb-12 leading-relaxed">
-            Your goals, habits, and life hacks — stacked.
+            {t('home.subtitle')}
           </p>
 
           {/* CTA Buttons */}
@@ -107,7 +111,7 @@ export default function HomePage() {
               <Link href="/dashboard">
                 <button className="px-8 py-4 bg-white text-black rounded-full font-semibold hover:bg-gray-200 transition-all text-lg flex items-center space-x-2">
                   <Target className="h-5 w-5" />
-                  <span>Go to Dashboard</span>
+                  <span>{t('home.goToDashboard')}</span>
                   <ArrowRight className="h-5 w-5" />
                 </button>
               </Link>
@@ -115,12 +119,12 @@ export default function HomePage() {
               <>
                 <Link href="/login">
                   <button className="px-8 py-4 bg-white text-black rounded-full font-semibold hover:bg-gray-200 transition-all text-lg">
-                    Sign In
+                    {t('home.signIn')}
                   </button>
                 </Link>
-                <Link href="/login">
+                <Link href="/create-account">
                   <button className="px-8 py-4 bg-transparent border-2 border-white text-white rounded-full font-semibold hover:bg-white hover:text-black transition-all text-lg">
-                    Create Account
+                    {t('home.createAccount')}
                   </button>
                 </Link>
               </>
@@ -134,6 +138,7 @@ export default function HomePage() {
           )}
         </div>
       </div>
+
     </div>
   )
 }

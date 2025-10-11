@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useLanguage } from '@/contexts/language-context'
 import {
   Plus,
   CheckCircle,
@@ -38,6 +39,7 @@ interface EducationFormData {
 }
 
 export default function EducationSection() {
+  const { t } = useLanguage()
   const [educationItems, setEducationItems] = useState<EducationItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -252,7 +254,7 @@ export default function EducationSection() {
       <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-sm text-gray-600">learning and certifications</p>
+            <p className="text-sm text-gray-600">{t('education.description')}</p>
           </div>
           <button
             onClick={() => {
@@ -270,7 +272,7 @@ export default function EducationSection() {
             className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
           >
             <Plus className="h-4 w-4" />
-            Add Item
+            {t('common.add')} {t('common.item')}
           </button>
         </div>
 

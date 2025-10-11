@@ -69,6 +69,15 @@ export async function GET() {
     console.log('Sample goals data:', goalsData?.slice(0, 3))
     console.log('Sample points data:', pointsData?.slice(0, 3))
 
+    // If no data found, let's check what tables exist
+    if (!tasksData || tasksData.length === 0) {
+      console.log('⚠️ No tasks data found - checking if table exists')
+      const { data: tableCheck, error: tableError } = await supabase
+        .from('tasks')
+        .select('count', { count: 'exact' })
+      console.log('Tasks table check:', { count: tableCheck, error: tableError })
+    }
+
     if (tasksError) console.error('Error fetching tasks:', tasksError)
     if (goalsError) console.error('Error fetching goals:', goalsError)
     if (pointsError) console.error('Error fetching points:', pointsError)
@@ -79,21 +88,48 @@ export async function GET() {
 
     console.log('Admin emails:', adminEmails)
 
-    // For now, let's create a simple email map with known emails
+    // Create email map with real user IDs from the logs
     const emailMap = new Map()
-
-    // Add admin emails
-    if (adminEmails) {
-      adminEmails.forEach(() => {
-        // We need to find the user_id for this email
-        // For now, let's just add it to a list we can reference
+    
+    // Add known user IDs and emails from your data
+    emailMap.set('94a93832-cd8e-47fe-aeae-dbd945557f79', 'josephgregoryhendrickson@gmail.com')
+    emailMap.set('1603aa9b-0d89-4fb7-9faf-c477f6c60ef6', 'user2@example.com') // Placeholder for second user
+    
+    // Try to get user emails from auth.users table via a direct query
+    // Since we can't query auth.users directly, let's try to get emails from other sources
+    
+    // Try to get more user emails from activity logs or other sources
+    const { data: activityData } = await supabase
+      .from('user_activity_logs')
+      .select('user_id, activity_data')
+      .limit(100)
+    
+    // Extract emails from activity data if available
+    if (activityData) {
+      activityData.forEach((activity) => {
+        if (activity.activity_data && typeof activity.activity_data === 'object') {
+          const data = activity.activity_data as any
+          if (data.email && activity.user_id) {
+            emailMap.set(activity.user_id, data.email)
+          }
+        }
       })
     }
 
-    // Add some known emails manually for testing
-    emailMap.set('479218be-0000-0000-0000-000000000000', 'josephgregoryhendrickson@gmail.com')
-    emailMap.set('94a93832-0000-0000-0000-000000000000', 'joeyhendrickson@gmail.com')
-    emailMap.set('90779c8f-0000-0000-0000-000000000000', 'test@example.com')
+    // Also try to get emails from admin_users table for known users
+    const { data: adminUsers } = await supabase
+      .from('admin_users')
+      .select('email')
+    
+    // Map admin users to their IDs (we'll need to match by email if possible)
+    if (adminUsers) {
+      adminUsers.forEach(admin => {
+        // We know josephgregoryhendrickson@gmail.com is the main admin
+        if (admin.email === 'josephgregoryhendrickson@gmail.com') {
+          emailMap.set('94a93832-cd8e-47fe-aeae-dbd945557f79', admin.email)
+        }
+      })
+    }
 
     console.log('Data fetched successfully:', {
       tasks: tasksData?.length || 0,
@@ -116,6 +152,7 @@ export async function GET() {
     if (pointsData) pointsData.forEach((p) => userIds.add(p.user_id))
 
     console.log('Unique user IDs:', Array.from(userIds))
+    console.log('Email map:', Object.fromEntries(emailMap))
     console.log(
       'User IDs from tasks:',
       tasksData?.map((t) => t.user_id)
@@ -129,26 +166,58 @@ export async function GET() {
       pointsData?.map((p) => p.user_id)
     )
 
+    // Debug: Show what we expect to find
+    console.log('Expected user IDs from your data:', [
+      '94a93832-cd8e-47fe-aeae-dbd945557f79',
+      '1603aa9b-0d89-4fb7-9faf-c477f6c60ef6'
+    ])
+
     // Calculate analytics for each user
     const userAnalyticsArray = Array.from(userIds).map((userId) => {
       const userPoints = pointsData?.filter((p) => p.user_id === userId) || []
       const userTasks = tasksData?.filter((t) => t.user_id === userId) || []
       const userGoals = goalsData?.filter((g) => g.user_id === userId) || []
+      
+      // Get real email from map or use fallback
+      const userEmail = emailMap.get(userId) || `User ${(userId as string).substring(0, 8)}`
+
+      console.log(`Processing user ${userId}:`, {
+        email: userEmail,
+        points: userPoints.length,
+        tasks: userTasks.length,
+        goals: userGoals.length
+      })
 
       return {
         user_id: userId,
-        email: `User ${(userId as string).substring(0, 8)}`, // We'll get real emails later
+        email: userEmail,
         total_points: userPoints.reduce((sum, p) => sum + (p.points || 0), 0),
-        today_points: 0,
-        weekly_points: 0,
+        today_points: userPoints.filter((p) => {
+          const today = new Date()
+          const pointDate = new Date(p.created_at)
+          return pointDate >= new Date(today.setHours(0, 0, 0, 0))
+        }).reduce((sum, p) => sum + (p.points || 0), 0),
+        weekly_points: userPoints.filter((p) => {
+          const weekAgo = new Date()
+          weekAgo.setDate(weekAgo.getDate() - 7)
+          return new Date(p.created_at) >= weekAgo
+        }).reduce((sum, p) => sum + (p.points || 0), 0),
         total_tasks_created: userTasks.length,
         total_tasks_completed: userTasks.filter((t) => t.status === 'completed').length,
         total_goals_created: userGoals.length,
         total_goals_completed: userGoals.filter((g) => g.is_completed).length,
-        last_activity: new Date().toISOString(),
-        first_visit: new Date().toISOString(),
+        last_activity: userTasks.length > 0 ? 
+          userTasks.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0].updated_at :
+          new Date().toISOString(),
+        first_visit: userTasks.length > 0 ?
+          userTasks.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0].created_at :
+          new Date().toISOString(),
+        total_visits: 0, // We don't have visit tracking yet
+        total_time_spent: 0, // We don't have time tracking yet
       }
     })
+
+    console.log('Final user analytics array:', userAnalyticsArray)
 
     // Email map is already created above
 
@@ -187,12 +256,12 @@ export async function GET() {
 
     // Build users data from real analytics
     const users = userAnalyticsArray.map((analytics) => ({
-      user_id: analytics.email, // Use email as ID for now
+      user_id: analytics.user_id,
       email: analytics.email,
       created_at: analytics.first_visit,
       last_sign_in_at: analytics.last_activity,
-      total_visits: 0, // We don't have visit data yet
-      total_time_spent: 0, // We don't have time data yet
+      total_visits: analytics.total_visits,
+      total_time_spent: analytics.total_time_spent,
       total_tasks_created: analytics.total_tasks_created,
       total_goals_created: analytics.total_goals_created,
       total_tasks_completed: analytics.total_tasks_completed,

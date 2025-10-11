@@ -35,6 +35,8 @@ import {
 import Link from 'next/link'
 import { ChatInterface } from '@/components/chat/chat-interface'
 import { useAuth } from '@/contexts/auth-context'
+import { useLanguage } from '@/contexts/language-context'
+import { LanguageToggle } from '@/components/ui/language-toggle'
 import { Slider } from '@/components/ui/slider'
 import { AccomplishmentsHistory } from '@/components/accomplishments/accomplishments-history'
 import ManualPriorityForm from '@/components/priorities/manual-priority-form'
@@ -308,6 +310,7 @@ export default function DashboardPage() {
   const { user, signOut } = useAuth()
   const { logActivity } = useActivityTracking()
   const { isAdmin } = useAdminAuth()
+  const { t } = useLanguage()
   const [goals, setGoals] = useState<Goal[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [currentWeek, setCurrentWeek] = useState<Week | null>(null)
@@ -1445,7 +1448,7 @@ export default function DashboardPage() {
               <Link href="/modules">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black text-white hover:bg-gray-800 h-9 rounded-md px-3">
                   <Plus className="h-4 w-4" />
-                  Life Hacks
+                  {t('nav.modules')}
                 </button>
               </Link>
               <Link href="/bug-report">
@@ -1463,7 +1466,7 @@ export default function DashboardPage() {
               <Link href="/profile">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3">
                   <Settings className="h-4 w-4" />
-                  Profile
+                  {t('nav.profile')}
                 </button>
               </Link>
               {isAdmin && (
@@ -1475,10 +1478,17 @@ export default function DashboardPage() {
                 </Link>
               )}
               <button
-                onClick={() => signOut()}
+                onClick={async () => {
+                  try {
+                    await signOut()
+                  } catch (error) {
+                    console.error('Error signing out:', error)
+                    alert('Error signing out. Please try again.')
+                  }
+                }}
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 h-9 rounded-md px-3"
               >
-                Sign Out
+                {t('nav.signOut')}
               </button>
             </div>
           </div>
@@ -1493,12 +1503,12 @@ export default function DashboardPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-medium text-black">Daily Points</p>
+                  <p className="text-sm font-medium text-black">{t('radial.todayPoints')}</p>
                   <p className="text-2xl font-bold text-black">
                     {pointsData?.dailyPoints || 0}
                     {pointsLoading && <span className="text-sm text-blue-400 ml-2">⟳</span>}
                   </p>
-                  <p className="text-sm text-black mt-1">Weekly: {pointsData?.weeklyPoints || 0}</p>
+                  <p className="text-sm text-black mt-1">{t('radial.weeklyProgress')}: {pointsData?.weeklyPoints || 0}</p>
                 </div>
                 <div className="flex items-center space-x-2">
                   <BarChart3 className="h-8 w-8 text-blue-400" />
@@ -1585,7 +1595,7 @@ export default function DashboardPage() {
                 if (dailyPoints >= 500) {
                   motivation = {
                     message:
-                      "🔥 INCREDIBLE! You're crushing it today! Keep this momentum going and push even higher!",
+                      t('radial.motivational.incredible'),
                     emoji: '🚀',
                     color: 'text-blue-600 bg-blue-50 border-blue-200',
                   }
@@ -1643,7 +1653,7 @@ export default function DashboardPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-medium text-black">Project Progress</p>
+                  <p className="text-sm font-medium text-black">{t('radial.weeklyProgress')}</p>
                   <p className="text-2xl font-bold text-black">
                     {totalCurrentPoints}/{totalTargetPoints}
                   </p>
@@ -1658,7 +1668,7 @@ export default function DashboardPage() {
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <div className="flex items-center space-x-2 mb-3">
                   <Lightbulb className="h-4 w-4 text-blue-400" />
-                  <h4 className="text-sm font-semibold text-black">Strategic Insights</h4>
+                  <h4 className="text-sm font-semibold text-black">{t('radial.strategicInsights')}</h4>
                 </div>
                 {strategicLoading ? (
                   <div className="text-center py-2">
@@ -1698,7 +1708,7 @@ export default function DashboardPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-medium text-black">Tasks Done</p>
+                  <p className="text-sm font-medium text-black">{t('section.tasks')}</p>
                   <p className="text-2xl font-bold text-black">
                     {completedTasksCount}/{totalTasks}
                   </p>
@@ -1717,12 +1727,15 @@ export default function DashboardPage() {
           {/* Visibility Switcher */}
           <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
             <div className="p-6">
+              {/* Header with View Stacks, Language Toggle, and Eye Icon */}
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-medium text-black">Visibility</p>
-                  <p className="text-xs text-black mt-1">Hide stacks</p>
+                  <p className="text-sm font-medium text-black">{t('common.view')} {t('common.stacks')}</p>
                 </div>
-                <Eye className="h-8 w-8 text-blue-400" />
+                <div className="flex items-center space-x-3">
+                  <LanguageToggle />
+                  <Eye className="h-6 w-6 text-blue-400" />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -1738,7 +1751,16 @@ export default function DashboardPage() {
                         : 'bg-gray-50 text-gray-500 border border-gray-200'
                     }`}
                   >
-                    <span className="capitalize">{section}</span>
+                    <span className="capitalize">
+                      {section === 'priorities' && t('section.priorities')}
+                      {section === 'goals' && t('section.goals')}
+                      {section === 'projects' && t('section.projects')}
+                      {section === 'tasks' && t('section.tasks')}
+                      {section === 'habits' && t('section.habits')}
+                      {section === 'education' && t('section.education')}
+                      {section === 'accomplishments' && t('section.recentAccomplishments')}
+                      {section === 'categories' && t('section.categoryProgress')}
+                    </span>
                     {isVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
                   </button>
                 ))}
@@ -1753,27 +1775,27 @@ export default function DashboardPage() {
             {/* Priorities Section - TOP */}
             {sectionVisibility.priorities && (
               <CascadingSection
-                title="Priorities"
+                title={t('section.priorities')}
                 icon={<Brain className="h-6 w-6 text-purple-500" />}
                 isExpanded={expandedSections.priorities}
                 onToggle={() => toggleSectionExpansion('priorities')}
               >
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-4">Things I need to focus on right now</p>
+                  <p className="text-sm text-gray-600 mb-4">{t('priorities.title')}</p>
                   <div className="flex space-x-2">
                     <button
                       onClick={() => setShowConversationalPriorityInput(true)}
                       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black hover:bg-gray-800 text-white h-10 px-4 py-2"
                     >
                       <Brain className="h-4 w-4" />
-                      AI Recommend
+                      {t('priorities.aiRecommend')}
                     </button>
                     <button
                       onClick={() => setShowManualPriorityForm(true)}
                       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                     >
                       <Plus className="h-4 w-4" />
-                      Add Priority
+{t('priorities.addPriority')}
                     </button>
                     <button
                       onClick={() => setShowDeletedPriorities(true)}
@@ -1937,14 +1959,14 @@ export default function DashboardPage() {
             {/* Goals Section - SECOND */}
             {sectionVisibility.goals && (
               <CascadingSection
-                title="Goals"
+                title={t('section.goals')}
                 icon={<Target className="h-6 w-6 text-red-500" />}
                 isExpanded={expandedSections.goals}
                 onToggle={() => toggleSectionExpansion('goals')}
               >
                 <div className="mb-4">
                   <p className="text-sm text-gray-600 mb-4">
-                    measurable things I really need to achieve in my life right now
+                    {t('goals.title')}
                   </p>
                   <div className="flex items-center space-x-2">
                     <button
@@ -1956,7 +1978,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       <History className="h-4 w-4 mr-2" />
-                      {showCompletedGoals ? 'Active' : 'Completed'}
+                      {showCompletedGoals ? t('common.active') : t('goals.completed')}
                     </button>
                     {!showCompletedGoals && (
                       <button
@@ -2003,7 +2025,7 @@ export default function DashboardPage() {
                                   <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
                                     {(goal as any).goal_type}
                                   </span>
-                                  <span>Priority: {(goal as any).priority_level}/5</span>
+                                  <span>{t('goals.priority')}: {(goal as any).priority_level}/5</span>
                                 </div>
                               </div>
                               <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 border-green-200 text-green-700">
@@ -2045,15 +2067,15 @@ export default function DashboardPage() {
                     highLevelGoals.length === 0 ? (
                       <div className="col-span-2 text-center py-8">
                         <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No goals yet</h3>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">{t('goals.noGoals')}</h3>
                         <p className="text-gray-600 mb-4">
-                          Create your first goal to start building your roadmap
+                          {t('goals.noGoals')}
                         </p>
                         <button
                           onClick={() => setShowAddHighLevelGoal(true)}
                           className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                         >
-                          Add Your First Goal
+                          {t('goals.addGoal')}
                         </button>
                       </div>
                     ) : (
@@ -2074,7 +2096,7 @@ export default function DashboardPage() {
                                 <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
                                   {(goal as any).goal_type}
                                 </span>
-                                <span>Priority: {(goal as any).priority_level}/5</span>
+                                <span>{t('goals.priority')}: {(goal as any).priority_level}/5</span>
                               </div>
                             </div>
                             <div className="flex space-x-1">
@@ -2163,14 +2185,14 @@ export default function DashboardPage() {
             {/* Projects Section - THIRD */}
             {sectionVisibility.projects && (
               <CascadingSection
-                title="Goals"
+                title={t('section.projects')}
                 icon={<Target className="h-6 w-6 text-blue-500" />}
                 isExpanded={expandedSections.projects}
                 onToggle={() => toggleSectionExpansion('projects')}
               >
                 <div className="mb-4">
                   <p className="text-sm text-gray-600 mb-4">
-                    measurable things I really need to achieve in my life right now
+                    {t('projects.title')}
                   </p>
                   <div className="flex items-center space-x-2">
                     <button
@@ -2180,7 +2202,7 @@ export default function DashboardPage() {
                       title="Use AI to automatically categorize your goals with smart financial detection"
                     >
                       <Brain className="h-4 w-4 mr-2" />
-                      {isCategorizing ? 'Categorizing...' : 'Categorize'}
+                      {isCategorizing ? t('common.loading') : t('projects.categorize')}
                     </button>
                     <button
                       onClick={() => setShowCompleted(!showCompleted)}
@@ -2191,7 +2213,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       <History className="h-4 w-4 mr-2" />
-                      {showCompleted ? 'Active' : 'Completed'}
+                      {showCompleted ? t('common.active') : t('projects.completed')}
                     </button>
                     {!showCompleted && (
                       <button
@@ -2199,7 +2221,7 @@ export default function DashboardPage() {
                         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-white hover:bg-gray-800 h-10 px-4 py-2 bg-black"
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Goal
+                        {t('projects.addProject')}
                       </button>
                     )}
                   </div>
@@ -2325,7 +2347,7 @@ export default function DashboardPage() {
                                           ) : (
                                             <>
                                               <ChevronDown className="w-3 h-3" />
-                                              View Details
+                                              {t('projects.viewDetails')}
                                             </>
                                           )}
                                         </button>
@@ -2481,7 +2503,7 @@ export default function DashboardPage() {
                                         ) : (
                                           <>
                                             <ChevronDown className="w-3 h-3" />
-                                            View Details
+                                            {t('projects.viewDetails')}
                                           </>
                                         )}
                                       </button>
@@ -2556,13 +2578,13 @@ export default function DashboardPage() {
                                 <span className="text-xs text-gray-500">
                                   {((goal as any).target_points || 0) -
                                     ((goal as any).current_points || 0)}{' '}
-                                  points remaining
+                                  {t('projects.pointsRemaining')}
                                 </span>
                                 <button
                                   onClick={() => openEditGoal(goal)}
                                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 rounded-md px-3 text-xs"
                                 >
-                                  View Details <ChevronRight className="h-3 w-3 ml-1" />
+                                  {t('projects.viewDetails')} <ChevronRight className="h-3 w-3 ml-1" />
                                 </button>
                               </div>
                             </div>
@@ -2578,14 +2600,14 @@ export default function DashboardPage() {
             {/* Tasks Section */}
             {sectionVisibility.tasks && (
               <CascadingSection
-                title="Tasks"
+                title={t('section.tasks')}
                 icon={<CheckCircle className="h-6 w-6 text-green-500" />}
                 isExpanded={expandedSections.tasks}
                 onToggle={() => toggleSectionExpansion('tasks')}
               >
                 <div className="mb-4">
                   <p className="text-sm text-gray-600 mb-4">
-                    Breaking down my projects into actionable items
+                    {t('tasks.title')}
                   </p>
                   <div className="flex items-center space-x-2">
                     <button
@@ -2597,7 +2619,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       <History className="h-4 w-4 mr-2" />
-                      {showCompleted ? 'Active' : 'Completed'}
+                      {showCompleted ? t('common.active') : t('tasks.completed')}
                     </button>
                     {!showCompleted && (
                       <button
@@ -2605,7 +2627,7 @@ export default function DashboardPage() {
                         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Task
+                        {t('tasks.addTask')}
                       </button>
                     )}
                   </div>
@@ -2675,7 +2697,7 @@ export default function DashboardPage() {
                       <div className="text-center py-8">
                         <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                         <p className="text-gray-600">
-                          No tasks found. Create your first task to get started!
+                          {t('tasks.noTasks')}
                         </p>
                       </div>
                     ) : (
@@ -2701,10 +2723,10 @@ export default function DashboardPage() {
               <div className="p-6 pb-4">
                 <h2 className="font-semibold tracking-tight flex items-center text-xl">
                   <Brain className="h-6 w-6 mr-2 text-purple-500" />
-                  AI Advisor
+                  {t('aiAdvisor.title')}
                 </h2>
                 <p className="text-sm text-gray-600">
-                  help me organize my life and get things done
+                  {t('aiAdvisor.description')}
                 </p>
               </div>
               <div className="p-6 pt-0">
@@ -2715,9 +2737,9 @@ export default function DashboardPage() {
                         <Brain className="h-4 w-4 text-white" />
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">Ready to help!</p>
+                        <p className="font-medium text-gray-900">{t('aiAdvisor.ready')}</p>
                         <p className="text-xs text-gray-600">
-                          Ask me anything about your strategy for the day
+                          {t('aiAdvisor.prompt')}
                         </p>
                       </div>
                     </div>
@@ -2726,7 +2748,7 @@ export default function DashboardPage() {
                       className="w-full bg-black hover:bg-gray-800 text-white font-medium py-2 px-4 rounded-md transition-all duration-200"
                     >
                       <MessageSquare className="h-4 w-4 mr-2 inline" />
-                      Start Chat
+                      {t('aiAdvisor.startChat')}
                     </button>
                   </div>
                 </div>
@@ -2736,20 +2758,20 @@ export default function DashboardPage() {
             {/* Recent Accomplishments */}
             {sectionVisibility.accomplishments && (
               <CascadingSection
-                title="Recent Accomplishments"
+                title={t('section.recentAccomplishments')}
                 icon={<Trophy className="h-6 w-6 text-orange-500" />}
                 isExpanded={expandedSections.accomplishments}
                 onToggle={() => toggleSectionExpansion('accomplishments')}
               >
                 <div className="mb-4">
                   <p className="text-sm text-gray-600 mb-4">
-                    Your latest progress and achievements
+                    {t('accomplishments.description')}
                   </p>
                   <button
                     onClick={() => setShowAccomplishmentsHistory(true)}
                     className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                   >
-                    View All
+                    {t('common.view')} {t('common.all')}
                   </button>
                 </div>
 
@@ -2857,19 +2879,19 @@ export default function DashboardPage() {
             {/* Category Breakdown */}
             {sectionVisibility.categories && (
               <CascadingSection
-                title="Progress by Category"
+                title={t('section.categoryProgress')}
                 icon={<PieChart className="h-6 w-6 text-indigo-500" />}
                 isExpanded={expandedSections.categories}
                 onToggle={() => toggleSectionExpansion('categories')}
               >
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-4">Manage your project categories</p>
+                  <p className="text-sm text-gray-600 mb-4">{t('categoryProgress.title')}</p>
                   <button
                     onClick={() => setShowAddCategory(true)}
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                   >
                     <Plus className="h-4 w-4" />
-                    Add Category
+                    {t('common.add')} {t('categoryProgress.category')}
                   </button>
                 </div>
                 <div>
@@ -2961,7 +2983,7 @@ export default function DashboardPage() {
             {/* Daily Habits Section */}
             {sectionVisibility.habits && (
               <CascadingSection
-                title="Habits"
+                title={t('section.habits')}
                 icon={<Target className="h-6 w-6 text-pink-500" />}
                 isExpanded={expandedSections.habits}
                 onToggle={() => toggleSectionExpansion('habits')}
@@ -2973,7 +2995,7 @@ export default function DashboardPage() {
             {/* Education Section */}
             {sectionVisibility.education && (
               <CascadingSection
-                title="Education"
+                title={t('section.education')}
                 icon={<GraduationCap className="h-6 w-6 text-yellow-500" />}
                 isExpanded={expandedSections.education}
                 onToggle={() => toggleSectionExpansion('education')}
@@ -3026,7 +3048,7 @@ export default function DashboardPage() {
                   disabled={!newCategoryName.trim()}
                   className="flex-1 bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Add Category
+                  {t('common.add')} {t('categoryProgress.category')}
                 </button>
                 <button
                   onClick={() => {
@@ -3329,7 +3351,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Priority Level (1-5)
+{t('goals.priorityLevel')}
                 </label>
                 <input
                   type="number"
@@ -3502,7 +3524,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Priority Level (1-5)
+{t('goals.priorityLevel')}
                 </label>
                 <input
                   type="number"
@@ -3930,7 +3952,7 @@ export default function DashboardPage() {
                     htmlFor="edit-priority-score"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    Priority Score (0-100)
+{t('goals.priorityScore')}
                   </label>
                   <input
                     type="number"

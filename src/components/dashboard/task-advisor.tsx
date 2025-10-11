@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Target, TrendingUp, CheckCircle, Lightbulb, RotateCcw } from 'lucide-react'
+import { useLanguage } from '@/contexts/language-context'
 
 interface ProjectRecommendation {
   title: string
@@ -25,6 +26,7 @@ interface TaskAdvisorProps {
 export default function TaskAdvisor({ goals }: TaskAdvisorProps) {
   const [projectData, setProjectData] = useState<ProjectData | null>(null)
   const [loading, setLoading] = useState(true)
+  const { t } = useLanguage()
 
   useEffect(() => {
     fetchProjectRecommendations()
@@ -113,13 +115,13 @@ export default function TaskAdvisor({ goals }: TaskAdvisorProps) {
   const getImpactLabel = (impact: string) => {
     switch (impact) {
       case 'quick_win':
-        return 'Quick Win'
+        return t('taskAdvisor.quickWin')
       case 'high_impact':
-        return 'High Impact'
+        return t('taskAdvisor.highImpact')
       case 'strategic':
-        return 'Strategic'
+        return t('taskAdvisor.strategic')
       default:
-        return 'General'
+        return t('taskAdvisor.general')
     }
   }
 
@@ -128,21 +130,21 @@ export default function TaskAdvisor({ goals }: TaskAdvisorProps) {
       {loading ? (
         <div className="text-center py-4">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-600 mx-auto"></div>
-          <p className="text-sm text-gray-500 mt-2">Loading recommendations...</p>
+          <p className="text-sm text-gray-500 mt-2">{t('taskAdvisor.loading')}</p>
         </div>
       ) : projectData?.recommendations ? (
         <>
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-semibold text-gray-800">Task Advisor</h4>
+            <h4 className="text-sm font-semibold text-gray-800">{t('taskAdvisor.title')}</h4>
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2 text-xs text-gray-500">
                 <Target className="h-3 w-3" />
-                <span>Based on highest priority projects</span>
+                <span>{t('taskAdvisor.basedOn')}</span>
               </div>
               <button
                 onClick={handleRefreshRecommendations}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
-                title="Refresh recommendations"
+                title={t('taskAdvisor.refresh')}
               >
                 <RotateCcw className="h-4 w-4" />
               </button>
@@ -178,7 +180,7 @@ export default function TaskAdvisor({ goals }: TaskAdvisorProps) {
                   onClick={() => handleAddToTasks(rec)}
                   className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
                 >
-                  Add to Tasks →
+                  {t('taskAdvisor.addToTasks')} →
                 </button>
               </div>
             </div>
@@ -187,7 +189,7 @@ export default function TaskAdvisor({ goals }: TaskAdvisorProps) {
       ) : (
         <div className="text-center py-4">
           <Lightbulb className="h-6 w-6 text-gray-400 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">No recommendations available</p>
+          <p className="text-sm text-gray-500">{t('taskAdvisor.noRecommendations')}</p>
         </div>
       )}
     </div>

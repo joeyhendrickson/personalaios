@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useLanguage } from '@/contexts/language-context'
 import {
   Send,
   Plus,
@@ -38,6 +39,7 @@ export function ChatInterface({
   onTaskCompleted,
   triggerOpen,
 }: ChatInterfaceProps) {
+  const { language, t } = useLanguage()
   // Suppress unused parameter warnings
   void onGoalCreated
   void onTaskCreated
@@ -192,7 +194,7 @@ What would you like to focus on today? Try asking me about having a "happy day" 
 
   const quickActions = [
     {
-      label: 'Wake Up',
+      label: t('chat.quickActions.wakeUp'),
       icon: Clock,
       prompt: `Good morning! Let me give you a clear view of your day's plan.
 
@@ -202,7 +204,7 @@ Is there a specific area you'd like to focus on today? (e.g., a particular proje
       color: 'bg-black hover:bg-gray-800',
     },
     {
-      label: 'Happy Day',
+      label: t('chat.quickActions.happyDay'),
       icon: Heart,
       prompt: `Let me help you plan a happy, balanced day! I'll review:
 
@@ -216,7 +218,7 @@ Let me gather this information for you...`,
       color: 'bg-black hover:bg-gray-800',
     },
     {
-      label: 'Check-In',
+      label: t('chat.quickActions.checkIn'),
       icon: CheckCircle2,
       prompt: `Time for a progress check-in! Let me review:
 
@@ -229,7 +231,7 @@ Analyzing your day's progress now...`,
       color: 'bg-black hover:bg-gray-800',
     },
     {
-      label: 'Wellness Update',
+      label: t('chat.quickActions.wellnessUpdate'),
       icon: Activity,
       prompt: `I'm here to help with your wellness and energy. 
 
@@ -281,6 +283,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         },
         body: JSON.stringify({
           messages: [...messages, userMessage],
+          language: language,
         }),
       })
 

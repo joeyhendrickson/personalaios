@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useLanguage } from '@/contexts/language-context'
 import { Plus, Target, Lightbulb } from 'lucide-react'
 import { DraggableHabits } from './draggable-habits'
 import { Habit } from '@/types'
@@ -13,6 +14,7 @@ interface HabitFormData {
 }
 
 export default function HabitsSection() {
+  const { t } = useLanguage()
   const [habits, setHabits] = useState<Habit[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -206,7 +208,7 @@ export default function HabitsSection() {
       <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-sm text-gray-600">do these things every day and earn points</p>
+            <p className="text-sm text-gray-600">{t('habits.title')}</p>
           </div>
           <div className="flex space-x-2">
             <button
@@ -218,12 +220,12 @@ export default function HabitsSection() {
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
             >
               <Plus className="h-4 w-4" />
-              Add Habit
+              {t('habits.addHabit')}
             </button>
             <Link href="/habitrecommendations">
               <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-green-300 bg-green-50 hover:bg-green-100 text-green-700 h-10 px-4 py-2">
                 <Lightbulb className="h-4 w-4" />
-                Ideas
+                {t('habits.ideas')}
               </button>
             </Link>
           </div>

@@ -4,8 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json()
-    console.log('Chat API called with messages:', messages.length)
+    const { messages, language = 'en' } = await req.json()
+    console.log('Chat API called with messages:', messages.length, 'language:', language)
 
     // Get user data for context
     const supabase = await createClient()
@@ -451,7 +451,10 @@ LIFE HACKS INTEGRATION GUIDELINES:
 - **Cross-Module Synergy**: Connect insights across different modules for holistic advice
 - **Automatic Discovery**: New modules are automatically supported - no manual configuration needed
 
-Always provide specific, actionable advice based on their actual dashboard data and installed life hacks.`,
+Always provide specific, actionable advice based on their actual dashboard data and installed life hacks.
+
+LANGUAGE INSTRUCTION:
+${language === 'es' ? 'Respond in Spanish (español) for all your messages. Use natural, conversational Spanish and maintain a helpful, encouraging tone.' : 'Respond in English for all your messages.'}`,
     })
 
     console.log('OpenAI response generated successfully')

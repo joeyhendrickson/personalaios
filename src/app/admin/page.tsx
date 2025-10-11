@@ -7,7 +7,8 @@ import { useAdminAuth } from '@/hooks/use-admin-auth'
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Users, Activity, Target, CheckCircle, Eye, ArrowLeft, RefreshCw } from 'lucide-react'
+import { Users, Activity, Target, CheckCircle, Eye, ArrowLeft, RefreshCw, Bug, AlertTriangle, DollarSign, CreditCard } from 'lucide-react'
+import { AccessCodesManager } from '@/components/admin/access-codes-manager'
 
 interface DashboardData {
   total_users: number
@@ -63,6 +64,79 @@ interface ActivityLog {
   }
 }
 
+interface BugReport {
+  id: string
+  user_id: string
+  user_email: string
+  type: 'bug' | 'feature'
+  title: string
+  description: string
+  screenshot_url?: string
+  priority: 'low' | 'medium' | 'high' | 'critical'
+  status: 'open' | 'in_progress' | 'completed' | 'closed'
+  admin_notes?: string
+  completed_at?: string
+  created_at: string
+  updated_at: string
+}
+
+interface TrialSubscription {
+  id: string
+  email: string
+  name?: string
+  trial_start: string
+  trial_end: string
+  status: string
+  will_convert_to: string
+  conversion_price: number
+  expiry_notification_sent_at?: string
+  expiry_notification_message_id?: string
+  expired_notification_sent_at?: string
+  expired_notification_message_id?: string
+  daysRemaining: number
+  isExpired: boolean
+  notificationStatus: {
+    expiryNotificationSent: boolean
+    expiredNotificationSent: boolean
+    needsExpiryNotification: boolean
+    needsExpiredNotification: boolean
+  }
+  created_at: string
+}
+
+interface TrialStats {
+  total: number
+  active: number
+  expired: number
+  converted: number
+  cancelled: number
+  expiryNotificationsSent: number
+  expiredNotificationsSent: number
+  pendingNotifications: number
+}
+
+interface Payment {
+  id: string
+  paypal_order_id: string
+  amount: number
+  currency: string
+  plan_type: string
+  status: string
+  user_email: string | null
+  user_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+interface PaymentStats {
+  total: number
+  totalRevenue: number
+  basicPlanCount: number
+  premiumPlanCount: number
+  thisMonth: number
+  thisMonthRevenue: number
+}
+
 export default function AdminDashboard() {
   const router = useRouter()
   const { user, loading: userLoading } = useAuth()
@@ -71,7 +145,11 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<User[]>([])
   const [recentActivity, setRecentActivity] = useState<ActivityLog[]>([])
   const [newUsers, setNewUsers] = useState<User[]>([])
-  const [rawData, setRawData] = useState<Record<string, unknown> | null>(null)
+  const [bugReports, setBugReports] = useState<BugReport[]>([])
+  const [trials, setTrials] = useState<TrialSubscription[]>([])
+  const [trialStats, setTrialStats] = useState<TrialStats | null>(null)
+  const [payments, setPayments] = useState<Payment[]>([])
+  const [paymentStats, setPaymentStats] = useState<PaymentStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -110,6 +188,29 @@ export default function AdminDashboard() {
         const newUsersData = await newUsersResponse.json()
         setNewUsers(newUsersData.newUsers)
       }
+
+      // Fetch bug reports
+      const bugReportsResponse = await fetch('/api/admin/bug-reports')
+      if (bugReportsResponse.ok) {
+        const bugReportsData = await bugReportsResponse.json()
+        setBugReports(bugReportsData.bugReports || [])
+      }
+
+      // Fetch trial subscriptions
+      const trialsResponse = await fetch('/api/admin/trials')
+      if (trialsResponse.ok) {
+        const trialsData = await trialsResponse.json()
+        setTrials(trialsData.trials || [])
+        setTrialStats(trialsData.stats || null)
+      }
+
+      // Fetch payments
+      const paymentsResponse = await fetch('/api/admin/payments')
+      if (paymentsResponse.ok) {
+        const paymentsData = await paymentsResponse.json()
+        setPayments(paymentsData.payments || [])
+        setPaymentStats(paymentsData.stats || null)
+      }
     } catch (err) {
       console.error('Error fetching dashboard data:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
@@ -118,17 +219,6 @@ export default function AdminDashboard() {
     }
   }
 
-  const fetchRawData = async () => {
-    try {
-      const response = await fetch('/api/admin/raw-data')
-      if (response.ok) {
-        const data = await response.json()
-        setRawData(data)
-      }
-    } catch (err) {
-      console.error('Error fetching raw data:', err)
-    }
-  }
 
   useEffect(() => {
     // Check authentication and admin status
@@ -147,7 +237,6 @@ export default function AdminDashboard() {
 
       // User is admin, fetch dashboard data
       fetchDashboardData()
-      fetchRawData()
     }
   }, [user, isAdmin, userLoading, adminLoading, router])
 
@@ -257,7 +346,7 @@ export default function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <Card className="p-6">
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -288,11 +377,42 @@ export default function AdminDashboard() {
 
           <Card className="p-6">
             <div className="flex items-center">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <Bug className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Bug Reports</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {bugReports.length}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Users className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Active Trials</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {trialStats?.active || 0}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {trialStats?.pendingNotifications || 0} need notification
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <div className="flex items-center">
               <div className="p-2 bg-purple-100 rounded-lg">
                 <Target className="h-6 w-6 text-purple-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Points Earned</p>
+                <p className="text-sm font-medium text-gray-600">Total Points</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {dashboardData?.total_points_earned || 0}
                 </p>
@@ -313,40 +433,316 @@ export default function AdminDashboard() {
               </div>
             </div>
           </Card>
+
+          <Card className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <DollarSign className="h-6 w-6 text-emerald-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  ${paymentStats?.totalRevenue.toFixed(2) || '0.00'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {paymentStats?.total || 0} payments
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-teal-100 rounded-lg">
+                <CreditCard className="h-6 w-6 text-teal-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">This Month</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  ${paymentStats?.thisMonthRevenue.toFixed(2) || '0.00'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {paymentStats?.thisMonth || 0} payments
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Access Codes Manager */}
+        <div className="mb-8">
+          <AccessCodesManager />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* New Users (Last 24 Hours) */}
+          {/* Bug Reports */}
           <Card className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">New Users (24h)</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <Bug className="h-5 w-5 mr-2 text-red-500" />
+              Bug Reports
+            </h3>
             <div className="space-y-3">
-              {newUsers.length > 0 ? (
-                newUsers.slice(0, 5).map((user) => (
+              {bugReports.length > 0 ? (
+                bugReports.slice(0, 5).map((bug) => (
                   <div
-                    key={user.user_id}
-                    className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200"
+                    key={bug.id}
+                    className={`p-3 rounded-lg border ${
+                      bug.priority === 'critical' 
+                        ? 'bg-red-50 border-red-200' 
+                        : bug.priority === 'high'
+                        ? 'bg-orange-50 border-orange-200'
+                        : bug.priority === 'medium'
+                        ? 'bg-yellow-50 border-yellow-200'
+                        : 'bg-gray-50 border-gray-200'
+                    }`}
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-green-600">+</span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{user.email}</p>
-                        <p className="text-sm text-gray-600">{formatDate(user.created_at)}</p>
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${
+                            bug.type === 'bug' 
+                              ? 'bg-red-100 text-red-700 border-red-300' 
+                              : 'bg-blue-100 text-blue-700 border-blue-300'
+                          }`}
+                        >
+                          {bug.type}
+                        </Badge>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${
+                            bug.priority === 'critical' 
+                              ? 'bg-red-100 text-red-700 border-red-300' 
+                              : bug.priority === 'high'
+                              ? 'bg-orange-100 text-orange-700 border-orange-300'
+                              : bug.priority === 'medium'
+                              ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                              : 'bg-gray-100 text-gray-700 border-gray-300'
+                          }`}
+                        >
+                          {bug.priority}
+                        </Badge>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${
+                            bug.status === 'open' 
+                              ? 'bg-green-100 text-green-700 border-green-300' 
+                              : bug.status === 'in_progress'
+                              ? 'bg-blue-100 text-blue-700 border-blue-300'
+                              : bug.status === 'completed'
+                              ? 'bg-gray-100 text-gray-700 border-gray-300'
+                              : 'bg-red-100 text-red-700 border-red-300'
+                          }`}
+                        >
+                          {bug.status}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-green-600">
-                        {user.total_visits} visits
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        {user.total_tasks_created + user.total_goals_created} items
-                      </p>
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm mb-1">{bug.title}</p>
+                      <p className="text-xs text-gray-600 mb-2 line-clamp-2">{bug.description}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-gray-500">{bug.user_email}</p>
+                        <p className="text-xs text-gray-500">{formatDate(bug.created_at)}</p>
+                      </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-gray-500 text-center py-4">No new users in the last 24 hours</p>
+                <p className="text-gray-500 text-center py-4">No bug reports</p>
+              )}
+            </div>
+          </Card>
+
+          {/* Trial Subscriptions */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+              <span className="flex items-center">
+                <Users className="h-5 w-5 mr-2 text-green-500" />
+                Trial Subscriptions
+              </span>
+              {trialStats && (
+                <div className="flex items-center space-x-4 text-sm">
+                  <span className="text-gray-600">Active: <strong>{trialStats.active}</strong></span>
+                  <span className="text-orange-600">Pending Notifications: <strong>{trialStats.pendingNotifications}</strong></span>
+                  <span className="text-green-600">Converted: <strong>{trialStats.converted}</strong></span>
+                </div>
+              )}
+            </h3>
+            <div className="space-y-3">
+              {trials.length > 0 ? (
+                trials.slice(0, 10).map((trial) => (
+                  <div
+                    key={trial.id}
+                    className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">
+                          {trial.email}
+                          {trial.name && <span className="text-gray-500 ml-2">({trial.name})</span>}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Created: {formatDate(trial.created_at)}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${
+                            trial.status === 'active' 
+                              ? 'bg-green-100 text-green-700 border-green-300' 
+                              : trial.status === 'expired'
+                              ? 'bg-red-100 text-red-700 border-red-300'
+                              : trial.status === 'converted'
+                              ? 'bg-blue-100 text-blue-700 border-blue-300'
+                              : 'bg-gray-100 text-gray-700 border-gray-300'
+                          }`}
+                        >
+                          {trial.status}
+                        </Badge>
+                        {!trial.isExpired && trial.daysRemaining <= 2 && (
+                          <Badge variant="outline" className="text-xs bg-orange-100 text-orange-700 border-orange-300">
+                            {trial.daysRemaining}d left
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mt-3">
+                      <div>
+                        <p className="text-xs text-gray-500">Trial Period</p>
+                        <p className="text-xs font-medium text-gray-900">
+                          {new Date(trial.trial_start).toLocaleDateString()} - {new Date(trial.trial_end).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Will Convert To</p>
+                        <p className="text-xs font-medium text-gray-900">
+                          ${trial.conversion_price}/mo ({trial.will_convert_to})
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <p className="text-xs font-semibold text-gray-700 mb-2">Email Notifications:</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center space-x-2">
+                          {trial.notificationStatus.expiryNotificationSent ? (
+                            <>
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                              <span className="text-xs text-green-700">48h notice sent</span>
+                            </>
+                          ) : trial.notificationStatus.needsExpiryNotification ? (
+                            <>
+                              <AlertTriangle className="h-4 w-4 text-orange-500" />
+                              <span className="text-xs text-orange-700">Needs 48h notice</span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-gray-500">No 48h notice yet</span>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {trial.notificationStatus.expiredNotificationSent ? (
+                            <>
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                              <span className="text-xs text-green-700">Expiry notice sent</span>
+                            </>
+                          ) : trial.notificationStatus.needsExpiredNotification ? (
+                            <>
+                              <AlertTriangle className="h-4 w-4 text-red-500" />
+                              <span className="text-xs text-red-700">Needs expiry notice</span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-gray-500">No expiry notice yet</span>
+                          )}
+                        </div>
+                      </div>
+                      {trial.expiry_notification_sent_at && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          48h notice sent: {formatDate(trial.expiry_notification_sent_at)}
+                        </p>
+                      )}
+                      {trial.expired_notification_sent_at && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Expiry notice sent: {formatDate(trial.expired_notification_sent_at)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">No trial subscriptions</p>
+              )}
+            </div>
+          </Card>
+
+          {/* Payments */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+              <span className="flex items-center">
+                <DollarSign className="h-5 w-5 mr-2 text-emerald-500" />
+                Recent Payments
+              </span>
+              {paymentStats && (
+                <div className="flex items-center space-x-4 text-sm">
+                  <span className="text-gray-600">Total: <strong>${paymentStats.totalRevenue.toFixed(2)}</strong></span>
+                  <span className="text-blue-600">Basic: <strong>{paymentStats.basicPlanCount}</strong></span>
+                  <span className="text-purple-600">Premium: <strong>{paymentStats.premiumPlanCount}</strong></span>
+                </div>
+              )}
+            </h3>
+            <div className="space-y-3">
+              {payments.length > 0 ? (
+                payments.slice(0, 10).map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">
+                          {payment.user_email || 'Email not provided'}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          PayPal Order: {payment.paypal_order_id}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${
+                            payment.plan_type === 'basic' 
+                              ? 'bg-blue-100 text-blue-700 border-blue-300' 
+                              : 'bg-purple-100 text-purple-700 border-purple-300'
+                          }`}
+                        >
+                          {payment.plan_type}
+                        </Badge>
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs bg-green-100 text-green-700 border-green-300"
+                        >
+                          {payment.status}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mt-3">
+                      <div>
+                        <p className="text-xs text-gray-500">Amount</p>
+                        <p className="text-sm font-bold text-emerald-600">
+                          ${parseFloat(String(payment.amount)).toFixed(2)} {payment.currency}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Payment Date</p>
+                        <p className="text-xs font-medium text-gray-900">
+                          {formatDate(payment.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">No payments yet</p>
               )}
             </div>
           </Card>
@@ -495,181 +891,6 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Raw Data Section */}
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Raw Database Data</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Tasks */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span className="text-lg">Tasks</span>
-                <Badge variant="outline">{(rawData as any)?.counts?.tasks || 0}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-64 overflow-y-auto">
-                <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify((rawData as any)?.data?.tasks || [], null, 2)}
-                </pre>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Goals */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span className="text-lg">Goals</span>
-                <Badge variant="outline">{(rawData as any)?.counts?.goals || 0}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-64 overflow-y-auto">
-                <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify((rawData as any)?.data?.goals || [], null, 2)}
-                </pre>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Points */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span className="text-lg">Points Ledger</span>
-                <Badge variant="outline">{(rawData as any)?.counts?.points || 0}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-64 overflow-y-auto">
-                <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify((rawData as any)?.data?.points || [], null, 2)}
-                </pre>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Activities */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span className="text-lg">User Activities</span>
-                <Badge variant="outline">{(rawData as any)?.counts?.activities || 0}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-64 overflow-y-auto">
-                <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify((rawData as any)?.data?.activities?.slice(0, 10) || [], null, 2)}
-                </pre>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Priorities */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span className="text-lg">Priorities</span>
-                <Badge variant="outline">{(rawData as any)?.counts?.priorities || 0}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-64 overflow-y-auto">
-                <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify((rawData as any)?.data?.priorities || [], null, 2)}
-                </pre>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Habits */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span className="text-lg">Daily Habits</span>
-                <Badge variant="outline">{(rawData as any)?.counts?.habits || 0}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-64 overflow-y-auto">
-                <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify((rawData as any)?.data?.habits || [], null, 2)}
-                </pre>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Education */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span className="text-lg">Education Items</span>
-                <Badge variant="outline">{(rawData as any)?.counts?.education || 0}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-64 overflow-y-auto">
-                <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify((rawData as any)?.data?.education || [], null, 2)}
-                </pre>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Weeks */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span className="text-lg">Weeks</span>
-                <Badge variant="outline">{(rawData as any)?.counts?.weeks || 0}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-64 overflow-y-auto">
-                <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify((rawData as any)?.data?.weeks || [], null, 2)}
-                </pre>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Admin Users */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span className="text-lg">Admin Users</span>
-                <Badge variant="outline">{(rawData as any)?.counts?.adminUsers || 0}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-64 overflow-y-auto">
-                <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify((rawData as any)?.data?.adminUsers || [], null, 2)}
-                </pre>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Analytics Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span className="text-lg">Analytics Summary</span>
-                <Badge variant="outline">{(rawData as any)?.counts?.analytics || 0}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-64 overflow-y-auto">
-                <pre className="text-xs bg-gray-50 p-3 rounded">
-                  {JSON.stringify((rawData as any)?.data?.analytics || [], null, 2)}
-                </pre>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
     </div>
   )
 }
