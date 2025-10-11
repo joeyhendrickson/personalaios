@@ -46,7 +46,8 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: user.id,
         signin_date: today,
-        ip_address: request.ip || request.headers.get('x-forwarded-for') || null,
+        ip_address:
+          request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || null,
         user_agent: request.headers.get('user-agent') || null,
       })
       .select()

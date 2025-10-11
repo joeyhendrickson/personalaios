@@ -166,11 +166,11 @@ export default function RewardsSection() {
         console.log('Frontend - User rewards data:', data.userRewards)
         console.log(
           'Frontend - Redeemed rewards:',
-          data.userRewards?.filter((ur) => ur.is_redeemed)
+          data.userRewards?.filter((ur: any) => ur.is_redeemed)
         )
         console.log(
           'Frontend - All rewards with status:',
-          data.userRewards?.map((ur) => ({
+          data.userRewards?.map((ur: any) => ({
             id: ur.id,
             is_redeemed: ur.is_redeemed,
             is_unlocked: ur.is_unlocked,
