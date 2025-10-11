@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     const supabase = await createClient()
 
     // Determine plan type from amount
-    const amount = parseFloat(verificationResult.amount)
+    const amount = verificationResult.amount ? parseFloat(verificationResult.amount) : 0
     const detectedPlanType = amount === 49.99 ? 'basic' : amount === 249.99 ? 'premium' : 'basic'
 
     const { data: paymentRecord, error: paymentError } = await supabase
