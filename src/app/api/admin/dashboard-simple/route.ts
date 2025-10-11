@@ -269,7 +269,7 @@ export async function GET() {
     console.log('✅ Dashboard data prepared:', {
       totalUsers,
       activeToday: activeUsersToday,
-      admin: adminUsers.length,
+      admin: adminUsers?.length || 0,
       trial: trialUsers.length,
       standard: standardUsers.length,
       premium: premiumUsers.length,
