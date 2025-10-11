@@ -4,9 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 // PayPal SDK for server-side verification
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET
-const PAYPAL_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://api.paypal.com' 
-  : 'https://api.sandbox.paypal.com'
+const PAYPAL_BASE_URL =
+  process.env.NODE_ENV === 'production'
+    ? 'https://api.paypal.com'
+    : 'https://api.sandbox.paypal.com'
 
 interface PayPalOrderDetails {
   id: string
@@ -35,17 +36,17 @@ export async function POST(request: Request) {
 
     // Verify the payment with PayPal
     const verificationResult = await verifyPayPalPayment(orderID)
-    
+
     if (!verificationResult.success) {
       return NextResponse.json({ error: 'Payment verification failed' }, { status: 400 })
     }
 
     // Store payment record in database
     const supabase = await createClient()
-    
+
     // Determine plan type from amount
     const amount = parseFloat(verificationResult.amount)
-    const planType = amount === 49.99 ? 'basic' : amount === 249.99 ? 'premium' : 'basic'
+    const detectedPlanType = amount === 49.99 ? 'basic' : amount === 249.99 ? 'premium' : 'basic'
 
     const { data: paymentRecord, error: paymentError } = await supabase
       .from('payments')
@@ -53,10 +54,10 @@ export async function POST(request: Request) {
         paypal_order_id: orderID,
         amount: amount,
         currency: verificationResult.currency,
-        plan_type: planType,
+        plan_type: detectedPlanType,
         status: 'completed',
         payment_details: details,
-        user_email: verificationResult.email || null
+        user_email: verificationResult.email || null,
       })
       .select()
       .single()
@@ -70,17 +71,13 @@ export async function POST(request: Request) {
       success: true,
       orderID,
       paymentId: paymentRecord?.id,
-      planType,
+      planType: detectedPlanType,
       amount,
-      message: 'Payment verified successfully'
+      message: 'Payment verified successfully',
     })
-
   } catch (error) {
     console.error('PayPal verification error:', error)
-    return NextResponse.json(
-      { error: 'Payment verification failed' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Payment verification failed' }, { status: 500 })
   }
 }
 
@@ -90,12 +87,12 @@ async function verifyPayPalPayment(orderID: string) {
     const authResponse = await fetch(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {
       method: 'POST',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'Accept-Language': 'en_US',
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64')}`
+        Authorization: `Basic ${Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64')}`,
       },
-      body: 'grant_type=client_credentials'
+      body: 'grant_type=client_credentials',
     })
 
     if (!authResponse.ok) {
@@ -108,8 +105,8 @@ async function verifyPayPalPayment(orderID: string) {
     const orderResponse = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${orderID}`, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${access_token}`
-      }
+        Authorization: `Bearer ${access_token}`,
+      },
     })
 
     if (!orderResponse.ok) {
@@ -131,9 +128,8 @@ async function verifyPayPalPayment(orderID: string) {
       success: true,
       amount: capture.amount.value,
       currency: capture.amount.currency_code,
-      email: orderDetails.purchase_units[0]?.payee?.email_address || null
+      email: orderDetails.purchase_units[0]?.payee?.email_address || null,
     }
-
   } catch (error) {
     console.error('PayPal verification error:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
