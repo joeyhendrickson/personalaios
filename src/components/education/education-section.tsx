@@ -395,16 +395,13 @@ export default function EducationSection() {
         {educationItems.length === 0 ? (
           <div className="text-center py-8">
             <GraduationCap className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No education items yet</h3>
-            <p className="text-gray-600 mb-4">
-              Add your first education goal or import default items
-            </p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('empty.noEducation')}</h3>
             <button
               onClick={handleImportDefaultEducation}
               disabled={isImporting}
               className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isImporting ? 'Importing...' : 'Import Default Education Items'}
+              {isImporting ? 'Importing...' : t('empty.importDefaultEducation')}
             </button>
           </div>
         ) : (

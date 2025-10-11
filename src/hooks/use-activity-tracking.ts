@@ -1,14 +1,21 @@
 import { useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
+import { useAdminAuth } from './use-admin-auth'
 
 export function useActivityTracking() {
   const pathname = usePathname()
+  const { isAdmin } = useAdminAuth()
   const sessionIdRef = useRef<string | null>(null)
   const lastActivityRef = useRef<number>(Date.now())
   const sessionStartRef = useRef<number>(Date.now())
 
+  // Don't track admin users
+  const shouldTrack = !isAdmin
+
   // Generate session ID
   useEffect(() => {
+    if (!shouldTrack) return
+
     if (!sessionIdRef.current) {
       sessionIdRef.current = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
@@ -18,20 +25,24 @@ export function useActivityTracking() {
         page_url: pathname,
       })
     }
-  }, [])
+  }, [shouldTrack])
 
   // Track page visits
   useEffect(() => {
+    if (!shouldTrack) return
+
     if (sessionIdRef.current) {
       logActivity('page_visit', {
         session_id: sessionIdRef.current,
         page_url: pathname,
       })
     }
-  }, [pathname])
+  }, [pathname, shouldTrack])
 
   // Track user activity (mouse movement, clicks, keyboard)
   useEffect(() => {
+    if (!shouldTrack) return
+
     const updateActivity = () => {
       lastActivityRef.current = Date.now()
     }
@@ -69,11 +80,13 @@ export function useActivityTracking() {
       })
       clearInterval(inactivityCheck)
     }
-  }, [pathname])
+  }, [pathname, shouldTrack])
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      if (!shouldTrack) return
+
       if (sessionIdRef.current) {
         const sessionDuration = Math.round((Date.now() - sessionStartRef.current) / 1000)
         logActivity('session_end', {
@@ -83,10 +96,12 @@ export function useActivityTracking() {
         })
       }
     }
-  }, [pathname])
+  }, [pathname, shouldTrack])
 
   return {
     logActivity: (activityType: string, data?: Record<string, unknown>) => {
+      if (!shouldTrack) return
+
       logActivity(activityType, {
         session_id: sessionIdRef.current,
         page_url: pathname,

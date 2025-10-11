@@ -2,126 +2,235 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 export async function GET() {
-  console.log('🚀 RAW DATA API CALLED - FETCHING ALL TABLE DATA')
+  console.log('🔍 RAW DATA API CALLED - FETCHING DATA CATALOG')
   try {
     const supabase = await createClient()
 
-    // Check admin access
+    // Check admin authentication
     const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
+
+    if (sessionError || !session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Check if user is admin
     const { data: adminUser, error: adminError } = await supabase
       .from('admin_users')
       .select('id, email, role')
-      .eq('email', user.email)
+      .eq('email', session.user.email)
       .single()
 
     if (adminError || !adminUser) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    console.log('Admin verified, fetching all table data...')
+    console.log('✅ Admin verified:', adminUser.email)
 
-    // Test a simple query first
-    const { data: testData, error: testError } = await supabase.from('tasks').select('*').limit(1)
+    // Fetch comprehensive data catalog
+    const dataCatalog = await fetchDataCatalog(supabase)
 
-    console.log('Test query result:', { testData, testError })
+    const timestamp = new Date().toISOString()
 
-    // Fetch all table data
-    const [
-      { data: tasks, error: tasksError },
-      { data: goals, error: goalsError },
-      { data: points, error: pointsError },
-      { data: activities, error: activitiesError },
-      { data: priorities, error: prioritiesError },
-      { data: habits, error: habitsError },
-      { data: education, error: educationError },
-      { data: weeks, error: weeksError },
-      { data: adminUsers, error: adminUsersError },
-      { data: analytics, error: analyticsError },
-    ] = await Promise.all([
-      supabase.from('tasks').select('*'),
-      supabase.from('goals').select('*'),
-      supabase.from('points_ledger').select('*'),
-      supabase.from('user_activity_logs').select('*'),
-      supabase.from('priorities').select('*'),
-      supabase.from('daily_habits').select('*'),
-      supabase.from('education_items').select('*'),
-      supabase.from('weeks').select('*'),
-      supabase.from('admin_users').select('*'),
-      supabase.from('user_analytics_summary').select('*'),
-    ])
-
-    console.log('Raw data fetched:', {
-      tasks: tasks?.length || 0,
-      goals: goals?.length || 0,
-      points: points?.length || 0,
-      activities: activities?.length || 0,
-      priorities: priorities?.length || 0,
-      habits: habits?.length || 0,
-      education: education?.length || 0,
-      weeks: weeks?.length || 0,
-      adminUsers: adminUsers?.length || 0,
-      analytics: analytics?.length || 0,
-    })
-
-    // Log any errors with detailed information
-    if (tasksError) console.error('Tasks error:', { error: tasksError, data: tasks })
-    if (goalsError) console.error('Goals error:', { error: goalsError, data: goals })
-    if (pointsError) console.error('Points error:', { error: pointsError, data: points })
-    if (activitiesError)
-      console.error('Activities error:', { error: activitiesError, data: activities })
-    if (prioritiesError)
-      console.error('Priorities error:', { error: prioritiesError, data: priorities })
-    if (habitsError) console.error('Habits error:', { error: habitsError, data: habits })
-    if (educationError)
-      console.error('Education error:', { error: educationError, data: education })
-    if (weeksError) console.error('Weeks error:', { error: weeksError, data: weeks })
-    if (adminUsersError)
-      console.error('Admin users error:', { error: adminUsersError, data: adminUsers })
-    if (analyticsError)
-      console.error('Analytics error:', { error: analyticsError, data: analytics })
+    // Store the data catalog with timestamp for caching
+    const catalogWithTimestamp = {
+      ...dataCatalog,
+      _metadata: {
+        last_updated: timestamp,
+        next_refresh: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
+        version: '1.0',
+        total_tables: Object.keys(dataCatalog).length,
+      },
+    }
 
     return NextResponse.json({
       success: true,
-      data: {
-        tasks: tasks || [],
-        goals: goals || [],
-        points: points || [],
-        activities: activities || [],
-        priorities: priorities || [],
-        habits: habits || [],
-        education: education || [],
-        weeks: weeks || [],
-        adminUsers: adminUsers || [],
-        analytics: analytics || [],
-      },
-      counts: {
-        tasks: tasks?.length || 0,
-        goals: goals?.length || 0,
-        points: points?.length || 0,
-        activities: activities?.length || 0,
-        priorities: priorities?.length || 0,
-        habits: habits?.length || 0,
-        education: education?.length || 0,
-        weeks: weeks?.length || 0,
-        adminUsers: adminUsers?.length || 0,
-        analytics: analytics?.length || 0,
-      },
+      data: catalogWithTimestamp,
+      timestamp: timestamp,
+      auto_refresh_enabled: true,
+      refresh_interval_days: 3,
     })
   } catch (error) {
-    console.error('Unexpected error in raw data API:', error)
+    console.error('❌ Raw data API error:', error)
     return NextResponse.json(
       {
-        error: 'Internal server error',
+        error: 'Failed to fetch raw data',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     )
   }
+}
+
+async function fetchDataCatalog(supabase: any) {
+  const catalog: any = {}
+
+  // 1. Auth Users Data
+  try {
+    const { data: authUsers, error } = await supabase.auth.admin.listUsers()
+    catalog.auth_users = {
+      count: authUsers?.users?.length || 0,
+      columns: ['id', 'email', 'created_at', 'last_sign_in_at', 'email_confirmed_at'],
+      sample_data: authUsers?.users?.slice(0, 3) || [],
+      description: 'Supabase authentication users - source of truth for all users',
+    }
+  } catch (error) {
+    catalog.auth_users = { error: 'Failed to fetch auth users', details: error }
+  }
+
+  // 2. Profiles Data
+  try {
+    const { data: profiles, error } = await supabase.from('profiles').select('*').limit(10)
+
+    if (!error && profiles) {
+      catalog.profiles = {
+        count: profiles.length,
+        columns: Object.keys(profiles[0] || {}),
+        sample_data: profiles.slice(0, 3),
+        description: 'User profile information linked to auth.users.id',
+      }
+    }
+  } catch (error) {
+    catalog.profiles = { error: 'Failed to fetch profiles', details: error }
+  }
+
+  // 3. Admin Users Data
+  try {
+    const { data: adminUsers, error } = await supabase.from('admin_users').select('*')
+
+    if (!error && adminUsers) {
+      catalog.admin_users = {
+        count: adminUsers.length,
+        columns: Object.keys(adminUsers[0] || {}),
+        sample_data: adminUsers,
+        description: 'Admin users with special dashboard access',
+      }
+    }
+  } catch (error) {
+    catalog.admin_users = { error: 'Failed to fetch admin users', details: error }
+  }
+
+  // 4. Trial Subscriptions Data
+  try {
+    const { data: trialSubs, error } = await supabase.from('trial_subscriptions').select('*')
+
+    if (!error && trialSubs) {
+      catalog.trial_subscriptions = {
+        count: trialSubs.length,
+        columns: Object.keys(trialSubs[0] || {}),
+        sample_data: trialSubs,
+        description: '7-day free trial users',
+      }
+    }
+  } catch (error) {
+    catalog.trial_subscriptions = { error: 'Failed to fetch trial subscriptions', details: error }
+  }
+
+  // 5. Standard Subscriptions Data
+  try {
+    const { data: standardSubs, error } = await supabase.from('subscriptions').select('*')
+
+    if (!error && standardSubs) {
+      catalog.subscriptions = {
+        count: standardSubs.length,
+        columns: Object.keys(standardSubs[0] || {}),
+        sample_data: standardSubs,
+        description: 'Standard plan subscribers ($19.99/month)',
+      }
+    }
+  } catch (error) {
+    catalog.subscriptions = { error: 'Failed to fetch subscriptions', details: error }
+  }
+
+  // 6. User Activity Logs Data
+  try {
+    const { data: activityLogs, error } = await supabase
+      .from('user_activity_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    if (!error && activityLogs) {
+      catalog.user_activity_logs = {
+        count: activityLogs.length,
+        columns: Object.keys(activityLogs[0] || {}),
+        sample_data: activityLogs,
+        description: 'Detailed user activity tracking (page visits, interactions)',
+      }
+    }
+  } catch (error) {
+    catalog.user_activity_logs = { error: 'Failed to fetch activity logs', details: error }
+  }
+
+  // 7. User Analytics Summary Data
+  try {
+    const { data: analyticsSummary, error } = await supabase
+      .from('user_analytics_summary')
+      .select('*')
+
+    if (!error && analyticsSummary) {
+      catalog.user_analytics_summary = {
+        count: analyticsSummary.length,
+        columns: Object.keys(analyticsSummary[0] || {}),
+        sample_data: analyticsSummary,
+        description: 'Aggregated user analytics (visits, time spent, tasks, goals)',
+      }
+    }
+  } catch (error) {
+    catalog.user_analytics_summary = { error: 'Failed to fetch analytics summary', details: error }
+  }
+
+  // 8. User Classification Summary
+  try {
+    const { data: authUsers } = await supabase.auth.admin.listUsers()
+    const { data: adminUsers } = await supabase
+      .from('admin_users')
+      .select('email')
+      .eq('is_active', true)
+    const { data: trialUsers } = await supabase.from('trial_subscriptions').select('email')
+    const { data: standardUsers } = await supabase
+      .from('subscriptions')
+      .select('user_id')
+      .eq('plan_type', 'standard')
+
+    if (authUsers?.users) {
+      const classification = authUsers.users.map((user: any) => {
+        let userType = 'PREMIUM' // Default for legacy users
+
+        if (adminUsers?.some((admin: any) => admin.email === user.email)) {
+          userType = 'ADMIN'
+        } else if (trialUsers?.some((trial: any) => trial.email === user.email)) {
+          userType = 'TRIAL'
+        } else if (standardUsers?.some((std: any) => std.user_id === user.id)) {
+          userType = 'STANDARD'
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          type: userType,
+          created_at: user.created_at,
+          last_sign_in_at: user.last_sign_in_at,
+        }
+      })
+
+      catalog.user_classification = {
+        count: classification.length,
+        summary: {
+          ADMIN: classification.filter((u: any) => u.type === 'ADMIN').length,
+          TRIAL: classification.filter((u: any) => u.type === 'TRIAL').length,
+          STANDARD: classification.filter((u: any) => u.type === 'STANDARD').length,
+          PREMIUM: classification.filter((u: any) => u.type === 'PREMIUM').length,
+        },
+        users: classification,
+        description: 'Current user classification based on subscription status',
+      }
+    }
+  } catch (error) {
+    catalog.user_classification = { error: 'Failed to classify users', details: error }
+  }
+
+  return catalog
 }

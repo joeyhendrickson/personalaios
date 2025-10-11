@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   Target,
   CheckCircle,
@@ -48,6 +49,7 @@ import TaskAdvisor from '@/components/dashboard/task-advisor'
 import { DraggableTasks } from '@/components/tasks/draggable-tasks'
 import { Task, Goal, Habit, Priority } from '@/types'
 import { DeletedPriorities } from '@/components/priorities/deleted-priorities'
+import TrialStatusBanner from '@/components/trial/trial-status-banner'
 import { useActivityTracking } from '@/hooks/use-activity-tracking'
 import { useAdminAuth } from '@/hooks/use-admin-auth'
 
@@ -199,6 +201,7 @@ interface CascadingSectionProps {
   onToggle: () => void
   children: React.ReactNode
   className?: string
+  t: (key: string, params?: Record<string, any>) => string
 }
 
 const CascadingSection = ({
@@ -208,6 +211,7 @@ const CascadingSection = ({
   onToggle,
   children,
   className = '',
+  t,
 }: CascadingSectionProps) => {
   return (
     <div
@@ -225,7 +229,7 @@ const CascadingSection = ({
             <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-500">Double-click to cascade</span>
+            <span className="text-xs text-gray-500">{t('actions.doubleClickToCascade')}</span>
             {isExpanded ? (
               <ChevronUp className="h-5 w-5 text-gray-400 transition-transform duration-200" />
             ) : (
@@ -311,10 +315,46 @@ export default function DashboardPage() {
   const { logActivity } = useActivityTracking()
   const { isAdmin } = useAdminAuth()
   const { t } = useLanguage()
+  const searchParams = useSearchParams()
+  const [trialUser, setTrialUser] = useState<{ email: string; name?: string } | null>(null)
   const [goals, setGoals] = useState<Goal[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [currentWeek, setCurrentWeek] = useState<Week | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // Handle trial users
+  useEffect(() => {
+    const checkTrialStatus = async () => {
+      const trialEmail = searchParams.get('trial_email')
+
+      // Check URL parameter for trial email (legacy support)
+      if (trialEmail && !user) {
+        setTrialUser({ email: trialEmail })
+        return
+      }
+
+      // Check authenticated user for trial subscription
+      if (user?.email) {
+        try {
+          const response = await fetch(`/api/trial/create?email=${encodeURIComponent(user.email)}`)
+          const data = await response.json()
+
+          if (data.success && data.trial && data.trial.status === 'active') {
+            const now = new Date()
+            const trialEnd = new Date(data.trial.trial_end)
+
+            if (now < trialEnd) {
+              setTrialUser({ email: user.email })
+            }
+          }
+        } catch (error) {
+          console.error('Error checking trial status:', error)
+        }
+      }
+    }
+
+    checkTrialStatus()
+  }, [searchParams, user])
   const [pointsData, setPointsData] = useState<{
     dailyPoints: number
     weeklyPoints: number
@@ -1460,7 +1500,7 @@ export default function DashboardPage() {
               <Link href="/import">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3">
                   <FileSpreadsheet className="h-4 w-4" />
-                  Import
+                  {t('nav.import')}
                 </button>
               </Link>
               <Link href="/profile">
@@ -1495,6 +1535,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Trial Status Banner */}
+      {trialUser && <TrialStatusBanner email={trialUser.email} />}
+
       <div className="container mx-auto px-6 pt-8 pb-24">
         {/* Main Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -1508,7 +1551,9 @@ export default function DashboardPage() {
                     {pointsData?.dailyPoints || 0}
                     {pointsLoading && <span className="text-sm text-blue-400 ml-2">⟳</span>}
                   </p>
-                  <p className="text-sm text-black mt-1">{t('radial.weeklyProgress')}: {pointsData?.weeklyPoints || 0}</p>
+                  <p className="text-sm text-black mt-1">
+                    {t('radial.weeklyProgress')}: {pointsData?.weeklyPoints || 0}
+                  </p>
                 </div>
                 <div className="flex items-center space-x-2">
                   <BarChart3 className="h-8 w-8 text-blue-400" />
@@ -1594,8 +1639,7 @@ export default function DashboardPage() {
                 let motivation
                 if (dailyPoints >= 500) {
                   motivation = {
-                    message:
-                      t('radial.motivational.incredible'),
+                    message: t('radial.motivational.incredible'),
                     emoji: '🚀',
                     color: 'text-blue-600 bg-blue-50 border-blue-200',
                   }
@@ -1629,9 +1673,8 @@ export default function DashboardPage() {
                   }
                 } else {
                   motivation = {
-                    message:
-                      '🎯 Ready to make today count? Pick a project and start building momentum!',
-                    emoji: '🎯',
+                    message: t('ai.readyToMakeTodayCount'),
+                    emoji: '',
                     color: 'text-gray-600 bg-gray-50 border-gray-200',
                   }
                 }
@@ -1639,7 +1682,7 @@ export default function DashboardPage() {
                 return (
                   <div className={`mt-4 p-3 rounded-lg border ${motivation.color}`}>
                     <div className="flex items-center space-x-2">
-                      <span className="text-lg">{motivation.emoji}</span>
+                      {motivation.emoji && <span className="text-lg">{motivation.emoji}</span>}
                       <p className="text-sm font-medium">{motivation.message}</p>
                     </div>
                   </div>
@@ -1668,7 +1711,9 @@ export default function DashboardPage() {
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <div className="flex items-center space-x-2 mb-3">
                   <Lightbulb className="h-4 w-4 text-blue-400" />
-                  <h4 className="text-sm font-semibold text-black">{t('radial.strategicInsights')}</h4>
+                  <h4 className="text-sm font-semibold text-black">
+                    {t('radial.strategicInsights')}
+                  </h4>
                 </div>
                 {strategicLoading ? (
                   <div className="text-center py-2">
@@ -1696,7 +1741,7 @@ export default function DashboardPage() {
                 ) : (
                   <div className="text-center py-2">
                     <Lightbulb className="h-4 w-4 text-gray-400 mx-auto mb-1" />
-                    <p className="text-xs text-gray-500">No insights available</p>
+                    <p className="text-xs text-gray-500">{t('ai.noInsightsAvailable')}</p>
                   </div>
                 )}
               </div>
@@ -1730,7 +1775,9 @@ export default function DashboardPage() {
               {/* Header with View Stacks, Language Toggle, and Eye Icon */}
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-medium text-black">{t('common.view')} {t('common.stacks')}</p>
+                  <p className="text-sm font-medium text-black">
+                    {t('common.view')} {t('common.stacks')}
+                  </p>
                 </div>
                 <div className="flex items-center space-x-3">
                   <LanguageToggle />
@@ -1779,6 +1826,7 @@ export default function DashboardPage() {
                 icon={<Brain className="h-6 w-6 text-purple-500" />}
                 isExpanded={expandedSections.priorities}
                 onToggle={() => toggleSectionExpansion('priorities')}
+                t={t}
               >
                 <div className="mb-4">
                   <p className="text-sm text-gray-600 mb-4">{t('priorities.title')}</p>
@@ -1795,14 +1843,14 @@ export default function DashboardPage() {
                       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                     >
                       <Plus className="h-4 w-4" />
-{t('priorities.addPriority')}
+                      {t('priorities.addPriority')}
                     </button>
                     <button
                       onClick={() => setShowDeletedPriorities(true)}
                       className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                     >
                       <Trash2 className="h-4 w-4" />
-                      View Deleted
+                      {t('empty.viewDeleted')}
                     </button>
                   </div>
                 </div>
@@ -1811,16 +1859,15 @@ export default function DashboardPage() {
                   {priorities.length === 0 ? (
                     <div className="text-center py-8">
                       <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">No priorities set</h3>
-                      <p className="text-gray-600 mb-4">
-                        Generate AI recommendations or add manual priorities
-                      </p>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        {t('empty.noPriorities')}
+                      </h3>
                       <button
                         onClick={() => setShowConversationalPriorityInput(true)}
                         className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                       >
                         <Brain className="h-4 w-4 inline mr-2" />
-                        Generate AI Priorities
+                        {t('empty.generateAI')}
                       </button>
                     </div>
                   ) : (
@@ -1963,11 +2010,10 @@ export default function DashboardPage() {
                 icon={<Target className="h-6 w-6 text-red-500" />}
                 isExpanded={expandedSections.goals}
                 onToggle={() => toggleSectionExpansion('goals')}
+                t={t}
               >
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-4">
-                    {t('goals.title')}
-                  </p>
+                  <p className="text-sm text-gray-600 mb-4">{t('goals.title')}</p>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => setShowCompletedGoals(!showCompletedGoals)}
@@ -1986,7 +2032,7 @@ export default function DashboardPage() {
                         className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Goal
+                        {t('actions.addGoal')}
                       </button>
                     )}
                   </div>
@@ -2025,7 +2071,9 @@ export default function DashboardPage() {
                                   <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
                                     {(goal as any).goal_type}
                                   </span>
-                                  <span>{t('goals.priority')}: {(goal as any).priority_level}/5</span>
+                                  <span>
+                                    {t('goals.priority')}: {(goal as any).priority_level}/5
+                                  </span>
                                 </div>
                               </div>
                               <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 border-green-200 text-green-700">
@@ -2067,10 +2115,10 @@ export default function DashboardPage() {
                     highLevelGoals.length === 0 ? (
                       <div className="col-span-2 text-center py-8">
                         <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">{t('goals.noGoals')}</h3>
-                        <p className="text-gray-600 mb-4">
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
                           {t('goals.noGoals')}
-                        </p>
+                        </h3>
+                        <p className="text-gray-600 mb-4">{t('goals.noGoals')}</p>
                         <button
                           onClick={() => setShowAddHighLevelGoal(true)}
                           className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-medium transition-colors"
@@ -2096,7 +2144,9 @@ export default function DashboardPage() {
                                 <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
                                   {(goal as any).goal_type}
                                 </span>
-                                <span>{t('goals.priority')}: {(goal as any).priority_level}/5</span>
+                                <span>
+                                  {t('goals.priority')}: {(goal as any).priority_level}/5
+                                </span>
                               </div>
                             </div>
                             <div className="flex space-x-1">
@@ -2189,11 +2239,10 @@ export default function DashboardPage() {
                 icon={<Target className="h-6 w-6 text-blue-500" />}
                 isExpanded={expandedSections.projects}
                 onToggle={() => toggleSectionExpansion('projects')}
+                t={t}
               >
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-4">
-                    {t('projects.title')}
-                  </p>
+                  <p className="text-sm text-gray-600 mb-4">{t('projects.title')}</p>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={categorizeGoalsWithAI}
@@ -2584,7 +2633,8 @@ export default function DashboardPage() {
                                   onClick={() => openEditGoal(goal)}
                                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 rounded-md px-3 text-xs"
                                 >
-                                  {t('projects.viewDetails')} <ChevronRight className="h-3 w-3 ml-1" />
+                                  {t('projects.viewDetails')}{' '}
+                                  <ChevronRight className="h-3 w-3 ml-1" />
                                 </button>
                               </div>
                             </div>
@@ -2604,11 +2654,10 @@ export default function DashboardPage() {
                 icon={<CheckCircle className="h-6 w-6 text-green-500" />}
                 isExpanded={expandedSections.tasks}
                 onToggle={() => toggleSectionExpansion('tasks')}
+                t={t}
               >
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-4">
-                    {t('tasks.title')}
-                  </p>
+                  <p className="text-sm text-gray-600 mb-4">{t('tasks.title')}</p>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => setShowCompleted(!showCompleted)}
@@ -2696,9 +2745,7 @@ export default function DashboardPage() {
                     tasks.length === 0 ? (
                       <div className="text-center py-8">
                         <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">
-                          {t('tasks.noTasks')}
-                        </p>
+                        <p className="text-gray-600">{t('tasks.noTasks')}</p>
                       </div>
                     ) : (
                       <DraggableTasks
@@ -2725,9 +2772,7 @@ export default function DashboardPage() {
                   <Brain className="h-6 w-6 mr-2 text-purple-500" />
                   {t('aiAdvisor.title')}
                 </h2>
-                <p className="text-sm text-gray-600">
-                  {t('aiAdvisor.description')}
-                </p>
+                <p className="text-sm text-gray-600">{t('aiAdvisor.description')}</p>
               </div>
               <div className="p-6 pt-0">
                 <div className="space-y-4">
@@ -2738,9 +2783,7 @@ export default function DashboardPage() {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{t('aiAdvisor.ready')}</p>
-                        <p className="text-xs text-gray-600">
-                          {t('aiAdvisor.prompt')}
-                        </p>
+                        <p className="text-xs text-gray-600">{t('aiAdvisor.prompt')}</p>
                       </div>
                     </div>
                     <button
@@ -2762,11 +2805,10 @@ export default function DashboardPage() {
                 icon={<Trophy className="h-6 w-6 text-orange-500" />}
                 isExpanded={expandedSections.accomplishments}
                 onToggle={() => toggleSectionExpansion('accomplishments')}
+                t={t}
               >
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-4">
-                    {t('accomplishments.description')}
-                  </p>
+                  <p className="text-sm text-gray-600 mb-4">{t('accomplishments.description')}</p>
                   <button
                     onClick={() => setShowAccomplishmentsHistory(true)}
                     className="text-xs text-blue-600 hover:text-blue-800 font-medium"
@@ -2883,6 +2925,7 @@ export default function DashboardPage() {
                 icon={<PieChart className="h-6 w-6 text-indigo-500" />}
                 isExpanded={expandedSections.categories}
                 onToggle={() => toggleSectionExpansion('categories')}
+                t={t}
               >
                 <div className="mb-4">
                   <p className="text-sm text-gray-600 mb-4">{t('categoryProgress.title')}</p>
@@ -2898,10 +2941,7 @@ export default function DashboardPage() {
                   <div className="space-y-3">
                     {dashboardCategories.length === 0 ? (
                       <div className="text-center py-4">
-                        <p className="text-gray-500 text-sm">No categories yet</p>
-                        <p className="text-gray-400 text-xs mt-1">
-                          Add your first category to organize your projects
-                        </p>
+                        <p className="text-gray-500 text-sm">{t('empty.noCategories')}</p>
                       </div>
                     ) : (
                       (() => {
@@ -2987,6 +3027,7 @@ export default function DashboardPage() {
                 icon={<Target className="h-6 w-6 text-pink-500" />}
                 isExpanded={expandedSections.habits}
                 onToggle={() => toggleSectionExpansion('habits')}
+                t={t}
               >
                 <HabitsSection />
               </CascadingSection>
@@ -2999,6 +3040,7 @@ export default function DashboardPage() {
                 icon={<GraduationCap className="h-6 w-6 text-yellow-500" />}
                 isExpanded={expandedSections.education}
                 onToggle={() => toggleSectionExpansion('education')}
+                t={t}
               >
                 <EducationSection />
               </CascadingSection>
@@ -3161,7 +3203,7 @@ export default function DashboardPage() {
                   onClick={handleAddGoal}
                   className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
                 >
-                  Add Goal
+                  {t('actions.addGoal')}
                 </button>
                 <button
                   onClick={() => setShowAddGoal(false)}
@@ -3351,7 +3393,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-{t('goals.priorityLevel')}
+                  {t('goals.priorityLevel')}
                 </label>
                 <input
                   type="number"
@@ -3432,7 +3474,7 @@ export default function DashboardPage() {
                   }}
                   className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
                 >
-                  Add Goal
+                  {t('actions.addGoal')}
                 </button>
                 <button
                   onClick={() => setShowAddHighLevelGoal(false)}
@@ -3524,7 +3566,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-{t('goals.priorityLevel')}
+                  {t('goals.priorityLevel')}
                 </label>
                 <input
                   type="number"
@@ -3952,7 +3994,7 @@ export default function DashboardPage() {
                     htmlFor="edit-priority-score"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-{t('goals.priorityScore')}
+                    {t('goals.priorityScore')}
                   </label>
                   <input
                     type="number"
@@ -4182,7 +4224,7 @@ export default function DashboardPage() {
           rel="noopener noreferrer"
           className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
         >
-          Privacy Policy
+          {t('nav.privacyPolicy')}
         </a>
       </div>
     </div>

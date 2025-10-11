@@ -1,29 +1,128 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Check, Star, Mail, CreditCard, Zap } from 'lucide-react'
+import { Check, Star, Mail, CreditCard, Zap, ChevronDown, ChevronUp, Gift } from 'lucide-react'
 import Link from 'next/link'
 
 export default function CreateAccountPage() {
   const [selectedPlan, setSelectedPlan] = useState<'trial' | 'basic' | 'premium'>('trial')
   const [isProcessing, setIsProcessing] = useState(false)
   const [showForm, setShowForm] = useState<'trial' | 'basic' | 'premium' | null>(null)
+  const [showFAQ, setShowFAQ] = useState(false)
+  const [isExpiredTrial, setIsExpiredTrial] = useState(false)
+  const [showRedeemModal, setShowRedeemModal] = useState(false)
+  const [redeemData, setRedeemData] = useState({
+    code: '',
+    name: '',
+    email: '',
+    password: '',
+  })
+  const [redeemError, setRedeemError] = useState('')
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    password: '',
     message: '',
   })
 
+  // Check if user came here because their trial expired
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const expired = params.get('expired')
+    const email = params.get('email')
+
+    if (expired === 'true') {
+      setIsExpiredTrial(true)
+      if (email) {
+        setFormData((prev) => ({ ...prev, email }))
+      }
+      // Automatically show the standard plan form
+      setSelectedPlan('basic')
+      setShowForm('basic')
+    }
+  }, [])
+
   const handlePlanSelection = (plan: 'trial' | 'basic' | 'premium') => {
+    console.log('Plan selected:', plan)
     setSelectedPlan(plan)
     setShowForm(plan)
-    setFormData({ name: '', email: '', message: '' })
+    setFormData({ name: '', email: '', password: '', message: '' })
+    console.log('showForm set to:', plan)
+  }
+
+  const handleRedeemSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setRedeemError('')
+    setIsProcessing(true)
+
+    try {
+      // First verify the code
+      const verifyResponse = await fetch('/api/access-codes/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: redeemData.code,
+          email: redeemData.email,
+        }),
+      })
+
+      const verifyResult = await verifyResponse.json()
+
+      if (!verifyResponse.ok || !verifyResult.valid) {
+        setRedeemError(verifyResult.error || 'Invalid access code')
+        setIsProcessing(false)
+        return
+      }
+
+      // Redeem the code and create premium account
+      const redeemResponse = await fetch('/api/access-codes/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: redeemData.code,
+          email: redeemData.email,
+          password: redeemData.password,
+          name: redeemData.name,
+        }),
+      })
+
+      const redeemResult = await redeemResponse.json()
+
+      if (!redeemResponse.ok) {
+        setRedeemError(redeemResult.error || 'Failed to create account')
+        setIsProcessing(false)
+        return
+      }
+
+      // Sign the user in
+      const signinResponse = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: redeemData.email,
+          password: redeemData.password,
+        }),
+      })
+
+      if (!signinResponse.ok) {
+        setRedeemError('Account created but failed to sign in. Please try logging in.')
+        setIsProcessing(false)
+        return
+      }
+
+      // Redirect to dashboard
+      window.location.href = '/dashboard'
+    } catch (error: any) {
+      console.error('Error redeeming code:', error)
+      setRedeemError(error.message || 'An error occurred')
+      setIsProcessing(false)
+    }
   }
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -32,8 +131,66 @@ export default function CreateAccountPage() {
 
     try {
       if (showForm === 'trial') {
-        // Create trial account
-        const response = await fetch('/api/trial/create', {
+        // First, create the user account with Supabase Auth
+        const signupResponse = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            name: formData.name,
+          }),
+        })
+
+        console.log('Signup response status:', signupResponse.status)
+        const responseText = await signupResponse.text()
+        console.log('Signup response text:', responseText)
+
+        let signupData
+        try {
+          signupData = JSON.parse(responseText)
+        } catch (e) {
+          console.error('Failed to parse signup response:', responseText)
+          throw new Error(`Invalid server response: ${responseText.substring(0, 100)}`)
+        }
+
+        if (!signupResponse.ok) {
+          console.error('Signup error response:', signupData)
+          console.error('Signup error message:', signupData.error)
+          console.error('Full signupData:', JSON.stringify(signupData, null, 2))
+
+          // If user already exists, try to log them in instead
+          if (signupData.error && signupData.error.includes('already registered')) {
+            console.log('User already exists, attempting signin...')
+            // Try to sign in with provided credentials
+            const signinResponse = await fetch('/api/auth/signin', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: formData.email,
+                password: formData.password,
+              }),
+            })
+
+            if (!signinResponse.ok) {
+              const signinError = await signinResponse.json()
+              console.error('Signin error:', signinError)
+              throw new Error(
+                'User already exists. Please use the correct password or try logging in.'
+              )
+            }
+
+            console.log('User signed in successfully')
+            // User signed in successfully, continue to create trial
+          } else {
+            throw new Error(signupData.error || 'Failed to create user account')
+          }
+        } else {
+          console.log('User account created successfully:', signupData)
+        }
+
+        // Then create trial subscription record
+        const trialResponse = await fetch('/api/trial/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -43,52 +200,37 @@ export default function CreateAccountPage() {
           }),
         })
 
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Failed to create trial account')
+        if (!trialResponse.ok) {
+          const errorData = await trialResponse.json()
+          throw new Error(errorData.error || 'Failed to create trial subscription')
         }
 
-        // Also create the user account
-        const signupResponse = await fetch('/api/auth/signup', {
+        // Automatically sign in the user after successful account creation
+        const signinResponse = await fetch('/api/auth/signin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: formData.email,
-            password: 'temp123', // Temporary password, user will set their own
-            name: formData.name,
+            password: formData.password,
           }),
         })
 
-        if (!signupResponse.ok) {
-          const errorData = await signupResponse.json()
-          throw new Error(errorData.error || 'Failed to create account')
+        if (!signinResponse.ok) {
+          // If signin fails, redirect to login page
+          window.location.href = `/login?trial=success&email=${encodeURIComponent(formData.email)}`
+          return
         }
 
-        // Redirect to dashboard
+        // Redirect directly to dashboard
         window.location.href = '/dashboard'
       } else if (showForm === 'basic') {
-        // Create account first, then redirect to PayPal payment
-        const signupResponse = await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: formData.email,
-            password: 'temp123', // Temporary password
-            name: formData.name,
-          }),
-        })
-
-        if (!signupResponse.ok) {
-          const errorData = await signupResponse.json()
-          throw new Error(errorData.error || 'Failed to create account')
-        }
-
-        // Redirect to PayPal checkout page with user info
+        // Redirect directly to PayPal checkout
+        // User account will be created after successful payment
         const params = new URLSearchParams({
           email: formData.email,
           name: formData.name,
           plan: 'basic',
-          amount: '19.99',
+          amount: '20.00',
         })
         window.location.href = `/paypal-checkout?${params.toString()}`
       } else if (showForm === 'premium') {
@@ -108,7 +250,13 @@ Thank you!`
       }
     } catch (error: any) {
       console.error('Error processing form:', error)
-      alert(error.message)
+      alert(error.message || 'An error occurred. Please try again.')
+      // Log the full error for debugging
+      console.error('Full error details:', {
+        message: error.message,
+        stack: error.stack,
+        error: error,
+      })
     } finally {
       setIsProcessing(false)
     }
@@ -139,10 +287,24 @@ Thank you!`
               </div>
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-white mb-4">Choose Your Plan</h1>
+          <h1 className="text-4xl font-bold text-white mb-4">
+            {isExpiredTrial ? 'Your Trial Has Expired' : 'Choose Your Plan'}
+          </h1>
+          {isExpiredTrial ? (
+            <div className="max-w-2xl mx-auto mb-4">
+              <div className="bg-orange-500 text-white p-4 rounded-lg mb-4">
+                <p className="text-lg font-semibold mb-2">⏰ Your 7-day free trial has ended</p>
+                <p className="text-sm">
+                  Continue your journey with Life Stacks! Upgrade to our Standard Plan to keep all
+                  your progress and data.
+                </p>
+              </div>
+            </div>
+          ) : null}
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-            Direct your life and build your focus with our AI-driven Personal OS. Start your
-            transformation with the plan that's right for you.
+            {isExpiredTrial
+              ? 'Choose a plan below to continue using Life Stacks and keep your data.'
+              : 'Direct your life and build your focus with our AI-driven Life Stacks platform. Start your transformation with the plan that is right for you.'}
           </p>
         </div>
 
@@ -189,7 +351,7 @@ Thank you!`
                 disabled={isProcessing}
                 className="w-full bg-green-600 hover:bg-green-700"
               >
-                {showForm === 'trial' ? 'Show Details' : 'Start Free Trial'}
+                Start Free Trial
               </Button>
             </CardContent>
           </Card>
@@ -205,7 +367,7 @@ Thank you!`
               <CardTitle className="text-2xl">Standard</CardTitle>
               <CardDescription className="text-lg">Ongoing Access</CardDescription>
               <div className="text-3xl font-bold text-black mt-4">
-                $19.99
+                $20.00
                 <span className="text-sm font-normal text-gray-500">/month</span>
               </div>
             </CardHeader>
@@ -238,7 +400,7 @@ Thank you!`
                 className="w-full bg-black hover:bg-gray-800 text-white"
               >
                 <CreditCard className="h-4 w-4 mr-2" />
-                {showForm === 'basic' ? 'Show Details' : 'Subscribe with PayPal'}
+                Subscribe with PayPal
               </Button>
             </CardContent>
           </Card>
@@ -306,12 +468,14 @@ Thank you!`
                 </CardTitle>
                 <CardDescription className="text-center text-gray-600">
                   {showForm === 'trial' && 'Get 7 days of full access to Life Stacks'}
-                  {showForm === 'basic' && 'Monthly subscription at $19.99/month'}
+                  {showForm === 'basic' && 'Monthly subscription at $20.00/month'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleFormSubmit} className="space-y-4">
-                  <div className="grid md:grid-cols-3 gap-4 items-end">
+                  <div
+                    className={`grid ${showForm === 'premium' ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-4 items-end`}
+                  >
                     <div className="space-y-1">
                       <Label htmlFor="name" className="text-black text-sm">
                         Full Name
@@ -341,6 +505,24 @@ Thank you!`
                         className="text-black"
                       />
                     </div>
+
+                    {showForm !== 'premium' && (
+                      <div className="space-y-1">
+                        <Label htmlFor="password" className="text-black text-sm">
+                          Password
+                        </Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          required
+                          placeholder="Create a password"
+                          className="text-black"
+                          minLength={6}
+                        />
+                      </div>
+                    )}
 
                     <div className="flex gap-2">
                       <Button
@@ -392,46 +574,62 @@ Thank you!`
         )}
 
         {/* FAQ Section */}
-        <div className="bg-white rounded-lg shadow-sm p-8">
-          <h2 className="text-2xl font-bold text-center mb-8 text-black">
-            Frequently Asked Questions
-          </h2>
-          <div className="grid md:grid-cols-2 gap-8">
-            <div>
-              <h3 className="font-semibold text-lg mb-2 text-black">
-                What happens after my free trial?
-              </h3>
-              <p className="text-gray-600">
-                During your final days, you'll be asked to buy the Standard Plan ($19.99/month).
-                You'll receive email notifications 48 hours prior.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-lg mb-2 text-black">Can I cancel anytime?</h3>
-              <p className="text-gray-600">
-                Yes! You can cancel your subscription at any time. Your access continues until the
-                end of your current billing period.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-lg mb-2 text-black">
-                What's included in Premium Coaching?
-              </h3>
-              <p className="text-gray-600">
-                Premium Coaching includes everything in the Standard Plan plus 1-on-1 coaching
-                sessions, group coaching, personalized strategies, and Founder access and your
-                feedback to improve LifeStacks.ai
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-lg mb-2 text-black">
-                How does PayPal billing work?
-              </h3>
-              <p className="text-gray-600">
-                For Standard and Premium, your subscription is billed monthly through PayPal. You
-                can manage your subscription and payment methods directly through your PayPal
-                account.
-              </p>
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowFAQ(!showFAQ)}
+            className="w-full p-8 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          >
+            <h2 className="text-2xl font-bold text-black">Frequently Asked Questions</h2>
+            {showFAQ ? (
+              <ChevronUp className="h-6 w-6 text-gray-600" />
+            ) : (
+              <ChevronDown className="h-6 w-6 text-gray-600" />
+            )}
+          </button>
+
+          <div
+            className={`transition-all duration-300 ease-in-out ${
+              showFAQ ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+            } overflow-hidden`}
+          >
+            <div className="p-8 pt-0">
+              <div className="grid md:grid-cols-2 gap-8">
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-black">
+                    What happens after my free trial?
+                  </h3>
+                  <p className="text-gray-600">
+                    During your final days, you'll be asked to buy the Standard Plan ($20.00/month).
+                    You'll receive email notifications 48 hours prior.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-black">Can I cancel anytime?</h3>
+                  <p className="text-gray-600">
+                    Yes! You can cancel your subscription at any time. Your access continues until
+                    the end of your current billing period.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-black">
+                    What's included in Premium Coaching?
+                  </h3>
+                  <p className="text-gray-600">
+                    Premium Coaching includes everything in the Standard Plan plus 1-on-1 coaching
+                    sessions, group coaching, personalized strategies, and Founder access and your
+                    feedback to improve LifeStacks.ai
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-black">How does billing work?</h3>
+                  <p className="text-gray-600">
+                    Standard Plan is billed monthly through PayPal. Premium Coaching is managed
+                    directly by the founder with custom invoicing and access codes. You can manage
+                    your Standard subscription and payment methods directly through your PayPal
+                    account.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -441,11 +639,134 @@ Thank you!`
           <Link href="/" className="text-white hover:text-gray-300 font-medium">
             ← Back to Home
           </Link>
-          <Link href="/privacy-policy" className="text-gray-400 hover:text-gray-300 text-sm">
-            Privacy Policy
-          </Link>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setShowRedeemModal(true)}
+              className="text-yellow-500 hover:text-yellow-400 font-semibold flex items-center space-x-1"
+            >
+              <Gift className="h-4 w-4" />
+              <span>Redeem</span>
+            </button>
+            <Link href="/privacy-policy" className="text-gray-400 hover:text-gray-300 text-sm">
+              Privacy Policy
+            </Link>
+          </div>
         </div>
       </div>
+
+      {/* Redeem Code Modal */}
+      {showRedeemModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 rounded-lg p-8 max-w-md w-full shadow-2xl border-4 border-yellow-500">
+            <div className="text-center mb-6">
+              <Gift className="h-12 w-12 text-white mx-auto mb-3" />
+              <h2 className="text-3xl font-bold text-white mb-2">Redeem Access Code</h2>
+              <p className="text-yellow-100">Enter your code to create a Premium account</p>
+            </div>
+
+            <form onSubmit={handleRedeemSubmit} className="space-y-4">
+              {/* Access Code Input */}
+              <div>
+                <Label htmlFor="redeem-code" className="text-white font-semibold">
+                  8-Character Access Code
+                </Label>
+                <Input
+                  id="redeem-code"
+                  type="text"
+                  value={redeemData.code}
+                  onChange={(e) =>
+                    setRedeemData({ ...redeemData, code: e.target.value.toUpperCase() })
+                  }
+                  maxLength={8}
+                  placeholder="XXXXXXXX"
+                  className="bg-white text-black font-mono text-lg tracking-widest text-center uppercase"
+                  required
+                />
+              </div>
+
+              {/* Name Input */}
+              <div>
+                <Label htmlFor="redeem-name" className="text-white font-semibold">
+                  Full Name
+                </Label>
+                <Input
+                  id="redeem-name"
+                  type="text"
+                  value={redeemData.name}
+                  onChange={(e) => setRedeemData({ ...redeemData, name: e.target.value })}
+                  placeholder="Your full name"
+                  className="bg-white text-black"
+                  required
+                />
+              </div>
+
+              {/* Email Input */}
+              <div>
+                <Label htmlFor="redeem-email" className="text-white font-semibold">
+                  Email Address
+                </Label>
+                <Input
+                  id="redeem-email"
+                  type="email"
+                  value={redeemData.email}
+                  onChange={(e) => setRedeemData({ ...redeemData, email: e.target.value })}
+                  placeholder="your@email.com"
+                  className="bg-white text-black"
+                  required
+                />
+              </div>
+
+              {/* Password Input */}
+              <div>
+                <Label htmlFor="redeem-password" className="text-white font-semibold">
+                  Password
+                </Label>
+                <Input
+                  id="redeem-password"
+                  type="password"
+                  value={redeemData.password}
+                  onChange={(e) => setRedeemData({ ...redeemData, password: e.target.value })}
+                  placeholder="Create a secure password"
+                  className="bg-white text-black"
+                  required
+                  minLength={6}
+                />
+              </div>
+
+              {/* Error Message */}
+              {redeemError && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                  {redeemError}
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="flex space-x-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowRedeemModal(false)
+                    setRedeemData({ code: '', name: '', email: '', password: '' })
+                    setRedeemError('')
+                  }}
+                  className="flex-1 bg-white text-yellow-700 hover:bg-gray-100 border-2 border-white"
+                  disabled={isProcessing}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-white text-yellow-700 hover:bg-gray-100 font-bold"
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? 'Creating Account...' : 'Redeem & Sign In'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

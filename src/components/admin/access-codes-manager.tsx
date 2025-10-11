@@ -7,7 +7,14 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Plus, Copy, Check, X, Calendar, User } from 'lucide-react'
 
 interface AccessCode {
@@ -21,6 +28,8 @@ interface AccessCode {
   used_by?: string
   is_active: boolean
   created_by: string
+  max_uses?: number | null
+  used_count?: number
 }
 
 export function AccessCodesManager() {
@@ -29,12 +38,17 @@ export function AccessCodesManager() {
   const [error, setError] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
+  const [editingCode, setEditingCode] = useState<AccessCode | null>(null)
+  const [editForm, setEditForm] = useState({
+    max_uses: '',
+  })
 
   // New code form
   const [newCode, setNewCode] = useState({
     name: '',
     email: '',
-    expires_days: 30
+    expires_days: 30,
+    max_uses: '',
   })
 
   useEffect(() => {
@@ -73,13 +87,13 @@ export function AccessCodesManager() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newCode)
+        body: JSON.stringify(newCode),
       })
 
       const result = await response.json()
 
       if (response.ok && result.success) {
-        setNewCode({ name: '', email: '', expires_days: 30 })
+        setNewCode({ name: '', email: '', expires_days: 30, max_uses: '' })
         fetchAccessCodes() // Refresh the list
       } else {
         setError(result.error || 'Failed to create access code')
@@ -108,7 +122,7 @@ export function AccessCodesManager() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ id: codeId, is_active: !isActive })
+        body: JSON.stringify({ id: codeId, is_active: !isActive }),
       })
 
       if (response.ok) {
@@ -119,13 +133,72 @@ export function AccessCodesManager() {
     }
   }
 
+  const startEdit = (code: AccessCode) => {
+    setEditingCode(code)
+    setEditForm({
+      max_uses: code.max_uses ? code.max_uses.toString() : '',
+    })
+  }
+
+  const saveEdit = async () => {
+    if (!editingCode) return
+
+    try {
+      // Convert empty string to null, or parse the number
+      const maxUsesValue = editForm.max_uses === '' ? null : parseInt(editForm.max_uses)
+
+      console.log('📝 Sending update:', {
+        id: editingCode.id,
+        max_uses: maxUsesValue,
+        raw_input: editForm.max_uses,
+      })
+
+      const response = await fetch('/api/admin/access-codes', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: editingCode.id,
+          max_uses: maxUsesValue,
+        }),
+      })
+
+      const result = await response.json()
+      console.log('📊 Update result:', result)
+      console.log('📊 Response status:', response.status, response.ok)
+
+      if (response.ok && result.success) {
+        setEditingCode(null)
+        fetchAccessCodes()
+        setError('')
+      } else {
+        const errorMsg = result.error || result.details || 'Failed to update code'
+        setError(errorMsg)
+        console.error('Update failed:', {
+          status: response.status,
+          ok: response.ok,
+          result,
+        })
+      }
+    } catch (err) {
+      console.error('Update error:', err)
+      setError('Failed to update code')
+    }
+  }
+
+  const cancelEdit = () => {
+    setEditingCode(null)
+    setEditForm({ max_uses: '' })
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     })
   }
 
@@ -207,10 +280,26 @@ export function AccessCodesManager() {
                     id="expires"
                     type="number"
                     value={newCode.expires_days}
-                    onChange={(e) => setNewCode({ ...newCode, expires_days: parseInt(e.target.value) || 0 })}
+                    onChange={(e) =>
+                      setNewCode({ ...newCode, expires_days: parseInt(e.target.value) || 0 })
+                    }
                     min="0"
                     placeholder="0 for no expiration"
                   />
+                </div>
+                <div>
+                  <Label htmlFor="max_uses">Number of Uses</Label>
+                  <Input
+                    id="max_uses"
+                    type="number"
+                    value={newCode.max_uses}
+                    onChange={(e) => setNewCode({ ...newCode, max_uses: e.target.value })}
+                    min="1"
+                    placeholder="Leave empty for unlimited"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    How many premium accounts can be created with this code
+                  </p>
                 </div>
                 {error && (
                   <Alert className="border-red-200 bg-red-50">
@@ -229,9 +318,7 @@ export function AccessCodesManager() {
       </CardHeader>
       <CardContent>
         {codes.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            No access codes created yet
-          </div>
+          <div className="text-center py-8 text-gray-500">No access codes created yet</div>
         ) : (
           <div className="space-y-4">
             {codes.map((code) => (
@@ -244,16 +331,15 @@ export function AccessCodesManager() {
                     {getStatusBadge(code)}
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyToClipboard(code.code)}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => copyToClipboard(code.code)}>
                       {copiedCode === code.code ? (
                         <Check className="h-4 w-4 text-green-600" />
                       ) : (
                         <Copy className="h-4 w-4" />
                       )}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => startEdit(code)}>
+                      Edit
                     </Button>
                     <Button
                       variant="outline"
@@ -277,15 +363,19 @@ export function AccessCodesManager() {
                     <Calendar className="h-4 w-4" />
                     <span>Created {formatDate(code.created_at)}</span>
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium">Usage:</span>
+                    <span>
+                      {code.used_count || 0}
+                      {code.max_uses ? ` / ${code.max_uses}` : ' / ∞'}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium">Expires:</span>
+                    <span>{code.expires_at ? formatDate(code.expires_at) : 'Never'}</span>
+                  </div>
                   {code.email && (
-                    <div className="col-span-2 text-xs text-gray-500">
-                      Email: {code.email}
-                    </div>
-                  )}
-                  {code.expires_at && (
-                    <div className="col-span-2 text-xs text-gray-500">
-                      Expires: {formatDate(code.expires_at)}
-                    </div>
+                    <div className="col-span-2 text-xs text-gray-500">Email: {code.email}</div>
                   )}
                   {code.used_at && (
                     <div className="col-span-2 text-xs text-gray-500">
@@ -298,6 +388,43 @@ export function AccessCodesManager() {
           </div>
         )}
       </CardContent>
+
+      {/* Edit Code Dialog */}
+      <Dialog open={!!editingCode} onOpenChange={() => setEditingCode(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Access Code</DialogTitle>
+            <DialogDescription>
+              Update the usage limit for code:{' '}
+              <code className="bg-gray-100 px-2 py-1 rounded text-sm font-mono">
+                {editingCode?.code}
+              </code>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit_max_uses">Number of Uses</Label>
+              <Input
+                id="edit_max_uses"
+                type="number"
+                value={editForm.max_uses}
+                onChange={(e) => setEditForm({ ...editForm, max_uses: e.target.value })}
+                min="1"
+                placeholder="Leave empty for unlimited"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Current usage: {editingCode?.used_count || 0} / {editingCode?.max_uses || '∞'}
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={cancelEdit}>
+                Cancel
+              </Button>
+              <Button onClick={saveEdit}>Save Changes</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

@@ -29,10 +29,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const hours = parseInt(searchParams.get('hours') || '24') // Default to last 24 hours
 
-    // Get new users in the specified time range
+    // Get new users in the specified time range from profiles table
     const { data: newUsers, error: newUsersError } = await supabase
-      .rpc('get_all_users_with_analytics')
+      .from('profiles')
+      .select('id, email, name, created_at')
       .gte('created_at', new Date(Date.now() - hours * 60 * 60 * 1000).toISOString())
+      .order('created_at', { ascending: false })
 
     if (newUsersError) {
       console.error('Error fetching new users:', newUsersError)
@@ -40,17 +42,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Get recent activity for these users
-    const userIds = newUsers.map((u: any) => u.user_id)
+    const userIds = newUsers?.map((u: any) => u.id) || []
     const { data: recentActivity, error: activityError } = await supabase
       .from('user_activity_logs')
-      .select(
-        `
-        user_id,
-        activity_type,
-        created_at,
-        auth.users!inner(email)
-      `
-      )
+      .select('user_id, activity_type, created_at')
       .in('user_id', userIds)
       .gte('created_at', new Date(Date.now() - hours * 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: false })

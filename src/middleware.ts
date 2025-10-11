@@ -48,6 +48,46 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Import access control
+  const { checkUserAccess } = await import('@/lib/access-control')
+
+  // Check if user has access (trial or paid subscription)
+  let hasAccess = false
+  let accessStatus = null
+  if (request.nextUrl.pathname.startsWith('/dashboard')) {
+    if (user) {
+      // Authenticated user - check subscription by user ID and email
+      accessStatus = await checkUserAccess(user.email, user.id)
+      hasAccess = accessStatus.hasAccess
+
+      // If user is authenticated but has no access, redirect appropriately
+      if (!hasAccess) {
+        const url = request.nextUrl.clone()
+
+        // If access was disabled by admin, show access denied page
+        if (accessStatus.reason?.includes('disabled by administrator')) {
+          url.pathname = '/access-denied'
+          return NextResponse.redirect(url)
+        }
+
+        // If trial expired, redirect to upgrade page
+        if (accessStatus.subscriptionType === 'expired') {
+          url.pathname = '/create-account'
+          url.searchParams.set('expired', 'true')
+          url.searchParams.set('email', user.email || '')
+          return NextResponse.redirect(url)
+        }
+      }
+    } else {
+      // Check for trial email in URL
+      const trialEmail = request.nextUrl.searchParams.get('trial_email')
+      if (trialEmail) {
+        accessStatus = await checkUserAccess(trialEmail)
+        hasAccess = accessStatus.hasAccess
+      }
+    }
+  }
+
   // Debug logging for API routes
   if (request.nextUrl.pathname.startsWith('/api/')) {
     console.log(
@@ -58,10 +98,12 @@ export async function middleware(request: NextRequest) {
   // Only redirect to login for page routes (not API routes)
   if (
     !user &&
+    !hasAccess &&
     !request.nextUrl.pathname.startsWith('/login') &&
     !request.nextUrl.pathname.startsWith('/signup') &&
     !request.nextUrl.pathname.startsWith('/create-account') &&
     !request.nextUrl.pathname.startsWith('/paypal-checkout') &&
+    !request.nextUrl.pathname.startsWith('/trial-welcome') &&
     !request.nextUrl.pathname.startsWith('/privacy-policy') &&
     !request.nextUrl.pathname.startsWith('/auth') &&
     !request.nextUrl.pathname.startsWith('/setup') &&
@@ -69,7 +111,7 @@ export async function middleware(request: NextRequest) {
     !request.nextUrl.pathname.startsWith('/api/') && // Don't redirect API routes - they return 401 instead
     request.nextUrl.pathname !== '/'
   ) {
-    // no user, potentially respond by redirecting the user to the login page
+    // no user and no access, redirect to login page
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)

@@ -1,0 +1,141 @@
+
+> personalaios@0.1.0 dev
+> next dev --turbopack
+
+   ▲ Next.js 15.5.3 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://172.16.224.201:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Compiled middleware in 289ms
+ ✓ Ready in 1320ms
+ ○ Compiling /create-account ...
+ ✓ Compiled /create-account in 3.5s
+ GET /create-account 200 in 3820ms
+[Middleware] API Route: /api/weeks, User: none
+ ✓ Compiled /api/weeks in 408ms
+ GET /api/weeks 200 in 939ms
+[Middleware] API Route: /api/auth/signup, User: none
+ ✓ Compiled /api/auth/signup in 138ms
+[Signup API] Request received
+[Signup API] Request body: { email: 'joeyhendrickson@gmail.com', name: 'Joey', hasPassword: true }
+[Signup API] Creating Supabase client
+[Signup API] Calling supabase.auth.signUp
+[Signup API] Supabase auth error: Error [AuthApiError]: Database error saving new user
+    at handleError (../../../src/lib/fetch.ts:102:9)
+    at async _handleRequest (../../../src/lib/fetch.ts:195:5)
+    at async _request (../../../src/lib/fetch.ts:157:16)
+    at async SupabaseAuthClient.signUp (../../src/GoTrueClient.ts:502:15)
+    at async POST (src/app/api/auth/signup/route.ts:41:50)
+  39 |     // Create the user with Supabase Auth
+  40 |     console.log('[Signup API] Calling supabase.auth.signUp')
+> 41 |     const { data: authData, error: authError } = await supabase.auth.signUp({
+     |                                                  ^
+  42 |       email,
+  43 |       password,
+  44 |       options: { {
+  __isAuthError: true,
+  status: 500,
+  code: 'unexpected_failure'
+}
+[Signup API] Error details: {
+  "__isAuthError": true,
+  "name": "AuthApiError",
+  "status": 500,
+  "code": "unexpected_failure"
+}
+[Signup API] Returning auth error to client: Database error saving new user
+ POST /api/auth/signup 400 in 856ms
+[Middleware] API Route: /api/auth/signup, User: none
+[Signup API] Request received
+[Signup API] Request body: { email: 'joeyhendrickson@gmail.com', name: 'Joey', hasPassword: true }
+[Signup API] Creating Supabase client
+[Signup API] Calling supabase.auth.signUp
+[Signup API] Supabase auth error: Error [AuthApiError]: Database error saving new user
+    at handleError (../../../src/lib/fetch.ts:102:9)
+    at async _handleRequest (../../../src/lib/fetch.ts:195:5)
+    at async _request (../../../src/lib/fetch.ts:157:16)
+    at async SupabaseAuthClient.signUp (../../src/GoTrueClient.ts:502:15)
+    at async POST (src/app/api/auth/signup/route.ts:41:50)
+  39 |     // Create the user with Supabase Auth
+  40 |     console.log('[Signup API] Calling supabase.auth.signUp')
+> 41 |     const { data: authData, error: authError } = await supabase.auth.signUp({
+     |                                                  ^
+  42 |       email,
+  43 |       password,
+  44 |       options: { {
+  __isAuthError: true,
+  status: 500,
+  code: 'unexpected_failure'
+}
+[Signup API] Error details: {
+  "__isAuthError": true,
+  "name": "AuthApiError",
+  "status": 500,
+  "code": "unexpected_failure"
+}
+[Signup API] Returning auth error to client: Database error saving new user
+ POST /api/auth/signup 400 in 758ms
+ ✓ Compiled middleware in 20ms
+ ✓ Compiled in 974ms
+ ✓ Compiled in 261ms
+[Middleware] API Route: /api/weeks, User: none
+ GET /api/weeks 200 in 721ms
+ ✓ Compiled in 247ms
+ ⨯ ./src/app/create-account/page.tsx:227:133
+Parsing ecmascript source code failed
+[0m [90m 225 |[39m             {isExpiredTrial 
+ [90m 226 |[39m               [33m?[39m [32m'Choose a plan below to continue using Life Stacks and keep your data.'[39m
+[31m[1m>[22m[39m[90m 227 |[39m               [33m:[39m [32m'Direct your life and build your focus with our AI-driven Personal OS. Start your transformation with the plan that'[39ms right [36mfor[39m you[33m.[39m[32m'[39m
+ [90m     |[39m                                                                                                                                     [31m[1m^[22m[39m
+ [90m 228 |[39m             }
+ [90m 229 |[39m           [33m<[39m[33m/[39m[33mp[39m[33m>[39m
+ [90m 230 |[39m         [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m[0m
+
+Expected '</', got 's'
+
+Import traces:
+  Client Component Browser:
+    ./src/app/create-account/page.tsx [Client Component Browser]
+    ./src/app/create-account/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/create-account/page.tsx [Client Component SSR]
+    ./src/app/create-account/page.tsx [Server Component]
+
+
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 1395ms
+ GET /create-account 500 in 1601ms
+ ✓ Compiled /favicon.ico in 241ms
+ GET /favicon.ico 500 in 299ms
+ ⨯ ./src/app/create-account/page.tsx:227:133
+Parsing ecmascript source code failed
+[0m [90m 225 |[39m             {isExpiredTrial 
+ [90m 226 |[39m               [33m?[39m [32m'Choose a plan below to continue using Life Stacks and keep your data.'[39m
+[31m[1m>[22m[39m[90m 227 |[39m               [33m:[39m [32m'Direct your life and build your focus with our AI-driven Personal OS. Start your transformation with the plan that'[39ms right [36mfor[39m you[33m.[39m[32m'[39m
+ [90m     |[39m                                                                                                                                     [31m[1m^[22m[39m
+ [90m 228 |[39m             }
+ [90m 229 |[39m           [33m<[39m[33m/[39m[33mp[39m[33m>[39m
+ [90m 230 |[39m         [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m[0m
+
+Expected '</', got 's'
+
+Import traces:
+  Client Component Browser:
+    ./src/app/create-account/page.tsx [Client Component Browser]
+    ./src/app/create-account/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/create-account/page.tsx [Client Component SSR]
+    ./src/app/create-account/page.tsx [Server Component]
+
+
+ GET /create-account 500 in 77ms
+ GET /favicon.ico 500 in 56ms
+ ✓ Compiled / in 482ms
+ GET / 200 in 822ms
+[Middleware] API Route: /api/weeks, User: none
+ GET /api/weeks 200 in 709ms
+[?25h

@@ -1,23 +1,38 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuth } from '@/contexts/auth-context'
-import { ArrowLeft, UserPlus, LogIn } from 'lucide-react'
+import { ArrowLeft, UserPlus, LogIn, CheckCircle } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
   const { signIn, signUp } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Check for trial success message
+  useEffect(() => {
+    const trial = searchParams.get('trial')
+    const emailParam = searchParams.get('email')
+
+    if (trial === 'success' && emailParam) {
+      setEmail(emailParam)
+      setSuccessMessage(
+        'Trial account created successfully! Please sign in with your email and password.'
+      )
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -71,6 +86,13 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {successMessage && (
+              <Alert className="mb-4 bg-green-50 border-green-200">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">{successMessage}</AlertDescription>
+              </Alert>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>

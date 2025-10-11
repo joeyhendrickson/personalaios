@@ -7,7 +7,7 @@ export type Language = 'en' | 'es'
 interface LanguageContextType {
   language: Language
   setLanguage: (language: Language) => void
-  t: (key: string) => string
+  t: (key: string, params?: Record<string, any>) => string
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
@@ -17,12 +17,12 @@ const translations = {
   en: {
     // Dashboard
     'nav.dashboard': 'Dashboard',
-    'nav.modules': 'Modules',
+    'nav.modules': 'Life Hacks',
     'nav.profile': 'Profile',
     'nav.signOut': 'Sign Out',
     'welcome.title': 'Welcome back',
     'welcome.subtitle': 'Ready to tackle your goals today?',
-    
+
     // Dashboard sections
     'section.priorities': 'Priorities',
     'section.goals': 'Goals',
@@ -33,51 +33,52 @@ const translations = {
     'section.categoryProgress': 'Category Progress',
     'section.recentAccomplishments': 'Recent Accomplishments',
     'section.education': 'Education',
-    
+
     // Priorities
     'priorities.title': 'What needs your attention right now',
     'priorities.addManual': 'Add Manual Priority',
+    'priorities.addPriority': 'Add Priority',
     'priorities.aiRecommend': 'AI Recommend',
     'priorities.completed': 'Completed',
-    
+
     // Goals
     'goals.title': 'Long-term objectives and aspirations',
-    'goals.addGoal': '+ Add Goal',
+    'goals.addGoal': 'Add Goal',
     'goals.completed': 'Completed',
     'goals.noGoals': 'No goals set yet. Create your first goal to get started!',
     'goals.priority': 'Priority',
     'goals.priorityLevel': 'Priority Level (1-5)',
     'goals.priorityScore': 'Priority Score (0-100)',
-    
+
     // Projects
     'projects.title': 'Measurable things I really need to achieve in my life right now',
-    'projects.addProject': '+ Add Project',
+    'projects.addProject': 'Add Project',
     'projects.completed': 'Completed',
     'projects.categorize': 'Categorize',
     'projects.viewDetails': 'View Details',
     'projects.pointsRemaining': 'points remaining',
     'projects.noProjects': 'No projects yet. Create your first project to get started!',
-    
+
     // Habits
     'habits.title': 'Daily routines and behaviors',
-    'habits.addHabit': '+ Add Habit',
+    'habits.addHabit': 'Add Habit',
     'habits.ideas': 'Ideas',
     'habits.completed': 'Completed',
     'habits.noHabits': 'No habits set yet. Create your first habit to get started!',
-    
+
     // Tasks
     'tasks.title': 'Daily tasks and to-dos',
-    'tasks.addTask': '+ Add Task',
+    'tasks.addTask': 'Add Task',
     'tasks.completed': 'Completed',
     'tasks.noTasks': 'No tasks yet. Create your first task to get started!',
-    
+
     // AI Advisor
     'aiAdvisor.title': 'AI Advisor',
     'aiAdvisor.description': 'help me organize my life and get things done',
     'aiAdvisor.ready': 'Ready to help!',
     'aiAdvisor.prompt': 'Ask me anything about your strategy for the day',
     'aiAdvisor.startChat': 'Start Chat',
-    
+
     // Task Advisor
     'taskAdvisor.title': 'Task Advisor',
     'taskAdvisor.loading': 'Loading recommendations...',
@@ -89,7 +90,7 @@ const translations = {
     'taskAdvisor.general': 'General',
     'taskAdvisor.addToTasks': 'Add to Tasks',
     'taskAdvisor.noRecommendations': 'No recommendations available',
-    
+
     // Category Progress
     'categoryProgress.title': 'Track your progress across different life areas',
     'categoryProgress.category': 'Category',
@@ -100,23 +101,24 @@ const translations = {
     'categoryProgress.education': 'Education',
     'categoryProgress.innovation': 'Innovation',
     'categoryProgress.other': 'Other',
-    
+
     // Recent Accomplishments
     'accomplishments.title': 'Recent Accomplishments',
     'accomplishments.description': 'Celebrate your recent wins and achievements',
-    
+
     // Education
     'education.title': 'Education',
     'education.description': 'Learning and certifications',
-    
+
     // Radial cards
-    'radial.todayPoints': 'Today\'s Points',
+    'radial.todayPoints': "Today's Points",
     'radial.weeklyProgress': 'Weekly Progress',
     'radial.habitStreak': 'Habit Streak',
     'radial.strategicInsights': 'Strategic Insights',
-    'radial.motivational.incredible': '🔥 INCREDIBLE! You\'re crushing it today! Keep this momentum going and push even higher! 🚀',
+    'radial.motivational.incredible':
+      "🔥 INCREDIBLE! You're crushing it today! Keep this momentum going and push even higher! 🚀",
     'radial.totalPoints': 'Total Points',
-    
+
     // Chat Interface
     'chat.title': 'AI Life Coach',
     'chat.subtitle': 'Your personal AI assistant for productivity and growth',
@@ -125,7 +127,7 @@ const translations = {
     'chat.quickActions.happyDay': 'Happy Day',
     'chat.quickActions.checkIn': 'Check-In',
     'chat.quickActions.wellnessUpdate': 'Wellness Update',
-    
+
     // Homepage
     'home.dashboard': 'Dashboard',
     'home.signIn': 'Sign In',
@@ -133,7 +135,48 @@ const translations = {
     'home.goToDashboard': 'Go to Dashboard',
     'home.tagline': 'Stack your life, powered by AI.',
     'home.subtitle': 'Your goals, habits, and life hacks — stacked.',
-    
+
+    // Trial
+    'trial.expired': 'Trial Expired',
+    'trial.expiredMessage': 'Your free trial has ended. Upgrade to continue using Life Stacks.',
+    'trial.upgradeNow': 'Upgrade Now',
+    'trial.expiresToday': 'Trial Expires Today!',
+    'trial.expiresTomorrow': 'Trial Expires Tomorrow!',
+    'trial.expiresInDays': 'Trial Expires in {days} Days',
+    'trial.upgradeMessage': 'Upgrade to Standard Plan to keep your access and data.',
+    'trial.upgradePrice': 'Upgrade - $20.00/month',
+    'trial.active': 'Free Trial Active',
+    'trial.daysRemaining': '{days} days remaining in your free trial.',
+
+    // Points
+    'points.daily': 'Daily Points',
+    'points.weekly': 'Weekly Points',
+    'points.dailyBreakdown': 'Daily Breakdown',
+    'points.noData': 'No data available',
+
+    // AI Messages
+    'ai.readyToMakeTodayCount':
+      '🎯 Ready to make today count? Pick a project and start building momentum!',
+    'ai.noInsightsAvailable': 'No insights available',
+
+    // Navigation
+    'nav.import': 'Import',
+    'nav.privacyPolicy': 'Privacy Policy',
+
+    // Empty States
+    'empty.noPriorities': 'No priorities set, generate AI recommendations...',
+    'empty.generateAI': 'Generate AI',
+    'empty.viewDeleted': 'View Deleted',
+    'empty.noCategories': 'No categories yet... add your first category to get started!',
+    'empty.noHabits': 'No habits yet... add your first habit to get started!',
+    'empty.importDefaultHabits': 'Import Default Habits',
+    'empty.noEducation': 'No education items yet... add your first education item to get started!',
+    'empty.importDefaultEducation': 'Import Default Education Items',
+
+    // Actions
+    'actions.doubleClickToCascade': 'Double click to cascade',
+    'actions.addGoal': 'Add Goal',
+
     // Modules/Life Hacks
     'modules.title': 'Life Hacks & Business Tools',
     'modules.subtitle': 'Powerful productivity tools and business utilities',
@@ -143,7 +186,7 @@ const translations = {
     'modules.complexity.beginner': 'Beginner',
     'modules.complexity.intermediate': 'Intermediate',
     'modules.complexity.advanced': 'Advanced',
-    
+
     // Profile
     'profile.title': 'Your Profile',
     'profile.subtitle': 'Manage your account and view your productivity statistics',
@@ -159,7 +202,7 @@ const translations = {
     'profile.goToDashboard': 'Go to Dashboard',
     'profile.lifeHacks': 'Life Hacks',
     'profile.signOut': 'Sign Out',
-    
+
     // Rewards & Self-Care
     'rewards.title': 'Rewards & Self-Care',
     'rewards.subtitle': 'Exchange your points for rewards and track your progress',
@@ -176,7 +219,7 @@ const translations = {
     'rewards.createCustom': 'Create Custom Reward',
     'rewards.noRewards': 'No redeemed rewards yet',
     'rewards.noRewardsSubtitle': 'Redeem rewards from the Available Rewards tab to see them here',
-    
+
     // Trophies
     'trophies.dailySelfAwareness': 'Daily Self-Awareness',
     'trophies.dailySelfAwarenessSubtitle': 'Trophies Earned for Daily Login and Review',
@@ -191,7 +234,7 @@ const translations = {
     'trophies.upcomingTrophies': 'Upcoming Trophies',
     'trophies.earnedAt': 'Earned at',
     'trophies.completions': 'completions',
-    
+
     // Common
     'common.loading': 'Loading...',
     'common.error': 'Error',
@@ -218,12 +261,12 @@ const translations = {
   es: {
     // Dashboard
     'nav.dashboard': 'Panel',
-    'nav.modules': 'Módulos',
+    'nav.modules': 'Trucos de Vida',
     'nav.profile': 'Perfil',
     'nav.signOut': 'Cerrar Sesión',
     'welcome.title': 'Bienvenido de vuelta',
     'welcome.subtitle': '¿Listo para abordar tus objetivos hoy?',
-    
+
     // Dashboard sections
     'section.priorities': 'Prioridades',
     'section.goals': 'Objetivos',
@@ -234,51 +277,52 @@ const translations = {
     'section.categoryProgress': 'Progreso por Categoría',
     'section.recentAccomplishments': 'Logros Recientes',
     'section.education': 'Educación',
-    
+
     // Priorities
     'priorities.title': 'Qué necesita tu atención ahora mismo',
     'priorities.addManual': 'Agregar Prioridad Manual',
+    'priorities.addPriority': 'Agregar Prioridad',
     'priorities.aiRecommend': 'Recomendación IA',
     'priorities.completed': 'Completado',
-    
+
     // Goals
     'goals.title': 'Objetivos y aspiraciones a largo plazo',
-    'goals.addGoal': '+ Agregar Objetivo',
+    'goals.addGoal': 'Agregar Objetivo',
     'goals.completed': 'Completado',
     'goals.noGoals': 'Aún no hay objetivos establecidos. ¡Crea tu primer objetivo para comenzar!',
     'goals.priority': 'Prioridad',
     'goals.priorityLevel': 'Nivel de Prioridad (1-5)',
     'goals.priorityScore': 'Puntuación de Prioridad (0-100)',
-    
+
     // Projects
     'projects.title': 'Cosas medibles que realmente necesito lograr en mi vida ahora mismo',
-    'projects.addProject': '+ Agregar Proyecto',
+    'projects.addProject': 'Agregar Proyecto',
     'projects.completed': 'Completado',
     'projects.categorize': 'Categorizar',
     'projects.viewDetails': 'Ver Detalles',
     'projects.pointsRemaining': 'puntos restantes',
     'projects.noProjects': 'Aún no hay proyectos. ¡Crea tu primer proyecto para comenzar!',
-    
+
     // Habits
     'habits.title': 'Rutinas y comportamientos diarios',
-    'habits.addHabit': '+ Agregar Hábito',
+    'habits.addHabit': 'Agregar Hábito',
     'habits.ideas': 'Ideas',
     'habits.completed': 'Completado',
     'habits.noHabits': 'Aún no hay hábitos establecidos. ¡Crea tu primer hábito para comenzar!',
-    
+
     // Tasks
     'tasks.title': 'Tareas diarias y pendientes',
-    'tasks.addTask': '+ Agregar Tarea',
+    'tasks.addTask': 'Agregar Tarea',
     'tasks.completed': 'Completado',
     'tasks.noTasks': 'Aún no hay tareas. ¡Crea tu primera tarea para comenzar!',
-    
+
     // AI Advisor
     'aiAdvisor.title': 'Asesor IA',
     'aiAdvisor.description': 'ayúdame a organizar mi vida y hacer las cosas',
     'aiAdvisor.ready': '¡Listo para ayudar!',
     'aiAdvisor.prompt': 'Pregúntame cualquier cosa sobre tu estrategia para el día',
     'aiAdvisor.startChat': 'Iniciar Chat',
-    
+
     // Task Advisor
     'taskAdvisor.title': 'Asesor de Tareas',
     'taskAdvisor.loading': 'Cargando recomendaciones...',
@@ -290,7 +334,7 @@ const translations = {
     'taskAdvisor.general': 'General',
     'taskAdvisor.addToTasks': 'Agregar a Tareas',
     'taskAdvisor.noRecommendations': 'No hay recomendaciones disponibles',
-    
+
     // Category Progress
     'categoryProgress.title': 'Rastrea tu progreso en diferentes áreas de vida',
     'categoryProgress.category': 'Categoría',
@@ -301,32 +345,34 @@ const translations = {
     'categoryProgress.education': 'Educación',
     'categoryProgress.innovation': 'Innovación',
     'categoryProgress.other': 'Otro',
-    
+
     // Recent Accomplishments
     'accomplishments.title': 'Logros Recientes',
     'accomplishments.description': 'Celebra tus victorias y logros recientes',
-    
+
     // Education
     'education.title': 'Educación',
     'education.description': 'Aprendizaje y certificaciones',
-    
+
     // Radial cards
     'radial.todayPoints': 'Puntos de Hoy',
     'radial.weeklyProgress': 'Progreso Semanal',
     'radial.habitStreak': 'Racha de Hábitos',
     'radial.strategicInsights': 'Insights Estratégicos',
-    'radial.motivational.incredible': '🔥 ¡INCREÍBLE! ¡Estás arrasando hoy! ¡Mantén este impulso y empuja aún más alto! 🚀',
+    'radial.motivational.incredible':
+      '🔥 ¡INCREÍBLE! ¡Estás arrasando hoy! ¡Mantén este impulso y empuja aún más alto! 🚀',
     'radial.totalPoints': 'Total de Puntos',
-    
+
     // Chat Interface
     'chat.title': 'Coach de Vida IA',
     'chat.subtitle': 'Tu asistente personal de IA para productividad y crecimiento',
-    'chat.inputPlaceholder': 'Pregúntame cualquier cosa sobre tus objetivos, hábitos o productividad...',
+    'chat.inputPlaceholder':
+      'Pregúntame cualquier cosa sobre tus objetivos, hábitos o productividad...',
     'chat.quickActions.wakeUp': 'Despertar',
     'chat.quickActions.happyDay': 'Día Feliz',
     'chat.quickActions.checkIn': 'Registro',
     'chat.quickActions.wellnessUpdate': 'Actualización de Bienestar',
-    
+
     // Homepage
     'home.dashboard': 'Panel de Control',
     'home.signIn': 'Iniciar Sesión',
@@ -334,7 +380,50 @@ const translations = {
     'home.goToDashboard': 'Ir al Panel',
     'home.tagline': 'Organiza tu vida, impulsado por IA.',
     'home.subtitle': 'Tus objetivos, hábitos y trucos de vida — organizados.',
-    
+
+    // Trial
+    'trial.expired': 'Prueba Expirada',
+    'trial.expiredMessage':
+      'Tu prueba gratuita ha terminado. Actualiza para continuar usando Life Stacks.',
+    'trial.upgradeNow': 'Actualizar Ahora',
+    'trial.expiresToday': '¡La Prueba Expira Hoy!',
+    'trial.expiresTomorrow': '¡La Prueba Expira Mañana!',
+    'trial.expiresInDays': 'La Prueba Expira en {days} Días',
+    'trial.upgradeMessage': 'Actualiza al Plan Estándar para mantener tu acceso y datos.',
+    'trial.upgradePrice': 'Actualizar - $20.00/mes',
+    'trial.active': 'Prueba Gratuita Activa',
+    'trial.daysRemaining': 'Te quedan {days} días en tu prueba gratuita.',
+
+    // Points
+    'points.daily': 'Puntos Diarios',
+    'points.weekly': 'Puntos Semanales',
+    'points.dailyBreakdown': 'Desglose Diario',
+    'points.noData': 'No hay datos disponibles',
+
+    // AI Messages
+    'ai.readyToMakeTodayCount':
+      '🎯 ¿Listo para hacer que hoy cuente? ¡Elige un proyecto y comienza a generar impulso!',
+    'ai.noInsightsAvailable': 'No hay perspectivas disponibles',
+
+    // Navigation
+    'nav.import': 'Importar',
+    'nav.privacyPolicy': 'Política de Privacidad',
+
+    // Empty States
+    'empty.noPriorities': 'No hay prioridades establecidas, genera recomendaciones de IA...',
+    'empty.generateAI': 'Generar IA',
+    'empty.viewDeleted': 'Ver Eliminados',
+    'empty.noCategories': 'Aún no hay categorías... ¡agrega tu primera categoría para comenzar!',
+    'empty.noHabits': 'Aún no hay hábitos... ¡agrega tu primer hábito para comenzar!',
+    'empty.importDefaultHabits': 'Importar Hábitos Predeterminados',
+    'empty.noEducation':
+      'Aún no hay elementos de educación... ¡agrega tu primer elemento de educación para comenzar!',
+    'empty.importDefaultEducation': 'Importar Elementos de Educación Predeterminados',
+
+    // Actions
+    'actions.doubleClickToCascade': 'Doble clic para cascada',
+    'actions.addGoal': 'Agregar Objetivo',
+
     // Modules/Life Hacks
     'modules.title': 'Trucos de Vida y Herramientas de Negocio',
     'modules.subtitle': 'Herramientas poderosas de productividad y utilidades de negocio',
@@ -344,7 +433,7 @@ const translations = {
     'modules.complexity.beginner': 'Principiante',
     'modules.complexity.intermediate': 'Intermedio',
     'modules.complexity.advanced': 'Avanzado',
-    
+
     // Profile
     'profile.title': 'Tu Perfil',
     'profile.subtitle': 'Administra tu cuenta y ve tus estadísticas de productividad',
@@ -360,7 +449,7 @@ const translations = {
     'profile.goToDashboard': 'Ir al Panel',
     'profile.lifeHacks': 'Trucos de Vida',
     'profile.signOut': 'Cerrar Sesión',
-    
+
     // Rewards & Self-Care
     'rewards.title': 'Recompensas y Autocuidado',
     'rewards.subtitle': 'Intercambia tus puntos por recompensas y rastrea tu progreso',
@@ -376,8 +465,9 @@ const translations = {
     'rewards.delete': 'Eliminar',
     'rewards.createCustom': 'Crear Recompensa Personalizada',
     'rewards.noRewards': 'Aún no hay recompensas canjeadas',
-    'rewards.noRewardsSubtitle': 'Canjea recompensas de la pestaña Recompensas Disponibles para verlas aquí',
-    
+    'rewards.noRewardsSubtitle':
+      'Canjea recompensas de la pestaña Recompensas Disponibles para verlas aquí',
+
     // Trophies
     'trophies.dailySelfAwareness': 'Autoconciencia Diaria',
     'trophies.dailySelfAwarenessSubtitle': 'Trofeos Ganados por Inicio de Sesión y Revisión Diaria',
@@ -392,7 +482,7 @@ const translations = {
     'trophies.upcomingTrophies': 'Trofeos Próximos',
     'trophies.earnedAt': 'Ganado en',
     'trophies.completions': 'completaciones',
-    
+
     // Common
     'common.loading': 'Cargando...',
     'common.error': 'Error',
@@ -415,7 +505,7 @@ const translations = {
     'common.hideStacks': 'Ocultar pilas',
     'common.all': 'Todo',
     'common.item': 'Elemento',
-  }
+  },
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
@@ -434,8 +524,17 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('language', language)
   }, [language])
 
-  const t = (key: string): string => {
-    return translations[language][key as keyof typeof translations[typeof language]] || key
+  const t = (key: string, params?: Record<string, any>): string => {
+    let translation =
+      translations[language][key as keyof (typeof translations)[typeof language]] || key
+
+    if (params) {
+      Object.keys(params).forEach((paramKey) => {
+        translation = translation.replace(`{${paramKey}}`, params[paramKey])
+      })
+    }
+
+    return translation
   }
 
   return (

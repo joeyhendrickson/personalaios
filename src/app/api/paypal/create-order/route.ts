@@ -1,40 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Client, Environment, LogLevel } from '@paypal/paypal-server-sdk'
-import { v4 as uuidv4 } from 'uuid'
 
-const PAYPAL_CLIENT_ID = process.env.PAYPAL_SANDBOX_CLIENT_ID || process.env.PAYPAL_CLIENT_ID
-const PAYPAL_CLIENT_SECRET =
-  process.env.PAYPAL_SANDBOX_CLIENT_SECRET || process.env.PAYPAL_CLIENT_SECRET
+const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID
+const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET
+const PAYPAL_API_BASE =
+  process.env.PAYPAL_MODE === 'live'
+    ? 'https://api-m.paypal.com'
+    : 'https://api-m.sandbox.paypal.com'
 
-const client = new Client({
-  clientCredentialsAuthCredentials: {
-    oAuthClientId: PAYPAL_CLIENT_ID!,
-    oAuthClientSecret: PAYPAL_CLIENT_SECRET!,
-  },
-  timeout: 0,
-  environment: Environment.Sandbox,
-  logging: {
-    logLevel: LogLevel.Info,
-    logRequest: { logBody: true },
-    logResponse: { logHeaders: true },
-  },
-})
+// Get PayPal access token
+async function getAccessToken() {
+  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64')
+
+  const response = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 'grant_type=client_credentials',
+  })
+
+  const data = await response.json()
+  return data.access_token
+}
 
 export async function POST(request: NextRequest) {
   try {
     const { planType, userEmail, amount } = await request.json()
 
-    const price = amount || (planType === 'premium' ? '249.99' : '19.99')
+    const price = amount || (planType === 'premium' ? '249.99' : '20.00')
     const planName = planType === 'premium' ? 'Life Stacks Premium' : 'Life Stacks Basic'
 
-    // Simple PayPal order creation for Smart Buttons
-    const collect = {
-      body: {
+    // Get access token
+    console.log('Getting PayPal access token...')
+    const accessToken = await getAccessToken()
+    console.log('Access token obtained:', accessToken ? 'YES' : 'NO')
+
+    // Create PayPal order using REST API
+    console.log('Creating PayPal order with:', { planType, userEmail, amount, price, planName })
+    const orderResponse = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
         intent: 'CAPTURE',
-        purchaseUnits: [
+        purchase_units: [
           {
             amount: {
-              currencyCode: 'USD',
+              currency_code: 'USD',
               value: price,
             },
             description: `${planName} - Monthly Subscription`,
@@ -48,22 +63,22 @@ export async function POST(request: NextRequest) {
           return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
           cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/create-account`,
         },
-      },
-      prefer: 'return=minimal',
+      }),
+    })
+
+    const orderData = await orderResponse.json()
+
+    if (!orderResponse.ok) {
+      console.error('PayPal order creation failed:', orderData)
+      throw new Error(orderData.message || 'Failed to create PayPal order')
     }
 
-    const { OrdersController } = await import('@paypal/paypal-server-sdk')
-    const ordersController = new OrdersController(client)
-
-    const { result, ...httpResponse } = await ordersController.ordersCreate(collect)
-
     return NextResponse.json({
-      orderID: result.id,
-      order: result,
-      httpStatusCode: httpResponse.statusCode,
+      orderID: orderData.id,
+      order: orderData,
     })
   } catch (error: any) {
     console.error('Failed to create order:', error)
-    return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
+    return NextResponse.json({ error: error.message || 'Failed to create order' }, { status: 500 })
   }
 }

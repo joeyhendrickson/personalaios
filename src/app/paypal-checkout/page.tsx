@@ -90,6 +90,22 @@ export default function PayPalCheckoutPage() {
               throw new Error('Payment verification failed')
             }
 
+            // Create user account after successful payment
+            const signupResponse = await fetch('/api/auth/signup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: email,
+                password: `LS_${Date.now()}_${Math.random().toString(36)}`, // Random password
+                name: name,
+              }),
+            })
+
+            if (!signupResponse.ok) {
+              console.error('Failed to create user account, but payment succeeded')
+              // Continue anyway - they can contact support
+            }
+
             // Create subscription record
             await fetch('/api/subscriptions/create', {
               method: 'POST',
@@ -102,8 +118,8 @@ export default function PayPalCheckoutPage() {
               }),
             })
 
-            // Redirect to dashboard
-            window.location.href = '/dashboard'
+            // Redirect to login page with success message
+            window.location.href = '/login?payment=success&email=' + encodeURIComponent(email || '')
           } catch (error) {
             console.error('Payment error:', error)
             alert('Payment failed. Please try again.')
@@ -121,6 +137,25 @@ export default function PayPalCheckoutPage() {
   return (
     <div className="min-h-screen bg-black text-white py-12 px-4">
       <div className="max-w-2xl mx-auto">
+        {/* Logo */}
+        <div className="flex justify-center mb-12">
+          <div className="flex items-center space-x-6">
+            {/* Stacked layers icon */}
+            <div className="flex flex-col space-y-2">
+              <div className="w-20 h-6 bg-white rounded-lg shadow-lg"></div>
+              <div className="w-20 h-6 bg-white rounded-lg shadow-lg"></div>
+              <div className="w-20 h-6 bg-white rounded-lg shadow-lg"></div>
+            </div>
+            {/* Life Stacks text */}
+            <div className="text-left">
+              <div className="text-4xl font-bold text-white leading-none tracking-tight">Life</div>
+              <div className="text-4xl font-bold text-white leading-none tracking-tight">
+                Stacks
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Header */}
         <div className="mb-8">
           <Link

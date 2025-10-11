@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Personal AI OS',
+  title: 'Life Stacks',
   description: 'Your personal productivity and goal tracking system',
 }
 

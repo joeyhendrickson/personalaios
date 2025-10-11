@@ -7,7 +7,22 @@ import { useAdminAuth } from '@/hooks/use-admin-auth'
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Users, Activity, Target, CheckCircle, Eye, ArrowLeft, RefreshCw, Bug, AlertTriangle, DollarSign, CreditCard } from 'lucide-react'
+import {
+  Users,
+  Activity,
+  Target,
+  CheckCircle,
+  Eye,
+  ArrowLeft,
+  RefreshCw,
+  Bug,
+  AlertTriangle,
+  DollarSign,
+  CreditCard,
+  Database,
+  Table,
+  Power,
+} from 'lucide-react'
 import { AccessCodesManager } from '@/components/admin/access-codes-manager'
 
 interface DashboardData {
@@ -21,6 +36,7 @@ interface DashboardData {
   total_points_today: number
   average_session_duration: number
   top_active_users: Array<{
+    name: string
     email: string
     total_visits: number
     total_time_spent: number
@@ -34,6 +50,7 @@ interface DashboardData {
 
 interface User {
   user_id: string
+  name: string
   email: string
   created_at: string
   last_sign_in_at: string
@@ -48,6 +65,7 @@ interface User {
   weekly_points: number
   last_visit: string
   first_visit: string
+  type?: string
 }
 
 interface ActivityLog {
@@ -137,6 +155,52 @@ interface PaymentStats {
   thisMonthRevenue: number
 }
 
+interface StandardSubscription {
+  id: string
+  user_id: string
+  email: string
+  name: string
+  plan_type: string
+  status: string
+  current_period_start: string
+  current_period_end: string
+  paypal_subscription_id: string
+  payment_failed_at?: string
+  grace_period_end?: string
+  daysActive: number
+  isGracePeriod: boolean
+  graceDaysRemaining: number
+  created_at: string
+  updated_at: string
+}
+
+interface StandardStats {
+  total: number
+  active: number
+  gracePeriod: number
+  cancelled: number
+  paymentFailed: number
+}
+
+interface PremiumUser {
+  id: string
+  user_id: string
+  email: string
+  name: string
+  created_at: string
+  total_points: number
+  total_visits: number
+  total_time_spent: number
+  last_activity: string
+  access_enabled?: boolean
+}
+
+interface PremiumStats {
+  total: number
+  active: number
+  withActivity: number
+}
+
 export default function AdminDashboard() {
   const router = useRouter()
   const { user, loading: userLoading } = useAuth()
@@ -148,26 +212,58 @@ export default function AdminDashboard() {
   const [bugReports, setBugReports] = useState<BugReport[]>([])
   const [trials, setTrials] = useState<TrialSubscription[]>([])
   const [trialStats, setTrialStats] = useState<TrialStats | null>(null)
+  const [standardSubscriptions, setStandardSubscriptions] = useState<StandardSubscription[]>([])
+  const [standardStats, setStandardStats] = useState<StandardStats | null>(null)
+  const [premiumUsers, setPremiumUsers] = useState<PremiumUser[]>([])
+  const [premiumStats, setPremiumStats] = useState<PremiumStats | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
   const [paymentStats, setPaymentStats] = useState<PaymentStats | null>(null)
+  const [rawDataOpen, setRawDataOpen] = useState(false)
+  const [rawData, setRawData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/admin/dashboard')
+      console.log('🔄 Fetching dashboard data...')
+
+      // First try debug endpoint
+      try {
+        const debugResponse = await fetch('/api/admin/debug')
+        const debugData = await debugResponse.json()
+        console.log('🔍 Debug info:', debugData)
+      } catch (debugError) {
+        console.log('Debug endpoint failed:', debugError)
+      }
+
+      const response = await fetch('/api/admin/dashboard-simple')
+      console.log('📊 Dashboard API response status:', response.status)
 
       if (!response.ok) {
+        const errorText = await response.text()
+        console.error('❌ Dashboard API error:', errorText)
+
         if (response.status === 403) {
           setError('Admin access required')
           return
         }
-        throw new Error('Failed to fetch dashboard data')
+        if (response.status === 401) {
+          setError('Authentication required - please log in')
+          return
+        }
+
+        try {
+          const errorData = JSON.parse(errorText)
+          setError(errorData.error || `HTTP ${response.status}`)
+        } catch {
+          setError(`HTTP ${response.status}: ${errorText}`)
+        }
+        return
       }
 
       const data = await response.json()
-      console.log('Admin dashboard API response:', data)
+      console.log('✅ Dashboard data received:', data)
       console.log('Dashboard data:', data.dashboard)
       console.log('Users data:', data.users)
       console.log('Recent activity:', data.recentActivity)
@@ -180,6 +276,16 @@ export default function AdminDashboard() {
       setDashboardData(data.dashboard || {})
       setUsers(data.users || [])
       setRecentActivity(data.recentActivity || [])
+      setStandardSubscriptions(data.standardSubscriptions || [])
+      setStandardStats(data.standardStats || null)
+      console.log('📊 Premium users data received:')
+      data.premiumUsers?.slice(0, 3).forEach((u: any) => {
+        console.log(
+          `  - ${u.name}: access_enabled = ${u.access_enabled} (type: ${typeof u.access_enabled})`
+        )
+      })
+      setPremiumUsers(data.premiumUsers || [])
+      setPremiumStats(data.premiumStats || null)
       setError(null)
 
       // Fetch new users (last 24 hours)
@@ -219,6 +325,53 @@ export default function AdminDashboard() {
     }
   }
 
+  const fetchRawData = async () => {
+    try {
+      const response = await fetch('/api/admin/raw-data')
+      if (response.ok) {
+        const data = await response.json()
+        setRawData(data.data)
+      } else {
+        console.error('Failed to fetch raw data:', response.statusText)
+      }
+    } catch (error) {
+      console.error('Error fetching raw data:', error)
+    }
+  }
+
+  const toggleUserAccess = async (userId: string, currentStatus: boolean) => {
+    try {
+      console.log('🔧 Toggling user access:', { userId, currentStatus, newStatus: !currentStatus })
+
+      const response = await fetch('/api/admin/toggle-user-access', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          enabled: !currentStatus,
+        }),
+      })
+
+      const result = await response.json()
+      console.log('📊 Toggle response:', result)
+
+      if (response.ok) {
+        console.log('✅ Successfully toggled user access')
+        // Refresh the dashboard data to show updated status
+        await fetchDashboardData()
+      } else {
+        console.error('❌ Failed to toggle user access:', result.error || response.statusText)
+        console.error('Full response:', JSON.stringify(result, null, 2))
+        if (result.details) {
+          console.error('Error details:', result.details)
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error toggling user access:', error)
+    }
+  }
 
   useEffect(() => {
     // Check authentication and admin status
@@ -333,13 +486,28 @@ export default function AdminDashboard() {
               </Button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="text-sm text-gray-600">Personal AI OS Analytics</p>
+                <p className="text-sm text-gray-600">Life Stacks Analytics</p>
               </div>
             </div>
-            <Button onClick={fetchDashboardData} variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={fetchDashboardData} variant="outline" size="sm">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+              <Button
+                onClick={() => {
+                  setRawDataOpen(!rawDataOpen)
+                  if (!rawDataOpen && !rawData) {
+                    fetchRawData()
+                  }
+                }}
+                variant={rawDataOpen ? 'default' : 'outline'}
+                size="sm"
+              >
+                <Database className="h-4 w-4 mr-2" />
+                Raw Data
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -382,9 +550,7 @@ export default function AdminDashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Bug Reports</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {bugReports.length}
-                </p>
+                <p className="text-2xl font-bold text-gray-900">{bugReports.length}</p>
               </div>
             </div>
           </Card>
@@ -396,9 +562,7 @@ export default function AdminDashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Active Trials</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {trialStats?.active || 0}
-                </p>
+                <p className="text-2xl font-bold text-gray-900">{trialStats?.active || 0}</p>
                 <p className="text-xs text-gray-500 mt-1">
                   {trialStats?.pendingNotifications || 0} need notification
                 </p>
@@ -444,9 +608,7 @@ export default function AdminDashboard() {
                 <p className="text-2xl font-bold text-gray-900">
                   ${paymentStats?.totalRevenue.toFixed(2) || '0.00'}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {paymentStats?.total || 0} payments
-                </p>
+                <p className="text-xs text-gray-500 mt-1">{paymentStats?.total || 0} payments</p>
               </div>
             </div>
           </Card>
@@ -487,51 +649,51 @@ export default function AdminDashboard() {
                   <div
                     key={bug.id}
                     className={`p-3 rounded-lg border ${
-                      bug.priority === 'critical' 
-                        ? 'bg-red-50 border-red-200' 
+                      bug.priority === 'critical'
+                        ? 'bg-red-50 border-red-200'
                         : bug.priority === 'high'
-                        ? 'bg-orange-50 border-orange-200'
-                        : bug.priority === 'medium'
-                        ? 'bg-yellow-50 border-yellow-200'
-                        : 'bg-gray-50 border-gray-200'
+                          ? 'bg-orange-50 border-orange-200'
+                          : bug.priority === 'medium'
+                            ? 'bg-yellow-50 border-yellow-200'
+                            : 'bg-gray-50 border-gray-200'
                     }`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center space-x-2">
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={`text-xs ${
-                            bug.type === 'bug' 
-                              ? 'bg-red-100 text-red-700 border-red-300' 
+                            bug.type === 'bug'
+                              ? 'bg-red-100 text-red-700 border-red-300'
                               : 'bg-blue-100 text-blue-700 border-blue-300'
                           }`}
                         >
                           {bug.type}
                         </Badge>
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={`text-xs ${
-                            bug.priority === 'critical' 
-                              ? 'bg-red-100 text-red-700 border-red-300' 
+                            bug.priority === 'critical'
+                              ? 'bg-red-100 text-red-700 border-red-300'
                               : bug.priority === 'high'
-                              ? 'bg-orange-100 text-orange-700 border-orange-300'
-                              : bug.priority === 'medium'
-                              ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
-                              : 'bg-gray-100 text-gray-700 border-gray-300'
+                                ? 'bg-orange-100 text-orange-700 border-orange-300'
+                                : bug.priority === 'medium'
+                                  ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                                  : 'bg-gray-100 text-gray-700 border-gray-300'
                           }`}
                         >
                           {bug.priority}
                         </Badge>
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={`text-xs ${
-                            bug.status === 'open' 
-                              ? 'bg-green-100 text-green-700 border-green-300' 
+                            bug.status === 'open'
+                              ? 'bg-green-100 text-green-700 border-green-300'
                               : bug.status === 'in_progress'
-                              ? 'bg-blue-100 text-blue-700 border-blue-300'
-                              : bug.status === 'completed'
-                              ? 'bg-gray-100 text-gray-700 border-gray-300'
-                              : 'bg-red-100 text-red-700 border-red-300'
+                                ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                : bug.status === 'completed'
+                                  ? 'bg-gray-100 text-gray-700 border-gray-300'
+                                  : 'bg-red-100 text-red-700 border-red-300'
                           }`}
                         >
                           {bug.status}
@@ -559,13 +721,19 @@ export default function AdminDashboard() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
               <span className="flex items-center">
                 <Users className="h-5 w-5 mr-2 text-green-500" />
-                Trial Subscriptions
+                Trial
               </span>
               {trialStats && (
                 <div className="flex items-center space-x-4 text-sm">
-                  <span className="text-gray-600">Active: <strong>{trialStats.active}</strong></span>
-                  <span className="text-orange-600">Pending Notifications: <strong>{trialStats.pendingNotifications}</strong></span>
-                  <span className="text-green-600">Converted: <strong>{trialStats.converted}</strong></span>
+                  <span className="text-gray-600">
+                    Active: <strong>{trialStats.active}</strong>
+                  </span>
+                  <span className="text-orange-600">
+                    Near Expiry: <strong>{trialStats.pendingNotifications}</strong>
+                  </span>
+                  <span className="text-green-600">
+                    Converted: <strong>{trialStats.converted}</strong>
+                  </span>
                 </div>
               )}
             </h3>
@@ -587,22 +755,25 @@ export default function AdminDashboard() {
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={`text-xs ${
-                            trial.status === 'active' 
-                              ? 'bg-green-100 text-green-700 border-green-300' 
+                            trial.status === 'active'
+                              ? 'bg-green-100 text-green-700 border-green-300'
                               : trial.status === 'expired'
-                              ? 'bg-red-100 text-red-700 border-red-300'
-                              : trial.status === 'converted'
-                              ? 'bg-blue-100 text-blue-700 border-blue-300'
-                              : 'bg-gray-100 text-gray-700 border-gray-300'
+                                ? 'bg-red-100 text-red-700 border-red-300'
+                                : trial.status === 'converted'
+                                  ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                  : 'bg-gray-100 text-gray-700 border-gray-300'
                           }`}
                         >
                           {trial.status}
                         </Badge>
                         {!trial.isExpired && trial.daysRemaining <= 2 && (
-                          <Badge variant="outline" className="text-xs bg-orange-100 text-orange-700 border-orange-300">
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-orange-100 text-orange-700 border-orange-300"
+                          >
                             {trial.daysRemaining}d left
                           </Badge>
                         )}
@@ -612,7 +783,8 @@ export default function AdminDashboard() {
                       <div>
                         <p className="text-xs text-gray-500">Trial Period</p>
                         <p className="text-xs font-medium text-gray-900">
-                          {new Date(trial.trial_start).toLocaleDateString()} - {new Date(trial.trial_end).toLocaleDateString()}
+                          {new Date(trial.trial_start).toLocaleDateString()} -{' '}
+                          {new Date(trial.trial_end).toLocaleDateString()}
                         </p>
                       </div>
                       <div>
@@ -623,7 +795,9 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <div className="mt-3 pt-3 border-t border-gray-200">
-                      <p className="text-xs font-semibold text-gray-700 mb-2">Email Notifications:</p>
+                      <p className="text-xs font-semibold text-gray-700 mb-2">
+                        Email Notifications:
+                      </p>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="flex items-center space-x-2">
                           {trial.notificationStatus.expiryNotificationSent ? (
@@ -675,6 +849,212 @@ export default function AdminDashboard() {
             </div>
           </Card>
 
+          {/* Standard Subscriptions */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+              <span className="flex items-center">
+                <CreditCard className="h-5 w-5 mr-2 text-blue-500" />
+                Standard
+              </span>
+              {standardStats && (
+                <div className="flex items-center space-x-4 text-sm">
+                  <span className="text-gray-600">
+                    Total: <strong>{standardStats.total}</strong>
+                  </span>
+                  <span className="text-green-600">
+                    Active: <strong>{standardStats.active}</strong>
+                  </span>
+                  <span className="text-orange-600">
+                    Grace: <strong>{standardStats.gracePeriod}</strong>
+                  </span>
+                </div>
+              )}
+            </h3>
+            <div className="space-y-3">
+              {standardSubscriptions.length > 0 ? (
+                standardSubscriptions.slice(0, 10).map((sub) => (
+                  <div
+                    key={sub.id}
+                    className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">{sub.name}</p>
+                        <p className="text-xs text-gray-500">{sub.email}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Created: {formatDate(sub.created_at)}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${
+                            sub.status === 'active'
+                              ? 'bg-green-100 text-green-700 border-green-300'
+                              : sub.status === 'grace_period'
+                                ? 'bg-orange-100 text-orange-700 border-orange-300'
+                                : sub.status === 'cancelled'
+                                  ? 'bg-red-100 text-red-700 border-red-300'
+                                  : 'bg-gray-100 text-gray-700 border-gray-300'
+                          }`}
+                        >
+                          {sub.status === 'grace_period' ? 'Grace Period' : sub.status}
+                        </Badge>
+                        {sub.isGracePeriod && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-orange-100 text-orange-700 border-orange-300"
+                          >
+                            {sub.graceDaysRemaining}d left
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mt-3">
+                      <div>
+                        <p className="text-xs text-gray-500">Active Since</p>
+                        <p className="text-xs font-medium text-gray-900">{sub.daysActive} days</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Current Period</p>
+                        <p className="text-xs font-medium text-gray-900">
+                          {new Date(sub.current_period_start).toLocaleDateString()} -{' '}
+                          {new Date(sub.current_period_end).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    {sub.payment_failed_at && (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <div className="flex items-center space-x-2">
+                          <AlertTriangle className="h-4 w-4 text-red-500" />
+                          <span className="text-xs text-red-700">
+                            Payment failed: {formatDate(sub.payment_failed_at)}
+                          </span>
+                        </div>
+                        {sub.grace_period_end && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Grace period ends: {formatDate(sub.grace_period_end)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {sub.paypal_subscription_id && (
+                      <p className="text-xs text-gray-400 mt-2 font-mono">
+                        PayPal ID: {sub.paypal_subscription_id.substring(0, 20)}...
+                      </p>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">No standard subscriptions</p>
+              )}
+            </div>
+          </Card>
+
+          {/* Premium Users */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+              <span className="flex items-center">
+                <Users className="h-5 w-5 mr-2 text-yellow-600" />
+                Premium
+              </span>
+              {premiumStats && (
+                <div className="flex items-center space-x-4 text-sm">
+                  <span className="text-gray-600">
+                    Total: <strong>{premiumStats.total}</strong>
+                  </span>
+                  <span className="text-green-600">
+                    Active: <strong>{premiumStats.active}</strong>
+                  </span>
+                  <span className="text-blue-600">
+                    With Activity: <strong>{premiumStats.withActivity}</strong>
+                  </span>
+                </div>
+              )}
+            </h3>
+            <div className="space-y-3">
+              {premiumUsers.length > 0 ? (
+                premiumUsers.slice(0, 10).map((user) => (
+                  <div
+                    key={user.id}
+                    className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">{user.name}</p>
+                        <p className="text-xs text-gray-500">{user.email}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Joined: {formatDate(user.created_at)}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-yellow-100 text-yellow-800 border-yellow-400"
+                        >
+                          Premium
+                        </Badge>
+                        {user.total_visits > 0 && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-green-100 text-green-700 border-green-300"
+                          >
+                            Active
+                          </Badge>
+                        )}
+                        <button
+                          onClick={() => {
+                            console.log(
+                              '🔧 Toggle clicked for user:',
+                              user.id,
+                              'current access_enabled:',
+                              user.access_enabled,
+                              'type:',
+                              typeof user.access_enabled
+                            )
+                            toggleUserAccess(user.id, user.access_enabled !== false)
+                          }}
+                          className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                            user.access_enabled !== false
+                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                              : 'bg-red-100 text-red-700 hover:bg-red-200'
+                          }`}
+                          title={user.access_enabled !== false ? 'Disable access' : 'Enable access'}
+                        >
+                          <Power className="h-3 w-3" />
+                          <span>{user.access_enabled !== false ? 'ON' : 'OFF'}</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4 mt-3">
+                      <div>
+                        <p className="text-xs text-gray-500">Total Points</p>
+                        <p className="text-xs font-medium text-gray-900">{user.total_points}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Visits</p>
+                        <p className="text-xs font-medium text-gray-900">{user.total_visits}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Time Spent</p>
+                        <p className="text-xs font-medium text-gray-900">
+                          {formatTime(user.total_time_spent)}
+                        </p>
+                      </div>
+                    </div>
+                    {user.last_activity && (
+                      <p className="text-xs text-gray-400 mt-2">
+                        Last activity: {formatDate(user.last_activity)}
+                      </p>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">No premium users</p>
+              )}
+            </div>
+          </Card>
+
           {/* Payments */}
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
@@ -684,9 +1064,15 @@ export default function AdminDashboard() {
               </span>
               {paymentStats && (
                 <div className="flex items-center space-x-4 text-sm">
-                  <span className="text-gray-600">Total: <strong>${paymentStats.totalRevenue.toFixed(2)}</strong></span>
-                  <span className="text-blue-600">Basic: <strong>{paymentStats.basicPlanCount}</strong></span>
-                  <span className="text-purple-600">Premium: <strong>{paymentStats.premiumPlanCount}</strong></span>
+                  <span className="text-gray-600">
+                    Total: <strong>${paymentStats.totalRevenue.toFixed(2)}</strong>
+                  </span>
+                  <span className="text-blue-600">
+                    Basic: <strong>{paymentStats.basicPlanCount}</strong>
+                  </span>
+                  <span className="text-purple-600">
+                    Premium: <strong>{paymentStats.premiumPlanCount}</strong>
+                  </span>
                 </div>
               )}
             </h3>
@@ -707,18 +1093,18 @@ export default function AdminDashboard() {
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={`text-xs ${
-                            payment.plan_type === 'basic' 
-                              ? 'bg-blue-100 text-blue-700 border-blue-300' 
+                            payment.plan_type === 'basic'
+                              ? 'bg-blue-100 text-blue-700 border-blue-300'
                               : 'bg-purple-100 text-purple-700 border-purple-300'
                           }`}
                         >
                           {payment.plan_type}
                         </Badge>
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className="text-xs bg-green-100 text-green-700 border-green-300"
                         >
                           {payment.status}
@@ -749,30 +1135,39 @@ export default function AdminDashboard() {
 
           {/* Top Active Users */}
           <Card className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Active Users</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Top Active Users (by time spent)
+            </h3>
             <div className="space-y-4">
-              {dashboardData?.top_active_users?.slice(0, 5).map((user, index) => (
-                <div
-                  key={user.email}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-blue-600">{index + 1}</span>
+              {dashboardData?.top_active_users && dashboardData.top_active_users.length > 0 ? (
+                dashboardData.top_active_users.slice(0, 5).map((user, index) => (
+                  <div
+                    key={user.email}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-blue-600">{index + 1}</span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{user.name}</p>
+                        <p className="text-xs text-gray-500">{user.email}</p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {user.total_visits} visits • {formatTime(user.total_time_spent)} spent
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{user.email}</p>
-                      <p className="text-sm text-gray-600">
-                        {user.total_visits} visits • {formatTime(user.total_time_spent)} spent
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-gray-900">
+                        {user.total_points} points
                       </p>
+                      <p className="text-xs text-gray-600">{user.today_points} today</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">{user.total_points} points</p>
-                    <p className="text-xs text-gray-600">{user.today_points} today</p>
-                  </div>
-                </div>
-              )) || <p className="text-gray-500 text-center py-4">No user data available</p>}
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">No user data available</p>
+              )}
             </div>
           </Card>
 
@@ -820,6 +1215,9 @@ export default function AdminDashboard() {
                     User
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Visits
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -842,11 +1240,28 @@ export default function AdminDashboard() {
                     <tr key={user.user_id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{user.email}</p>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                          <p className="text-xs text-gray-500">{user.email}</p>
+                          <p className="text-xs text-gray-400 mt-1">
                             Joined {formatDate(user.created_at)}
                           </p>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${
+                            user.type === 'ADMIN'
+                              ? 'bg-red-100 text-red-700 border-red-300'
+                              : user.type === 'TRIAL'
+                                ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                : user.type === 'STANDARD'
+                                  ? 'bg-green-100 text-green-700 border-green-300'
+                                  : 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                          }`}
+                        >
+                          {user.type}
+                        </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-900">{user.total_visits}</span>
@@ -891,6 +1306,139 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
+      {/* Raw Data Section */}
+      {rawDataOpen && (
+        <div className="mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Table className="h-5 w-5" />
+                Raw Data Catalog
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                Complete data structure reference for all tables and user classifications
+              </p>
+              {rawData?._metadata && (
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <strong>Last Updated:</strong>{' '}
+                      {new Date(rawData._metadata.last_updated).toLocaleString()}
+                    </div>
+                    <div>
+                      <strong>Next Refresh:</strong>{' '}
+                      {new Date(rawData._metadata.next_refresh).toLocaleString()}
+                    </div>
+                    <div>
+                      <strong>Total Tables:</strong> {rawData._metadata.total_tables}
+                    </div>
+                    <div>
+                      <strong>Version:</strong> {rawData._metadata.version}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center mt-2">
+                    <p className="text-xs text-gray-600">
+                      🔄 Auto-refreshes every 3 days via Vercel cron job
+                    </p>
+                    <Button onClick={fetchRawData} variant="outline" size="sm" className="text-xs">
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Refresh Now
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              {rawData ? (
+                <div className="space-y-6">
+                  {Object.entries(rawData)
+                    .filter(([tableName]) => tableName !== '_metadata')
+                    .map(([tableName, tableData]: [string, any]) => (
+                      <div key={tableName} className="border rounded-lg p-4">
+                        <h3 className="text-lg font-semibold mb-2 capitalize">
+                          {tableName.replace(/_/g, ' ')}
+                        </h3>
+                        {tableData.error ? (
+                          <div className="text-red-600 bg-red-50 p-3 rounded">
+                            <strong>Error:</strong> {tableData.error}
+                            {tableData.details && (
+                              <div className="text-sm mt-1">
+                                Details: {JSON.stringify(tableData.details)}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex gap-4 text-sm">
+                              <span>
+                                <strong>Records:</strong> {tableData.count || 0}
+                              </span>
+                              {tableData.summary && (
+                                <div className="flex gap-2">
+                                  {Object.entries(tableData.summary).map(
+                                    ([type, count]: [string, any]) => (
+                                      <Badge key={`${tableName}-${type}`} variant="outline">
+                                        {type}: {count}
+                                      </Badge>
+                                    )
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {tableData.description && (
+                              <p className="text-sm text-gray-600">{tableData.description}</p>
+                            )}
+
+                            {tableData.columns && (
+                              <div>
+                                <h4 className="font-medium text-sm mb-1">Columns:</h4>
+                                <div className="flex flex-wrap gap-1">
+                                  {tableData.columns.map((column: string, idx: number) => (
+                                    <Badge
+                                      key={`${tableName}-${column}-${idx}`}
+                                      variant="secondary"
+                                      className="text-xs"
+                                    >
+                                      {column}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {tableData.sample_data && tableData.sample_data.length > 0 && (
+                              <div>
+                                <h4 className="font-medium text-sm mb-2">Sample Data:</h4>
+                                <div className="bg-gray-50 p-3 rounded text-xs overflow-auto max-h-40">
+                                  <pre>{JSON.stringify(tableData.sample_data, null, 2)}</pre>
+                                </div>
+                              </div>
+                            )}
+
+                            {tableData.users && (
+                              <div>
+                                <h4 className="font-medium text-sm mb-2">User Classifications:</h4>
+                                <div className="bg-gray-50 p-3 rounded text-xs overflow-auto max-h-40">
+                                  <pre>{JSON.stringify(tableData.users, null, 2)}</pre>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Database className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600">Loading raw data...</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
