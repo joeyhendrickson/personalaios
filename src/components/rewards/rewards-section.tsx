@@ -122,6 +122,8 @@ export default function RewardsSection() {
   const [partnerRewards, setPartnerRewards] = useState<PartnerReward[]>([])
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [currentPoints, setCurrentPoints] = useState(0)
+  const [totalPoints, setTotalPoints] = useState(0)
+  const [totalRedeemed, setTotalRedeemed] = useState(0)
   const [loading, setLoading] = useState(true)
   const [showCreateReward, setShowCreateReward] = useState(false)
   const [showCreateMilestone, setShowCreateMilestone] = useState(false)
@@ -157,6 +159,25 @@ export default function RewardsSection() {
         setDefaultRewards(data.defaultRewards)
         setUserRewards(data.userRewards)
         setCurrentPoints(data.currentPoints)
+        setTotalPoints(data.totalPoints || 0)
+        setTotalRedeemed(data.totalRedeemed || 0)
+
+        // Debug: Log user rewards to see redeemed status
+        console.log('Frontend - User rewards data:', data.userRewards)
+        console.log(
+          'Frontend - Redeemed rewards:',
+          data.userRewards?.filter((ur) => ur.is_redeemed)
+        )
+        console.log(
+          'Frontend - All rewards with status:',
+          data.userRewards?.map((ur) => ({
+            id: ur.id,
+            is_redeemed: ur.is_redeemed,
+            is_unlocked: ur.is_unlocked,
+            custom_name: ur.custom_name,
+            rewards_name: ur.rewards?.name,
+          }))
+        )
       }
     } catch (error) {
       console.error('Error fetching rewards data:', error)
@@ -301,6 +322,45 @@ export default function RewardsSection() {
     }
   }
 
+  const handleRedeemAvailableReward = async (rewardId: string) => {
+    try {
+      // First add the reward to user's collection
+      const addResponse = await fetch('/api/rewards/add-to-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reward_id: rewardId }),
+      })
+
+      if (!addResponse.ok) {
+        const error = await addResponse.json()
+        alert(`Error: ${error.error}`)
+        return
+      }
+
+      const addData = await addResponse.json()
+
+      // Then immediately redeem it
+      const redeemResponse = await fetch('/api/rewards/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_reward_id: addData.userReward.id }),
+      })
+
+      if (redeemResponse.ok) {
+        const redeemData = await redeemResponse.json()
+        setCurrentPoints(redeemData.newPointsBalance)
+        await fetchRewardsData() // Refresh data
+        alert(`Reward redeemed! You spent ${redeemData.pointsSpent} points.`)
+      } else {
+        const error = await redeemResponse.json()
+        alert(`Error redeeming: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error redeeming available reward:', error)
+      alert('Failed to redeem reward')
+    }
+  }
+
   const handleRedeemPartnerReward = async (partnerRewardId: string) => {
     try {
       const response = await fetch('/api/rewards/redeem-partner', {
@@ -321,6 +381,28 @@ export default function RewardsSection() {
     } catch (error) {
       console.error('Error redeeming partner reward:', error)
       alert('Failed to redeem partner reward')
+    }
+  }
+
+  const handleAddBackToAvailable = async (userRewardId: string) => {
+    try {
+      const response = await fetch('/api/rewards/add-back-to-available', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_reward_id: userRewardId }),
+      })
+
+      if (response.ok) {
+        await fetchRewardsData()
+        alert('Reward added back to available awards!')
+      } else {
+        const error = await response.json()
+        console.error('Add back to available error:', error)
+        alert(`Error: ${error.error}${error.details ? ` - ${error.details}` : ''}`)
+      }
+    } catch (error) {
+      console.error('Error adding reward back to available:', error)
+      alert('Failed to add reward back to available')
     }
   }
 
@@ -555,23 +637,27 @@ export default function RewardsSection() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Gift className="h-5 w-5" />
-          Rewards & Milestones
+          Rewards & Self-Care
         </CardTitle>
-        <CardDescription>
-          Exchange your points for rewards and track your progress milestones
-        </CardDescription>
+        <CardDescription>Exchange your points for rewards and track your progress</CardDescription>
       </CardHeader>
       <CardContent>
         {/* Points Balance */}
         <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Coins className="h-6 w-6 text-yellow-600" />
-              <span className="text-lg font-semibold">Current Points</span>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Coins className="h-6 w-6 text-yellow-600" />
+                <span className="text-lg font-semibold">Available Points</span>
+              </div>
+              <span className="text-2xl font-bold text-green-600">
+                {currentPoints.toLocaleString()}
+              </span>
             </div>
-            <span className="text-2xl font-bold text-blue-600">
-              {currentPoints.toLocaleString()}
-            </span>
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Total Earned: {totalPoints.toLocaleString()}</span>
+              <span>Redeemed: {totalRedeemed.toLocaleString()}</span>
+            </div>
           </div>
         </div>
 
@@ -579,12 +665,12 @@ export default function RewardsSection() {
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="available">Available Rewards</TabsTrigger>
             <TabsTrigger value="partner">Partner Rewards</TabsTrigger>
-            <TabsTrigger value="rewards">Redeemed Awards</TabsTrigger>
+            <TabsTrigger value="rewards">Redeemed Rewards</TabsTrigger>
           </TabsList>
 
           {/* Redeemed Awards Tab */}
           <TabsContent value="rewards" className="space-y-4">
-            <h3 className="text-lg font-semibold">Redeemed Awards</h3>
+            <h3 className="text-lg font-semibold">Redeemed Rewards</h3>
 
             {/* Edit User Reward Dialog */}
             <Dialog open={showEditUserRewardDialog} onOpenChange={setShowEditUserRewardDialog}>
@@ -644,86 +730,104 @@ export default function RewardsSection() {
             </Dialog>
 
             <div className="grid gap-4">
-              {userRewards.map((userReward) => (
-                <Card
-                  key={userReward.id}
-                  className={`${userReward.is_redeemed ? 'opacity-60' : ''}`}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {userReward.rewards && getRewardIcon(userReward.rewards)}
-                        <div>
-                          <h4 className="font-semibold">{getRewardName(userReward)}</h4>
-                          <p className="text-sm text-gray-600">
-                            {getRewardDescription(userReward)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant={
-                            userReward.is_redeemed
-                              ? 'secondary'
-                              : userReward.is_unlocked
-                                ? 'default'
-                                : 'outline'
-                          }
-                        >
-                          {getRewardCost(userReward)} pts
-                        </Badge>
-                        {userReward.is_redeemed ? (
+              {userRewards.filter((userReward) => userReward.is_redeemed).length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Gift className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>No redeemed rewards yet</p>
+                  <p className="text-sm">
+                    Redeem rewards from the Available Rewards tab to see them here
+                  </p>
+                </div>
+              ) : (
+                userRewards
+                  .filter((userReward) => userReward.is_redeemed)
+                  .map((userReward) => (
+                    <Card
+                      key={userReward.id}
+                      className={`${userReward.is_redeemed ? 'opacity-60' : ''}`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {userReward.rewards && getRewardIcon(userReward.rewards)}
+                            <div>
+                              <h4 className="font-semibold">{getRewardName(userReward)}</h4>
+                              <p className="text-sm text-gray-600">
+                                {getRewardDescription(userReward)}
+                              </p>
+                            </div>
+                          </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant="secondary">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Redeemed
+                            <Badge
+                              variant={
+                                userReward.is_redeemed
+                                  ? 'secondary'
+                                  : userReward.is_unlocked
+                                    ? 'default'
+                                    : 'outline'
+                              }
+                            >
+                              {getRewardCost(userReward)} pts
                             </Badge>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleEditUserReward(userReward)}
-                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleDeleteReward(userReward.id)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                            {userReward.is_redeemed ? (
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Redeemed
+                                </Badge>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleEditUserReward(userReward)}
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleAddBackToAvailable(userReward.id)}
+                                >
+                                  Add
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDeleteReward(userReward.id)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : userReward.is_unlocked ? (
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleEditUserReward(userReward)}
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleRedeemReward(userReward.id)}
+                                  disabled={currentPoints < (getRewardCost(userReward) || 0)}
+                                >
+                                  Redeem
+                                </Button>
+                              </div>
+                            ) : (
+                              <Badge variant="outline">
+                                <Lock className="h-3 w-3 mr-1" />
+                                Locked
+                              </Badge>
+                            )}
                           </div>
-                        ) : userReward.is_unlocked ? (
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleEditUserReward(userReward)}
-                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleRedeemReward(userReward.id)}
-                              disabled={currentPoints < (getRewardCost(userReward) || 0)}
-                            >
-                              Redeem
-                            </Button>
-                          </div>
-                        ) : (
-                          <Badge variant="outline">
-                            <Lock className="h-3 w-3 mr-1" />
-                            Locked
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+              )}
             </div>
           </TabsContent>
 
@@ -902,10 +1006,10 @@ export default function RewardsSection() {
                         </div>
                         <Button
                           size="sm"
-                          onClick={() => handleAddRewardToUser(reward.id)}
+                          onClick={() => handleRedeemAvailableReward(reward.id)}
                           disabled={currentPoints < reward.point_cost}
                         >
-                          Add
+                          Redeem
                         </Button>
                       </div>
                     </div>

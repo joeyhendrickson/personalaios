@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-// POST /api/discipline-trophies/check-achievements - Check and award new trophies
+// POST /api/total-habit-trophies/check-achievements - Check and award new total habit trophies
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -14,53 +14,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { habitId } = await request.json()
-
-    if (!habitId) {
-      return NextResponse.json({ error: 'Habit ID is required' }, { status: 400 })
-    }
-
-    // Get actual habit completions and calculate count
+    // Get user's total habit completions count
     const { data: habitCompletions, error: completionError } = await supabase
       .from('habit_completions')
       .select('id')
       .eq('user_id', user.id)
-      .eq('habit_id', habitId)
 
     if (completionError) {
       console.error('Error fetching habit completions:', completionError)
       return NextResponse.json({ error: 'Failed to fetch completions' }, { status: 500 })
     }
 
-    const currentCount = habitCompletions?.length || 0
+    const totalCompletions = habitCompletions?.length || 0
 
-    // Get all trophies that could be earned at this count
+    // Get all trophies that could be earned at this total completion count
     const { data: availableTrophies, error: trophiesError } = await supabase
-      .from('discipline_trophies')
+      .from('total_habit_trophies')
       .select('*')
-      .lte('habit_count_required', currentCount)
-      .order('habit_count_required', { ascending: true })
+      .lte('total_completions_required', totalCompletions)
+      .order('total_completions_required', { ascending: true })
 
     if (trophiesError) {
-      console.error('Error fetching available trophies:', trophiesError)
+      console.error('Error fetching trophies:', trophiesError)
       return NextResponse.json({ error: 'Failed to fetch trophies' }, { status: 500 })
     }
 
-    // Get already earned trophies for this habit
+    // Get already earned trophies
     const { data: earnedTrophies, error: earnedError } = await supabase
-      .from('user_discipline_trophies')
+      .from('user_total_habit_trophies')
       .select('trophy_id')
       .eq('user_id', user.id)
-      .eq('habit_id', habitId)
 
     if (earnedError) {
       console.error('Error fetching earned trophies:', earnedError)
       return NextResponse.json({ error: 'Failed to fetch earned trophies' }, { status: 500 })
     }
 
-    const earnedTrophyIds = new Set(earnedTrophies?.map((t) => t.trophy_id) || [])
-
-    // Find new trophies to award
+    const earnedTrophyIds = new Set(earnedTrophies?.map((et) => et.trophy_id) || [])
     const newTrophies = availableTrophies?.filter((trophy) => !earnedTrophyIds.has(trophy.id)) || []
 
     const awardedTrophies = []
@@ -68,39 +58,34 @@ export async function POST(request: NextRequest) {
     // Award new trophies
     for (const trophy of newTrophies) {
       const { data: newTrophy, error: insertError } = await supabase
-        .from('user_discipline_trophies')
+        .from('user_total_habit_trophies')
         .insert({
           user_id: user.id,
           trophy_id: trophy.id,
-          habit_id: habitId,
+          total_completions_at_time: totalCompletions,
         })
         .select(
           `
           *,
-          discipline_trophies (*),
-          daily_habits (title)
+          total_habit_trophies (*)
         `
         )
         .single()
 
       if (insertError) {
         console.error('Error awarding trophy:', insertError)
-        continue
+      } else {
+        awardedTrophies.push(newTrophy)
       }
-
-      awardedTrophies.push(newTrophy)
     }
 
     return NextResponse.json({
+      message: `${awardedTrophies.length} new trophy(ies) awarded`,
+      totalCompletions,
       awardedTrophies,
-      currentCount,
-      message:
-        awardedTrophies.length > 0
-          ? `Congratulations! You've earned ${awardedTrophies.length} new discipline trophy${awardedTrophies.length > 1 ? 'ies' : ''}!`
-          : 'No new trophies earned at this time.',
     })
   } catch (error) {
-    console.error('Error in check achievements:', error)
+    console.error('Error in total-habit-trophies check-achievements POST:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

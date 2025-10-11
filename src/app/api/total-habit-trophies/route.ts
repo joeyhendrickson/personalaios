@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-// GET /api/discipline-trophies - Get all available discipline trophies
+// GET /api/total-habit-trophies - Get all total habit trophies and user's earned trophies
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -14,43 +14,37 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get all available trophies
+    // Get all available total habit trophies
     const { data: trophies, error: trophiesError } = await supabase
-      .from('discipline_trophies')
+      .from('total_habit_trophies')
       .select('*')
-      .order('habit_count_required', { ascending: true })
+      .order('total_completions_required', { ascending: true })
 
     if (trophiesError) {
-      console.error('Error fetching discipline trophies:', trophiesError)
+      console.error('Error fetching total habit trophies:', trophiesError)
       return NextResponse.json({ error: 'Failed to fetch trophies' }, { status: 500 })
     }
 
-    // Get user's earned trophies
+    // Get user's earned total habit trophies
     const { data: userTrophies, error: userTrophiesError } = await supabase
-      .from('user_discipline_trophies')
+      .from('user_total_habit_trophies')
       .select(
         `
         *,
-        discipline_trophies (*),
-        daily_habits (title)
+        total_habit_trophies (*)
       `
       )
       .eq('user_id', user.id)
 
     if (userTrophiesError) {
-      console.error('Error fetching user trophies:', userTrophiesError)
+      console.error('Error fetching user total habit trophies:', userTrophiesError)
       return NextResponse.json({ error: 'Failed to fetch user trophies' }, { status: 500 })
     }
 
-    // Get user's actual habit completions and calculate counts
+    // Get user's total habit completions count
     const { data: habitCompletions, error: completionError } = await supabase
       .from('habit_completions')
-      .select(
-        `
-        habit_id,
-        daily_habits (title)
-      `
-      )
+      .select('id')
       .eq('user_id', user.id)
 
     if (completionError) {
@@ -58,31 +52,23 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch completions' }, { status: 500 })
     }
 
-    // Calculate completion counts per habit
-    const countsByHabit = new Map()
-    habitCompletions?.forEach((completion: any) => {
-      const habitId = completion.habit_id
-      const current = countsByHabit.get(habitId) || {
-        id: habitId,
-        habit_id: habitId,
-        completion_count: 0,
-        daily_habits: completion.daily_habits,
-        user_id: user.id,
-        last_completed_at: new Date().toISOString(),
-      }
-      current.completion_count++
-      countsByHabit.set(habitId, current)
-    })
+    const totalCompletions = habitCompletions?.length || 0
 
-    const completionCounts = Array.from(countsByHabit.values())
+    console.log('Total habit trophies debug:', {
+      trophiesCount: trophies?.length || 0,
+      userTrophiesCount: userTrophies?.length || 0,
+      totalCompletions,
+      sampleTrophies: trophies?.slice(0, 3),
+      sampleUserTrophies: userTrophies?.slice(0, 3),
+    })
 
     return NextResponse.json({
       trophies,
       userTrophies,
-      completionCounts,
+      totalCompletions,
     })
   } catch (error) {
-    console.error('Error in discipline trophies GET:', error)
+    console.error('Error in total-habit-trophies GET:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

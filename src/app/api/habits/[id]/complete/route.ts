@@ -73,6 +73,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Failed to complete habit' }, { status: 500 })
     }
 
+    // Check and award total habit trophies
+    try {
+      await fetch(
+        `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/total-habit-trophies/check-achievements`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Cookie: request.headers.get('cookie') || '',
+          },
+        }
+      )
+    } catch (trophyError) {
+      console.error('Error checking total habit trophies:', trophyError)
+      // Don't fail the habit completion if trophy check fails
+    }
+
     return NextResponse.json({
       completion,
       habit,

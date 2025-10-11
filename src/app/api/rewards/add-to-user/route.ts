@@ -23,6 +23,67 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = addRewardSchema.parse(body)
 
+    // Get the reward details to check point cost
+    const { data: reward, error: rewardError } = await supabase
+      .from('rewards')
+      .select('point_cost')
+      .eq('id', validatedData.reward_id)
+      .single()
+
+    if (rewardError || !reward) {
+      return NextResponse.json({ error: 'Reward not found' }, { status: 404 })
+    }
+
+    // Get total earned points (sum all positive points from points_ledger)
+    const { data: allPointsData, error: pointsError } = await supabase
+      .from('points_ledger')
+      .select('points')
+      .eq('user_id', user.id)
+
+    if (pointsError) {
+      console.error('Error fetching points:', pointsError)
+      return NextResponse.json({ error: 'Failed to fetch points' }, { status: 500 })
+    }
+
+    const totalEarnedPoints =
+      allPointsData?.reduce((sum, entry) => sum + (entry.points || 0), 0) || 0
+
+    // Get total points spent on redeemed rewards
+    const { data: userRewards, error: userRewardsError } = await supabase
+      .from('user_rewards')
+      .select('custom_point_cost, rewards(point_cost), is_redeemed')
+      .eq('user_id', user.id)
+
+    if (userRewardsError) {
+      console.error('Error fetching user rewards:', userRewardsError)
+      return NextResponse.json({ error: 'Failed to fetch user rewards' }, { status: 500 })
+    }
+
+    const redeemedRewards = userRewards?.filter((ur) => ur.is_redeemed) || []
+    const totalRedeemed = redeemedRewards.reduce((sum, userReward) => {
+      const pointCost = userReward.custom_point_cost || userReward.rewards?.point_cost || 0
+      return sum + pointCost
+    }, 0)
+
+    const currentPoints = totalEarnedPoints - totalRedeemed
+
+    // Check if user has enough points
+    if (currentPoints < reward.point_cost) {
+      return NextResponse.json(
+        {
+          error: 'Insufficient points',
+          currentPoints,
+          requiredPoints: reward.point_cost,
+          debug: {
+            totalEarnedPoints,
+            totalRedeemed,
+            redeemedRewardsCount: redeemedRewards.length,
+          },
+        },
+        { status: 400 }
+      )
+    }
+
     // Check if user already has this reward
     const { data: existingReward } = await supabase
       .from('user_rewards')
@@ -53,7 +114,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to add reward to user' }, { status: 500 })
     }
 
-    return NextResponse.json({ userReward }, { status: 201 })
+    // Note: We don't deduct points from user_points table anymore
+    // Current points are calculated dynamically based on redeemed rewards
+    // The point checking above ensures user has enough points before allowing redemption
+
+    return NextResponse.json(
+      {
+        userReward,
+        message: 'Reward added to your rewards successfully',
+      },
+      { status: 201 }
+    )
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid input', details: error.issues }, { status: 400 })

@@ -159,7 +159,6 @@ INSERT INTO rewards (category_id, name, description, point_cost) VALUES
 ((SELECT id FROM reward_categories WHERE name = 'Health & Fitness'), 'New Workout Gear', 'Buy new athletic wear or fitness equipment', 200),
 ((SELECT id FROM reward_categories WHERE name = 'Health & Fitness'), 'Personal Training Session', 'Book a session with a personal trainer', 400),
 ((SELECT id FROM reward_categories WHERE name = 'Health & Fitness'), 'Healthy Meal Delivery', 'Order a week of healthy meal delivery service', 300),
-((SELECT id FROM reward_categories WHERE name = 'Health & Fitness'), 'Fitness App Premium', 'Get premium access to a fitness tracking app', 100),
 ((SELECT id FROM reward_categories WHERE name = 'Health & Fitness'), 'Yoga or Pilates Class', 'Attend a yoga or Pilates class', 150),
 
 -- Social Rewards (3)

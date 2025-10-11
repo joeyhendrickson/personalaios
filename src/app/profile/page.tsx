@@ -8,10 +8,12 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuth } from '@/contexts/auth-context'
-import { ArrowLeft, User, Mail, Calendar, BarChart3, Target, CheckCircle } from 'lucide-react'
+import { ArrowLeft, User, Mail, Calendar, BarChart3, Target, CheckCircle, Zap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import RewardsSection from '@/components/rewards/rewards-section'
 import DisciplineTrophies from '@/components/discipline/discipline-trophies'
+import TotalHabitTrophies from '@/components/trophies/total-habit-trophies'
+import SigninStreakTrophies from '@/components/trophies/signin-streak-trophies'
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
@@ -205,7 +207,16 @@ export default function ProfilePage() {
           {/* Rewards Section */}
           <RewardsSection />
 
-          {/* Discipline Trophies Section */}
+          {/* Trophy Sections */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Sign-In Streak Trophies */}
+            <SigninStreakTrophies />
+
+            {/* Total Habit Completion Trophies */}
+            <TotalHabitTrophies />
+          </div>
+
+          {/* Discipline Trophies Section (Per-Habit) */}
           <DisciplineTrophies />
 
           {/* Quick Actions */}
@@ -227,11 +238,11 @@ export default function ProfilePage() {
 
                 <Button
                   variant="outline"
-                  onClick={() => router.push('/import')}
+                  onClick={() => router.push('/modules')}
                   className="h-20 flex flex-col items-center justify-center"
                 >
-                  <CheckCircle className="h-6 w-6 mb-2" />
-                  <span>Import Data</span>
+                  <Zap className="h-6 w-6 mb-2" />
+                  <span>Life Hacks</span>
                 </Button>
               </div>
             </CardContent>

@@ -56,8 +56,60 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       })
       .eq('id', priorityId)
       .eq('user_id', user.id)
-      .select()
+      .select('*')
       .single()
+
+    // If priority was completed, also update the underlying goal/task to reflect progress
+    if (validatedData.is_completed === true && priority) {
+      try {
+        // Check if this priority is linked to a task
+        if (priority.task_id) {
+          console.log(`Updating task ${priority.task_id} to completed`)
+          await supabase
+            .from('tasks')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', priority.task_id)
+            .eq('user_id', user.id)
+        }
+
+        // Check if this priority is linked to a project/goal
+        if (priority.project_id) {
+          console.log(`Updating project ${priority.project_id} progress`)
+          // Get current project to calculate new progress
+          const { data: project } = await supabase
+            .from('weekly_goals')
+            .select('current_points, target_points')
+            .eq('id', priority.project_id)
+            .eq('user_id', user.id)
+            .single()
+
+          if (project) {
+            // Add priority points to project progress
+            const priorityPoints = priority.priority_score || 0
+            const newCurrentPoints = Math.min(
+              (project.current_points || 0) + priorityPoints,
+              project.target_points || 100
+            )
+
+            await supabase
+              .from('weekly_goals')
+              .update({
+                current_points: newCurrentPoints,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', priority.project_id)
+              .eq('user_id', user.id)
+          }
+        }
+      } catch (error) {
+        console.error('Error updating underlying goal/task:', error)
+        // Don't fail the priority update if the goal/task update fails
+      }
+    }
 
     if (updateError) {
       console.error('Error updating priority:', updateError)

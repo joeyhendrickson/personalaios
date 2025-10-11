@@ -34,6 +34,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } = await supabase.auth.getSession()
       setUser(session?.user ?? null)
       setLoading(false)
+
+      // Track sign-in for existing sessions (page loads)
+      if (session?.user) {
+        try {
+          await fetch('/api/signin-streak/track', {
+            method: 'POST',
+            credentials: 'include',
+          })
+        } catch (error) {
+          console.error('Failed to track sign-in streak:', error)
+          // Don't block auth flow if tracking fails
+        }
+      }
     }
 
     getInitialSession()
@@ -44,6 +57,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null)
       setLoading(false)
+
+      // Track sign-in for streak trophies when user signs in
+      if (event === 'SIGNED_IN' && session?.user) {
+        try {
+          await fetch('/api/signin-streak/track', {
+            method: 'POST',
+            credentials: 'include',
+          })
+        } catch (error) {
+          console.error('Failed to track sign-in streak:', error)
+          // Don't block auth flow if tracking fails
+        }
+      }
     })
 
     return () => subscription.unsubscribe()

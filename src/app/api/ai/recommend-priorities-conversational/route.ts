@@ -4,6 +4,49 @@ import { openai } from '@ai-sdk/openai'
 import { generateText } from 'ai'
 import { z } from 'zod'
 
+// Function to calculate similarity between two strings
+function calculateSimilarity(str1: string, str2: string): number {
+  const longer = str1.length > str2.length ? str1 : str2
+  const shorter = str1.length > str2.length ? str2 : str1
+
+  if (longer.length === 0) return 1.0
+
+  const editDistance = levenshteinDistance(longer, shorter)
+  return (longer.length - editDistance) / longer.length
+}
+
+// Levenshtein distance calculation
+function levenshteinDistance(str1: string, str2: string): number {
+  const matrix = Array(str2.length + 1)
+    .fill(null)
+    .map(() => Array(str1.length + 1).fill(null))
+
+  for (let i = 0; i <= str1.length; i++) matrix[0][i] = i
+  for (let j = 0; j <= str2.length; j++) matrix[j][0] = j
+
+  for (let j = 1; j <= str2.length; j++) {
+    for (let i = 1; i <= str1.length; i++) {
+      const substitutionCost = str1[i - 1] === str2[j - 1] ? 0 : 1
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1, // deletion
+        matrix[j - 1][i] + 1, // insertion
+        matrix[j - 1][i - 1] + substitutionCost // substitution
+      )
+    }
+  }
+
+  return matrix[str2.length][str1.length]
+}
+
+// Function to normalize text for comparison
+function normalizeText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, '') // Remove punctuation
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .trim()
+}
+
 const conversationalPrioritySchema = z.object({
   daily_intention: z.string().min(1).max(500),
   energy_level: z.enum(['high', 'medium', 'low']).optional(),
@@ -447,27 +490,78 @@ Focus on creating priorities that make the user feel like they're making progres
     }
 
     if (validPriorities.length > 0) {
-      console.log('Inserting priorities:', validPriorities.length, 'items')
-      const prioritiesToInsert = validPriorities.map((priority: any) => ({
-        user_id: user.id,
-        ...priority,
-      }))
-      console.log('Sample priority to insert:', prioritiesToInsert[0])
+      console.log('Processing priorities with deduplication:', validPriorities.length, 'items')
 
-      const { error: insertError } = await supabase.from('priorities').insert(prioritiesToInsert)
+      // Get existing priorities for deduplication (excluding AI recommendations since we just cleared them)
+      const { data: existingPriorities } = await supabase
+        .from('priorities')
+        .select('id, title, priority_type, is_completed, created_at')
+        .eq('user_id', user.id)
+        .eq('is_deleted', false)
+        .neq('priority_type', 'ai_recommended') // Exclude AI recommendations since we just cleared them
 
-      if (insertError) {
-        console.error('Error inserting AI priorities:', insertError)
-        return NextResponse.json(
-          {
-            error: 'Failed to save AI recommendations',
-            details: insertError.message,
-            code: insertError.code,
-          },
-          { status: 500 }
-        )
+      // Filter out duplicates using intelligent similarity matching
+      const deduplicatedPriorities = []
+      const skippedDuplicates = []
+
+      for (const newPriority of validPriorities) {
+        let isDuplicate = false
+        const newTitleNormalized = normalizeText(newPriority.title)
+
+        // Check against existing priorities
+        for (const existing of existingPriorities || []) {
+          const existingTitleNormalized = normalizeText(existing.title)
+
+          // Check for exact match
+          const isExactMatch = newPriority.title === existing.title
+
+          // Check for similarity match (80%+ similar)
+          const similarity = calculateSimilarity(newTitleNormalized, existingTitleNormalized)
+          const isSimilarMatch = similarity > 0.8
+
+          if (isExactMatch || isSimilarMatch) {
+            console.log(
+              `🚫 Skipping duplicate priority: "${newPriority.title}" (${isExactMatch ? 'exact match' : `${Math.round(similarity * 100)}% similar`} with existing: "${existing.title}")`
+            )
+            skippedDuplicates.push({ new: newPriority.title, existing: existing.title, similarity })
+            isDuplicate = true
+            break
+          }
+        }
+
+        if (!isDuplicate) {
+          deduplicatedPriorities.push({
+            user_id: user.id,
+            ...newPriority,
+          })
+        }
       }
-      console.log('Successfully inserted AI priorities')
+
+      console.log(
+        `✅ Deduplication complete: ${deduplicatedPriorities.length} new priorities, ${skippedDuplicates.length} duplicates skipped`
+      )
+
+      // Insert only the deduplicated priorities
+      if (deduplicatedPriorities.length > 0) {
+        const { error: insertError } = await supabase
+          .from('priorities')
+          .insert(deduplicatedPriorities)
+
+        if (insertError) {
+          console.error('Error inserting AI priorities:', insertError)
+          return NextResponse.json(
+            {
+              error: 'Failed to save AI recommendations',
+              details: insertError.message,
+              code: insertError.code,
+            },
+            { status: 500 }
+          )
+        }
+        console.log('Successfully inserted deduplicated AI priorities')
+      } else {
+        console.log('No new priorities to insert after deduplication')
+      }
     }
 
     // Also sync fires priorities to ensure they're included

@@ -50,11 +50,11 @@ export async function POST(request: NextRequest) {
     // Get total points redeemed
     const { data: redeemedData } = await supabase
       .from('point_redemptions')
-      .select('points_redeemed')
+      .select('points_spent')
       .eq('user_id', user.id)
 
     const totalRedeemed =
-      redeemedData?.reduce((sum, redemption) => sum + redemption.points_redeemed, 0) || 0
+      redeemedData?.reduce((sum, redemption) => sum + redemption.points_spent, 0) || 0
     const currentPoints = totalPoints - totalRedeemed
 
     // Check if user has enough points

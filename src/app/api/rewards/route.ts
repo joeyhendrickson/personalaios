@@ -65,10 +65,6 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch default rewards' }, { status: 500 })
     }
 
-    // Filter out hidden rewards
-    const defaultRewards =
-      allRewards?.filter((reward) => !hiddenRewardIds.includes(reward.id)) || []
-
     // Get user's personal rewards (both default and custom)
     const { data: userRewards, error: userRewardsError } = await supabase
       .from('user_rewards')
@@ -97,6 +93,15 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch user rewards' }, { status: 500 })
     }
 
+    // Get reward IDs that user has already added to their personal rewards
+    const userRewardIds = userRewards?.map((ur) => ur.reward_id).filter(Boolean) || []
+
+    // Filter out hidden rewards AND rewards already added to user's personal collection
+    const defaultRewards =
+      allRewards?.filter(
+        (reward) => !hiddenRewardIds.includes(reward.id) && !userRewardIds.includes(reward.id)
+      ) || []
+
     // Get user's total points earned (sum all points from points_ledger)
     const { data: allPointsData, error: pointsError } = await supabase
       .from('points_ledger')
@@ -109,28 +114,33 @@ export async function GET() {
 
     const totalPoints = allPointsData?.reduce((sum, entry) => sum + (entry.points || 0), 0) || 0
 
-    // Get total points redeemed
-    const { data: redeemedData, error: redeemedError } = await supabase
-      .from('point_redemptions')
-      .select('points_spent')
-      .eq('user_id', user.id)
-
-    if (redeemedError) {
-      console.error('Error fetching redeemed points:', redeemedError)
-    }
-
-    const totalRedeemed =
-      redeemedData?.reduce((sum, redemption) => sum + redemption.points_spent, 0) || 0
+    // Calculate total points spent on redeemed awards
+    // Sum up all points from rewards that are redeemed (is_redeemed = true)
+    const redeemedRewards = userRewards?.filter((ur) => ur.is_redeemed) || []
+    const totalRedeemed = redeemedRewards.reduce((sum, userReward) => {
+      const pointCost = userReward.custom_point_cost || userReward.rewards?.point_cost || 0
+      return sum + pointCost
+    }, 0)
 
     // Calculate current available points
     const currentPoints = totalPoints - totalRedeemed
 
-    console.log('Points calculation:', {
+    console.log('Main rewards API - Points calculation:', {
       totalPoints,
       totalRedeemed,
       currentPoints,
       pointsCount: allPointsData?.length || 0,
-      redeemedCount: redeemedData?.length || 0,
+      redeemedRewardsCount: redeemedRewards.length,
+      userRewardsCount: userRewards?.length || 0,
+      samplePointsData: allPointsData?.slice(0, 3),
+      sampleRedeemedRewards: redeemedRewards.slice(0, 3),
+      allUserRewardsWithStatus: userRewards?.map((ur) => ({
+        id: ur.id,
+        is_redeemed: ur.is_redeemed,
+        is_unlocked: ur.is_unlocked,
+        custom_name: ur.custom_name,
+        rewards_name: ur.rewards?.name,
+      })),
     })
 
     return NextResponse.json({
@@ -138,6 +148,9 @@ export async function GET() {
       defaultRewards,
       userRewards,
       currentPoints,
+      totalPoints,
+      totalRedeemed,
+      redeemedRewardsCount: redeemedRewards.length,
     })
   } catch (error) {
     console.error('Error in rewards GET:', error)
