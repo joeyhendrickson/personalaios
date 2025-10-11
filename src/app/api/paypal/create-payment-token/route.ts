@@ -3,7 +3,8 @@ import { Client, Environment, LogLevel } from '@paypal/paypal-server-sdk'
 import { v4 as uuidv4 } from 'uuid'
 
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_SANDBOX_CLIENT_ID || process.env.PAYPAL_CLIENT_ID
-const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_SANDBOX_CLIENT_SECRET || process.env.PAYPAL_CLIENT_SECRET
+const PAYPAL_CLIENT_SECRET =
+  process.env.PAYPAL_SANDBOX_CLIENT_SECRET || process.env.PAYPAL_CLIENT_SECRET
 
 const client = new Client({
   clientCredentialsAuthCredentials: {
@@ -22,7 +23,7 @@ const client = new Client({
 export async function POST(request: NextRequest) {
   try {
     const { setupToken } = await request.json()
-    
+
     const collect = {
       paypalRequestId: uuidv4(),
       body: {
@@ -33,19 +34,15 @@ export async function POST(request: NextRequest) {
 
     const { VaultController } = await import('@paypal/paypal-server-sdk')
     const vaultController = new VaultController(client)
-    
-    const { result, ...httpResponse } = await vaultController.paymentTokensCreate(collect)
-    
+
+    const { result, ...httpResponse } = await (vaultController as any).paymentTokensCreate(collect)
+
     return NextResponse.json({
       paymentToken: result,
       httpStatusCode: httpResponse.statusCode,
     })
-    
   } catch (error: any) {
     console.error('Failed to create payment token:', error)
-    return NextResponse.json(
-      { error: 'Failed to create payment token' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to create payment token' }, { status: 500 })
   }
 }

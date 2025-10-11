@@ -61,7 +61,8 @@ export async function POST(request: NextRequest) {
 
     const redeemedRewards = userRewards?.filter((ur) => ur.is_redeemed) || []
     const totalRedeemed = redeemedRewards.reduce((sum, userReward) => {
-      const pointCost = userReward.custom_point_cost || userReward.rewards?.point_cost || 0
+      const reward = Array.isArray(userReward.rewards) ? userReward.rewards[0] : userReward.rewards
+      const pointCost = userReward.custom_point_cost || reward?.point_cost || 0
       return sum + pointCost
     }, 0)
 

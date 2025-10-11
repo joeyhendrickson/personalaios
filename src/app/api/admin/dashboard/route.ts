@@ -62,7 +62,7 @@ export async function GET() {
       .select('user_id, is_completed, created_at, updated_at')
 
     // Skip points_ledger for now since it might not exist
-    const pointsData = []
+    const pointsData: any[] = []
     const pointsError = null
 
     console.log('Data counts:', {
