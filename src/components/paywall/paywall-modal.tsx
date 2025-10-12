@@ -254,7 +254,7 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
                 <PayPalSubscriptionButton
                   planType="standard"
                   userEmail=""
-                  onSuccess={handlePaymentSuccess}
+                  onSuccess={() => handlePaymentSuccess({})}
                   onError={handlePaymentError}
                 />
               ) : (
