@@ -25,7 +25,7 @@ export async function GET(request: Request) {
 
     // Calculate time ranges for notifications
     const fortyEightHoursFromNow = new Date(now.getTime() + 48 * 60 * 60 * 1000)
-    const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+    // const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
 
     // Find active trials that need notifications
     const { data: trialsToNotify, error: trialsError } = await supabase

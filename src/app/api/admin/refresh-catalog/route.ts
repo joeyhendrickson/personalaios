@@ -63,7 +63,7 @@ async function fetchDataCatalog(supabase: any) {
 
   // 1. Auth Users Data
   try {
-    const { data: authUsers, error } = await supabase.auth.admin.listUsers()
+    const { data: authUsers } = await supabase.auth.admin.listUsers()
     catalog.auth_users = {
       count: authUsers?.users?.length || 0,
       columns: ['id', 'email', 'created_at', 'last_sign_in_at', 'email_confirmed_at'],

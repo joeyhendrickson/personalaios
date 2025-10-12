@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     if (existingProfile) {
       // Profile exists, update it
       console.log('📝 Updating existing profile')
-      const { data: updateResult, error: updateError } = await serviceSupabase
+      const { error: updateError } = await serviceSupabase
         .from('profiles')
         .update({
           access_enabled: enabled,
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
 
       console.log('📋 Auth user data:', authUser.user.email, authUser.user.user_metadata)
 
-      const { data: createResult, error: createError } = await serviceSupabase
+      const { error: createError } = await serviceSupabase
         .from('profiles')
         .insert({
           id: userId,

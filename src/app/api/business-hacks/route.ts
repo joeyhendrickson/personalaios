@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 // GET /api/business-hacks - Get all business apps for the current user
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     const supabase = await createClient()
 
