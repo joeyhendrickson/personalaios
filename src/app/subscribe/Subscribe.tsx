@@ -159,7 +159,7 @@ export default function Subscribe() {
             {/* PayPal Subscription Button */}
             <div className="space-y-4">
               <PayPalSubscriptionButton
-                planType={selectedPlan === 'premium' ? 'premium' : 'standard'}
+                planType="standard"
                 userEmail={user.email || ''}
                 userId={user.id}
                 onSuccess={handleSubscriptionSuccess}

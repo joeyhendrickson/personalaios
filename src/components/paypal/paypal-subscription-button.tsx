@@ -4,7 +4,7 @@ import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js'
 import { useEffect, useState } from 'react'
 
 interface PayPalSubscriptionButtonProps {
-  planType: 'standard' | 'premium'
+  planType: 'standard'
   userEmail: string
   userId?: string
   onSuccess?: () => void
@@ -36,7 +36,7 @@ export default function PayPalSubscriptionButton({
     }
 
     setClientId(paypalClientId)
-    setPlanId(planType === 'premium' ? premiumPlanId || '' : standardPlanId || '')
+    setPlanId(standardPlanId || '')
   }, [planType, onError])
 
   if (!clientId || !planId) {
@@ -94,7 +94,7 @@ export default function PayPalSubscriptionButton({
                 paypal_subscription_id: data.subscriptionID,
                 email: userEmail,
                 user_id: userId,
-                plan_type: planType === 'premium' ? 'premium' : 'standard',
+                plan_type: 'standard',
               }),
             })
 
