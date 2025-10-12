@@ -12,16 +12,85 @@ import {
   Zap,
   Shield,
   Activity,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
 import { useLanguage } from '@/contexts/language-context'
 import { LanguageToggle } from '@/components/ui/language-toggle'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function HomePage() {
   const router = useRouter()
   const { user, loading } = useAuth()
   const { t } = useLanguage()
+  const [showSignInForm, setShowSignInForm] = useState(false)
+  const [showMainSignInForm, setShowMainSignInForm] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [isMainProcessing, setIsMainProcessing] = useState(false)
+  const [signInData, setSignInData] = useState({
+    email: '',
+    name: '',
+  })
+  const [mainSignInData, setMainSignInData] = useState({
+    email: '',
+    password: '',
+  })
+
+  const handleSignInSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsProcessing(true)
+
+    try {
+      // Redirect to PayPal checkout with the provided email and name
+      const params = new URLSearchParams({
+        email: signInData.email,
+        name: signInData.name,
+        plan: 'standard',
+        amount: '19.99',
+      })
+      window.location.href = `/paypal-checkout?${params.toString()}`
+    } catch (error: any) {
+      console.error('Error processing sign-in:', error)
+      alert(error.message || 'An error occurred. Please try again.')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handleMainSignInSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsMainProcessing(true)
+
+    try {
+      // Sign in the user
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: mainSignInData.email,
+          password: mainSignInData.password,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Invalid email or password')
+      }
+
+      // Redirect to dashboard on successful login
+      window.location.href = '/dashboard'
+    } catch (error: any) {
+      console.error('Error signing in:', error)
+      alert(error.message || 'An error occurred. Please try again.')
+    } finally {
+      setIsMainProcessing(false)
+    }
+  }
 
   const features = [
     {
@@ -62,11 +131,92 @@ export default function HomePage() {
                   </button>
                 </Link>
               ) : (
-                <Link href="/login">
-                  <button className="px-6 py-2.5 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-all text-sm">
-                    {t('home.signIn')}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSignInForm(!showSignInForm)}
+                    className="px-6 py-2.5 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-all text-sm flex items-center space-x-2"
+                  >
+                    <span>Subscribe</span>
+                    {showSignInForm ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
                   </button>
-                </Link>
+
+                  {/* Subscribe Dropdown Form */}
+                  {showSignInForm && (
+                    <div className="absolute top-full right-0 mt-2 w-80 z-50">
+                      <Card className="bg-white shadow-xl border border-gray-200">
+                        <CardHeader className="pb-4"></CardHeader>
+                        <CardContent>
+                          <form onSubmit={handleSignInSubmit} className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="signin-name" className="text-black text-sm">
+                                {t('form.fullName')}
+                              </Label>
+                              <Input
+                                id="signin-name"
+                                type="text"
+                                value={signInData.name}
+                                onChange={(e) =>
+                                  setSignInData({ ...signInData, name: e.target.value })
+                                }
+                                required
+                                placeholder={t('form.enterName')}
+                                className="text-black"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="signin-email" className="text-black text-sm">
+                                {t('form.email')}
+                              </Label>
+                              <Input
+                                id="signin-email"
+                                type="email"
+                                value={signInData.email}
+                                onChange={(e) =>
+                                  setSignInData({ ...signInData, email: e.target.value })
+                                }
+                                required
+                                placeholder={t('form.enterEmail')}
+                                className="text-black"
+                              />
+                            </div>
+
+                            <div className="flex space-x-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setShowSignInForm(false)}
+                                className="flex-1 text-black border-gray-300 hover:bg-gray-50"
+                              >
+                                {t('common.cancel')}
+                              </Button>
+                              <Button
+                                type="submit"
+                                disabled={isProcessing}
+                                className="flex-1 bg-black hover:bg-gray-800 text-white"
+                              >
+                                {isProcessing ? t('form.processing') : t('form.subscribe')}
+                              </Button>
+                            </div>
+                          </form>
+
+                          <div className="mt-4 text-center">
+                            <Link
+                              href="/create-account"
+                              className="text-sm text-gray-600 hover:text-black"
+                            >
+                              {t('form.explorePlans')}
+                            </Link>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -117,11 +267,94 @@ export default function HomePage() {
               </Link>
             ) : (
               <>
-                <Link href="/login">
-                  <button className="px-8 py-4 bg-white text-black rounded-full font-semibold hover:bg-gray-200 transition-all text-lg">
-                    {t('home.signIn')}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowMainSignInForm(!showMainSignInForm)}
+                    className="px-8 py-4 bg-white text-black rounded-full font-semibold hover:bg-gray-200 transition-all text-lg flex items-center space-x-2"
+                  >
+                    <span>{t('home.signIn')}</span>
+                    {showMainSignInForm ? (
+                      <ChevronUp className="h-5 w-5" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5" />
+                    )}
                   </button>
-                </Link>
+
+                  {/* Main Sign-in Dropdown Form */}
+                  {showMainSignInForm && (
+                    <div className="absolute top-full -left-32 mt-2 w-96 z-50">
+                      <Card className="bg-white shadow-xl border border-gray-200">
+                        <CardHeader className="pb-4"></CardHeader>
+                        <CardContent>
+                          <form onSubmit={handleMainSignInSubmit} className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label
+                                  htmlFor="main-signin-email"
+                                  className="text-black text-sm text-left"
+                                >
+                                  {t('form.email')}
+                                </Label>
+                                <Input
+                                  id="main-signin-email"
+                                  type="email"
+                                  value={mainSignInData.email}
+                                  onChange={(e) =>
+                                    setMainSignInData({ ...mainSignInData, email: e.target.value })
+                                  }
+                                  required
+                                  placeholder={t('form.enterEmail')}
+                                  className="text-black"
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label
+                                  htmlFor="main-signin-password"
+                                  className="text-black text-sm text-left"
+                                >
+                                  {t('form.password')}
+                                </Label>
+                                <Input
+                                  id="main-signin-password"
+                                  type="password"
+                                  value={mainSignInData.password}
+                                  onChange={(e) =>
+                                    setMainSignInData({
+                                      ...mainSignInData,
+                                      password: e.target.value,
+                                    })
+                                  }
+                                  required
+                                  placeholder={t('form.enterPassword')}
+                                  className="text-black"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex space-x-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setShowMainSignInForm(false)}
+                                className="flex-1 text-black border-gray-300 hover:bg-gray-50"
+                              >
+                                {t('common.cancel')}
+                              </Button>
+                              <Button
+                                type="submit"
+                                disabled={isMainProcessing}
+                                className="flex-1 bg-black hover:bg-gray-800 text-white"
+                              >
+                                {isMainProcessing ? t('form.signingIn') : t('form.signIn')}
+                              </Button>
+                            </div>
+                          </form>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+                </div>
                 <Link href="/create-account">
                   <button className="px-8 py-4 bg-transparent border-2 border-white text-white rounded-full font-semibold hover:bg-white hover:text-black transition-all text-lg">
                     {t('home.createAccount')}

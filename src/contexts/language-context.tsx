@@ -235,6 +235,19 @@ const translations = {
     'trophies.earnedAt': 'Earned at',
     'trophies.completions': 'completions',
 
+    // Form fields
+    'form.email': 'Email',
+    'form.password': 'Password',
+    'form.fullName': 'Full Name',
+    'form.enterEmail': 'Enter your email',
+    'form.enterPassword': 'Enter your password',
+    'form.enterName': 'Enter your full name',
+    'form.signIn': 'Sign In',
+    'form.subscribe': 'Subscribe - $19.99/month',
+    'form.signingIn': 'Signing In...',
+    'form.processing': 'Processing...',
+    'form.explorePlans': 'Or explore other plans →',
+
     // Common
     'common.loading': 'Loading...',
     'common.error': 'Error',
@@ -482,6 +495,19 @@ const translations = {
     'trophies.upcomingTrophies': 'Trofeos Próximos',
     'trophies.earnedAt': 'Ganado en',
     'trophies.completions': 'completaciones',
+
+    // Form fields
+    'form.email': 'Correo Electrónico',
+    'form.password': 'Contraseña',
+    'form.fullName': 'Nombre Completo',
+    'form.enterEmail': 'Ingresa tu correo electrónico',
+    'form.enterPassword': 'Ingresa tu contraseña',
+    'form.enterName': 'Ingresa tu nombre completo',
+    'form.signIn': 'Iniciar Sesión',
+    'form.subscribe': 'Suscribirse - $19.99/mes',
+    'form.signingIn': 'Iniciando Sesión...',
+    'form.processing': 'Procesando...',
+    'form.explorePlans': 'O explorar otros planes →',
 
     // Common
     'common.loading': 'Cargando...',
