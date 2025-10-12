@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supabase) throw new Error('Supabase client not available')
     const { error } = await supabase.auth.signOut()
     if (error) throw error
-    
+
     // Redirect to homepage after sign out
     if (typeof window !== 'undefined') {
       window.location.href = '/'

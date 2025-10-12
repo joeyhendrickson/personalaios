@@ -30,7 +30,7 @@ export async function POST(request: Request) {
         status: 'converted',
         converted_at: new Date().toISOString(),
         payment_id: paymentId,
-        final_plan_type: planType
+        final_plan_type: planType,
       })
       .eq('id', trialRecord.id)
       .select()
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
         started_at: new Date().toISOString(),
         next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
         payment_id: paymentId,
-        trial_converted_from: trialRecord.id
+        trial_converted_from: trialRecord.id,
       })
       .select()
       .single()
@@ -68,14 +68,10 @@ export async function POST(request: Request) {
       success: true,
       trial: updatedTrial,
       subscription: subscriptionRecord,
-      message: 'Trial converted to paid subscription successfully'
+      message: 'Trial converted to paid subscription successfully',
     })
-
   } catch (error) {
     console.error('Trial conversion error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

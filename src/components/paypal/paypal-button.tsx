@@ -19,14 +19,14 @@ declare global {
   }
 }
 
-export function PayPalButton({ 
-  amount, 
-  currency = 'USD', 
-  description, 
+export function PayPalButton({
+  amount,
+  currency = 'USD',
+  description,
   planType = 'basic',
-  onSuccess, 
+  onSuccess,
   onError,
-  className = ''
+  className = '',
 }: PayPalButtonProps) {
   const [isLoaded, setIsLoaded] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -35,7 +35,8 @@ export function PayPalButton({
   useEffect(() => {
     const loadPayPalScript = () => {
       const script = document.createElement('script')
-      script.src = 'https://www.paypal.com/sdk/js?client-id=' + process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+      script.src =
+        'https://www.paypal.com/sdk/js?client-id=' + process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
       script.async = true
       script.onload = () => {
         setIsLoaded(true)
@@ -60,64 +61,68 @@ export function PayPalButton({
 
   useEffect(() => {
     if (isLoaded && window.paypal) {
-      window.paypal.Buttons({
-        style: {
-          layout: 'vertical',
-          color: 'blue',
-          shape: 'rect',
-          label: 'paypal'
-        },
-        createOrder: (data: any, actions: any) => {
-          return actions.order.create({
-            purchase_units: [{
-              amount: {
-                value: amount.toFixed(2),
-                currency_code: currency
-              },
-              description: description
-            }]
-          })
-        },
-        onApprove: async (data: any, actions: any) => {
-          try {
-            setIsProcessing(true)
-            const details = await actions.order.capture()
-            
-            // Send payment confirmation to your API
-            const response = await fetch('/api/payment/verify-paypal', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                orderID: data.orderID,
-                details: details,
-                planType: planType
-              })
+      window.paypal
+        .Buttons({
+          style: {
+            layout: 'vertical',
+            color: 'blue',
+            shape: 'rect',
+            label: 'paypal',
+          },
+          createOrder: (data: any, actions: any) => {
+            return actions.order.create({
+              purchase_units: [
+                {
+                  amount: {
+                    value: amount.toFixed(2),
+                    currency_code: currency,
+                  },
+                  description: description,
+                },
+              ],
             })
+          },
+          onApprove: async (data: any, actions: any) => {
+            try {
+              setIsProcessing(true)
+              const details = await actions.order.capture()
 
-            if (response.ok) {
-              const result = await response.json()
-              onSuccess?.(details)
-              
-              // Redirect to account creation with payment confirmation
-              router.push(`/signup?payment=success&order=${data.orderID}`)
-            } else {
-              throw new Error('Payment verification failed')
+              // Send payment confirmation to your API
+              const response = await fetch('/api/payment/verify-paypal', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  orderID: data.orderID,
+                  details: details,
+                  planType: planType,
+                }),
+              })
+
+              if (response.ok) {
+                const result = await response.json()
+                onSuccess?.(details)
+
+                // Redirect to account creation with payment confirmation
+                router.push(`/signup?payment=success&order=${data.orderID}`)
+              } else {
+                throw new Error('Payment verification failed')
+              }
+            } catch (error) {
+              console.error('Payment error:', error)
+              onError?.(error)
+            } finally {
+              setIsProcessing(false)
             }
-          } catch (error) {
-            console.error('Payment error:', error)
-            onError?.(error)
-          } finally {
+          },
+          onError: (err: any) => {
+            console.error('PayPal error:', err)
+            onError?.(err)
             setIsProcessing(false)
-          }
-        },
-        onError: (err: any) => {
-          console.error('PayPal error:', err)
-          onError?.(err)
-          setIsProcessing(false)
-        }
-      }).render('#paypal-button-container')
+          },
+        })
+        .render('#paypal-button-container')
     }
   }, [isLoaded, amount, currency, description, onSuccess, onError, router])
 

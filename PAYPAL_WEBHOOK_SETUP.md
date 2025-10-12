@@ -1,6 +1,7 @@
 # PayPal Webhook Setup for Recurring Subscriptions
 
 ## Overview
+
 This guide will help you set up PayPal webhooks to handle monthly recurring subscription payments, cancellations, renewals, and payment failures.
 
 ---
@@ -8,11 +9,13 @@ This guide will help you set up PayPal webhooks to handle monthly recurring subs
 ## Step 1: Run Database Migration
 
 In your Supabase SQL editor, run:
+
 ```sql
 add-subscription-fields.sql
 ```
 
 This adds:
+
 - `paypal_subscription_id` to subscriptions table
 - `paypal_subscription_id` to payments table
 - `webhook_events` table for logging all webhook activity
@@ -27,6 +30,7 @@ This adds:
 2. Click **Create Plan**
 
 ### Basic Plan ($49.99/month):
+
 - **Plan Name**: Life Stacks Basic Monthly
 - **Plan ID**: Copy this - you'll need it! (e.g., `P-1AB23456CD789012E`)
 - **Billing Cycle**: Monthly
@@ -34,6 +38,7 @@ This adds:
 - **Description**: Full access to all Life Stacks features
 
 ### Premium Plan ($249.99/month):
+
 - **Plan Name**: Life Stacks Premium Monthly
 - **Plan ID**: Copy this - you'll need it! (e.g., `P-2XY34567EF890123G`)
 - **Billing Cycle**: Monthly
@@ -47,10 +52,12 @@ This adds:
 ### 3.1 Access Webhooks Settings
 
 **Production:**
+
 1. Log in to https://www.paypal.com
 2. Go to Dashboard → Developer → Webhooks
 
 **Sandbox (for testing):**
+
 1. Log in to https://developer.paypal.com
 2. Go to Dashboard → Apps & Credentials → Sandbox
 3. Click your app → Webhooks
@@ -60,6 +67,7 @@ This adds:
 Click **Add Webhook** and configure:
 
 **Webhook URL:**
+
 ```
 https://www.lifestacks.ai/api/webhooks/paypal
 ```
@@ -71,6 +79,7 @@ https://www.lifestacks.ai/api/webhooks/paypal
 Check these events (critical for recurring subscriptions):
 
 **Billing Events:**
+
 - ✅ `BILLING.SUBSCRIPTION.CREATED` - When subscription is created
 - ✅ `BILLING.SUBSCRIPTION.ACTIVATED` - When subscription becomes active
 - ✅ `BILLING.SUBSCRIPTION.CANCELLED` - When user cancels subscription
@@ -80,6 +89,7 @@ Check these events (critical for recurring subscriptions):
 - ✅ `BILLING.SUBSCRIPTION.UPDATED` - When subscription is modified
 
 **Payment Events:**
+
 - ✅ `PAYMENT.SALE.COMPLETED` - When each monthly payment completes
 - ✅ `PAYMENT.SALE.REFUNDED` - When payment is refunded
 - ✅ `PAYMENT.SALE.REVERSED` - When payment is reversed
@@ -137,12 +147,12 @@ export function PayPalSubscriptionButton({
   onError,
   className = ''
 }: PayPalSubscriptionButtonProps) {
-  const planId = planType === 'basic' 
-    ? process.env.NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID 
+  const planId = planType === 'basic'
+    ? process.env.NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID
     : process.env.NEXT_PUBLIC_PAYPAL_PREMIUM_PLAN_ID
 
   return (
-    <PayPalScriptProvider 
+    <PayPalScriptProvider
       options={{
         clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!,
         vault: true,
@@ -179,6 +189,7 @@ export function PayPalSubscriptionButton({
 ```
 
 **Important:** You'll need to install the PayPal SDK:
+
 ```bash
 npm install @paypal/react-paypal-js
 ```
@@ -190,14 +201,16 @@ npm install @paypal/react-paypal-js
 Modify `src/components/paywall/paywall-modal.tsx` to use subscription buttons:
 
 ```tsx
-{selectedPlan !== 'trial' && (
-  <PayPalSubscriptionButton
-    planType={selectedPlan}
-    onSuccess={handleSubscriptionSuccess}
-    onError={handlePaymentError}
-    className="w-full"
-  />
-)}
+{
+  selectedPlan !== 'trial' && (
+    <PayPalSubscriptionButton
+      planType={selectedPlan}
+      onSuccess={handleSubscriptionSuccess}
+      onError={handlePaymentError}
+      className="w-full"
+    />
+  )
+}
 ```
 
 ---
@@ -216,11 +229,13 @@ Modify `src/components/paywall/paywall-modal.tsx` to use subscription buttons:
 ### 7.2 Check Webhook Logs
 
 **In Supabase:**
+
 ```sql
 SELECT * FROM webhook_events ORDER BY created_at DESC LIMIT 10;
 ```
 
 **In Vercel:**
+
 - Go to your project → Deployments
 - Click on latest deployment → Functions
 - Find `/api/webhooks/paypal`
@@ -250,28 +265,32 @@ if (webhookResponse.ok) {
 ## Webhook Event Flow
 
 ### New Subscription:
+
 ```
-User Subscribes → BILLING.SUBSCRIPTION.CREATED → 
+User Subscribes → BILLING.SUBSCRIPTION.CREATED →
 BILLING.SUBSCRIPTION.ACTIVATED → Record created in subscriptions table
 ```
 
 ### Monthly Renewal:
+
 ```
-PayPal Charges Card → PAYMENT.SALE.COMPLETED → 
-Record created in payments table → 
+PayPal Charges Card → PAYMENT.SALE.COMPLETED →
+Record created in payments table →
 BILLING.SUBSCRIPTION.RENEWED → Update subscription
 ```
 
 ### Cancellation:
+
 ```
-User Cancels → BILLING.SUBSCRIPTION.CANCELLED → 
+User Cancels → BILLING.SUBSCRIPTION.CANCELLED →
 Update subscription status to 'cancelled'
 ```
 
 ### Failed Payment:
+
 ```
-Payment Fails → BILLING.SUBSCRIPTION.PAYMENT.FAILED → 
-Update subscription status to 'past_due' → 
+Payment Fails → BILLING.SUBSCRIPTION.PAYMENT.FAILED →
+Update subscription status to 'past_due' →
 Send email to user
 ```
 
@@ -322,6 +341,7 @@ Ensure `vercel.json` allows webhooks (no authentication required for POST):
 ## Testing Checklist
 
 ### Sandbox Testing:
+
 - [ ] Create Basic plan subscription
 - [ ] Verify `BILLING.SUBSCRIPTION.CREATED` webhook received
 - [ ] Verify `BILLING.SUBSCRIPTION.ACTIVATED` webhook received
@@ -332,6 +352,7 @@ Ensure `vercel.json` allows webhooks (no authentication required for POST):
 - [ ] Verify `BILLING.SUBSCRIPTION.CANCELLED` webhook received
 
 ### Production Testing:
+
 - [ ] Verify webhook URL is correct
 - [ ] Verify webhook signature validation works
 - [ ] Monitor first real subscription
@@ -343,17 +364,20 @@ Ensure `vercel.json` allows webhooks (no authentication required for POST):
 ## Troubleshooting
 
 ### Webhook Not Received:
+
 1. Check webhook URL is correct and accessible
 2. Verify PayPal can reach your server (not localhost)
 3. Check Vercel function logs for errors
 4. Verify webhook events are selected in PayPal
 
 ### Signature Verification Fails:
+
 1. Verify `PAYPAL_WEBHOOK_ID` matches your webhook in PayPal
 2. Check `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` are correct
 3. Ensure you're using correct mode (sandbox vs production)
 
 ### Subscription Not Created:
+
 1. Check plan IDs are correct
 2. Verify plan is active in PayPal
 3. Check browser console for errors
@@ -383,6 +407,7 @@ Ensure `vercel.json` allows webhooks (no authentication required for POST):
 - Webhook Events Reference: https://developer.paypal.com/api/rest/webhooks/event-names/
 
 If you encounter issues, check:
+
 1. Vercel function logs
 2. Supabase webhook_events table
 3. PayPal webhook delivery history

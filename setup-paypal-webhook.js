@@ -1,24 +1,26 @@
 // Setup PayPal Webhook
-const PAYPAL_CLIENT_ID = 'AVxbtUonUHJdE14X47Orrv_2klBv2JyDdySCXepg67wSsedrEF_KDDx9jojWtcGDNtwMuJqOTI-Kqlwm'
-const PAYPAL_CLIENT_SECRET = 'EMljr0UhetSiWgmOvwHQSW4PakotZhS2c7HjD4FjvoDQ8Owv6OWglI5v9r0KJqsoqlgXe6BWvn8cy6Nd'
+const PAYPAL_CLIENT_ID =
+  'AVxbtUonUHJdE14X47Orrv_2klBv2JyDdySCXepg67wSsedrEF_KDDx9jojWtcGDNtwMuJqOTI-Kqlwm'
+const PAYPAL_CLIENT_SECRET =
+  'EMljr0UhetSiWgmOvwHQSW4PakotZhS2c7HjD4FjvoDQ8Owv6OWglI5v9r0KJqsoqlgXe6BWvn8cy6Nd'
 
 async function getAccessToken() {
   const response = await fetch('https://api.sandbox.paypal.com/v1/oauth2/token', {
     method: 'POST',
     headers: {
-      'Accept': 'application/json',
+      Accept: 'application/json',
       'Accept-Language': 'en_US',
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': `Basic ${Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64')}`
+      Authorization: `Basic ${Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64')}`,
     },
-    body: 'grant_type=client_credentials'
+    body: 'grant_type=client_credentials',
   })
-  
+
   if (!response.ok) {
     console.error('Auth failed:', response.status, await response.text())
     return null
   }
-  
+
   const data = await response.json()
   return data.access_token
 }
@@ -28,27 +30,27 @@ async function createWebhook(accessToken) {
     url: 'https://www.lifestacks.ai/api/webhooks/paypal',
     event_types: [
       {
-        name: 'BILLING.SUBSCRIPTION.CREATED'
+        name: 'BILLING.SUBSCRIPTION.CREATED',
       },
       {
-        name: 'BILLING.SUBSCRIPTION.ACTIVATED'
+        name: 'BILLING.SUBSCRIPTION.ACTIVATED',
       },
       {
-        name: 'BILLING.SUBSCRIPTION.CANCELLED'
+        name: 'BILLING.SUBSCRIPTION.CANCELLED',
       },
       {
-        name: 'BILLING.SUBSCRIPTION.SUSPENDED'
+        name: 'BILLING.SUBSCRIPTION.SUSPENDED',
       },
       {
-        name: 'BILLING.SUBSCRIPTION.PAYMENT.FAILED'
+        name: 'BILLING.SUBSCRIPTION.PAYMENT.FAILED',
       },
       {
-        name: 'BILLING.SUBSCRIPTION.RENEWED'
+        name: 'BILLING.SUBSCRIPTION.RENEWED',
       },
       {
-        name: 'PAYMENT.SALE.COMPLETED'
-      }
-    ]
+        name: 'PAYMENT.SALE.COMPLETED',
+      },
+    ],
   }
 
   console.log('Creating webhook...')
@@ -56,10 +58,10 @@ async function createWebhook(accessToken) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-      'PayPal-Request-Id': `webhook-${Date.now()}`
+      Authorization: `Bearer ${accessToken}`,
+      'PayPal-Request-Id': `webhook-${Date.now()}`,
     },
-    body: JSON.stringify(webhook)
+    body: JSON.stringify(webhook),
   })
 
   const result = await response.json()
@@ -82,7 +84,7 @@ async function main() {
 
   console.log('✅ Got access token, creating webhook...')
   const webhook = await createWebhook(accessToken)
-  
+
   if (webhook.id) {
     console.log('✅ Webhook created!')
     console.log('Webhook ID:', webhook.id)

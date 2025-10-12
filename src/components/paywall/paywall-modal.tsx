@@ -1,7 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -40,7 +46,7 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ code: code.trim().toUpperCase() })
+        body: JSON.stringify({ code: code.trim().toUpperCase() }),
       })
 
       const result = await response.json()
@@ -80,7 +86,7 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
     if (selectedPlan === 'trial') {
       return '7 days free trial, then $49.99/month. Cancel anytime during trial.'
     }
-    return selectedPlan === 'basic' 
+    return selectedPlan === 'basic'
       ? 'Full access to all Life Stacks features and AI-powered tools'
       : 'Everything in Basic plus personal AI coaching and one-on-one guidance'
   }
@@ -140,10 +146,10 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
               {/* Plan Selection */}
               <div className="grid grid-cols-1 gap-3">
                 {/* Free Trial Plan */}
-                <div 
+                <div
                   className={`p-4 rounded-lg border-2 cursor-pointer transition-all relative ${
-                    selectedPlan === 'trial' 
-                      ? 'border-green-500 bg-green-50' 
+                    selectedPlan === 'trial'
+                      ? 'border-green-500 bg-green-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                   onClick={() => setSelectedPlan('trial')}
@@ -164,10 +170,10 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
                 </div>
 
                 {/* Basic Plan */}
-                <div 
+                <div
                   className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                    selectedPlan === 'basic' 
-                      ? 'border-blue-500 bg-blue-50' 
+                    selectedPlan === 'basic'
+                      ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                   onClick={() => setSelectedPlan('basic')}
@@ -175,7 +181,9 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-semibold text-lg text-gray-900">Basic Plan</h3>
-                      <p className="text-sm text-gray-600">Full access to all Life Stacks features</p>
+                      <p className="text-sm text-gray-600">
+                        Full access to all Life Stacks features
+                      </p>
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-gray-900">$49.99</div>
@@ -185,10 +193,10 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
                 </div>
 
                 {/* Premium Plan */}
-                <div 
+                <div
                   className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                    selectedPlan === 'premium' 
-                      ? 'border-purple-500 bg-purple-50' 
+                    selectedPlan === 'premium'
+                      ? 'border-purple-500 bg-purple-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                   onClick={() => setSelectedPlan('premium')}
@@ -196,7 +204,9 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-semibold text-lg text-gray-900">Premium Plan</h3>
-                      <p className="text-sm text-gray-600">Everything in Basic plus personal AI coaching</p>
+                      <p className="text-sm text-gray-600">
+                        Everything in Basic plus personal AI coaching
+                      </p>
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-gray-900">$249.99</div>
@@ -207,16 +217,17 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
               </div>
 
               {/* Selected Plan Summary */}
-              <div className={`p-4 rounded-lg ${
-                selectedPlan === 'trial' ? 'bg-green-50' :
-                selectedPlan === 'basic' ? 'bg-blue-50' : 'bg-purple-50'
-              }`}>
-                <h3 className="font-semibold text-lg mb-2">
-                  {getPlanTitle()} Selected
-                </h3>
-                <p className="text-sm text-gray-700 mb-3">
-                  {getPlanDescription()}
-                </p>
+              <div
+                className={`p-4 rounded-lg ${
+                  selectedPlan === 'trial'
+                    ? 'bg-green-50'
+                    : selectedPlan === 'basic'
+                      ? 'bg-blue-50'
+                      : 'bg-purple-50'
+                }`}
+              >
+                <h3 className="font-semibold text-lg mb-2">{getPlanTitle()} Selected</h3>
+                <p className="text-sm text-gray-700 mb-3">{getPlanDescription()}</p>
                 <div className="text-xl font-bold">
                   {selectedPlan === 'trial' ? (
                     <>
@@ -262,9 +273,7 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
             <div className="space-y-4">
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <Gift className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                <h3 className="font-semibold text-lg text-green-900 mb-2">
-                  Free Access Code
-                </h3>
+                <h3 className="font-semibold text-lg text-green-900 mb-2">Free Access Code</h3>
                 <p className="text-green-700 text-sm">
                   Have a free access code? Enter it below to create your account.
                 </p>
@@ -287,17 +296,11 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
 
                 {codeError && (
                   <Alert className="border-red-200 bg-red-50">
-                    <AlertDescription className="text-red-800">
-                      {codeError}
-                    </AlertDescription>
+                    <AlertDescription className="text-red-800">{codeError}</AlertDescription>
                   </Alert>
                 )}
 
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isVerifying || !code.trim()}
-                >
+                <Button type="submit" className="w-full" disabled={isVerifying || !code.trim()}>
                   {isVerifying ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>

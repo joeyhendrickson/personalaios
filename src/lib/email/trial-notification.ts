@@ -89,14 +89,14 @@ export async function sendTrialExpiryNotification(data: TrialExpiryEmailData) {
     return {
       success: true,
       messageId: result.data?.id,
-      error: null
+      error: null,
     }
   } catch (error) {
     console.error('Error sending trial expiry email:', error)
     return {
       success: false,
       messageId: null,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     }
   }
 }
@@ -167,14 +167,14 @@ export async function sendTrialExpiredNotification(data: TrialExpiryEmailData) {
     return {
       success: true,
       messageId: result.data?.id,
-      error: null
+      error: null,
     }
   } catch (error) {
     console.error('Error sending trial expired email:', error)
     return {
       success: false,
       messageId: null,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     }
   }
 }

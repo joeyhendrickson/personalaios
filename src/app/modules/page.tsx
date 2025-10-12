@@ -397,9 +397,7 @@ export default function ModulesPage() {
                   <Plus className="h-8 w-8 mr-3 text-black" />
                   {t('modules.title')}
                 </h1>
-                <p className="text-sm text-gray-600">
-                  {t('modules.subtitle')}
-                </p>
+                <p className="text-sm text-gray-600">{t('modules.subtitle')}</p>
               </div>
             </div>
           </div>

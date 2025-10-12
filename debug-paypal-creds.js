@@ -1,6 +1,8 @@
 // Debug PayPal credentials
-const PAYPAL_CLIENT_ID = 'AVxbtUonUHJdE14X47Orrv_2klBv2JyDdySCXepg67wSsedrEF_KDDx9jojWtcGDNtwMuJqOTI-Kqlwm'
-const PAYPAL_CLIENT_SECRET = 'EMljr0UhetSiWgmOvwHQSW4PakotZhS2c7HjD4FjvoDQ8Owv6OWglI5v9r0KJqsoqlgXe6BWvn8cy6Nd'
+const PAYPAL_CLIENT_ID =
+  'AVxbtUonUHJdE14X47Orrv_2klBv2JyDdySCXepg67wSsedrEF_KDDx9jojWtcGDNtwMuJqOTI-Kqlwm'
+const PAYPAL_CLIENT_SECRET =
+  'EMljr0UhetSiWgmOvwHQSW4PakotZhS2c7HjD4FjvoDQ8Owv6OWglI5v9r0KJqsoqlgXe6BWvn8cy6Nd'
 
 console.log('=== CREDENTIALS DEBUG ===')
 console.log('Client ID length:', PAYPAL_CLIENT_ID.length)
@@ -30,25 +32,24 @@ console.log(`  -d "grant_type=client_credentials"`)
 // Try the request
 async function testRequest() {
   console.log('\n=== MAKING REQUEST ===')
-  
+
   try {
     const response = await fetch('https://api.sandbox.paypal.com/v1/oauth2/token', {
       method: 'POST',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'Accept-Language': 'en_US',
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${encodedAuth}`
+        Authorization: `Basic ${encodedAuth}`,
       },
-      body: 'grant_type=client_credentials'
+      body: 'grant_type=client_credentials',
     })
-    
+
     console.log('Response status:', response.status)
     console.log('Response headers:', Object.fromEntries(response.headers.entries()))
-    
+
     const data = await response.text()
     console.log('Response body:', data)
-    
   } catch (error) {
     console.error('Request error:', error)
   }

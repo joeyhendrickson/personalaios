@@ -11,6 +11,7 @@ RESEND_API_KEY=re_xxxxxxxxxxxxx
 ```
 
 **How to get it:**
+
 1. Go to [https://resend.com](https://resend.com)
 2. Sign up or log in
 3. Verify your domain (lifestacks.ai):
@@ -21,6 +22,7 @@ RESEND_API_KEY=re_xxxxxxxxxxxxx
 6. Copy the key and add to your `.env.local`
 
 **Domain Verification:**
+
 - You must verify `lifestacks.ai` to send from `notifications@lifestacks.ai`
 - Resend provides DNS records (TXT, MX, CNAME)
 - Add these to your domain registrar
@@ -37,16 +39,19 @@ CRON_SECRET=your-secure-random-string-here
 **How to generate:**
 
 Option 1 - Using Node.js:
+
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 Option 2 - Using OpenSSL:
+
 ```bash
 openssl rand -hex 32
 ```
 
 Option 3 - Online generator:
+
 - Use https://passwordsgenerator.net/
 - Generate a 64-character alphanumeric string
 
@@ -114,6 +119,7 @@ NEXT_PUBLIC_APP_URL=https://www.lifestacks.ai
 ### Redeploy
 
 After adding environment variables:
+
 ```bash
 git push origin main
 ```
@@ -164,7 +170,7 @@ async function test() {
     from: 'Life Stacks <notifications@lifestacks.ai>',
     to: 'your-email@example.com',
     subject: 'Test Email',
-    html: '<p>If you receive this, Resend is working!</p>'
+    html: '<p>If you receive this, Resend is working!</p>',
   })
   console.log('Email sent:', result)
 }
@@ -187,6 +193,7 @@ curl -X GET https://www.lifestacks.ai/api/cron/check-trials \
 ```
 
 Expected response:
+
 ```json
 {
   "success": true,
@@ -217,6 +224,7 @@ Expected response:
 **Error**: `Invalid API key`
 
 **Solution**:
+
 - Verify the key is correct in `.env.local`
 - Check for extra spaces or line breaks
 - Regenerate the key in Resend dashboard
@@ -227,6 +235,7 @@ Expected response:
 **Error**: `Domain not verified` or `Sender not verified`
 
 **Solution**:
+
 1. Go to Resend dashboard → Domains
 2. Click on lifestacks.ai
 3. Verify all DNS records are added:
@@ -240,6 +249,7 @@ Expected response:
 **Error**: Cron job doesn't trigger
 
 **Solution**:
+
 1. Check `vercel-cron.json` is in root directory
 2. Verify it's committed to git
 3. Redeploy to Vercel
@@ -251,6 +261,7 @@ Expected response:
 **Error**: `401 Unauthorized` when calling cron endpoint
 
 **Solution**:
+
 - Check `Authorization` header format: `Bearer YOUR_SECRET`
 - Verify `CRON_SECRET` matches in Vercel and your request
 - Check for typos or extra spaces
@@ -284,6 +295,7 @@ Expected response:
 ## Support
 
 If you encounter issues:
+
 1. Check Vercel logs: `vercel logs`
 2. Check Resend logs in their dashboard
 3. Check browser console for errors

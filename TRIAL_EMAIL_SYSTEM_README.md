@@ -1,6 +1,7 @@
 # Trial Email Notification System
 
 ## Overview
+
 Automated email notification system that sends users reminders 48 hours before their 7-day free trial expires, and again when the trial ends. All notifications are tracked in the admin dashboard.
 
 ---
@@ -8,18 +9,21 @@ Automated email notification system that sends users reminders 48 hours before t
 ## Features
 
 ### 📧 Email Notifications
+
 - **48-Hour Notice**: Sent 2 days before trial expiration
 - **Expiration Notice**: Sent when trial ends
 - **Beautiful HTML Templates**: Professional, branded email design
 - **Tracking**: All email sends are logged with message IDs
 
 ### 📊 Admin Dashboard Tracking
+
 - **Trial Statistics**: Active, expired, converted trials
 - **Notification Status**: See which emails have been sent
 - **Pending Notifications**: Identify trials needing notifications
 - **Email History**: View when notifications were sent
 
 ### 🔄 Automated System
+
 - **Cron Job**: Runs every 12 hours to check for expiring trials
 - **Smart Detection**: Only sends notifications at appropriate times
 - **Status Management**: Automatically updates trial status
@@ -59,6 +63,7 @@ create-trial-system-complete.sql
 ```
 
 This creates:
+
 - `trial_subscriptions` table with email notification tracking fields
 - `subscriptions` table for post-trial paid subscriptions
 - Proper RLS policies and indexes
@@ -68,6 +73,7 @@ This creates:
 The system uses Vercel Cron Jobs to automatically check for expiring trials.
 
 **Configuration**: `vercel-cron.json`
+
 ```json
 {
   "crons": [
@@ -82,6 +88,7 @@ The system uses Vercel Cron Jobs to automatically check for expiring trials.
 This runs every 12 hours (midnight and noon UTC).
 
 **Cron Endpoint**: `/api/cron/check-trials`
+
 - Protected by `CRON_SECRET` authentication
 - Checks for trials expiring in 48 hours
 - Sends appropriate notifications
@@ -93,22 +100,22 @@ This runs every 12 hours (midnight and noon UTC).
 
 ### trial_subscriptions Table
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| email | VARCHAR(255) | User's email address |
-| name | VARCHAR(255) | User's name (optional) |
-| trial_start | TIMESTAMP | When trial started |
-| trial_end | TIMESTAMP | When trial ends |
-| status | VARCHAR(20) | active, expired, converted, cancelled |
-| will_convert_to | VARCHAR(20) | Plan after trial (basic/premium) |
-| conversion_price | DECIMAL(10,2) | Price after trial |
-| **expiry_notification_sent_at** | TIMESTAMP | When 48h notice was sent |
-| **expiry_notification_message_id** | VARCHAR(255) | Resend message ID for 48h notice |
-| **expired_notification_sent_at** | TIMESTAMP | When expiration notice was sent |
-| **expired_notification_message_id** | VARCHAR(255) | Resend message ID for expiration notice |
-| created_at | TIMESTAMP | Record creation time |
-| updated_at | TIMESTAMP | Last update time |
+| Column                              | Type          | Description                             |
+| ----------------------------------- | ------------- | --------------------------------------- |
+| id                                  | UUID          | Primary key                             |
+| email                               | VARCHAR(255)  | User's email address                    |
+| name                                | VARCHAR(255)  | User's name (optional)                  |
+| trial_start                         | TIMESTAMP     | When trial started                      |
+| trial_end                           | TIMESTAMP     | When trial ends                         |
+| status                              | VARCHAR(20)   | active, expired, converted, cancelled   |
+| will_convert_to                     | VARCHAR(20)   | Plan after trial (basic/premium)        |
+| conversion_price                    | DECIMAL(10,2) | Price after trial                       |
+| **expiry_notification_sent_at**     | TIMESTAMP     | When 48h notice was sent                |
+| **expiry_notification_message_id**  | VARCHAR(255)  | Resend message ID for 48h notice        |
+| **expired_notification_sent_at**    | TIMESTAMP     | When expiration notice was sent         |
+| **expired_notification_message_id** | VARCHAR(255)  | Resend message ID for expiration notice |
+| created_at                          | TIMESTAMP     | Record creation time                    |
+| updated_at                          | TIMESTAMP     | Last update time                        |
 
 ---
 
@@ -117,6 +124,7 @@ This runs every 12 hours (midnight and noon UTC).
 ### Trial Management
 
 **Create Trial**
+
 ```http
 POST /api/trial/create
 {
@@ -125,11 +133,13 @@ POST /api/trial/create
 ```
 
 **Get Trial Status**
+
 ```http
 GET /api/trial/create?email=user@example.com
 ```
 
 **Convert Trial to Paid**
+
 ```http
 POST /api/trial/convert
 {
@@ -142,11 +152,13 @@ POST /api/trial/convert
 ### Admin Endpoints
 
 **Get All Trials (Admin Only)**
+
 ```http
 GET /api/admin/trials
 ```
 
 Returns:
+
 ```json
 {
   "success": true,
@@ -167,6 +179,7 @@ Returns:
 ### Cron Job
 
 **Check Trials (Protected)**
+
 ```http
 GET /api/cron/check-trials
 Headers:
@@ -182,6 +195,7 @@ Headers:
 **Subject**: ⏰ Your Life Stacks Trial Ends in 2 Days
 
 **Content**:
+
 - Friendly reminder about trial expiration
 - Clear date when trial ends
 - List of features they'll keep
@@ -194,6 +208,7 @@ Headers:
 **Subject**: ⚠️ Your Life Stacks Trial Has Ended - Upgrade to Continue
 
 **Content**:
+
 - Trial has ended notification
 - Account is now limited
 - "Upgrade Your Account" button
@@ -205,12 +220,15 @@ Headers:
 ## Admin Dashboard Features
 
 ### Trial Statistics Card
+
 - **Active Trials**: Current active trials
 - **Pending Notifications**: Trials needing email notifications
 - Shows in overview stats section
 
 ### Trial Subscriptions Section
+
 Displays for each trial:
+
 - ✅ User email and name
 - ✅ Trial status (active/expired/converted/cancelled)
 - ✅ Days remaining (for active trials)
@@ -228,14 +246,16 @@ Displays for each trial:
 ## Notification Logic
 
 ### 48-Hour Notice
+
 - **Trigger**: When trial has 2 days remaining
 - **Condition**: `expiry_notification_sent_at` is NULL
-- **Action**: 
+- **Action**:
   1. Send email
   2. Update `expiry_notification_sent_at`
   3. Store `expiry_notification_message_id`
 
 ### Expiration Notice
+
 - **Trigger**: When trial end date has passed
 - **Condition**: `expired_notification_sent_at` is NULL
 - **Action**:
@@ -269,15 +289,18 @@ curl -X GET https://your-app.vercel.app/api/cron/check-trials \
 ## Monitoring
 
 ### Admin Dashboard
+
 - Check the "Trial Subscriptions" section
 - Look for pending notifications (orange badges)
 - Verify sent notifications have timestamps
 
 ### Vercel Logs
+
 - View cron job execution logs in Vercel dashboard
 - Check for any errors in email sending
 
 ### Resend Dashboard
+
 - View all sent emails
 - Check delivery status
 - Monitor bounce rates
@@ -287,23 +310,29 @@ curl -X GET https://your-app.vercel.app/api/cron/check-trials \
 ## Customization
 
 ### Email Content
+
 Edit `src/lib/email/trial-notification.ts` to customize:
+
 - Email subject lines
 - HTML templates
 - From email address
 - Button text and styling
 
 ### Notification Timing
+
 Edit `src/app/api/cron/check-trials/route.ts` to change:
+
 - When 48-hour notice is sent
 - Additional notification triggers
 - Notification conditions
 
 ### Cron Schedule
+
 Edit `vercel-cron.json` to change frequency:
+
 ```json
 {
-  "schedule": "0 */6 * * *"  // Run every 6 hours
+  "schedule": "0 */6 * * *" // Run every 6 hours
 }
 ```
 
@@ -356,6 +385,7 @@ Edit `vercel-cron.json` to change frequency:
 ## Support
 
 For issues or questions:
+
 - Check Vercel logs: `vercel logs`
 - Check Supabase logs in dashboard
 - Review Resend email logs

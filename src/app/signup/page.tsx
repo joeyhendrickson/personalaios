@@ -20,7 +20,7 @@ export default function SignupPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    name: ''
+    name: '',
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -29,7 +29,7 @@ export default function SignupPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     })
     setError('')
   }
@@ -52,8 +52,8 @@ export default function SignupPage() {
           body: JSON.stringify({
             email: formData.email,
             name: formData.name,
-            plan_type: 'basic'
-          })
+            plan_type: 'basic',
+          }),
         })
 
         if (!response.ok) {
@@ -68,8 +68,8 @@ export default function SignupPage() {
           body: JSON.stringify({
             email: formData.email,
             password: formData.password,
-            name: formData.name
-          })
+            name: formData.name,
+          }),
         })
 
         if (!signupResponse.ok) {
@@ -81,7 +81,6 @@ export default function SignupPage() {
         setTimeout(() => {
           router.push('/dashboard')
         }, 2000)
-
       } else if (plan === 'basic') {
         // For basic plan, we'll redirect to PayPal checkout
         // For now, just create the account
@@ -91,8 +90,8 @@ export default function SignupPage() {
           body: JSON.stringify({
             email: formData.email,
             password: formData.password,
-            name: formData.name
-          })
+            name: formData.name,
+          }),
         })
 
         if (!signupResponse.ok) {
@@ -102,7 +101,6 @@ export default function SignupPage() {
 
         // TODO: Redirect to PayPal checkout
         router.push('/dashboard')
-
       } else if (code) {
         // Access code signup
         const signupResponse = await fetch('/api/auth/signup-with-code', {
@@ -112,8 +110,8 @@ export default function SignupPage() {
             email: formData.email,
             password: formData.password,
             name: formData.name,
-            access_code: code
-          })
+            access_code: code,
+          }),
         })
 
         if (!signupResponse.ok) {
@@ -126,7 +124,6 @@ export default function SignupPage() {
           router.push('/dashboard')
         }, 2000)
       }
-
     } catch (error: any) {
       setError(error.message)
     } finally {
@@ -141,21 +138,21 @@ export default function SignupPage() {
           title: 'Start Your Free Trial',
           description: 'Get 7 days of full access to Life Stacks',
           price: 'Free for 7 days',
-          color: 'text-green-600'
+          color: 'text-green-600',
         }
       case 'basic':
         return {
           title: 'Standard Plan',
           description: 'Monthly subscription at $19.99/month',
           price: '$19.99/month',
-          color: 'text-blue-600'
+          color: 'text-blue-600',
         }
       default:
         return {
           title: 'Create Your Account',
           description: 'Join Life Stacks today',
           price: '',
-          color: 'text-gray-600'
+          color: 'text-gray-600',
         }
     }
   }
@@ -171,10 +168,9 @@ export default function SignupPage() {
               <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Created!</h2>
               <p className="text-gray-600 mb-4">
-                {plan === 'trial' 
+                {plan === 'trial'
                   ? 'Your 7-day free trial has started. Welcome to Life Stacks!'
-                  : 'Welcome to Life Stacks! Redirecting to dashboard...'
-                }
+                  : 'Welcome to Life Stacks! Redirecting to dashboard...'}
               </p>
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
             </div>
@@ -195,9 +191,7 @@ export default function SignupPage() {
                 Back
               </Button>
             </Link>
-            <div className="text-sm text-gray-500">
-              {planInfo.price}
-            </div>
+            <div className="text-sm text-gray-500">{planInfo.price}</div>
           </div>
           <CardTitle className="text-2xl">{planInfo.title}</CardTitle>
           <CardDescription>{planInfo.description}</CardDescription>
@@ -264,11 +258,7 @@ export default function SignupPage() {
               </Alert>
             )}
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading}
-            >
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

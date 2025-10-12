@@ -38,11 +38,13 @@ psql -f create-access-codes-system.sql
 ## Testing
 
 ### Sandbox Testing
+
 1. Use sandbox credentials from PayPal Developer Dashboard
 2. Test payments with PayPal sandbox accounts
 3. Verify access code creation in admin dashboard
 
 ### Production Deployment
+
 1. Switch to live PayPal credentials
 2. Update `PAYPAL_BASE_URL` to production URL
 3. Test with real PayPal accounts
@@ -50,12 +52,14 @@ psql -f create-access-codes-system.sql
 ## Features
 
 ### Admin Dashboard
+
 - Create access codes with names and expiration dates
 - View all access codes and their usage status
 - Toggle code active/inactive status
 - Copy codes to clipboard
 
 ### User Experience
+
 - **Free Trial Option**: 7-day free trial that converts to Basic Plan ($49.99/month)
 - PayPal payment option with two plan tiers:
   - **Basic Plan**: $49.99/month - Full access to all Life Stacks features
@@ -66,6 +70,7 @@ psql -f create-access-codes-system.sql
 - Trial status tracking and conversion management
 
 ### Access Code System
+
 - 12-character alphanumeric codes
 - Optional email restrictions
 - Configurable expiration dates
