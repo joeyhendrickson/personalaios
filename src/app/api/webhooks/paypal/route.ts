@@ -35,31 +35,31 @@ export async function POST(request: Request) {
     // Handle different webhook events
     switch (webhookEvent.event_type) {
       case 'BILLING.SUBSCRIPTION.CREATED':
-        await handleSubscriptionCreated(webhookEvent)
+        await handleSubscriptionCreated(webhookEvent, supabase)
         break
 
       case 'BILLING.SUBSCRIPTION.ACTIVATED':
-        await handleSubscriptionActivated(webhookEvent)
+        await handleSubscriptionActivated(webhookEvent, supabase)
         break
 
       case 'PAYMENT.SALE.COMPLETED':
-        await handlePaymentCompleted(webhookEvent)
+        await handlePaymentCompleted(webhookEvent, supabase)
         break
 
       case 'BILLING.SUBSCRIPTION.CANCELLED':
-        await handleSubscriptionCancelled(webhookEvent)
+        await handleSubscriptionCancelled(webhookEvent, supabase)
         break
 
       case 'BILLING.SUBSCRIPTION.SUSPENDED':
-        await handleSubscriptionSuspended(webhookEvent)
+        await handleSubscriptionSuspended(webhookEvent, supabase)
         break
 
       case 'BILLING.SUBSCRIPTION.PAYMENT.FAILED':
-        await handlePaymentFailed(webhookEvent)
+        await handlePaymentFailed(webhookEvent, supabase)
         break
 
       case 'BILLING.SUBSCRIPTION.RENEWED':
-        await handleSubscriptionRenewed(webhookEvent)
+        await handleSubscriptionRenewed(webhookEvent, supabase)
         break
 
       default:
@@ -126,7 +126,7 @@ async function verifyPayPalWebhook(request: Request, body: string): Promise<bool
   }
 }
 
-async function handleSubscriptionCreated(event: any) {
+async function handleSubscriptionCreated(event: any, supabase: any) {
   const subscription = event.resource
   const subscriberEmail = subscription.subscriber?.email_address
   const planId = subscription.plan_id
@@ -145,7 +145,7 @@ async function handleSubscriptionCreated(event: any) {
   })
 }
 
-async function handleSubscriptionActivated(event: any) {
+async function handleSubscriptionActivated(event: any, supabase: any) {
   const subscription = event.resource
 
   console.log('Subscription activated:', subscription.id)
@@ -178,7 +178,7 @@ async function handleSubscriptionActivated(event: any) {
   }
 }
 
-async function handlePaymentCompleted(event: any) {
+async function handlePaymentCompleted(event: any, supabase: any) {
   const sale = event.resource
   const subscriptionId = sale.billing_agreement_id
 
@@ -205,7 +205,7 @@ async function handlePaymentCompleted(event: any) {
     .eq('paypal_subscription_id', subscriptionId)
 }
 
-async function handleSubscriptionCancelled(event: any) {
+async function handleSubscriptionCancelled(event: any, supabase: any) {
   const subscription = event.resource
 
   console.log('Subscription cancelled:', subscription.id)
@@ -220,7 +220,7 @@ async function handleSubscriptionCancelled(event: any) {
     .eq('paypal_subscription_id', subscription.id)
 }
 
-async function handleSubscriptionSuspended(event: any) {
+async function handleSubscriptionSuspended(event: any, supabase: any) {
   const subscription = event.resource
 
   console.log('Subscription suspended:', subscription.id)
@@ -234,7 +234,7 @@ async function handleSubscriptionSuspended(event: any) {
     .eq('paypal_subscription_id', subscription.id)
 }
 
-async function handlePaymentFailed(event: any) {
+async function handlePaymentFailed(event: any, supabase: any) {
   const subscription = event.resource
 
   console.log('Payment failed for subscription:', subscription.id)
@@ -250,7 +250,7 @@ async function handlePaymentFailed(event: any) {
   // TODO: Send email notification to user about failed payment
 }
 
-async function handleSubscriptionRenewed(event: any) {
+async function handleSubscriptionRenewed(event: any, supabase: any) {
   const subscription = event.resource
 
   console.log('Subscription renewed:', subscription.id)
