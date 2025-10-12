@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+
+export const runtime = 'nodejs'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 export async function POST(request: Request) {

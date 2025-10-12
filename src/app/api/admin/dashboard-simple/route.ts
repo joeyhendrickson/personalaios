@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
+export const runtime = 'nodejs'
+
 export async function GET() {
   console.log('🚀 SIMPLE ADMIN DASHBOARD API CALLED')
   try {
