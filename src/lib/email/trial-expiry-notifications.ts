@@ -1,8 +1,19 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResendClient() {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('⚠️ RESEND_API_KEY not set - email notifications will not be sent')
+    return null
+  }
+  return new Resend(process.env.RESEND_API_KEY)
+}
 
 export async function sendTrialExpiryWarning(email: string, name: string, daysRemaining: number) {
+  const resend = getResendClient()
+  if (!resend) {
+    console.log('⚠️ Skipping email - Resend not configured')
+    return { success: false, error: 'Email service not configured' }
+  }
   try {
     const subject =
       daysRemaining === 1
@@ -94,6 +105,11 @@ export async function sendTrialExpiryWarning(email: string, name: string, daysRe
 }
 
 export async function sendTrialExpiredNotification(email: string, name: string) {
+  const resend = getResendClient()
+  if (!resend) {
+    console.log('⚠️ Skipping email - Resend not configured')
+    return { success: false, error: 'Email service not configured' }
+  }
   try {
     const { data, error } = await resend.emails.send({
       from: 'Life Stacks <noreply@lifestacks.ai>',
