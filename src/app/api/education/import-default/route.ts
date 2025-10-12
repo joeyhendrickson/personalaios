@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 // POST /api/education/import-default - Import default education items for the current user
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const supabase = await createClient()
 

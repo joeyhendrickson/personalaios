@@ -330,7 +330,7 @@ IMPORTANT REQUIREMENTS:
   let parsedResponse
   try {
     parsedResponse = JSON.parse(aiResponse)
-  } catch (parseError) {
+  } catch {
     // If JSON parsing fails, create a basic plan
     parsedResponse = {
       plan_name: 'Personalized Fitness Plan',

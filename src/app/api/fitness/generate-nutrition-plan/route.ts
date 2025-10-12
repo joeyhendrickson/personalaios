@@ -265,7 +265,7 @@ Be realistic about calorie needs based on goals and current stats. Focus on whol
   let parsedResponse
   try {
     parsedResponse = JSON.parse(aiResponse)
-  } catch (parseError) {
+  } catch {
     // If JSON parsing fails, create a basic plan
     parsedResponse = {
       plan_name: 'Balanced Nutrition Plan',

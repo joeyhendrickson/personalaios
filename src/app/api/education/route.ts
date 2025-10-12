@@ -11,19 +11,19 @@ const createEducationItemSchema = z.object({
   target_date: z.string().optional(),
 })
 
-const updateEducationItemSchema = z.object({
-  title: z.string().min(1).max(255).optional(),
-  description: z.string().optional(),
-  points_value: z.number().min(1).max(10000).optional(),
-  cost: z.number().min(0).optional(),
-  status: z.enum(['pending', 'in_progress', 'completed']).optional(),
-  priority_level: z.number().min(1).max(5).optional(),
-  target_date: z.string().optional(),
-  is_active: z.boolean().optional(),
-})
+// const updateEducationItemSchema = z.object({
+//   title: z.string().min(1).max(255).optional(),
+//   description: z.string().optional(),
+//   points_value: z.number().min(1).max(10000).optional(),
+//   cost: z.number().min(0).optional(),
+//   status: z.enum(['pending', 'in_progress', 'completed']).optional(),
+//   priority_level: z.number().min(1).max(5).optional(),
+//   target_date: z.string().optional(),
+//   is_active: z.boolean().optional(),
+// })
 
 // GET /api/education - Get all education items for the current user
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = await createClient()
 
