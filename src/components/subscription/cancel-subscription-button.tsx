@@ -4,16 +4,14 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { X, AlertTriangle, Clock, DollarSign } from 'lucide-react'
 
 interface CancelSubscriptionButtonProps {
@@ -76,23 +74,23 @@ export default function CancelSubscriptionButton({
   }
 
   return (
-    <AlertDialog open={showDialog} onOpenChange={setShowDialog}>
-      <AlertDialogTrigger asChild>
+    <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <DialogTrigger asChild>
         <Button variant="destructive" size="sm">
           <X className="h-4 w-4 mr-2" />
           Cancel Subscription
         </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center">
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center">
             <AlertTriangle className="h-5 w-5 mr-2 text-red-500" />
             Cancel Subscription
-          </AlertDialogTitle>
-          <AlertDialogDescription>
+          </DialogTitle>
+          <DialogDescription>
             Are you sure you want to cancel your subscription? This action cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="space-y-4">
           {/* Refund Information */}
@@ -156,9 +154,11 @@ export default function CancelSubscriptionButton({
           </div>
         </div>
 
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isProcessing}>Keep Subscription</AlertDialogCancel>
-          <AlertDialogAction
+        <DialogFooter>
+          <Button variant="outline" disabled={isProcessing} onClick={() => setShowDialog(false)}>
+            Keep Subscription
+          </Button>
+          <Button
             onClick={handleCancel}
             disabled={isProcessing}
             className="bg-red-600 hover:bg-red-700"
@@ -174,9 +174,9 @@ export default function CancelSubscriptionButton({
                 {isEligibleForRefund ? 'Cancel & Refund' : 'Cancel Subscription'}
               </>
             )}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
