@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { PayPalButton } from '@/components/paypal/paypal-button'
+import PayPalSubscriptionButton from '@/components/paypal/paypal-subscription-button'
 import { Gift, CreditCard, X } from 'lucide-react'
 import { useLanguage } from '@/contexts/language-context'
 
@@ -250,16 +250,17 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
                 >
                   Start Free Trial
                 </button>
-              ) : (
-                <PayPalButton
-                  amount={getPlanPrice()}
-                  currency="USD"
-                  description={`Life Stacks ${selectedPlan === 'basic' ? 'Basic' : 'Premium'} Account`}
-                  planType={selectedPlan}
+              ) : selectedPlan === 'basic' ? (
+                <PayPalSubscriptionButton
+                  planType="standard"
+                  userEmail=""
                   onSuccess={handlePaymentSuccess}
                   onError={handlePaymentError}
-                  className="w-full"
                 />
+              ) : (
+                <div className="text-center p-4 text-gray-500">
+                  Premium plans are managed through access codes
+                </div>
               )}
 
               <p className="text-xs text-gray-500 text-center">
