@@ -27,7 +27,11 @@ export default function PayPalSubscriptionButton({
     const standardPlanId = process.env.NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID // This is actually the Standard plan ID
     const premiumPlanId = process.env.NEXT_PUBLIC_PAYPAL_PREMIUM_PLAN_ID
 
-    console.log('PayPal Config:', { paypalClientId, standardPlanId, premiumPlanId, planType })
+    console.log('PayPal Config:', {
+      paypalClientId: paypalClientId ? 'SET' : 'NOT SET',
+      standardPlanId: standardPlanId ? 'SET' : 'NOT SET',
+      planType,
+    })
 
     if (!paypalClientId) {
       console.error('PayPal Client ID not found')
