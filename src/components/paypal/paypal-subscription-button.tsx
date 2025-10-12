@@ -4,7 +4,7 @@ import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js'
 import { useEffect, useState } from 'react'
 
 interface PayPalSubscriptionButtonProps {
-  planType: 'basic' | 'premium'
+  planType: 'standard' | 'premium'
   userEmail: string
   userId?: string
   onSuccess?: () => void
@@ -24,8 +24,10 @@ export default function PayPalSubscriptionButton({
   useEffect(() => {
     // Get PayPal credentials from environment
     const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
-    const basicPlanId = process.env.NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID
+    const standardPlanId = process.env.NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID // This is actually the Standard plan ID
     const premiumPlanId = process.env.NEXT_PUBLIC_PAYPAL_PREMIUM_PLAN_ID
+
+    console.log('PayPal Config:', { paypalClientId, standardPlanId, premiumPlanId, planType })
 
     if (!paypalClientId) {
       console.error('PayPal Client ID not found')
@@ -34,15 +36,23 @@ export default function PayPalSubscriptionButton({
     }
 
     setClientId(paypalClientId)
-    setPlanId(planType === 'premium' ? premiumPlanId || '' : basicPlanId || '')
+    setPlanId(planType === 'premium' ? premiumPlanId || '' : standardPlanId || '')
   }, [planType, onError])
 
   if (!clientId || !planId) {
     return (
       <div className="w-full p-4 border border-red-200 bg-red-50 rounded-lg text-center">
         <p className="text-red-600 font-semibold">PayPal Configuration Missing</p>
-        <p className="text-sm text-red-500 mt-1">
-          Please configure NEXT_PUBLIC_PAYPAL_CLIENT_ID and plan IDs
+        <p className="text-sm text-red-500 mt-1">Client ID: {clientId ? 'Found' : 'Missing'}</p>
+        <p className="text-sm text-red-500 mt-1">Plan ID: {planId ? 'Found' : 'Missing'}</p>
+        <p className="text-sm text-red-500 mt-1">Plan Type: {planType}</p>
+        <p className="text-xs text-gray-500 mt-2">
+          Debug: NEXT_PUBLIC_PAYPAL_CLIENT_ID=
+          {process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? 'SET' : 'NOT SET'}
+        </p>
+        <p className="text-xs text-gray-500">
+          Debug: NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID=
+          {process.env.NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID ? 'SET' : 'NOT SET'}
         </p>
       </div>
     )
