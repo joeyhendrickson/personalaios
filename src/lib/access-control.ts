@@ -75,14 +75,35 @@ export async function checkUserAccess(email?: string, userId?: string): Promise<
       }
     }
 
-    // Check for active paid subscription
-    const subscriptionQuery = email
-      ? supabase.from('subscriptions').select('*').eq('email', email)
-      : supabase.from('subscriptions').select('*').eq('user_id', userId)
+    // Check for active paid subscription (check by both user_id and email for reliability)
+    let subscription = null
+    let subscriptionError = null
 
-    const { data: subscription, error: subscriptionError } = await subscriptionQuery
-      .eq('status', 'active')
-      .single()
+    // First try by user_id if available (most reliable)
+    if (userId) {
+      const result = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .maybeSingle()
+
+      subscription = result.data
+      subscriptionError = result.error
+    }
+
+    // If not found by user_id, try by email
+    if (!subscription && email) {
+      const result = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('email', email)
+        .eq('status', 'active')
+        .maybeSingle()
+
+      subscription = result.data
+      subscriptionError = result.error
+    }
 
     if (!subscriptionError && subscription) {
       const now = new Date()

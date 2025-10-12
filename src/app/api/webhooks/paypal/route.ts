@@ -135,16 +135,23 @@ async function handleSubscriptionCreated(event: any, supabase: any) {
 
   console.log('Subscription created:', subscription.id, 'for', subscriberEmail)
 
-  // Store subscription in database
+  // Find the user by email to link user_id
+  const { data: authData } = await supabase.auth.admin.listUsers()
+  const matchingUser = authData?.users?.find((u: any) => u.email === subscriberEmail)
+
+  // Store subscription in database with user_id if found
   await supabase.from('subscriptions').insert({
     paypal_subscription_id: subscription.id,
     email: subscriberEmail,
+    user_id: matchingUser?.id || null,
     plan_type: getPlanTypeFromId(planId),
     status: 'pending',
     billing_cycle: 'monthly',
     started_at: new Date().toISOString(),
     next_billing_date: subscription.billing_info?.next_billing_time,
   })
+
+  console.log('✅ Subscription created with user_id:', matchingUser?.id || 'NOT FOUND')
 }
 
 async function handleSubscriptionActivated(event: any, supabase: any) {
@@ -152,24 +159,44 @@ async function handleSubscriptionActivated(event: any, supabase: any) {
 
   console.log('Subscription activated:', subscription.id)
 
-  // Update subscription status
+  // Get subscription from DB
+  const { data: subscriptionData } = await supabase
+    .from('subscriptions')
+    .select('email, user_id')
+    .eq('paypal_subscription_id', subscription.id)
+    .single()
+
+  if (!subscriptionData) {
+    console.error('❌ Subscription not found in database:', subscription.id)
+    return
+  }
+
+  // If user_id is missing, try to find and link it
+  let userId = subscriptionData.user_id
+  if (!userId && subscriptionData.email) {
+    const { data: authData } = await supabase.auth.admin.listUsers()
+    const matchingUser = authData?.users?.find((u: any) => u.email === subscriptionData.email)
+    if (matchingUser) {
+      userId = matchingUser.id
+      console.log('✅ Found matching user for subscription:', userId)
+    }
+  }
+
+  // Update subscription status and link user_id
   await supabase
     .from('subscriptions')
     .update({
       status: 'active',
+      user_id: userId,
       updated_at: new Date().toISOString(),
     })
     .eq('paypal_subscription_id', subscription.id)
 
-  // If this was from a trial, mark trial as converted
-  const { data: subscriptionData } = await supabase
-    .from('subscriptions')
-    .select('email')
-    .eq('paypal_subscription_id', subscription.id)
-    .single()
+  console.log('✅ Subscription activated for user:', userId || 'NO USER')
 
+  // If this was from a trial, mark trial as converted
   if (subscriptionData?.email) {
-    await supabase
+    const { data: trialData } = await supabase
       .from('trial_subscriptions')
       .update({
         status: 'converted',
@@ -177,6 +204,26 @@ async function handleSubscriptionActivated(event: any, supabase: any) {
       })
       .eq('email', subscriptionData.email)
       .eq('status', 'active')
+      .select()
+
+    if (trialData && trialData.length > 0) {
+      console.log('✅ Trial marked as converted:', subscriptionData.email)
+    }
+  }
+
+  // Log analytics for subscription conversion
+  if (userId) {
+    await supabase.from('user_activity_logs').insert({
+      user_id: userId,
+      activity_type: 'subscription_activated',
+      activity_data: {
+        plan_type: subscriptionData.plan_type || getPlanTypeFromId(subscription.plan_id),
+        paypal_subscription_id: subscription.id,
+        source: 'paypal',
+      },
+      created_at: new Date().toISOString(),
+    })
+    console.log('✅ Analytics logged for subscription activation')
   }
 }
 
@@ -186,10 +233,18 @@ async function handlePaymentCompleted(event: any, supabase: any) {
 
   console.log('Payment completed:', sale.id, 'for subscription:', subscriptionId)
 
+  // Get subscription to find user_id
+  const { data: subscriptionData } = await supabase
+    .from('subscriptions')
+    .select('user_id, email, plan_type')
+    .eq('paypal_subscription_id', subscriptionId)
+    .single()
+
   // Record the payment
   await supabase.from('payments').insert({
     paypal_order_id: sale.id,
     paypal_subscription_id: subscriptionId,
+    user_id: subscriptionData?.user_id || null,
     amount: parseFloat(sale.amount.total),
     currency: sale.amount.currency,
     status: 'completed',
@@ -205,6 +260,22 @@ async function handlePaymentCompleted(event: any, supabase: any) {
       updated_at: new Date().toISOString(),
     })
     .eq('paypal_subscription_id', subscriptionId)
+
+  // Log analytics for payment
+  if (subscriptionData?.user_id) {
+    await supabase.from('user_activity_logs').insert({
+      user_id: subscriptionData.user_id,
+      activity_type: 'subscription_payment',
+      activity_data: {
+        plan_type: subscriptionData.plan_type,
+        amount: parseFloat(sale.amount.total),
+        currency: sale.amount.currency,
+        paypal_order_id: sale.id,
+      },
+      created_at: new Date().toISOString(),
+    })
+    console.log('✅ Payment analytics logged for user:', subscriptionData.user_id)
+  }
 }
 
 async function handleSubscriptionCancelled(event: any, supabase: any) {

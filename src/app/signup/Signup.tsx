@@ -81,9 +81,8 @@ export default function Signup() {
         setTimeout(() => {
           router.push('/dashboard')
         }, 2000)
-      } else if (plan === 'basic') {
-        // For basic plan, we'll redirect to PayPal checkout
-        // For now, just create the account
+      } else if (plan === 'basic' || plan === 'standard') {
+        // For standard plan: create account first, then redirect to subscription checkout
         const signupResponse = await fetch('/api/auth/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -99,8 +98,24 @@ export default function Signup() {
           throw new Error(errorData.error || 'Failed to create account')
         }
 
-        // TODO: Redirect to PayPal checkout
-        router.push('/dashboard')
+        const signupData = await signupResponse.json()
+
+        // Sign in the user automatically
+        const signinResponse = await fetch('/api/auth/signin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
+        })
+
+        if (!signinResponse.ok) {
+          throw new Error('Account created but failed to sign in. Please use the login page.')
+        }
+
+        // Redirect to subscription checkout page
+        router.push('/subscribe?plan=standard')
       } else if (code) {
         // Access code signup
         const signupResponse = await fetch('/api/auth/signup-with-code', {
