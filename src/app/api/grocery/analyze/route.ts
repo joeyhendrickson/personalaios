@@ -104,7 +104,7 @@ Image (base64): data:${mimeType};base64,${base64Image}`
       // Try to parse the JSON directly
       receiptItems = JSON.parse(receiptDataText)
       console.log('Successfully parsed receipt data directly')
-    } catch (e) {
+    } catch {
       console.log('Direct JSON parse failed, trying to extract from markdown...')
       // If parsing fails, try to extract JSON from markdown code blocks
       const jsonMatch = receiptDataText.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/)

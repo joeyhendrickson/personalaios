@@ -357,7 +357,7 @@ function predictCategoryFallback(title: string, description?: string): string {
 }
 
 // POST /api/goals/categorize - Categorize all goals using AI
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const supabase = await createClient()
 

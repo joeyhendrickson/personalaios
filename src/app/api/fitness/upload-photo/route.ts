@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     const fileExt = photo.name.split('.').pop()
     const fileName = `${user.id}/${Date.now()}.${fileExt}`
 
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('body-photos')
       .upload(fileName, photo)
 

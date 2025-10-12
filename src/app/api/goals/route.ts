@@ -14,21 +14,21 @@ const createGoalSchema = z.object({
   target_date: z.string().optional(),
 })
 
-const updateGoalSchema = z.object({
-  title: z.string().min(1).max(255).optional(),
-  description: z.string().optional(),
-  goal_type: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']).optional(),
-  target_value: z.number().min(0).optional(),
-  target_unit: z.string().max(50).optional(),
-  current_value: z.number().min(0).optional(),
-  status: z.enum(['active', 'completed', 'paused', 'cancelled']).optional(),
-  priority_level: z.number().int().min(1).max(5).optional(),
-  start_date: z.string().optional(),
-  target_date: z.string().optional(),
-})
+// const updateGoalSchema = z.object({
+//   title: z.string().min(1).max(255).optional(),
+//   description: z.string().optional(),
+//   goal_type: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']).optional(),
+//   target_value: z.number().min(0).optional(),
+//   target_unit: z.string().max(50).optional(),
+//   current_value: z.number().min(0).optional(),
+//   status: z.enum(['active', 'completed', 'paused', 'cancelled']).optional(),
+//   priority_level: z.number().int().min(1).max(5).optional(),
+//   start_date: z.string().optional(),
+//   target_date: z.string().optional(),
+// })
 
 // GET /api/goals - Get all goals for the current user
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = await createClient()
 
