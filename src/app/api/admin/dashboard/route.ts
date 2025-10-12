@@ -221,7 +221,7 @@ export async function GET() {
       })
 
       // Calculate total time spent from all sessions
-      userSessionData.forEach((data, userId) => {
+      userSessionData.forEach((data) => {
         data.totalTimeSpent =
           data.sessions.reduce((total: number, session: { start: number; end: number }) => {
             return total + (session.end - session.start)

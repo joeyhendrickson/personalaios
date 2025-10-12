@@ -53,7 +53,7 @@ export async function GET() {
     console.log('📊 Total auth users:', allUsers.length)
 
     // Fetch profiles using service role
-    const { data: profiles, error: profilesError } = await serviceSupabase
+    const { data: profiles } = await serviceSupabase
       .from('profiles')
       .select('id, email, name, created_at, access_enabled')
 
@@ -65,9 +65,7 @@ export async function GET() {
     }
 
     // Fetch user analytics summary using service role
-    const { data: analyticsData, error: analyticsError } = await serviceSupabase
-      .from('user_analytics_summary')
-      .select('*')
+    const { data: analyticsData } = await serviceSupabase.from('user_analytics_summary').select('*')
 
     const analyticsMap = new Map()
     if (analyticsData) {
@@ -77,7 +75,7 @@ export async function GET() {
     }
 
     // Fetch admin users using service role
-    const { data: adminUsers, error: adminUsersError } = await serviceSupabase
+    const { data: adminUsers } = await serviceSupabase
       .from('admin_users')
       .select('email')
       .eq('is_active', true)
@@ -88,7 +86,7 @@ export async function GET() {
     }
 
     // Fetch trial subscriptions using service role
-    const { data: trialSubs, error: trialError } = await serviceSupabase
+    const { data: trialSubs } = await serviceSupabase
       .from('trial_subscriptions')
       .select('email, status, created_at, expires_at')
 
@@ -98,7 +96,7 @@ export async function GET() {
     }
 
     // Fetch standard subscriptions using service role
-    const { data: standardSubs, error: standardError } = await serviceSupabase
+    const { data: standardSubs } = await serviceSupabase
       .from('subscriptions')
       .select('user_id, plan_type, status, created_at')
 
@@ -150,7 +148,7 @@ export async function GET() {
       return lastSignIn.toDateString() === today.toDateString()
     }).length
 
-    const adminUsersList = userClassifications.filter((u) => u.type === 'ADMIN')
+    // const adminUsersList = userClassifications.filter((u) => u.type === 'ADMIN')
     const trialUsers = userClassifications.filter((u) => u.type === 'TRIAL')
     const standardUsers = userClassifications.filter((u) => u.type === 'STANDARD')
     const premiumUsers = userClassifications.filter((u) => u.type === 'PREMIUM')

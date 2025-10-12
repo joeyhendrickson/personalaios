@@ -208,7 +208,7 @@ export default function AdminDashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [recentActivity, setRecentActivity] = useState<ActivityLog[]>([])
-  const [newUsers, setNewUsers] = useState<User[]>([])
+  // const [newUsers, setNewUsers] = useState<User[]>([])
   const [bugReports, setBugReports] = useState<BugReport[]>([])
   const [trials, setTrials] = useState<TrialSubscription[]>([])
   const [trialStats, setTrialStats] = useState<TrialStats | null>(null)

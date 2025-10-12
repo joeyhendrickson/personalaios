@@ -51,8 +51,8 @@ export async function GET() {
     }
 
     // Get user emails separately
-    const userIds = bugReports?.map((report) => report.user_id) || []
-    const { data: users, error: usersError } = await supabase.auth.admin.listUsers({
+    // const userIds = bugReports?.map((report) => report.user_id) || []
+    const { data: users } = await supabase.auth.admin.listUsers({
       page: 1,
       perPage: 1000,
     })
