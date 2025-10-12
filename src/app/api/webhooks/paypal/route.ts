@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import crypto from 'crypto'
 
-// Initialize Supabase with service role for webhooks
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Lazy-load Supabase client to avoid build-time errors
+function getSupabaseClient() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Supabase configuration missing')
+  }
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+}
 
 const PAYPAL_WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID
@@ -18,6 +19,7 @@ const PAYPAL_BASE_URL =
 
 export async function POST(request: Request) {
   try {
+    const supabase = getSupabaseClient()
     const body = await request.text()
     const webhookEvent = JSON.parse(body)
 
