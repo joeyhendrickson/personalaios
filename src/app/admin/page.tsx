@@ -289,11 +289,11 @@ export default function AdminDashboard() {
       setError(null)
 
       // Fetch new users (last 24 hours)
-      const newUsersResponse = await fetch('/api/admin/new-users?hours=24')
-      if (newUsersResponse.ok) {
-        const newUsersData = await newUsersResponse.json()
-        setNewUsers(newUsersData.newUsers)
-      }
+      // const newUsersResponse = await fetch('/api/admin/new-users?hours=24')
+      // if (newUsersResponse.ok) {
+      //   const newUsersData = await newUsersResponse.json()
+      //   setNewUsers(newUsersData.newUsers)
+      // }
 
       // Fetch bug reports
       const bugReportsResponse = await fetch('/api/admin/bug-reports')
