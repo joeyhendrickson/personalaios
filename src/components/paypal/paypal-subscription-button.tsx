@@ -73,6 +73,8 @@ export default function PayPalSubscriptionButton({
             },
             application_context: {
               shipping_preference: 'NO_SHIPPING',
+              return_url: `${window.location.origin}/dashboard?subscription=success`,
+              cancel_url: `${window.location.origin}/subscribe?cancelled=true`,
             },
           })
         }}
