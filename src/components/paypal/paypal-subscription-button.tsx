@@ -46,14 +46,6 @@ export default function PayPalSubscriptionButton({
         <p className="text-sm text-red-500 mt-1">Client ID: {clientId ? 'Found' : 'Missing'}</p>
         <p className="text-sm text-red-500 mt-1">Plan ID: {planId ? 'Found' : 'Missing'}</p>
         <p className="text-sm text-red-500 mt-1">Plan Type: {planType}</p>
-        <p className="text-xs text-gray-500 mt-2">
-          Debug: NEXT_PUBLIC_PAYPAL_CLIENT_ID=
-          {process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? 'SET' : 'NOT SET'}
-        </p>
-        <p className="text-xs text-gray-500">
-          Debug: NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID=
-          {process.env.NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID ? 'SET' : 'NOT SET'}
-        </p>
       </div>
     )
   }
