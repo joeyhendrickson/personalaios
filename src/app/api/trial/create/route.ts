@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   try {
-    const { email, name, plan_type } = await request.json()
+    const { email, name, plan_type, userId } = await request.json()
 
     if (!email) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 })
@@ -59,6 +59,7 @@ export async function POST(request: Request) {
         status: 'active',
         will_convert_to: 'basic',
         conversion_price: 20.0,
+        user_id: userId, // Link to the user account if provided
       })
       .select()
       .single()

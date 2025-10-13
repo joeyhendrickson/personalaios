@@ -131,8 +131,8 @@ export default function CreateAccountPage() {
 
     try {
       if (showForm === 'trial') {
-        // First, create the user account with Supabase Auth
-        const signupResponse = await fetch('/api/auth/signup', {
+        // Use the new trial-specific signup endpoint that bypasses email confirmation
+        const signupResponse = await fetch('/api/auth/trial-signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -142,21 +142,21 @@ export default function CreateAccountPage() {
           }),
         })
 
-        console.log('Signup response status:', signupResponse.status)
+        console.log('Trial signup response status:', signupResponse.status)
         const responseText = await signupResponse.text()
-        console.log('Signup response text:', responseText)
+        console.log('Trial signup response text:', responseText)
 
         let signupData
         try {
           signupData = JSON.parse(responseText)
         } catch (e) {
-          console.error('Failed to parse signup response:', responseText)
+          console.error('Failed to parse trial signup response:', responseText)
           throw new Error(`Invalid server response: ${responseText.substring(0, 100)}`)
         }
 
         if (!signupResponse.ok) {
-          console.error('Signup error response:', signupData)
-          console.error('Signup error message:', signupData.error)
+          console.error('Trial signup error response:', signupData)
+          console.error('Trial signup error message:', signupData.error)
           console.error('Full signupData:', JSON.stringify(signupData, null, 2))
 
           // If user already exists, try to log them in instead
@@ -189,7 +189,7 @@ export default function CreateAccountPage() {
           console.log('User account created successfully:', signupData)
         }
 
-        // Then create trial subscription record
+        // Create trial subscription record with user ID
         const trialResponse = await fetch('/api/trial/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -197,6 +197,7 @@ export default function CreateAccountPage() {
             email: formData.email,
             name: formData.name,
             plan_type: 'basic',
+            userId: signupData.user?.id, // Link trial to user account
           }),
         })
 
@@ -205,24 +206,30 @@ export default function CreateAccountPage() {
           throw new Error(errorData.error || 'Failed to create trial subscription')
         }
 
-        // Automatically sign in the user after successful account creation
-        const signinResponse = await fetch('/api/auth/signin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password,
-          }),
-        })
+        // Check if we have a session from the signup (trial users get immediate access)
+        if (signupData.session) {
+          console.log('User has session, redirecting to dashboard immediately')
+          window.location.href = '/dashboard'
+        } else {
+          // Fallback: try to sign in the user
+          const signinResponse = await fetch('/api/auth/signin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: formData.email,
+              password: formData.password,
+            }),
+          })
 
-        if (!signinResponse.ok) {
-          // If signin fails, redirect to login page
-          window.location.href = `/login?trial=success&email=${encodeURIComponent(formData.email)}`
-          return
+          if (!signinResponse.ok) {
+            // If signin fails, redirect to login page
+            window.location.href = `/login?trial=success&email=${encodeURIComponent(formData.email)}`
+            return
+          }
+
+          // Redirect directly to dashboard
+          window.location.href = '/dashboard'
         }
-
-        // Redirect directly to dashboard
-        window.location.href = '/dashboard'
       } else if (showForm === 'basic') {
         // Redirect directly to PayPal checkout
         // User account will be created after successful payment
