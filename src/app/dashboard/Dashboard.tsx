@@ -1875,80 +1875,83 @@ export default function Dashboard() {
                       {priorities.map((priority, index) => (
                         <div
                           key={(priority as any).id}
-                          className={`flex items-center space-x-3 p-3 rounded-lg border transition-all ${
+                          className={`flex items-start space-x-3 p-4 rounded-lg border transition-all ${
                             priority.is_completed
                               ? 'bg-green-50 border-green-200'
                               : 'bg-white border-gray-200 hover:border-blue-200'
                           }`}
                         >
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-gray-500 w-6">
-                              #{index + 1}
-                            </span>
-                            <button
-                              onClick={async () => {
-                                try {
-                                  const response = await fetch(
-                                    `/api/priorities/${(priority as any).id}`,
-                                    {
-                                      method: 'PATCH',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({
-                                        is_completed: !priority.is_completed,
-                                      }),
-                                    }
-                                  )
-                                  if (response.ok) {
-                                    await fetchPriorities(true) // Skip sync to avoid duplicates
-                                    // Refresh goals and tasks to update category progress
-                                    await fetchHighLevelGoals()
+                          <button
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(
+                                  `/api/priorities/${(priority as any).id}`,
+                                  {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      is_completed: !priority.is_completed,
+                                    }),
                                   }
-                                } catch (error) {
-                                  console.error('Error updating priority:', error)
+                                )
+                                if (response.ok) {
+                                  await fetchPriorities(true) // Skip sync to avoid duplicates
+                                  // Refresh goals and tasks to update category progress
+                                  await fetchHighLevelGoals()
                                 }
-                              }}
-                              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                                priority.is_completed
-                                  ? 'bg-green-500 border-green-500'
-                                  : 'border-gray-300 hover:border-blue-400'
-                              }`}
-                            >
-                              {(priority as any).is_completed && (
-                                <CheckCircle className="h-3 w-3 text-white" />
-                              )}
-                            </button>
-                          </div>
+                              } catch (error) {
+                                console.error('Error updating priority:', error)
+                              }
+                            }}
+                            className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5 ${
+                              priority.is_completed
+                                ? 'bg-green-500 border-green-500'
+                                : 'border-gray-300 hover:border-blue-400'
+                            }`}
+                          >
+                            {(priority as any).is_completed && (
+                              <CheckCircle className="h-3 w-3 text-white" />
+                            )}
+                          </button>
 
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-1">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-1 sm:space-y-0 mb-2">
                               <h4
-                                className={`font-medium ${priority.is_completed ? 'line-through text-gray-500' : 'text-gray-900'}`}
+                                className={`font-medium text-left ${
+                                  priority.is_completed
+                                    ? 'line-through text-gray-500'
+                                    : 'text-gray-900'
+                                }`}
                               >
                                 {(priority as any).title}
                               </h4>
-                              <span
-                                className={`text-xs px-2 py-1 rounded ${
-                                  priority.priority_type === 'ai_recommended'
-                                    ? 'bg-gray-100 text-gray-800'
+                              <div className="flex items-center space-x-2">
+                                <span
+                                  className={`text-xs px-2 py-1 rounded ${
+                                    priority.priority_type === 'ai_recommended'
+                                      ? 'bg-gray-100 text-gray-800'
+                                      : priority.priority_type === 'fire_auto'
+                                        ? 'bg-red-100 text-red-800'
+                                        : 'bg-gray-100 text-gray-800'
+                                  }`}
+                                >
+                                  {priority.priority_type === 'ai_recommended'
+                                    ? 'AI'
                                     : priority.priority_type === 'fire_auto'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-gray-100 text-gray-800'
-                                }`}
-                              >
-                                {priority.priority_type === 'ai_recommended'
-                                  ? 'AI'
-                                  : priority.priority_type === 'fire_auto'
-                                    ? 'FIRE'
-                                    : 'Manual'}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                Score: {(priority as any).priority_score}
-                              </span>
+                                      ? 'FIRE'
+                                      : 'Manual'}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  Score: {(priority as any).priority_score}
+                                </span>
+                              </div>
                             </div>
-                            <p className="text-sm text-gray-600">{(priority as any).description}</p>
+                            <p className="text-sm text-gray-600 text-left leading-relaxed">
+                              {(priority as any).description}
+                            </p>
                           </div>
 
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-start space-x-1 flex-shrink-0">
                             <button
                               onClick={() => openEditPriority(priority)}
                               className="text-gray-400 hover:text-gray-600"
@@ -2277,7 +2280,7 @@ export default function Dashboard() {
                 </div>
 
                 <div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {loading ? (
                       <div className="col-span-2 text-center py-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>

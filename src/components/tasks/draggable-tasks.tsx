@@ -74,93 +74,130 @@ function TaskItem({
       onDragLeave={handleDragLeave}
       onDrop={(e) => onDrop?.(e, index)}
     >
-      <div className="flex items-start space-x-4">
-        {/* Drag Handle */}
-        <div className="mt-1 cursor-move" title="Drag to reorder">
-          <GripVertical className="h-4 w-4 text-gray-400 hover:text-gray-600" />
-        </div>
-
-        {/* Move Up/Down Buttons */}
-        <div className="flex flex-col gap-1 mt-1">
-          <button
-            onClick={() => onMoveUp(index)}
-            disabled={index === 0 || isReordering}
-            className={`p-0.5 rounded transition-colors ${
-              index === 0 || isReordering
-                ? 'text-gray-300 cursor-not-allowed'
-                : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
-            }`}
-            title="Move up"
-          >
-            <ChevronUp className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => onMoveDown(index)}
-            disabled={index === totalTasks - 1 || isReordering}
-            className={`p-0.5 rounded transition-colors ${
-              index === totalTasks - 1 || isReordering
-                ? 'text-gray-300 cursor-not-allowed'
-                : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
-            }`}
-            title="Move down"
-          >
-            <ChevronDown className="h-4 w-4" />
-          </button>
-        </div>
-
+      <div className="flex items-start space-x-3">
         <button
           onClick={() => onToggleTask(task.id)}
-          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mt-0.5 transition-all duration-200 ${
+          className={`w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-all duration-200 flex-shrink-0 ${
             task.status === 'completed'
               ? 'bg-green-500 border-green-500 hover:bg-green-600'
               : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
           }`}
         >
-          {task.status === 'completed' && <CheckCircle className="h-4 w-4 text-white" />}
+          {task.status === 'completed' && <CheckCircle className="h-3 w-3 text-white" />}
         </button>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-2 sm:space-y-0">
+            <div className="flex-1 min-w-0">
               <h4
-                className={`font-medium ${
+                className={`font-medium text-left ${
                   task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
                 }`}
               >
                 {task.title}
               </h4>
-              <p className="text-sm text-gray-600 mt-1">{task.description || 'No description'}</p>
+              <p className="text-sm text-gray-600 mt-1 text-left leading-relaxed">
+                {task.description || 'No description'}
+              </p>
               {task.weekly_goal?.title && (
-                <p className="text-xs text-blue-600 mt-1">📋 {task.weekly_goal.title}</p>
+                <p className="text-xs text-blue-600 mt-1 text-left">📋 {task.weekly_goal.title}</p>
               )}
             </div>
-            <div className="flex items-center space-x-2 ml-4">
+            <div className="flex items-center space-x-2 flex-shrink-0 sm:ml-4">
               <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gray-100 text-gray-700">
                 <Star className="h-3 w-3 mr-1" />
                 {task.points_value || 0}
               </span>
-              <button
-                onClick={() => onEditTask(task)}
-                className="text-gray-500 hover:text-gray-700"
-                title="Edit Task"
-              >
-                <Settings className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => onConvertToGoal(task)}
-                className="text-blue-500 hover:text-blue-700"
-                title="Convert to Goal"
-              >
-                <Target className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => onDeleteTask(task.id)}
-                className="text-red-500 hover:text-red-700"
-                title="Delete Task"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={() => onEditTask(task)}
+                  className="text-gray-500 hover:text-gray-700"
+                  title="Edit Task"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => onConvertToGoal(task)}
+                  className="text-blue-500 hover:text-blue-700"
+                  title="Convert to Goal"
+                >
+                  <Target className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => onDeleteTask(task.id)}
+                  className="text-red-500 hover:text-red-700"
+                  title="Delete Task"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
+          </div>
+        </div>
+
+        {/* Mobile-only drag and reorder controls */}
+        <div className="flex flex-col items-center space-y-1 flex-shrink-0 sm:hidden">
+          <div className="cursor-move" title="Drag to reorder">
+            <GripVertical className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <button
+              onClick={() => onMoveUp(index)}
+              disabled={index === 0 || isReordering}
+              className={`p-0.5 rounded transition-colors ${
+                index === 0 || isReordering
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+              }`}
+              title="Move up"
+            >
+              <ChevronUp className="h-3 w-3" />
+            </button>
+            <button
+              onClick={() => onMoveDown(index)}
+              disabled={index === totalTasks - 1 || isReordering}
+              className={`p-0.5 rounded transition-colors ${
+                index === totalTasks - 1 || isReordering
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+              }`}
+              title="Move down"
+            >
+              <ChevronDown className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop-only drag and reorder controls */}
+        <div className="hidden sm:flex flex-col items-center space-y-1 flex-shrink-0">
+          <div className="cursor-move" title="Drag to reorder">
+            <GripVertical className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={() => onMoveUp(index)}
+              disabled={index === 0 || isReordering}
+              className={`p-0.5 rounded transition-colors ${
+                index === 0 || isReordering
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+              }`}
+              title="Move up"
+            >
+              <ChevronUp className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => onMoveDown(index)}
+              disabled={index === totalTasks - 1 || isReordering}
+              className={`p-0.5 rounded transition-colors ${
+                index === totalTasks - 1 || isReordering
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+              }`}
+              title="Move down"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </div>
