@@ -207,10 +207,14 @@ export default function CreateAccountPage() {
         }
 
         // Check if we have a session from the signup (trial users get immediate access)
+        console.log('Trial signup response data:', signupData)
+        console.log('Session data:', signupData.session)
+
         if (signupData.session) {
           console.log('User has session, redirecting to dashboard immediately')
           window.location.href = '/dashboard'
         } else {
+          console.log('No session returned, attempting manual sign-in')
           // Fallback: try to sign in the user
           const signinResponse = await fetch('/api/auth/signin', {
             method: 'POST',
@@ -221,12 +225,16 @@ export default function CreateAccountPage() {
             }),
           })
 
+          console.log('Manual signin response status:', signinResponse.status)
+
           if (!signinResponse.ok) {
+            console.error('Manual signin failed, redirecting to login page')
             // If signin fails, redirect to login page
             window.location.href = `/login?trial=success&email=${encodeURIComponent(formData.email)}`
             return
           }
 
+          console.log('Manual signin successful, redirecting to dashboard')
           // Redirect directly to dashboard
           window.location.href = '/dashboard'
         }

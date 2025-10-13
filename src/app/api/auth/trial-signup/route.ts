@@ -81,6 +81,23 @@ export async function POST(request: Request) {
 
     console.log('[Trial Signup API] User created in auth:', authData.user.id)
 
+    // If no session was returned, manually sign in the user
+    let sessionData = authData.session
+    if (!sessionData) {
+      console.log('[Trial Signup API] No session returned, manually signing in user')
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (signInError) {
+        console.error('[Trial Signup API] Error signing in user after creation:', signInError)
+      } else {
+        console.log('[Trial Signup API] User signed in successfully')
+        sessionData = signInData.session
+      }
+    }
+
     // Create profile record
     console.log('[Trial Signup API] Creating profile record')
     const { error: profileError } = await supabase.from('profiles').insert({
@@ -142,7 +159,7 @@ export async function POST(request: Request) {
         email: authData.user.email,
       },
       // Return the session data for immediate sign-in
-      session: authData.session,
+      session: sessionData,
     })
   } catch (error) {
     console.error('Trial signup error:', error)
