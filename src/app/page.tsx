@@ -120,9 +120,9 @@ export default function HomePage() {
     <div className="min-h-screen bg-black text-white">
       {/* Navigation */}
       <nav className="border-b border-gray-800 sticky top-0 bg-black/80 backdrop-blur-lg z-50">
-        <div className="container mx-auto px-6 py-4">
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-end">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <LanguageToggle />
               {user && !loading ? (
                 <Link href="/dashboard">
@@ -134,19 +134,19 @@ export default function HomePage() {
                 <div className="relative">
                   <button
                     onClick={() => setShowSignInForm(!showSignInForm)}
-                    className="px-6 py-2.5 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-all text-sm flex items-center space-x-2"
+                    className="px-4 sm:px-6 py-2 sm:py-2.5 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-all text-xs sm:text-sm flex items-center space-x-1 sm:space-x-2"
                   >
                     <span>Subscribe</span>
                     {showSignInForm ? (
-                      <ChevronUp className="h-4 w-4" />
+                      <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4" />
                     ) : (
-                      <ChevronDown className="h-4 w-4" />
+                      <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
                     )}
                   </button>
 
                   {/* Subscribe Dropdown Form */}
                   {showSignInForm && (
-                    <div className="absolute top-full right-0 mt-2 w-80 z-50">
+                    <div className="absolute top-full right-0 mt-2 w-72 sm:w-80 max-w-[calc(100vw-2rem)] z-50">
                       <Card className="bg-white shadow-xl border border-gray-200">
                         <CardHeader className="pb-4"></CardHeader>
                         <CardContent>
@@ -224,70 +224,70 @@ export default function HomePage() {
       </nav>
 
       {/* Hero Section */}
-      <div className="container mx-auto px-6 py-32 md:py-48">
-        <div className="text-center mb-20">
-          <div className="mx-auto mb-12">
+      <div className="container mx-auto px-4 sm:px-6 py-16 sm:py-24 md:py-32 lg:py-48">
+        <div className="text-center mb-12 sm:mb-16 md:mb-20">
+          <div className="mx-auto mb-8 sm:mb-10 md:mb-12">
             {/* Custom Life Stacks Logo */}
-            <div className="flex items-center justify-center space-x-8">
+            <div className="flex items-center justify-center space-x-4 sm:space-x-6 md:space-x-8">
               {/* Stacked layers icon */}
-              <div className="flex flex-col space-y-3">
-                <div className="w-32 h-10 bg-white rounded-xl shadow-lg"></div>
-                <div className="w-32 h-10 bg-white rounded-xl shadow-lg"></div>
-                <div className="w-32 h-10 bg-white rounded-xl shadow-lg"></div>
+              <div className="flex flex-col space-y-2 sm:space-y-3">
+                <div className="w-16 h-4 sm:w-20 sm:h-5 md:w-24 md:h-6 lg:w-32 lg:h-10 bg-white rounded-lg sm:rounded-xl shadow-lg"></div>
+                <div className="w-16 h-4 sm:w-20 sm:h-5 md:w-24 md:h-6 lg:w-32 lg:h-10 bg-white rounded-lg sm:rounded-xl shadow-lg"></div>
+                <div className="w-16 h-4 sm:w-20 sm:h-5 md:w-24 md:h-6 lg:w-32 lg:h-10 bg-white rounded-lg sm:rounded-xl shadow-lg"></div>
               </div>
               {/* Life Stacks text */}
               <div className="text-left">
-                <div className="text-8xl font-bold text-white leading-none tracking-tight">
+                <div className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-8xl font-bold text-white leading-none tracking-tight">
                   Life
                 </div>
-                <div className="text-8xl font-bold text-white leading-none tracking-tight">
+                <div className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-8xl font-bold text-white leading-none tracking-tight">
                   Stacks
                 </div>
               </div>
             </div>
           </div>
-          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight tracking-tight">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-7xl font-bold text-white mb-4 sm:mb-6 leading-tight tracking-tight px-2">
             {t('home.tagline').split(',')[0]},
             <br />
             {t('home.tagline').split(',')[1]}
           </h1>
-          <p className="text-xl md:text-2xl text-gray-400 max-w-3xl mx-auto mb-12 leading-relaxed">
+          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-400 max-w-3xl mx-auto mb-8 sm:mb-10 md:mb-12 leading-relaxed px-4">
             {t('home.subtitle')}
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center px-4">
             {user && !loading ? (
               <Link href="/dashboard">
-                <button className="px-8 py-4 bg-white text-black rounded-full font-semibold hover:bg-gray-200 transition-all text-lg flex items-center space-x-2">
-                  <Target className="h-5 w-5" />
+                <button className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-white text-black rounded-full font-semibold hover:bg-gray-200 transition-all text-base sm:text-lg flex items-center justify-center space-x-2">
+                  <Target className="h-4 w-4 sm:h-5 sm:w-5" />
                   <span>{t('home.goToDashboard')}</span>
-                  <ArrowRight className="h-5 w-5" />
+                  <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
               </Link>
             ) : (
               <>
-                <div className="relative">
+                <div className="relative w-full sm:w-auto">
                   <button
                     onClick={() => setShowMainSignInForm(!showMainSignInForm)}
-                    className="px-8 py-4 bg-white text-black rounded-full font-semibold hover:bg-gray-200 transition-all text-lg flex items-center space-x-2"
+                    className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-white text-black rounded-full font-semibold hover:bg-gray-200 transition-all text-base sm:text-lg flex items-center justify-center space-x-2"
                   >
                     <span>{t('home.signIn')}</span>
                     {showMainSignInForm ? (
-                      <ChevronUp className="h-5 w-5" />
+                      <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5" />
                     ) : (
-                      <ChevronDown className="h-5 w-5" />
+                      <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5" />
                     )}
                   </button>
 
                   {/* Main Sign-in Dropdown Form */}
                   {showMainSignInForm && (
-                    <div className="absolute top-full -left-32 mt-2 w-96 z-50">
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-80 sm:w-96 max-w-[calc(100vw-2rem)] z-50">
                       <Card className="bg-white shadow-xl border border-gray-200">
                         <CardHeader className="pb-4"></CardHeader>
                         <CardContent>
                           <form onSubmit={handleMainSignInSubmit} className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                               <div className="space-y-2">
                                 <Label
                                   htmlFor="main-signin-email"
@@ -356,7 +356,7 @@ export default function HomePage() {
                   )}
                 </div>
                 <Link href="/create-account">
-                  <button className="px-8 py-4 bg-transparent border-2 border-white text-white rounded-full font-semibold hover:bg-white hover:text-black transition-all text-lg">
+                  <button className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-transparent border-2 border-white text-white rounded-full font-semibold hover:bg-white hover:text-black transition-all text-base sm:text-lg">
                     {t('home.createAccount')}
                   </button>
                 </Link>
