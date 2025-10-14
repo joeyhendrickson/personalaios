@@ -2942,82 +2942,154 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <div className="space-y-3">
-                    {dashboardCategories.length === 0 ? (
-                      <div className="text-center py-4">
-                        <p className="text-gray-500 text-sm">{t('empty.noCategories')}</p>
-                      </div>
-                    ) : (
-                      (() => {
-                        // Mapping function to convert display names to database format
-                        const categoryNameToDbFormat = (displayName: string): string => {
-                          const mapping: Record<string, string> = {
-                            'Quick Money': 'quick_money',
-                            'Save Money': 'save_money',
-                            Health: 'health',
-                            'Network Expansion': 'network_expansion',
-                            'Business Growth': 'business_growth',
-                            Fires: 'fires',
-                            'Good Living': 'good_living',
-                            'Big Vision': 'big_vision',
-                            Job: 'job',
-                            Organization: 'organization',
-                            'Tech Issues': 'tech_issues',
-                            'Business Launch': 'business_launch',
-                            'Future Planning': 'future_planning',
-                            Innovation: 'innovation',
-                            Productivity: 'productivity',
-                            Learning: 'learning',
-                            Financial: 'financial',
-                            Personal: 'personal',
-                            Other: 'other',
-                          }
-                          return (
-                            mapping[displayName] || displayName.toLowerCase().replace(/\s+/g, '_')
-                          )
-                        }
+                    {(() => {
+                      // Check if there are any user-created categories or projects/tasks with categories
+                      const hasUserCategories = dashboardCategories.length > 0
+                      const hasUsedCategories = [...goals, ...tasks].some((item) => item.category)
 
-                        // Calculate points for all categories first
-                        const allCategoryPoints = dashboardCategories.map((category) => {
-                          const dbCategoryName = categoryNameToDbFormat(category.name)
-                          const categoryPoints = [...goals, ...tasks].reduce(
-                            (acc, item) => {
-                              if (item.category === dbCategoryName) {
-                                if ('current_points' in item) {
-                                  acc.current += item.current_points || 0
-                                  acc.target += item.target_points || 0
-                                } else if ('points_value' in item) {
-                                  const pointsValue = item.points_value || 0
-                                  if ('status' in item && item.status === 'completed') {
-                                    acc.current += pointsValue
-                                  }
-                                  acc.target += pointsValue
-                                }
-                              }
-                              return acc
-                            },
-                            { current: 0, target: 0 }
-                          )
-                          return { category, categoryPoints }
-                        })
-
-                        // Find the maximum current points across all categories
-                        const maxCategoryPoints = Math.max(
-                          ...allCategoryPoints.map(({ categoryPoints }) => categoryPoints.current),
-                          1 // Minimum of 1 to prevent division by zero
+                      if (!hasUserCategories && !hasUsedCategories) {
+                        return (
+                          <div className="text-center py-4">
+                            <p className="text-gray-500 text-sm">{t('empty.noCategories')}</p>
+                          </div>
                         )
+                      }
 
-                        return allCategoryPoints.map(({ category, categoryPoints }) => (
-                          <CategoryItem
-                            key={category.id}
-                            category={category}
-                            categoryPoints={categoryPoints}
-                            maxCategoryPoints={maxCategoryPoints}
-                            onDelete={deleteCategory}
-                            onUpdate={updateCategory}
-                          />
-                        ))
-                      })()
-                    )}
+                      // Mapping function to convert database format to display names
+                      const dbFormatToDisplayName = (dbFormat: string): string => {
+                        const mapping: Record<string, string> = {
+                          quick_money: '⚡ Quick Money',
+                          save_money: '💳 Save Money',
+                          health: '💪 Health',
+                          network_expansion: '🤝 Network Expansion',
+                          business_growth: '📈 Business Growth',
+                          fires: '🔥 Fires',
+                          good_living: '🌟 Good Living',
+                          big_vision: '🎯 Big Vision',
+                          job: '💼 Job',
+                          organization: '📁 Organization',
+                          tech_issues: '🔧 Tech Issues',
+                          business_launch: '🚀 Business Launch',
+                          future_planning: '🗺️ Future Planning',
+                          innovation: '💡 Innovation',
+                          productivity: '📊 Productivity',
+                          learning: '🎓 Learning',
+                          financial: '💰 Financial',
+                          personal: '👤 Personal',
+                          other: '📋 Other',
+                        }
+                        return (
+                          mapping[dbFormat] ||
+                          dbFormat.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+                        )
+                      }
+
+                      // Get all unique categories from projects and tasks
+                      const allUsedCategories = new Set<string>()
+                      ;[...goals, ...tasks].forEach((item) => {
+                        if (item.category) {
+                          allUsedCategories.add(item.category)
+                        }
+                      })
+
+                      // Also include all user-created categories (even if not used yet)
+                      dashboardCategories.forEach((category) => {
+                        const dbFormat = category.name.toLowerCase().replace(/\s+/g, '_')
+                        allUsedCategories.add(dbFormat)
+                      })
+
+                      // Create category objects for all categories
+                      const categoriesToShow = Array.from(allUsedCategories).map(
+                        (dbCategoryName) => {
+                          // Check if this is a user-created category
+                          const userCreatedCategory = dashboardCategories.find(
+                            (cat) => cat.name.toLowerCase().replace(/\s+/g, '_') === dbCategoryName
+                          )
+
+                          if (userCreatedCategory) {
+                            // Use user-created category data
+                            return {
+                              id: userCreatedCategory.id,
+                              name: userCreatedCategory.name,
+                              description: userCreatedCategory.description,
+                              color: userCreatedCategory.color,
+                              icon_name: userCreatedCategory.icon_name,
+                              isUserCreated: true,
+                            }
+                          } else {
+                            // Use hardcoded category
+                            return {
+                              id: `hardcoded_${dbCategoryName}`,
+                              name: dbFormatToDisplayName(dbCategoryName),
+                              description: null,
+                              color: '#3B82F6',
+                              icon_name: null,
+                              isUserCreated: false,
+                            }
+                          }
+                        }
+                      )
+
+                      // Calculate points for each category
+                      const allCategoryPoints = categoriesToShow.map((category) => {
+                        const dbCategoryName = category.isUserCreated
+                          ? category.name.toLowerCase().replace(/\s+/g, '_')
+                          : Object.keys({
+                              quick_money: '⚡ Quick Money',
+                              save_money: '💳 Save Money',
+                              health: '💪 Health',
+                              network_expansion: '🤝 Network Expansion',
+                              business_growth: '📈 Business Growth',
+                              fires: '🔥 Fires',
+                              good_living: '🌟 Good Living',
+                              big_vision: '🎯 Big Vision',
+                              job: '💼 Job',
+                              organization: '📁 Organization',
+                              tech_issues: '🔧 Tech Issues',
+                              business_launch: '🚀 Business Launch',
+                              future_planning: '🗺️ Future Planning',
+                              innovation: '💡 Innovation',
+                              other: '📋 Other',
+                            }).find((key) => dbFormatToDisplayName(key) === category.name) || ''
+
+                        const categoryPoints = [...goals, ...tasks].reduce(
+                          (acc, item) => {
+                            if (item.category === dbCategoryName) {
+                              if ('current_points' in item) {
+                                acc.current += item.current_points || 0
+                                acc.target += item.target_points || 0
+                              } else if ('points_value' in item) {
+                                const pointsValue = item.points_value || 0
+                                if ('status' in item && item.status === 'completed') {
+                                  acc.current += pointsValue
+                                }
+                                acc.target += pointsValue
+                              }
+                            }
+                            return acc
+                          },
+                          { current: 0, target: 0 }
+                        )
+                        return { category, categoryPoints }
+                      })
+
+                      // Find the maximum current points across all categories
+                      const maxCategoryPoints = Math.max(
+                        ...allCategoryPoints.map(({ categoryPoints }) => categoryPoints.current),
+                        1 // Minimum of 1 to prevent division by zero
+                      )
+
+                      return allCategoryPoints.map(({ category, categoryPoints }) => (
+                        <CategoryItem
+                          key={category.id}
+                          category={category}
+                          categoryPoints={categoryPoints}
+                          maxCategoryPoints={maxCategoryPoints}
+                          onDelete={category.isUserCreated ? deleteCategory : undefined}
+                          onUpdate={category.isUserCreated ? updateCategory : undefined}
+                        />
+                      ))
+                    })()}
                   </div>
                 </div>
               </CascadingSection>
@@ -3250,7 +3322,7 @@ export default function Dashboard() {
                   onClick={handleAddGoal}
                   className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
                 >
-                  {t('actions.addGoal')}
+                  {t('projects.addProject')}
                 </button>
                 <button
                   onClick={() => setShowAddGoal(false)}
@@ -3729,21 +3801,63 @@ export default function Dashboard() {
                   id="edit-goal-category"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="quick_money">⚡ Quick Money</option>
-                  <option value="save_money">💳 Save Money</option>
-                  <option value="health">💪 Health</option>
-                  <option value="network_expansion">🤝 Network Expansion</option>
-                  <option value="business_growth">📈 Business Growth</option>
-                  <option value="fires">🔥 Fires</option>
-                  <option value="good_living">🌟 Good Living</option>
-                  <option value="big_vision">🎯 Big Vision</option>
-                  <option value="job">💼 Job</option>
-                  <option value="organization">📁 Organization</option>
-                  <option value="tech_issues">🔧 Tech Issues</option>
-                  <option value="business_launch">🚀 Business Launch</option>
-                  <option value="future_planning">🗺️ Future Planning</option>
-                  <option value="innovation">💡 Innovation</option>
-                  <option value="other">📋 Other</option>
+                  <option value="">Select a category (required)</option>
+                  {(() => {
+                    const existingCategories = new Set()
+                    const defaultCategories = [
+                      { value: 'quick_money', label: '⚡ Quick Money' },
+                      { value: 'save_money', label: '💳 Save Money' },
+                      { value: 'health', label: '💪 Health' },
+                      { value: 'network_expansion', label: '🤝 Network Expansion' },
+                      { value: 'business_growth', label: '📈 Business Growth' },
+                      { value: 'fires', label: '🔥 Fires' },
+                      { value: 'good_living', label: '🌟 Good Living' },
+                      { value: 'big_vision', label: '🎯 Big Vision' },
+                      { value: 'job', label: '💼 Job' },
+                      { value: 'organization', label: '📁 Organization' },
+                      { value: 'tech_issues', label: '🔧 Tech Issues' },
+                      { value: 'business_launch', label: '🚀 Business Launch' },
+                      { value: 'future_planning', label: '🗺️ Future Planning' },
+                      { value: 'innovation', label: '💡 Innovation' },
+                      { value: 'other', label: '📋 Other' },
+                    ]
+
+                    const allCategories = []
+
+                    // Add user-created categories first
+                    dashboardCategories.forEach((category) => {
+                      const dbFormat = category.name.toLowerCase().replace(/\s+/g, '_')
+                      allCategories.push({
+                        value: dbFormat,
+                        label: category.name,
+                        isUserCreated: true,
+                      })
+                      existingCategories.add(dbFormat)
+                    })
+
+                    // Add default categories that aren't already included
+                    defaultCategories.forEach((category) => {
+                      if (!existingCategories.has(category.value)) {
+                        allCategories.push({
+                          ...category,
+                          isUserCreated: false,
+                        })
+                      }
+                    })
+
+                    // Sort categories: user-created first, then default categories
+                    allCategories.sort((a, b) => {
+                      if (a.isUserCreated && !b.isUserCreated) return -1
+                      if (!a.isUserCreated && b.isUserCreated) return 1
+                      return a.label.localeCompare(b.label)
+                    })
+
+                    return allCategories.map((category) => (
+                      <option key={category.value} value={category.value}>
+                        {category.label}
+                      </option>
+                    ))
+                  })()}
                 </select>
               </div>
               <div>
