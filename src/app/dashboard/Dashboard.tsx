@@ -3164,25 +3164,69 @@ export default function Dashboard() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select a category (required)</option>
-                    <option value="quick_money">Quick Money</option>
-                    <option value="save_money">Save Money</option>
-                    <option value="health">Health</option>
-                    <option value="network_expansion">Network Expansion</option>
-                    <option value="business_growth">Business Growth</option>
-                    <option value="fires">Fires</option>
-                    <option value="good_living">Good Living</option>
-                    <option value="big_vision">Big Vision</option>
-                    <option value="job">Job</option>
-                    <option value="organization">Organization</option>
-                    <option value="tech_issues">Tech Issues</option>
-                    <option value="business_launch">Business Launch</option>
-                    <option value="future_planning">Future Planning</option>
-                    <option value="innovation">Innovation</option>
-                    <option value="productivity">Productivity</option>
-                    <option value="learning">Learning</option>
-                    <option value="financial">Financial</option>
-                    <option value="personal">Personal</option>
-                    <option value="other">Other</option>
+                    {(() => {
+                      // Create a map of existing categories to avoid duplicates
+                      const existingCategories = new Set()
+
+                      // Default categories that should always be available
+                      const defaultCategories = [
+                        { value: 'quick_money', label: 'Quick Money' },
+                        { value: 'save_money', label: 'Save Money' },
+                        { value: 'health', label: 'Health' },
+                        { value: 'network_expansion', label: 'Network Expansion' },
+                        { value: 'business_growth', label: 'Business Growth' },
+                        { value: 'fires', label: 'Fires' },
+                        { value: 'good_living', label: 'Good Living' },
+                        { value: 'big_vision', label: 'Big Vision' },
+                        { value: 'job', label: 'Job' },
+                        { value: 'organization', label: 'Organization' },
+                        { value: 'tech_issues', label: 'Tech Issues' },
+                        { value: 'business_launch', label: 'Business Launch' },
+                        { value: 'future_planning', label: 'Future Planning' },
+                        { value: 'innovation', label: 'Innovation' },
+                        { value: 'productivity', label: 'Productivity' },
+                        { value: 'learning', label: 'Learning' },
+                        { value: 'financial', label: 'Financial' },
+                        { value: 'personal', label: 'Personal' },
+                        { value: 'other', label: 'Other' },
+                      ]
+
+                      const allCategories = []
+
+                      // Add user-created categories first
+                      dashboardCategories.forEach((category) => {
+                        const dbFormat = category.name.toLowerCase().replace(/\s+/g, '_')
+                        allCategories.push({
+                          value: dbFormat,
+                          label: category.name,
+                          isUserCreated: true,
+                        })
+                        existingCategories.add(dbFormat)
+                      })
+
+                      // Add default categories that aren't already included
+                      defaultCategories.forEach((category) => {
+                        if (!existingCategories.has(category.value)) {
+                          allCategories.push({
+                            ...category,
+                            isUserCreated: false,
+                          })
+                        }
+                      })
+
+                      // Sort categories: user-created first, then default categories
+                      allCategories.sort((a, b) => {
+                        if (a.isUserCreated && !b.isUserCreated) return -1
+                        if (!a.isUserCreated && b.isUserCreated) return 1
+                        return a.label.localeCompare(b.label)
+                      })
+
+                      return allCategories.map((category) => (
+                        <option key={category.value} value={category.value}>
+                          {category.label}
+                        </option>
+                      ))
+                    })()}
                   </select>
                 )}
               </div>
