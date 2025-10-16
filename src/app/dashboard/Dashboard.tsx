@@ -69,8 +69,8 @@ interface CategoryItemProps {
     target: number
   }
   maxCategoryPoints: number
-  onDelete: (id: string) => void
-  onUpdate: (id: string, newName: string, newColor: string) => void
+  onDelete?: (id: string) => void
+  onUpdate?: (id: string, newName: string, newColor: string) => void
 }
 
 const CategoryItem = ({
@@ -85,7 +85,7 @@ const CategoryItem = ({
   const [editedColor, setEditedColor] = useState(category.color || '#3B82F6')
 
   const handleSave = () => {
-    if (editedName.trim()) {
+    if (editedName.trim() && onUpdate) {
       onUpdate(category.id, editedName.trim(), editedColor)
       setIsEditing(false)
     }
@@ -171,7 +171,7 @@ const CategoryItem = ({
               <Settings className="h-4 w-4" />
             </button>
             <button
-              onClick={() => onDelete(category.id)}
+              onClick={() => onDelete?.(category.id)}
               className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
               title="Delete category"
             >
@@ -3021,9 +3021,9 @@ export default function Dashboard() {
                             return {
                               id: `hardcoded_${dbCategoryName}`,
                               name: dbFormatToDisplayName(dbCategoryName),
-                              description: null,
+                              description: undefined,
                               color: '#3B82F6',
-                              icon_name: null,
+                              icon_name: undefined,
                               isUserCreated: false,
                             }
                           }
@@ -3263,7 +3263,11 @@ export default function Dashboard() {
                         { value: 'other', label: 'Other' },
                       ]
 
-                      const allCategories = []
+                      const allCategories: Array<{
+                        value: string
+                        label: string
+                        isUserCreated: boolean
+                      }> = []
 
                       // Add user-created categories first
                       dashboardCategories.forEach((category) => {
@@ -3822,7 +3826,11 @@ export default function Dashboard() {
                       { value: 'other', label: '📋 Other' },
                     ]
 
-                    const allCategories = []
+                    const allCategories: Array<{
+                      value: string
+                      label: string
+                      isUserCreated: boolean
+                    }> = []
 
                     // Add user-created categories first
                     dashboardCategories.forEach((category) => {
