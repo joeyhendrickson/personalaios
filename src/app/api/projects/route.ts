@@ -6,27 +6,10 @@ const createProjectSchema = z.object({
   title: z.string().min(1).max(255),
   description: z.string().optional(),
   category: z
-    .enum([
-      'quick_money',
-      'save_money',
-      'health',
-      'network_expansion',
-      'business_growth',
-      'fires',
-      'good_living',
-      'big_vision',
-      'job',
-      'organization',
-      'tech_issues',
-      'business_launch',
-      'future_planning',
-      'innovation',
-      'productivity',
-      'learning',
-      'financial',
-      'personal',
-      'other',
-    ])
+    .string()
+    .min(1)
+    .max(100)
+    .regex(/^[a-z_]+$/, 'Category must contain only lowercase letters and underscores')
     .default('other'),
   target_points: z.number().int().min(0).default(0),
   target_money: z.number().min(0).default(0),
@@ -39,27 +22,10 @@ const updateProjectSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   description: z.string().optional(),
   category: z
-    .enum([
-      'quick_money',
-      'save_money',
-      'health',
-      'network_expansion',
-      'business_growth',
-      'fires',
-      'good_living',
-      'big_vision',
-      'job',
-      'organization',
-      'tech_issues',
-      'business_launch',
-      'future_planning',
-      'innovation',
-      'productivity',
-      'learning',
-      'financial',
-      'personal',
-      'other',
-    ])
+    .string()
+    .min(1)
+    .max(100)
+    .regex(/^[a-z_]+$/, 'Category must contain only lowercase letters and underscores')
     .optional(),
   target_points: z.number().int().min(0).optional(),
   target_money: z.number().min(0).optional(),
