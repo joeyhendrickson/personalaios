@@ -6,6 +6,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
+// Check if OpenAI API key is available
+if (!process.env.OPENAI_API_KEY) {
+  console.error('[Personalized Recommendations] OpenAI API key not found')
+}
+
 interface DashboardData {
   goals: Array<{
     title: string
@@ -41,8 +46,16 @@ interface StockRecommendation {
   growthPotential: 'low' | 'medium' | 'high'
 }
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
+    console.log('[Personalized Recommendations] Starting request')
+
+    // Check if OpenAI API key is available
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('[Personalized Recommendations] OpenAI API key not found')
+      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
+    }
+
     const supabase = await createClient()
 
     // Get authenticated user
@@ -51,10 +64,14 @@ export async function POST(request: NextRequest) {
       error: authError,
     } = await supabase.auth.getUser()
     if (authError || !user) {
+      console.error('[Personalized Recommendations] Auth error:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    console.log('[Personalized Recommendations] User authenticated:', user.id)
+
     // Fetch user's dashboard data
+    console.log('[Personalized Recommendations] Fetching dashboard data')
     const [goalsResult, tasksResult, habitsResult, prioritiesResult] = await Promise.all([
       supabase.from('weekly_goals').select('title, description, category').eq('user_id', user.id),
       supabase.from('tasks').select('title, description, category').eq('user_id', user.id),
@@ -66,12 +83,33 @@ export async function POST(request: NextRequest) {
         .eq('deleted', false),
     ])
 
+    // Check for database errors
+    if (goalsResult.error) {
+      console.error('[Personalized Recommendations] Goals error:', goalsResult.error)
+    }
+    if (tasksResult.error) {
+      console.error('[Personalized Recommendations] Tasks error:', tasksResult.error)
+    }
+    if (habitsResult.error) {
+      console.error('[Personalized Recommendations] Habits error:', habitsResult.error)
+    }
+    if (prioritiesResult.error) {
+      console.error('[Personalized Recommendations] Priorities error:', prioritiesResult.error)
+    }
+
     const dashboardData: DashboardData = {
       goals: goalsResult.data || [],
       tasks: tasksResult.data || [],
       habits: habitsResult.data || [],
       priorities: prioritiesResult.data || [],
     }
+
+    console.log('[Personalized Recommendations] Dashboard data:', {
+      goals: dashboardData.goals.length,
+      tasks: dashboardData.tasks.length,
+      habits: dashboardData.habits.length,
+      priorities: dashboardData.priorities.length,
+    })
 
     // Create a comprehensive profile from dashboard data
     const profileText = `
@@ -86,6 +124,7 @@ ${extractThemes(dashboardData)}
 `
 
     // Generate stock recommendations using OpenAI
+    console.log('[Personalized Recommendations] Calling OpenAI API')
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
@@ -137,15 +176,23 @@ Return ONLY a valid JSON array of 5 stock recommendations with this exact struct
 
     const recommendationsText = completion.choices[0]?.message?.content
     if (!recommendationsText) {
+      console.error('[Personalized Recommendations] No recommendations generated from OpenAI')
       throw new Error('No recommendations generated')
     }
+
+    console.log('[Personalized Recommendations] OpenAI response:', recommendationsText)
 
     // Parse the JSON response
     let recommendations: StockRecommendation[]
     try {
       recommendations = JSON.parse(recommendationsText)
+      console.log(
+        '[Personalized Recommendations] Successfully parsed recommendations:',
+        recommendations.length
+      )
     } catch (parseError) {
-      console.error('Failed to parse recommendations:', parseError)
+      console.error('[Personalized Recommendations] Failed to parse recommendations:', parseError)
+      console.error('[Personalized Recommendations] Raw response:', recommendationsText)
       // Fallback recommendations if parsing fails
       recommendations = [
         {
