@@ -143,6 +143,18 @@ interface ProfitAdvisor {
   }
 }
 
+interface StockRecommendation {
+  symbol: string
+  companyName: string
+  sector: string
+  reason: string
+  alignment: string
+  confidence: number
+  currentPrice?: number
+  marketCap?: string
+  growthPotential: 'low' | 'medium' | 'high'
+}
+
 export default function DayTraderModule() {
   const [config, setConfig] = useState<TradingConfig>({
     buyingPower: 1000,
@@ -184,6 +196,9 @@ export default function DayTraderModule() {
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showLoadModal, setShowLoadModal] = useState(false)
   const [saveName, setSaveName] = useState('')
+  const [recommendations, setRecommendations] = useState<StockRecommendation[]>([])
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false)
+  const [showRecommendations, setShowRecommendations] = useState(false)
   const [profitGoal, setProfitGoal] = useState('')
   const [timeframeDays, setTimeframeDays] = useState('')
   const [showProfitAdvisor, setShowProfitAdvisor] = useState(false)
@@ -472,6 +487,37 @@ export default function DayTraderModule() {
     return investorTypes.find((t) => t.value === type) || investorTypes[0]
   }
 
+  const fetchPersonalizedRecommendations = async () => {
+    setLoadingRecommendations(true)
+    try {
+      const response = await fetch('/api/modules/day-trader/personalized-recommendations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setRecommendations(data.recommendations)
+        setShowRecommendations(true)
+      } else {
+        console.error('Failed to fetch recommendations')
+        alert('Failed to generate personalized recommendations. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error fetching recommendations:', error)
+      alert('Error generating recommendations. Please try again.')
+    } finally {
+      setLoadingRecommendations(false)
+    }
+  }
+
+  const selectRecommendedStock = (symbol: string) => {
+    setConfig((prev) => ({ ...prev, stockSymbol: symbol }))
+    setShowRecommendations(false)
+  }
+
   const getDirectionColor = (direction: string) => {
     switch (direction) {
       case 'up':
@@ -612,6 +658,67 @@ export default function DayTraderModule() {
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">Range: $100 - $1,000,000</p>
+              </div>
+
+              {/* Personalized Stock Recommendations */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Personalized Recommendations
+                  </label>
+                  <button
+                    onClick={fetchPersonalizedRecommendations}
+                    disabled={loadingRecommendations}
+                    className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded-md transition-colors disabled:opacity-50"
+                  >
+                    <Brain className="h-3 w-3" />
+                    {loadingRecommendations ? 'Analyzing...' : 'Get Recommendations'}
+                  </button>
+                </div>
+
+                {showRecommendations && recommendations.length > 0 && (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {recommendations.map((rec, index) => (
+                      <div
+                        key={rec.symbol}
+                        className="p-3 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors cursor-pointer"
+                        onClick={() => selectRecommendedStock(rec.symbol)}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-sm text-blue-600">
+                              {rec.symbol}
+                            </span>
+                            <span className="text-xs text-gray-500">{rec.sector}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span
+                              className={`text-xs px-2 py-1 rounded-full ${
+                                rec.growthPotential === 'high'
+                                  ? 'bg-green-100 text-green-700'
+                                  : rec.growthPotential === 'medium'
+                                    ? 'bg-yellow-100 text-yellow-700'
+                                    : 'bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              {rec.growthPotential}
+                            </span>
+                            <span className="text-xs text-gray-500">{rec.confidence}/10</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600 mb-1">{rec.companyName}</p>
+                        <p className="text-xs text-gray-500">{rec.reason}</p>
+                        <p className="text-xs text-blue-500 mt-1">{rec.alignment}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {showRecommendations && recommendations.length === 0 && (
+                  <div className="text-center py-4 text-gray-500 text-sm">
+                    No recommendations available. Try again later.
+                  </div>
+                )}
               </div>
 
               {/* Stock Symbol */}
