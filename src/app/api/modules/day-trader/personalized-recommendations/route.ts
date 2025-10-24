@@ -101,7 +101,7 @@ export async function POST() {
       goals: goalsResult.data || [],
       tasks: tasksResult.data || [],
       habits: (habitsResult.data || []).map((h) => ({
-        name: h.title,
+        name: h.name,
         description: h.description,
         category: h.category,
       })),
