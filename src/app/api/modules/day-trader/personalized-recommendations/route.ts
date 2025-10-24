@@ -100,8 +100,16 @@ export async function POST() {
     const dashboardData: DashboardData = {
       goals: goalsResult.data || [],
       tasks: tasksResult.data || [],
-      habits: habitsResult.data || [],
-      priorities: prioritiesResult.data || [],
+      habits: (habitsResult.data || []).map((h) => ({
+        name: h.title,
+        description: h.description,
+        category: h.category,
+      })),
+      priorities: (prioritiesResult.data || []).map((p) => ({
+        title: p.title,
+        description: p.description,
+        category: 'general',
+      })),
     }
 
     console.log('[Personalized Recommendations] Dashboard data:', {
@@ -126,7 +134,7 @@ ${extractThemes(dashboardData)}
     // Generate stock recommendations using OpenAI
     console.log('[Personalized Recommendations] Calling OpenAI API')
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-4.1-mini',
       messages: [
         {
           role: 'system',
