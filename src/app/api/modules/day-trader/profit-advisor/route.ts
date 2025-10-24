@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { openai } from '@ai-sdk/openai'
-import { generateText } from 'ai'
-import { env } from '@/lib/env'
+import OpenAI from 'openai'
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 export async function POST(request: NextRequest) {
   try {
     // Check if OpenAI API key is configured
-    if (!env.OPENAI_API_KEY || env.OPENAI_API_KEY.trim() === '') {
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.trim() === '') {
       return NextResponse.json(
         {
           error: 'OpenAI API key not configured',
@@ -178,8 +180,8 @@ Provide REALISTIC and ACHIEVABLE trade recommendations based on the actual patte
 `
 
     // Use the same model as other endpoints
-    const { text: advisorResponse } = await generateText({
-      model: openai('gpt-4.1-mini'),
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4.1-mini',
       messages: [
         {
           role: 'system',
@@ -193,6 +195,8 @@ Provide REALISTIC and ACHIEVABLE trade recommendations based on the actual patte
       ],
       temperature: 0.2,
     })
+
+    const advisorResponse = completion.choices[0]?.message?.content
 
     if (!advisorResponse) {
       return NextResponse.json({ error: 'Failed to generate profit advisor' }, { status: 500 })
