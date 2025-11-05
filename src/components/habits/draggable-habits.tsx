@@ -81,7 +81,10 @@ function SortableHabitItem({
       </div>
 
       <button
-        onClick={() => onCompleteHabit(habit.id)}
+        onClick={(e) => {
+          e.stopPropagation()
+          onCompleteHabit(habit.id)
+        }}
         disabled={completedToday}
         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
           completedToday
@@ -114,14 +117,20 @@ function SortableHabitItem({
 
       <div className="flex items-center space-x-1">
         <button
-          onClick={() => onEditHabit(habit)}
+          onClick={(e) => {
+            e.stopPropagation()
+            onEditHabit(habit)
+          }}
           className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
           title="Edit habit"
         >
           <Edit className="h-4 w-4" />
         </button>
         <button
-          onClick={() => onDeleteHabit(habit.id)}
+          onClick={(e) => {
+            e.stopPropagation()
+            onDeleteHabit(habit.id)
+          }}
           className="p-1 text-gray-400 hover:text-red-600 transition-colors"
           title="Delete habit"
         >
