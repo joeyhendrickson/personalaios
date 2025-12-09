@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuth } from '@/contexts/auth-context'
 import { ArrowLeft, UserPlus, LogIn, CheckCircle } from 'lucide-react'
+import Link from 'next/link'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -21,16 +22,19 @@ export default function Login() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Check for trial success message
+  // Check for trial success message or password reset success
   useEffect(() => {
     const trial = searchParams.get('trial')
     const emailParam = searchParams.get('email')
+    const passwordReset = searchParams.get('passwordReset')
 
     if (trial === 'success' && emailParam) {
       setEmail(emailParam)
       setSuccessMessage(
         'Trial account created successfully! Please sign in with your email and password.'
       )
+    } else if (passwordReset === 'success') {
+      setSuccessMessage('Password reset successful! Please sign in with your new password.')
     }
   }, [searchParams])
 
@@ -107,7 +111,17 @@ export default function Login() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  {!isSignUp && (
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Forgot password?
+                    </Link>
+                  )}
+                </div>
                 <Input
                   id="password"
                   type="password"

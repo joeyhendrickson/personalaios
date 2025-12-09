@@ -8,8 +8,11 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('[Profit Advisor] Starting request')
+
     // Check if OpenAI API key is configured
     if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.trim() === '') {
+      console.error('[Profit Advisor] OpenAI API key not configured')
       return NextResponse.json(
         {
           error: 'OpenAI API key not configured',
@@ -26,10 +29,20 @@ export async function POST(request: NextRequest) {
       error: authError,
     } = await supabase.auth.getUser()
     if (authError || !user) {
+      console.error('[Profit Advisor] Auth error:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    console.log('[Profit Advisor] User authenticated:', user.id)
+
     const body = await request.json()
+    console.log('[Profit Advisor] Request body received:', {
+      stockSymbol: body.stockSymbol,
+      profitGoal: body.profitGoal,
+      timeframeDays: body.timeframeDays,
+      hasPatterns: !!body.patterns,
+      hasPrediction: !!body.prediction,
+    })
     const {
       stockSymbol,
       buyingPower,
@@ -66,8 +79,10 @@ export async function POST(request: NextRequest) {
     try {
       const { StockDataService } = await import('@/lib/stock-data')
       stockData = await StockDataService.getStockData(stockSymbol)
+      console.log('[Profit Advisor] Stock data fetched:', stockData ? 'Success' : 'No data')
     } catch (error) {
-      console.error('Error fetching stock data:', error)
+      console.error('[Profit Advisor] Error fetching stock data:', error)
+      // Continue without stock data
     }
 
     // Calculate daily profit target
@@ -126,7 +141,17 @@ Consider the investor type:
 
 Focus on the LOWEST RISK approaches first, then higher risk/higher reward strategies.
 
-Format your response as JSON with this structure:
+CRITICAL: You MUST return ONLY valid JSON. Do NOT include any explanatory text, comments, or parentheses within JSON values. All values must be clean numbers or strings only.
+
+Examples of WRONG format:
+- "entryPrice": 4.00 (net credit received)" ❌
+- "targetPrice": 0.50 (spread decay)" ❌
+
+Examples of CORRECT format:
+- "entryPrice": 4.00 ✅
+- "targetPrice": 0.50 ✅
+
+Return ONLY this JSON structure:
 {
   "advisorSummary": {
     "feasibility": "high/medium/low",
@@ -180,6 +205,7 @@ Provide REALISTIC and ACHIEVABLE trade recommendations based on the actual patte
 `
 
     // Use the same model as other endpoints
+    console.log('[Profit Advisor] Calling OpenAI API')
     const completion = await openai.chat.completions.create({
       model: 'gpt-4.1-mini',
       messages: [
@@ -197,6 +223,10 @@ Provide REALISTIC and ACHIEVABLE trade recommendations based on the actual patte
     })
 
     const advisorResponse = completion.choices[0]?.message?.content
+    console.log(
+      '[Profit Advisor] OpenAI response received:',
+      advisorResponse ? 'Success' : 'No response'
+    )
 
     if (!advisorResponse) {
       return NextResponse.json({ error: 'Failed to generate profit advisor' }, { status: 500 })
@@ -204,14 +234,37 @@ Provide REALISTIC and ACHIEVABLE trade recommendations based on the actual patte
 
     let parsedAdvisor
     try {
-      parsedAdvisor = JSON.parse(advisorResponse)
+      console.log('[Profit Advisor] Parsing JSON response')
+      // Clean the response by removing markdown code blocks and explanatory text in parentheses
+      const cleanedResponse = advisorResponse
+        .replace(/```json\s*/g, '') // Remove opening ```json
+        .replace(/```\s*$/g, '') // Remove closing ```
+        .replace(/\([^)]*\)/g, '') // Remove explanatory text in parentheses
+        .replace(/\s+/g, ' ')
+        .trim()
+      console.log('[Profit Advisor] Cleaned response:', cleanedResponse.substring(0, 500) + '...')
+      parsedAdvisor = JSON.parse(cleanedResponse)
+      console.log('[Profit Advisor] JSON parsed successfully')
     } catch (parseError) {
+      console.error('[Profit Advisor] JSON parse error:', parseError)
+      console.error('[Profit Advisor] Raw response:', advisorResponse)
       // If JSON parsing fails, return a structured response
+      // Use more realistic position sizing based on investor type and buying power
+      const maxPositionSize = investorType === 'long_term' ? 0.3 : 0.1 // 30% for long-term, 10% for others
+      const sharesToBuy = Math.floor(
+        (buyingPower * maxPositionSize) / (stockData?.latestPrice || 1)
+      )
+      const actualInvestment = sharesToBuy * (stockData?.latestPrice || 1)
+      const realisticProfit = actualInvestment * (investorType === 'long_term' ? 0.15 : 0.05) // 15% for long-term, 5% for others
+
       parsedAdvisor = {
         advisorSummary: {
-          feasibility: 'medium',
-          riskAssessment: 'medium',
-          recommendedApproach: 'Analysis provided in recommendations',
+          feasibility: investorType === 'long_term' ? 'high' : 'medium',
+          riskAssessment: investorType === 'long_term' ? 'low' : 'medium',
+          recommendedApproach:
+            investorType === 'long_term'
+              ? 'Long-term value investment with fundamental analysis'
+              : 'Conservative stock purchase based on analysis',
           dailyTarget: dailyProfitTarget,
           totalTarget: profitGoal,
           timeframe: timeframeDays,
@@ -219,19 +272,29 @@ Provide REALISTIC and ACHIEVABLE trade recommendations based on the actual patte
         optimalTrades: [
           {
             tradeType: 'shares',
-            strategy: 'Conservative approach based on analysis',
+            strategy:
+              investorType === 'long_term'
+                ? 'Long-term value investment strategy'
+                : 'Conservative stock purchase',
             entryPrice: stockData?.latestPrice || 0,
-            targetPrice: (stockData?.latestPrice || 0) * 1.05,
-            stopLoss: (stockData?.latestPrice || 0) * 0.95,
-            positionSize: Math.floor((buyingPower / (stockData?.latestPrice || 1)) * 0.1),
-            investmentAmount: buyingPower * 0.1,
-            expectedProfit: dailyProfitTarget,
-            riskLevel: 'medium',
-            timeframe: '1-2 days',
-            confidence: 70,
-            reasoning: advisorResponse,
+            targetPrice:
+              (stockData?.latestPrice || 0) * (investorType === 'long_term' ? 1.15 : 1.05),
+            stopLoss: (stockData?.latestPrice || 0) * (investorType === 'long_term' ? 0.9 : 0.95),
+            positionSize: sharesToBuy,
+            investmentAmount: actualInvestment,
+            expectedProfit: realisticProfit,
+            riskLevel: investorType === 'long_term' ? 'low' : 'medium',
+            timeframe: investorType === 'long_term' ? '3-7 days' : '1-2 days',
+            confidence: investorType === 'long_term' ? 85 : 70,
+            reasoning:
+              investorType === 'long_term'
+                ? 'Long-term value approach: ' + advisorResponse.substring(0, 200) + '...'
+                : 'Conservative approach: ' + advisorResponse.substring(0, 200) + '...',
             executionWindow: 'Market hours',
-            exitStrategy: 'Take profit at target or stop loss',
+            exitStrategy:
+              investorType === 'long_term'
+                ? 'Hold for 15% gain or stop loss at 10% loss'
+                : 'Take profit at 5% gain or stop loss at 5% loss',
           },
         ],
         riskManagement: {

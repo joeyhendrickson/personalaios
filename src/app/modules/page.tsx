@@ -34,6 +34,7 @@ import {
   AlertTriangle,
   PenTool,
   Briefcase,
+  Sparkles,
 } from 'lucide-react'
 import RatingStars from '@/components/rating-stars'
 
@@ -196,9 +197,35 @@ const modules: Module[] = [
     features: ['Habit Tracking', 'Behavioral Analysis', 'Optimization Tips', 'Streak Management'],
     complexity: 'beginner',
   },
+  {
+    id: 'dream-catcher',
+    title: 'Dream Catcher',
+    description:
+      'AI-powered personality and personal assessment to discover your true dreams, create your vision, and generate actionable goals.',
+    category: 'Wellness',
+    icon: <Sparkles className="h-8 w-8" />,
+    status: 'available',
+    features: [
+      'Personality Assessment',
+      'Personal Discovery',
+      'Dream Identification',
+      'Vision Creation',
+      'Goal Generation',
+    ],
+    complexity: 'intermediate',
+  },
 ]
 
-const categories = ['All', 'Finance', 'Productivity', 'Health', 'Social', 'Education', 'Analytics']
+const categories = [
+  'All',
+  'Finance',
+  'Productivity',
+  'Health',
+  'Social',
+  'Education',
+  'Analytics',
+  'Wellness',
+]
 
 export default function ModulesPage() {
   const { t } = useLanguage()

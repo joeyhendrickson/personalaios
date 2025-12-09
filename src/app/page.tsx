@@ -309,12 +309,20 @@ export default function HomePage() {
                               </div>
 
                               <div className="space-y-2">
-                                <Label
-                                  htmlFor="main-signin-password"
-                                  className="text-black text-sm text-left"
-                                >
-                                  {t('form.password')}
-                                </Label>
+                                <div className="flex items-center justify-between">
+                                  <Label
+                                    htmlFor="main-signin-password"
+                                    className="text-black text-sm text-left"
+                                  >
+                                    {t('form.password')}
+                                  </Label>
+                                  <Link
+                                    href="/forgot-password"
+                                    className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                  >
+                                    Forgot password?
+                                  </Link>
+                                </div>
                                 <Input
                                   id="main-signin-password"
                                   type="password"
