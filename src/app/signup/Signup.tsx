@@ -79,7 +79,7 @@ export default function Signup() {
 
         setSuccess(true)
         setTimeout(() => {
-          router.push('/dashboard')
+          router.push('/modules/dream-catcher?newUser=true')
         }, 2000)
       } else if (plan === 'basic' || plan === 'standard') {
         // For standard plan: create account first, then redirect to subscription checkout
@@ -136,7 +136,7 @@ export default function Signup() {
 
         setSuccess(true)
         setTimeout(() => {
-          router.push('/dashboard')
+          router.push('/modules/dream-catcher?newUser=true')
         }, 2000)
       }
     } catch (error: any) {

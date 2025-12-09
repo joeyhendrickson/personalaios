@@ -211,8 +211,8 @@ export default function CreateAccountPage() {
         console.log('Session data:', signupData.session)
 
         if (signupData.session) {
-          console.log('User has session, redirecting to dashboard immediately')
-          window.location.href = '/dashboard'
+          console.log('User has session, redirecting to Dream Catcher for new user onboarding')
+          window.location.href = '/modules/dream-catcher?newUser=true'
         } else {
           console.log('No session returned, attempting manual sign-in')
           // Fallback: try to sign in the user
@@ -234,9 +234,11 @@ export default function CreateAccountPage() {
             return
           }
 
-          console.log('Manual signin successful, redirecting to dashboard')
-          // Redirect directly to dashboard
-          window.location.href = '/dashboard'
+          console.log(
+            'Manual signin successful, redirecting to Dream Catcher for new user onboarding'
+          )
+          // Redirect new user to Dream Catcher
+          window.location.href = '/modules/dream-catcher?newUser=true'
         }
       } else if (showForm === 'basic') {
         // Redirect directly to PayPal checkout

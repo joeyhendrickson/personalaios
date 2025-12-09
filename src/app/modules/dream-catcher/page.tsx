@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -18,6 +19,8 @@ import {
   Eye,
   List,
   Clock,
+  AlertTriangle,
+  X,
 } from 'lucide-react'
 
 interface ChatMessage {
@@ -62,6 +65,9 @@ interface AssessmentData {
 }
 
 export default function DreamCatcherModule() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const isNewUser = searchParams.get('newUser') === 'true'
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -77,6 +83,8 @@ export default function DreamCatcherModule() {
   >('personality')
   const [assessmentData, setAssessmentData] = useState<AssessmentData>({})
   const [showResults, setShowResults] = useState(false)
+  const [showExitWarning, setShowExitWarning] = useState(false)
+  const [isAutofilling, setIsAutofilling] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Scroll to bottom when new messages are added
@@ -86,16 +94,19 @@ export default function DreamCatcherModule() {
 
   // Initialize with welcome message
   useEffect(() => {
+    const welcomeContent = isNewUser
+      ? "Welcome to Life Stacks! 🌟 Before we set up your dashboard, let's discover your true dreams and create a clear vision for your future. This journey will help us personalize your experience.\n\n**Important:** If you exit before completing this journey, you'll lose all the information you've shared and won't be able to autofill your dashboard. You can always come back later, but your progress won't be saved.\n\nWe'll go through 8 phases together:\n\n1. **Personality Assessment** - Understanding who you are\n2. **Personal Assessment** - Exploring your values and desires\n3. **Influence Exploration** - Questioning what shapes your thoughts\n4. **Executive Skills Assessment** - Evaluating your executive functioning capabilities\n5. **Executive Blocking Factors** - Identifying and removing personal barriers\n6. **Dream Discovery** - Identifying your authentic dreams\n7. **Vision Creation** - Crafting your vision statement\n8. **Goal Generation** - Creating actionable goals\n\nAt the end, you can choose to autofill your dashboard with the goals we create together!\n\nLet's begin! Tell me about yourself - what are some words that describe your personality?"
+      : "Welcome back to Dream Catcher! 🌟 I'm here to help you discover your true dreams and create a clear vision for your future. We'll go through a journey together:\n\n1. **Personality Assessment** - Understanding who you are\n2. **Personal Assessment** - Exploring your values and desires\n3. **Influence Exploration** - Questioning what shapes your thoughts\n4. **Executive Skills Assessment** - Evaluating your executive functioning capabilities\n5. **Executive Blocking Factors** - Identifying and removing personal barriers\n6. **Dream Discovery** - Identifying your authentic dreams\n7. **Vision Creation** - Crafting your vision statement\n8. **Goal Generation** - Creating actionable goals\n\n**Note:** You can exit at any time, but if you exit before completing, you'll lose your progress. At the end, you can save your dreams and choose to add them to your dashboard (they'll be added to your existing goals, not replace them).\n\nLet's begin! Tell me about yourself - what are some words that describe your personality?"
+
     const welcomeMessage: ChatMessage = {
       id: 'welcome',
       role: 'assistant',
-      content:
-        "Welcome to Dream Catcher! 🌟 I'm here to help you discover your true dreams and create a clear vision for your future. We'll go through a journey together:\n\n1. **Personality Assessment** - Understanding who you are\n2. **Personal Assessment** - Exploring your values and desires\n3. **Influence Exploration** - Questioning what shapes your thoughts\n4. **Executive Skills Assessment** - Evaluating your executive functioning capabilities\n5. **Executive Blocking Factors** - Identifying and removing personal barriers\n6. **Dream Discovery** - Identifying your authentic dreams\n7. **Vision Creation** - Crafting your vision statement\n8. **Goal Generation** - Creating actionable goals\n\nLet's begin! Tell me about yourself - what are some words that describe your personality?",
+      content: welcomeContent,
       timestamp: new Date(),
       phase: 'personality',
     }
     setMessages([welcomeMessage])
-  }, [])
+  }, [isNewUser])
 
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return
@@ -196,6 +207,106 @@ export default function DreamCatcherModule() {
     }
   }
 
+  const handleExit = () => {
+    // Check if user has made progress (has messages beyond welcome)
+    const hasProgress = messages.length > 1 || Object.keys(assessmentData).length > 0
+
+    if (hasProgress) {
+      setShowExitWarning(true)
+    } else {
+      // No progress, safe to exit
+      if (isNewUser) {
+        router.push('/dashboard')
+      } else {
+        router.push('/modules')
+      }
+    }
+  }
+
+  const confirmExit = () => {
+    // Mark that user has exited (we'll track this in the database)
+    setShowExitWarning(false)
+    if (isNewUser) {
+      router.push('/dashboard')
+    } else {
+      router.push('/modules')
+    }
+  }
+
+  const handleSaveDreams = async () => {
+    if (!assessmentData.goals_generated || assessmentData.goals_generated.length === 0) {
+      alert('No dreams to save. Please complete the Dream Catcher journey first.')
+      return
+    }
+
+    setIsAutofilling(true)
+
+    try {
+      const response = await fetch('/api/modules/dream-catcher/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assessment_data: assessmentData,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save dreams')
+      }
+
+      alert(
+        'Your Dream Catcher session has been saved! You can view it anytime from the Dream Catcher module.'
+      )
+      // Don't redirect, let them stay to see results or autofill
+    } catch (error) {
+      console.error('Error saving dreams:', error)
+      alert(error instanceof Error ? error.message : 'Failed to save dreams. Please try again.')
+    } finally {
+      setIsAutofilling(false)
+    }
+  }
+
+  const handleAutofillDashboard = async () => {
+    if (!assessmentData.goals_generated || assessmentData.goals_generated.length === 0) {
+      alert('No goals to autofill. Please complete the Dream Catcher journey first.')
+      return
+    }
+
+    setIsAutofilling(true)
+
+    try {
+      const response = await fetch('/api/modules/dream-catcher/autofill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goals: assessmentData.goals_generated,
+          vision_statement: assessmentData.vision_statement,
+          personality_traits: assessmentData.personality_traits,
+          dreams_discovered: assessmentData.dreams_discovered,
+          is_new_user: isNewUser,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to autofill dashboard')
+      }
+
+      const data = await response.json()
+
+      // Redirect to dashboard
+      router.push(`/dashboard?autofilled=true&goalsAdded=${data.goals_added || 0}`)
+    } catch (error) {
+      console.error('Error autofilling dashboard:', error)
+      alert(
+        error instanceof Error ? error.message : 'Failed to autofill dashboard. Please try again.'
+      )
+    } finally {
+      setIsAutofilling(false)
+    }
+  }
+
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
@@ -291,12 +402,21 @@ export default function DreamCatcherModule() {
         <div className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <Link href="/modules">
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 hover:bg-gray-100">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Modules
-                </button>
-              </Link>
+              <button
+                onClick={handleExit}
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 hover:bg-gray-100 text-red-600 hover:text-red-700"
+              >
+                <X className="h-4 w-4 mr-2" />
+                {isNewUser ? 'Exit to Dashboard' : 'Exit'}
+              </button>
+              {!isNewUser && (
+                <Link href="/modules">
+                  <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 hover:bg-gray-100">
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Modules
+                  </button>
+                </Link>
+              )}
               <div>
                 <h1 className="text-3xl font-bold text-black flex items-center">
                   <Sparkles className="h-8 w-8 mr-3 text-purple-600" />
@@ -304,10 +424,29 @@ export default function DreamCatcherModule() {
                 </h1>
                 <p className="text-sm text-gray-600">
                   Discover your true dreams and create your vision for the future
+                  {!isNewUser && (
+                    <span className="ml-2">
+                      •{' '}
+                      <Link
+                        href="/modules/dream-catcher/saved"
+                        className="text-purple-600 hover:text-purple-800 underline"
+                      >
+                        View Saved Dreams
+                      </Link>
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              {!isNewUser && (
+                <Link href="/modules/dream-catcher/saved">
+                  <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 hover:bg-gray-100 text-purple-600">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Saved Dreams
+                  </button>
+                </Link>
+              )}
               <div
                 className={`px-4 py-2 rounded-lg ${phaseInfo.bgClass} border ${phaseInfo.borderClass} flex items-center space-x-2`}
               >
@@ -580,18 +719,76 @@ export default function DreamCatcherModule() {
                 </div>
               )}
 
-              {/* Results Button */}
+              {/* Action Buttons */}
               {showResults && assessmentData.goals_generated && (
-                <button
-                  onClick={() => {
-                    // Scroll to results or show modal
-                    window.scrollTo({ top: 0, behavior: 'smooth' })
-                  }}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg"
-                >
-                  <List className="h-4 w-4" />
-                  <span>View Your Goals</span>
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      // Scroll to results or show modal
+                      window.scrollTo({ top: 0, behavior: 'smooth' })
+                    }}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg"
+                  >
+                    <List className="h-4 w-4" />
+                    <span>View Your Goals</span>
+                  </button>
+                  {isNewUser ? (
+                    <button
+                      onClick={handleAutofillDashboard}
+                      disabled={isAutofilling}
+                      className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50"
+                    >
+                      {isAutofilling ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Autofilling...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Target className="h-4 w-4" />
+                          <span>Autofill Dashboard</span>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleSaveDreams}
+                        disabled={isAutofilling}
+                        className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50"
+                      >
+                        {isAutofilling ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="h-4 w-4" />
+                            <span>Save Dreams</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={handleAutofillDashboard}
+                        disabled={isAutofilling}
+                        className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50"
+                      >
+                        {isAutofilling ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Autofilling...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Target className="h-4 w-4" />
+                            <span>Add to Dashboard</span>
+                          </>
+                        )}
+                      </button>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -745,6 +942,103 @@ export default function DreamCatcherModule() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              {isNewUser ? (
+                <button
+                  onClick={handleAutofillDashboard}
+                  disabled={isAutofilling}
+                  className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50"
+                >
+                  {isAutofilling ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Autofilling Dashboard...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Target className="h-5 w-5" />
+                      <span>Autofill My Dashboard</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={handleSaveDreams}
+                    disabled={isAutofilling}
+                    className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50"
+                  >
+                    {isAutofilling ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-5 w-5" />
+                        <span>Save Dreams</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleAutofillDashboard}
+                    disabled={isAutofilling}
+                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50"
+                  >
+                    {isAutofilling ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>Autofilling...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Target className="h-5 w-5" />
+                        <span>Add to Dashboard</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Exit Warning Modal */}
+        {showExitWarning && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+              <div className="flex items-start space-x-4 mb-4">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <AlertTriangle className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {isNewUser ? 'Exit Dream Catcher?' : 'Exit Without Saving?'}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    {isNewUser
+                      ? "If you exit now, you'll lose all the information you've shared and won't be able to autofill your dashboard. You can always come back later, but your progress won't be saved."
+                      : "If you exit now, you'll lose all the information you've shared. You can save your progress by completing the journey and clicking 'Save Dreams'."}
+                  </p>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => setShowExitWarning(false)}
+                      className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                    >
+                      Continue Journey
+                    </button>
+                    <button
+                      onClick={confirmExit}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                    >
+                      Exit Anyway
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
