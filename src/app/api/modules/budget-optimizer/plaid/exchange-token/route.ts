@@ -135,12 +135,24 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Generic error with more details
+      // Generic error with more details - always include the actual error message
+      const errorMessage = connectionError.message || 'Database error occurred'
+      const errorDetails = connectionError.details || connectionError.hint || connectionError.code
+
+      console.error('Database error details:', {
+        code: connectionError.code,
+        message: errorMessage,
+        details: errorDetails,
+        fullError: JSON.stringify(connectionError, null, 2),
+      })
+
       return NextResponse.json(
         {
           error: 'Failed to store bank connection',
-          message: connectionError.message || 'Database error occurred',
-          details: connectionError.details || connectionError.hint,
+          message: errorMessage,
+          details: errorDetails
+            ? `Error code: ${connectionError.code || 'unknown'}. ${errorDetails}`
+            : `Error code: ${connectionError.code || 'unknown'}`,
         },
         { status: 500 }
       )
