@@ -83,27 +83,44 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate required fields before inserting
+    if (!itemId) {
+      console.error('itemId is missing from token response:', tokenResponse)
+      return NextResponse.json(
+        { error: 'Invalid token response: missing item_id' },
+        { status: 500 }
+      )
+    }
+
+    if (!encryptedAccessToken) {
+      console.error('encryptedAccessToken is missing')
+      return NextResponse.json({ error: 'Failed to encrypt access token' }, { status: 500 })
+    }
+
     // Store bank connection in database
     // Log user info for debugging
     console.log('Attempting to store bank connection:', {
       user_id: user.id,
       plaid_item_id: itemId,
-      institution_id: institution_id,
-      institution_name: institution_name,
+      institution_id: institution_id || 'not provided',
+      institution_name: institution_name || 'Unknown Bank',
       encrypted_token_length: encryptedAccessToken.length,
     })
 
+    // Prepare insert data - ensure all NOT NULL fields are provided
+    const insertData: any = {
+      user_id: user.id,
+      plaid_access_token: encryptedAccessToken, // Encrypted for security
+      plaid_item_id: itemId,
+      institution_id: institution_id || 'unknown', // NOT NULL in schema
+      institution_name: institution_name || 'Unknown Bank', // NOT NULL in schema
+      status: 'active',
+      last_sync_at: new Date().toISOString(),
+    }
+
     const { data: bankConnection, error: connectionError } = await supabase
       .from('bank_connections')
-      .insert({
-        user_id: user.id,
-        plaid_access_token: encryptedAccessToken, // Encrypted for security
-        plaid_item_id: itemId,
-        institution_id: institution_id,
-        institution_name: institution_name || 'Unknown Bank',
-        status: 'active',
-        last_sync_at: new Date().toISOString(),
-      })
+      .insert(insertData)
       .select()
       .single()
 
