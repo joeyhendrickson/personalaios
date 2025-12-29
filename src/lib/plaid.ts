@@ -28,18 +28,38 @@ function getPlaidEnvironment(plaidEnv?: string): string {
   }
 }
 
-// Initialize Plaid client
-const configuration = new Configuration({
-  basePath: getPlaidEnvironment(env.PLAID_ENV),
-  baseOptions: {
-    headers: {
-      'PLAID-CLIENT-ID': env.PLAID_CLIENT_ID,
-      'PLAID-SECRET': env.PLAID_SECRET,
-    },
-  },
-})
+// Initialize Plaid client (lazy initialization to ensure env vars are loaded)
+let plaidClientInstance: PlaidApi | null = null
 
-export const plaidClient = new PlaidApi(configuration)
+function getPlaidClient(): PlaidApi {
+  if (!plaidClientInstance) {
+    const plaidClientId = env.PLAID_CLIENT_ID
+    const plaidSecret = env.PLAID_SECRET
+
+    if (!plaidClientId || !plaidSecret) {
+      throw new Error(
+        'Plaid credentials not configured. Please set PLAID_CLIENT_ID and PLAID_SECRET_PRODUCTION (or PLAID_SECRET_SANDBOX) in your environment variables.'
+      )
+    }
+
+    const configuration = new Configuration({
+      basePath: getPlaidEnvironment(env.PLAID_ENV),
+      baseOptions: {
+        headers: {
+          'PLAID-CLIENT-ID': plaidClientId,
+          'PLAID-SECRET': plaidSecret,
+        },
+      },
+    })
+
+    plaidClientInstance = new PlaidApi(configuration)
+  }
+
+  return plaidClientInstance
+}
+
+// Export for backward compatibility, but prefer using getPlaidClient() directly
+export const plaidClient = getPlaidClient()
 
 export class PlaidService {
   /**
@@ -70,7 +90,8 @@ export class PlaidService {
     }
 
     try {
-      const response = await plaidClient.linkTokenCreate(request)
+      const client = getPlaidClient()
+      const response = await client.linkTokenCreate(request)
       return response.data
     } catch (error: any) {
       console.error('Error creating link token:', error)
@@ -79,13 +100,37 @@ export class PlaidService {
       let errorMessage = 'Failed to create link token'
       if (error?.response?.data) {
         const plaidError = error.response.data
-        errorMessage = `${errorMessage}: ${plaidError.error_message || plaidError.error_code || 'Unknown Plaid error'}`
+        const plaidErrorMessage =
+          plaidError.error_message || plaidError.error_code || 'Unknown Plaid error'
+        errorMessage = `${errorMessage}: ${plaidErrorMessage}`
+
         console.error('Plaid error details:', {
           error_code: plaidError.error_code,
           error_message: plaidError.error_message,
           error_type: plaidError.error_type,
           display_message: plaidError.display_message,
+          plaid_env: env.PLAID_ENV,
+          has_client_id: !!env.PLAID_CLIENT_ID,
+          has_secret: !!env.PLAID_SECRET,
+          has_sandbox_secret: !!env.PLAID_SECRET_SANDBOX,
+          has_production_secret: !!env.PLAID_SECRET_PRODUCTION,
         })
+
+        // Provide helpful guidance for common errors
+        if (
+          plaidError.error_code === 'INVALID_CLIENT_ID' ||
+          plaidError.error_code === 'INVALID_SECRET' ||
+          plaidErrorMessage.includes('invalid client_id or secret')
+        ) {
+          const envType = env.PLAID_ENV || 'sandbox'
+          const expectedSecret =
+            envType === 'production' ? 'PLAID_SECRET_PRODUCTION' : 'PLAID_SECRET_SANDBOX'
+          errorMessage = `Invalid Plaid credentials. Please verify:
+- PLAID_CLIENT_ID is correct
+- ${expectedSecret} is set correctly for ${envType} environment
+- The credentials match your Plaid ${envType} dashboard
+Current environment: ${envType}`
+        }
       } else if (error?.message) {
         errorMessage = `${errorMessage}: ${error.message}`
       }
@@ -103,7 +148,8 @@ export class PlaidService {
     }
 
     try {
-      const response = await plaidClient.itemPublicTokenExchange({
+      const client = getPlaidClient()
+      const response = await client.itemPublicTokenExchange({
         public_token: publicToken,
       })
       return response.data
@@ -122,7 +168,8 @@ export class PlaidService {
     }
 
     try {
-      const response = await plaidClient.accountsGet({
+      const client = getPlaidClient()
+      const response = await client.accountsGet({
         access_token: accessToken,
       })
       return response.data
@@ -146,7 +193,8 @@ export class PlaidService {
     }
 
     try {
-      const response = await plaidClient.transactionsGet({
+      const client = getPlaidClient()
+      const response = await client.transactionsGet({
         access_token: accessToken,
         start_date: startDate,
         end_date: endDate,
@@ -168,7 +216,8 @@ export class PlaidService {
     }
 
     try {
-      const response = await plaidClient.transactionsSync({
+      const client = getPlaidClient()
+      const response = await client.transactionsSync({
         access_token: accessToken,
         cursor: cursor || undefined,
       })
@@ -208,7 +257,8 @@ export class PlaidService {
     }
 
     try {
-      const response = await plaidClient.accountsBalanceGet({
+      const client = getPlaidClient()
+      const response = await client.accountsBalanceGet({
         access_token: accessToken,
       })
       return response.data
@@ -227,7 +277,8 @@ export class PlaidService {
     }
 
     try {
-      const response = await plaidClient.identityGet({
+      const client = getPlaidClient()
+      const response = await client.identityGet({
         access_token: accessToken,
       })
       return response.data
@@ -246,7 +297,8 @@ export class PlaidService {
     }
 
     try {
-      const response = await plaidClient.itemRemove({
+      const client = getPlaidClient()
+      const response = await client.itemRemove({
         access_token: accessToken,
       })
       return response.data
