@@ -8,14 +8,29 @@ import {
 } from 'plaid'
 import { env, validatePlaidConfig } from './env'
 
+/**
+ * Safely maps PLAID_ENV string to PlaidEnvironments enum
+ * @param plaidEnv - Environment string: 'production', 'development', or 'sandbox'
+ * @returns PlaidEnvironments enum value
+ */
+function getPlaidEnvironment(plaidEnv?: string): string {
+  switch (plaidEnv) {
+    case 'production':
+      return PlaidEnvironments.production
+    case 'development':
+      return PlaidEnvironments.development
+    case 'sandbox':
+      return PlaidEnvironments.sandbox
+    default:
+      // Default to sandbox for safety
+      console.warn(`Invalid or missing PLAID_ENV (${plaidEnv}), defaulting to sandbox`)
+      return PlaidEnvironments.sandbox
+  }
+}
+
 // Initialize Plaid client
 const configuration = new Configuration({
-  basePath:
-    env.PLAID_ENV === 'production'
-      ? PlaidEnvironments.production
-      : env.PLAID_ENV === 'development'
-        ? PlaidEnvironments.development
-        : PlaidEnvironments.sandbox,
+  basePath: getPlaidEnvironment(env.PLAID_ENV),
   baseOptions: {
     headers: {
       'PLAID-CLIENT-ID': env.PLAID_CLIENT_ID,
@@ -118,7 +133,7 @@ export class PlaidService {
   }
 
   /**
-   * Get transactions for a specific date range
+   * Get transactions for a specific date range (legacy method)
    */
   static async getTransactions(
     accessToken: string,
@@ -140,6 +155,47 @@ export class PlaidService {
     } catch (error) {
       console.error('Error getting transactions:', error)
       throw new Error('Failed to get transactions')
+    }
+  }
+
+  /**
+   * Sync transactions using Plaid's transactions/sync endpoint (recommended)
+   * This method supports incremental syncing with cursors
+   */
+  static async syncTransactions(accessToken: string, cursor?: string | null) {
+    if (!env.PLAID_CLIENT_ID || !env.PLAID_SECRET) {
+      throw new Error('Plaid credentials not configured')
+    }
+
+    try {
+      const response = await plaidClient.transactionsSync({
+        access_token: accessToken,
+        cursor: cursor || undefined,
+      })
+      return response.data
+    } catch (error: any) {
+      console.error('Error syncing transactions:', error)
+
+      // Handle specific Plaid errors
+      if (error?.response?.data) {
+        const plaidError = error.response.data
+        const errorCode = plaidError.error_code
+
+        // Map Plaid error codes to user-friendly messages
+        if (errorCode === 'ITEM_LOGIN_REQUIRED') {
+          throw new Error('ITEM_LOGIN_REQUIRED: User needs to re-authenticate with their bank')
+        } else if (errorCode === 'INVALID_ACCESS_TOKEN') {
+          throw new Error('INVALID_ACCESS_TOKEN: Access token is invalid or expired')
+        } else if (errorCode === 'RATE_LIMIT_EXCEEDED') {
+          throw new Error('RATE_LIMIT_EXCEEDED: Too many requests, please try again later')
+        }
+
+        throw new Error(
+          `Plaid API error: ${plaidError.error_message || plaidError.error_code || 'Unknown error'}`
+        )
+      }
+
+      throw new Error('Failed to sync transactions')
     }
   }
 

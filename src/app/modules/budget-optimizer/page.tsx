@@ -198,16 +198,30 @@ export default function BudgetOptimizerModule() {
           end_date: dateRange.end,
         }),
       })
+
+      const data = await response.json()
+
       if (response.ok) {
-        const data = await response.json()
         console.log('Sync result:', data)
         // Reload transactions after sync
         await loadTransactions()
         // Reload connections to update last sync time
         await loadBankConnections()
+        alert(`✅ Synced ${data.transactions_synced || 0} new transactions`)
+      } else {
+        // Handle specific error cases
+        if (data.requires_reconnect) {
+          alert(
+            `⚠️ ${data.message || 'Your bank connection needs attention. Please reconnect your bank account.'}`
+          )
+          await loadBankConnections() // Reload to show updated status
+        } else {
+          alert(`❌ ${data.message || data.error || 'Failed to sync transactions'}`)
+        }
       }
     } catch (error) {
       console.error('Error syncing transactions:', error)
+      alert('❌ Failed to sync transactions. Please try again.')
     } finally {
       setIsLoading(false)
     }

@@ -61,12 +61,72 @@ export async function POST(request: NextRequest) {
 
     // Get transactions from Plaid
     const accountIds = bankAccounts.map((account) => account.account_id)
-    const transactionsResponse = await PlaidService.getTransactions(
-      accessToken,
-      startDate,
-      endDate,
-      accountIds
-    )
+    let transactionsResponse
+    try {
+      transactionsResponse = await PlaidService.getTransactions(
+        accessToken,
+        startDate,
+        endDate,
+        accountIds
+      )
+    } catch (error: any) {
+      // Handle Plaid-specific errors
+      const errorMessage = error?.message || 'Unknown error'
+
+      // Check for specific Plaid error codes
+      if (errorMessage.includes('ITEM_LOGIN_REQUIRED')) {
+        // Update connection status to indicate re-authentication needed
+        await supabase
+          .from('bank_connections')
+          .update({
+            status: 'error',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', bank_connection_id)
+
+        return NextResponse.json(
+          {
+            error: 'Bank login required',
+            message: 'Please reconnect your bank account. Your bank requires you to log in again.',
+            requires_reconnect: true,
+          },
+          { status: 400 }
+        )
+      }
+
+      if (errorMessage.includes('INVALID_ACCESS_TOKEN')) {
+        // Mark connection as error
+        await supabase
+          .from('bank_connections')
+          .update({
+            status: 'error',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', bank_connection_id)
+
+        return NextResponse.json(
+          {
+            error: 'Invalid access token',
+            message: 'Your bank connection is no longer valid. Please reconnect your bank account.',
+            requires_reconnect: true,
+          },
+          { status: 400 }
+        )
+      }
+
+      if (errorMessage.includes('RATE_LIMIT_EXCEEDED')) {
+        return NextResponse.json(
+          {
+            error: 'Rate limit exceeded',
+            message: 'Too many requests. Please try again in a few minutes.',
+          },
+          { status: 429 }
+        )
+      }
+
+      // Re-throw other errors
+      throw error
+    }
 
     const transactions = transactionsResponse.transactions
 

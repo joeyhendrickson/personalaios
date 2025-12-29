@@ -23,12 +23,45 @@ export async function POST(request: NextRequest) {
     }
 
     // Exchange public token for access token
-    const tokenResponse = await PlaidService.exchangePublicToken(public_token)
-    const accessToken = tokenResponse.access_token
-    const itemId = tokenResponse.item_id
+    let tokenResponse
+    let accessToken: string
+    let itemId: string
+
+    try {
+      tokenResponse = await PlaidService.exchangePublicToken(public_token)
+      accessToken = tokenResponse.access_token
+      itemId = tokenResponse.item_id
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Unknown error'
+      console.error('Error exchanging public token:', errorMessage)
+
+      return NextResponse.json(
+        {
+          error: 'Failed to exchange token',
+          message: errorMessage.includes('INVALID_PUBLIC_TOKEN')
+            ? 'The connection link has expired. Please try connecting again.'
+            : 'Failed to connect your bank account. Please try again.',
+        },
+        { status: 400 }
+      )
+    }
 
     // Get account information
-    const accountsResponse = await PlaidService.getAccounts(accessToken)
+    let accountsResponse
+    try {
+      accountsResponse = await PlaidService.getAccounts(accessToken)
+    } catch (error: any) {
+      console.error('Error getting accounts:', error)
+      return NextResponse.json(
+        {
+          error: 'Failed to retrieve accounts',
+          message:
+            'Connected successfully but could not retrieve account information. Please try again.',
+        },
+        { status: 500 }
+      )
+    }
+
     const accounts = accountsResponse.accounts
 
     // Encrypt access token before storing
