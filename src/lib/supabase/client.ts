@@ -1,9 +1,14 @@
 import { createBrowserClient } from '@supabase/ssr'
-import { env } from '@/lib/env'
 
 export function createClient() {
-  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  // Access NEXT_PUBLIC_* variables directly on client side
+  // These are bundled at build time by Next.js
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error('Supabase environment variables are not configured')
   }
-  return createBrowserClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+
+  return createBrowserClient(supabaseUrl, supabaseAnonKey)
 }
