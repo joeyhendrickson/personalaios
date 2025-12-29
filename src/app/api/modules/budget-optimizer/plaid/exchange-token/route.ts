@@ -84,6 +84,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Store bank connection in database
+    // Log user info for debugging
+    console.log('Attempting to store bank connection:', {
+      user_id: user.id,
+      item_id: itemId,
+      institution_id: institution_id,
+      institution_name: institution_name,
+      encrypted_token_length: encryptedAccessToken.length,
+    })
+
     const { data: bankConnection, error: connectionError } = await supabase
       .from('bank_connections')
       .insert({
