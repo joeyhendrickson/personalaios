@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
       .from('bank_connections')
       .insert({
         user_id: user.id,
-        plaid_access_token: encryptedAccessToken, // Encrypted for security
-        plaid_item_id: itemId,
+        access_token: encryptedAccessToken, // Encrypted for security
+        item_id: itemId,
         institution_id: institution_id,
         institution_name: institution_name || 'Unknown Bank',
         status: 'active',
