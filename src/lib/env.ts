@@ -112,8 +112,8 @@ export const env = (() => {
     return parseEnv()
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const missingVars = error.errors.map((e) => e.path.join('.'))
-      const errorMessages = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`)
+      const missingVars = error.issues.map((e) => e.path.join('.'))
+      const errorMessages = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`)
 
       console.error('❌ Environment variable validation failed:')
       console.error('Missing or invalid variables:', missingVars)
