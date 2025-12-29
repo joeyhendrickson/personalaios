@@ -65,7 +65,23 @@ export async function POST(request: NextRequest) {
     const accounts = accountsResponse.accounts
 
     // Encrypt access token before storing
-    const encryptedAccessToken = encrypt(accessToken)
+    let encryptedAccessToken: string
+    try {
+      encryptedAccessToken = encrypt(accessToken)
+      console.log('Access token encrypted successfully')
+    } catch (encryptError) {
+      console.error('Error encrypting access token:', encryptError)
+      return NextResponse.json(
+        {
+          error: 'Encryption failed',
+          message:
+            'Failed to encrypt access token. Please check TOKEN_ENCRYPTION_KEY environment variable.',
+          details:
+            encryptError instanceof Error ? encryptError.message : 'Unknown encryption error',
+        },
+        { status: 500 }
+      )
+    }
 
     // Store bank connection in database
     const { data: bankConnection, error: connectionError } = await supabase
