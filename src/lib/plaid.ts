@@ -31,8 +31,26 @@ export class PlaidService {
    * Create a link token for the Link flow
    */
   static async createLinkToken(userId: string) {
+    // Log configuration status (without exposing secrets)
+    console.log('Plaid configuration check:', {
+      hasClientId: !!env.PLAID_CLIENT_ID,
+      hasSecret: !!env.PLAID_SECRET,
+      environment: env.PLAID_ENV,
+      clientIdLength: env.PLAID_CLIENT_ID?.length || 0,
+      secretLength: env.PLAID_SECRET?.length || 0,
+    })
+
     if (!env.PLAID_CLIENT_ID || !env.PLAID_SECRET) {
-      throw new Error('Plaid credentials not configured')
+      const missing = []
+      if (!env.PLAID_CLIENT_ID) missing.push('PLAID_CLIENT_ID')
+      if (!env.PLAID_SECRET) {
+        if (env.PLAID_ENV === 'production') {
+          missing.push('PLAID_SECRET_PRODUCTION')
+        } else {
+          missing.push('PLAID_SECRET_SANDBOX')
+        }
+      }
+      throw new Error(`Plaid credentials not configured. Missing: ${missing.join(', ')}`)
     }
 
     const request: LinkTokenCreateRequest = {
@@ -43,15 +61,31 @@ export class PlaidService {
       products: [Products.Transactions, Products.Auth],
       country_codes: [CountryCode.Us],
       language: 'en',
-      webhook: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/plaid/webhook`,
+      webhook: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/modules/budget-optimizer/plaid/webhook`,
     }
 
     try {
       const response = await plaidClient.linkTokenCreate(request)
       return response.data
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating link token:', error)
-      throw new Error('Failed to create link token')
+
+      // Extract detailed error information from Plaid API
+      let errorMessage = 'Failed to create link token'
+      if (error?.response?.data) {
+        const plaidError = error.response.data
+        errorMessage = `${errorMessage}: ${plaidError.error_message || plaidError.error_code || 'Unknown Plaid error'}`
+        console.error('Plaid error details:', {
+          error_code: plaidError.error_code,
+          error_message: plaidError.error_message,
+          error_type: plaidError.error_type,
+          display_message: plaidError.display_message,
+        })
+      } else if (error?.message) {
+        errorMessage = `${errorMessage}: ${error.message}`
+      }
+
+      throw new Error(errorMessage)
     }
   }
 

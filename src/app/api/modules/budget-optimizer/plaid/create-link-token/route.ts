@@ -24,10 +24,24 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error creating link token:', error)
+
+    // Check if it's a credentials issue
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    if (errorMessage.includes('credentials not configured')) {
+      return NextResponse.json(
+        {
+          error: 'Plaid credentials not configured',
+          details:
+            'Please ensure PLAID_CLIENT_ID and PLAID_SECRET_PRODUCTION (or PLAID_SECRET_SANDBOX) are set in your environment variables.',
+        },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json(
       {
         error: 'Failed to create link token',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: errorMessage,
       },
       { status: 500 }
     )

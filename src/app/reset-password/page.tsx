@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ArrowLeft, Lock, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('')
@@ -18,6 +19,7 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [isValidToken, setIsValidToken] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -28,12 +30,59 @@ export default function ResetPasswordPage() {
 
     if (!hash || type !== 'recovery') {
       setError('Invalid or missing reset token. Please request a new password reset link.')
+      setIsValidToken(false)
+      return
     }
+
+    // Supabase automatically processes the hash token when the page loads
+    // We just need to verify the session is established
+    const supabase = createClient()
+
+    // Wait a moment for Supabase to process the hash, then check session
+    const checkSession = async () => {
+      try {
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession()
+
+        if (sessionError || !session) {
+          // If no session yet, wait a bit more (Supabase might still be processing)
+          setTimeout(async () => {
+            const {
+              data: { session: retrySession },
+            } = await supabase.auth.getSession()
+            if (retrySession) {
+              setIsValidToken(true)
+              setError('')
+            } else {
+              setError('Invalid or expired reset token. Please request a new password reset link.')
+              setIsValidToken(false)
+            }
+          }, 1000)
+        } else {
+          setIsValidToken(true)
+          setError('')
+        }
+      } catch (err) {
+        setError('Error validating reset token. Please try again.')
+        setIsValidToken(false)
+      }
+    }
+
+    checkSession()
   }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (!isValidToken) {
+      setError(
+        'Please wait for the reset token to be validated, or request a new password reset link.'
+      )
+      return
+    }
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters long')
@@ -165,8 +214,12 @@ export default function ResetPasswordPage() {
                   </Alert>
                 )}
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? 'Resetting Password...' : 'Reset Password'}
+                <Button type="submit" className="w-full" disabled={isLoading || !isValidToken}>
+                  {isLoading
+                    ? 'Resetting Password...'
+                    : isValidToken
+                      ? 'Reset Password'
+                      : 'Validating Token...'}
                 </Button>
 
                 <div className="text-center text-sm">

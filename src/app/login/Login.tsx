@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuth } from '@/contexts/auth-context'
-import { ArrowLeft, UserPlus, LogIn, CheckCircle } from 'lucide-react'
+import { ArrowLeft, UserPlus, LogIn, CheckCircle, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 
 export default function Login() {
@@ -18,6 +18,9 @@ export default function Login() {
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
+  const [isSendingReset, setIsSendingReset] = useState(false)
+  const [resetEmailSent, setResetEmailSent] = useState(false)
+  const [resetError, setResetError] = useState('')
   const { signIn, signUp } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -37,6 +40,42 @@ export default function Login() {
       setSuccessMessage('Password reset successful! Please sign in with your new password.')
     }
   }, [searchParams])
+
+  const handleForgotPassword = async (e: React.MouseEvent) => {
+    e.preventDefault()
+
+    if (!email) {
+      setResetError('Please enter your email address first')
+      return
+    }
+
+    setIsSendingReset(true)
+    setResetError('')
+    setResetEmailSent(false)
+
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send password reset email')
+      }
+
+      setResetEmailSent(true)
+      setResetError('')
+    } catch (error: any) {
+      console.error('Error sending reset email:', error)
+      setResetError(error.message || 'Failed to send password reset email. Please try again.')
+      setResetEmailSent(false)
+    } finally {
+      setIsSendingReset(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -99,7 +138,9 @@ export default function Login() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-left block">
+                  Email
+                </Label>
                 <Input
                   id="email"
                   type="email"
@@ -114,12 +155,14 @@ export default function Login() {
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
                   {!isSignUp && (
-                    <Link
-                      href="/forgot-password"
-                      className="text-xs text-blue-600 hover:text-blue-800 underline"
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      disabled={isSendingReset}
+                      className="text-xs text-blue-600 hover:text-blue-800 underline disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Forgot password?
-                    </Link>
+                      {isSendingReset ? 'Sending...' : 'Forgot?'}
+                    </button>
                   )}
                 </div>
                 <Input
@@ -133,6 +176,24 @@ export default function Login() {
                   minLength={6}
                 />
               </div>
+
+              {resetEmailSent && (
+                <Alert className="bg-green-50 border-green-200">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800 text-sm">
+                    <strong>Check your email!</strong> We've sent a password reset link to{' '}
+                    <strong>{email}</strong>. Please check your inbox and follow the instructions to
+                    reset your password.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {resetError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-sm">{resetError}</AlertDescription>
+                </Alert>
+              )}
 
               {error && (
                 <Alert className="border-red-200 bg-red-50">

@@ -14,6 +14,7 @@ import {
   Activity,
   ChevronDown,
   ChevronUp,
+  AlertCircle,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
@@ -23,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function HomePage() {
   const router = useRouter()
@@ -40,6 +42,9 @@ export default function HomePage() {
     email: '',
     password: '',
   })
+  const [isSendingReset, setIsSendingReset] = useState(false)
+  const [resetEmailSent, setResetEmailSent] = useState(false)
+  const [resetError, setResetError] = useState('')
 
   const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -89,6 +94,42 @@ export default function HomePage() {
       alert(error.message || 'An error occurred. Please try again.')
     } finally {
       setIsMainProcessing(false)
+    }
+  }
+
+  const handleForgotPassword = async (e: React.MouseEvent) => {
+    e.preventDefault()
+
+    if (!mainSignInData.email) {
+      setResetError('Please enter your email address first')
+      return
+    }
+
+    setIsSendingReset(true)
+    setResetError('')
+    setResetEmailSent(false)
+
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: mainSignInData.email }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send password reset email')
+      }
+
+      setResetEmailSent(true)
+      setResetError('')
+    } catch (error: any) {
+      console.error('Error sending reset email:', error)
+      setResetError(error.message || 'Failed to send password reset email. Please try again.')
+      setResetEmailSent(false)
+    } finally {
+      setIsSendingReset(false)
     }
   }
 
@@ -291,9 +332,9 @@ export default function HomePage() {
                               <div className="space-y-2">
                                 <Label
                                   htmlFor="main-signin-email"
-                                  className="text-black text-sm text-left"
+                                  className="text-black text-sm text-left block"
                                 >
-                                  {t('form.email')}
+                                  Email
                                 </Label>
                                 <Input
                                   id="main-signin-email"
@@ -312,16 +353,18 @@ export default function HomePage() {
                                 <div className="flex items-center justify-between">
                                   <Label
                                     htmlFor="main-signin-password"
-                                    className="text-black text-sm text-left"
+                                    className="text-black text-sm"
                                   >
-                                    {t('form.password')}
+                                    Password
                                   </Label>
-                                  <Link
-                                    href="/forgot-password"
-                                    className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                  <button
+                                    type="button"
+                                    onClick={handleForgotPassword}
+                                    disabled={isSendingReset}
+                                    className="text-xs text-blue-600 hover:text-blue-800 underline disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
-                                    Forgot password?
-                                  </Link>
+                                    {isSendingReset ? 'Sending...' : 'Forgot?'}
+                                  </button>
                                 </div>
                                 <Input
                                   id="main-signin-password"
@@ -339,6 +382,26 @@ export default function HomePage() {
                                 />
                               </div>
                             </div>
+
+                            {resetEmailSent && (
+                              <Alert className="bg-green-50 border-green-200">
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <AlertDescription className="text-green-800 text-sm">
+                                  <strong>Check your email!</strong> We've sent a password reset
+                                  link to <strong>{mainSignInData.email}</strong>. Please check your
+                                  inbox and follow the instructions to reset your password.
+                                </AlertDescription>
+                              </Alert>
+                            )}
+
+                            {resetError && (
+                              <Alert variant="destructive">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription className="text-sm">
+                                  {resetError}
+                                </AlertDescription>
+                              </Alert>
+                            )}
 
                             <div className="flex space-x-2">
                               <Button

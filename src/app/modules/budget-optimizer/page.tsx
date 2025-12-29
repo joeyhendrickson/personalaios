@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePlaidLink } from 'react-plaid-link'
+import { ConnectBankButton } from '@/components/modules/budget-optimizer/connect-bank-button'
 import {
   ArrowLeft,
   DollarSign,
@@ -129,8 +129,6 @@ export default function BudgetOptimizerModule() {
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'analysis' | 'settings'>(
     'overview'
   )
-  const [showPlaidLink, setShowPlaidLink] = useState(false)
-  const [linkToken, setLinkToken] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState({
     start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0],
@@ -170,94 +168,26 @@ export default function BudgetOptimizerModule() {
     }
   }
 
-  const createLinkToken = async () => {
-    setIsLoading(true)
-    try {
-      const response = await fetch('/api/plaid/create-link-token', {
-        method: 'POST',
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setLinkToken(data.link_token)
-      } else {
-        const errorData = await response.json()
-        console.error('Error creating link token:', errorData)
-        alert(`Failed to create link token: ${errorData.error || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Error creating link token:', error)
-      alert('Failed to connect to Plaid. Please try again.')
-    } finally {
-      setIsLoading(false)
-    }
+  const handleBankConnectionSuccess = async (connectionId: string, institutionName: string) => {
+    console.log('Bank connection successful:', institutionName)
+    alert(`✅ Successfully connected ${institutionName}!`)
+
+    // Reload connections and transactions
+    await loadBankConnections()
+
+    // Auto-sync transactions for the new connection
+    await syncTransactions(connectionId)
   }
 
-  const onPlaidSuccess = useCallback(async (public_token: string, metadata: any) => {
-    console.log('Plaid Link success!', metadata)
-    setIsLoading(true)
-
-    try {
-      // Exchange public token for access token
-      const response = await fetch('/api/plaid/exchange-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          public_token,
-          institution_name: metadata.institution?.name,
-          institution_id: metadata.institution?.institution_id,
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Token exchange successful:', data)
-        alert(`✅ Successfully connected ${metadata.institution?.name}!`)
-
-        // Reload connections and transactions
-        await loadBankConnections()
-
-        // Auto-sync transactions for the new connection
-        if (data.connection_id) {
-          await syncTransactions(data.connection_id)
-        }
-      } else {
-        const errorData = await response.json()
-        console.error('Token exchange error:', errorData)
-        alert(`Failed to save bank connection: ${errorData.error || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Error exchanging token:', error)
-      alert('Failed to complete bank connection. Please try again.')
-    } finally {
-      setIsLoading(false)
-      setLinkToken(null)
-    }
-  }, [])
-
-  const onPlaidExit = useCallback((error: any, metadata: any) => {
-    console.log('Plaid Link exited', error, metadata)
-    setLinkToken(null)
-  }, [])
-
-  const config = {
-    token: linkToken,
-    onSuccess: onPlaidSuccess,
-    onExit: onPlaidExit,
+  const handleBankConnectionError = (error: string) => {
+    console.error('Bank connection error:', error)
+    alert(`Failed to connect bank: ${error}`)
   }
-
-  const { open, ready } = usePlaidLink(config)
-
-  // Auto-open Plaid Link when token is ready
-  useEffect(() => {
-    if (ready && linkToken) {
-      open()
-    }
-  }, [ready, linkToken, open])
 
   const syncTransactions = async (connectionId: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/plaid/sync-transactions', {
+      const response = await fetch('/api/modules/budget-optimizer/plaid/sync-transactions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -431,13 +361,12 @@ export default function BudgetOptimizerModule() {
                   <Building2 className="h-5 w-5 mr-2" />
                   Bank Connections
                 </h2>
-                <button
-                  onClick={createLinkToken}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Connect Bank Account</span>
-                </button>
+                <ConnectBankButton
+                  onSuccess={handleBankConnectionSuccess}
+                  onError={handleBankConnectionError}
+                  variant="default"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                />
               </div>
 
               {connections.length === 0 ? (
@@ -450,13 +379,16 @@ export default function BudgetOptimizerModule() {
                     Connect your bank account to start tracking your spending and get AI-powered
                     budget insights.
                   </p>
-                  <button
-                    onClick={createLinkToken}
-                    className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mx-auto"
+                  <ConnectBankButton
+                    onSuccess={handleBankConnectionSuccess}
+                    onError={handleBankConnectionError}
+                    variant="default"
+                    size="lg"
+                    className="bg-blue-600 hover:bg-blue-700 text-white mx-auto"
                   >
                     <Plus className="h-4 w-4" />
                     <span>Connect Your First Bank Account</span>
-                  </button>
+                  </ConnectBankButton>
                 </div>
               ) : (
                 <div className="space-y-4">

@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       bank_connection: bankConnection,
+      connection_id: bankConnection.id,
       accounts: accountsToInsert,
       message: 'Bank account connected successfully',
     })
