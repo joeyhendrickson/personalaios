@@ -21,9 +21,11 @@ if (typeof window !== 'undefined') {
  * This client bypasses RLS and should only be used in server-side API routes
  */
 export function createAdminClient() {
+  // NEXT_PUBLIC_SUPABASE_URL is a public variable, so we can access it directly
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const env = getServerEnv()
 
-  if (!env.NEXT_PUBLIC_SUPABASE_URL) {
+  if (!supabaseUrl) {
     throw new Error('NEXT_PUBLIC_SUPABASE_URL is not configured')
   }
 
@@ -33,7 +35,7 @@ export function createAdminClient() {
     )
   }
 
-  return createSupabaseClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+  return createSupabaseClient(supabaseUrl, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
