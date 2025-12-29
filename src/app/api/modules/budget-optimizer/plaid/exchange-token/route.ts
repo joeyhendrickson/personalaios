@@ -83,8 +83,51 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (connectionError) {
-      console.error('Error storing bank connection:', connectionError)
-      return NextResponse.json({ error: 'Failed to store bank connection' }, { status: 500 })
+      console.error('Error storing bank connection:', {
+        error: connectionError,
+        code: connectionError.code,
+        message: connectionError.message,
+        details: connectionError.details,
+        hint: connectionError.hint,
+        user_id: user.id,
+        item_id: itemId,
+        institution_id: institution_id,
+      })
+
+      // Check for specific error types
+      if (connectionError.code === '23505') {
+        // Unique constraint violation - connection already exists
+        return NextResponse.json(
+          {
+            error: 'Bank connection already exists',
+            message:
+              'This bank account is already connected. Please disconnect it first if you want to reconnect.',
+          },
+          { status: 409 }
+        )
+      }
+
+      if (connectionError.code === '42501') {
+        // Insufficient privilege - RLS policy violation
+        return NextResponse.json(
+          {
+            error: 'Permission denied',
+            message:
+              'You do not have permission to create this bank connection. Please ensure you are logged in.',
+          },
+          { status: 403 }
+        )
+      }
+
+      // Generic error with more details
+      return NextResponse.json(
+        {
+          error: 'Failed to store bank connection',
+          message: connectionError.message || 'Database error occurred',
+          details: connectionError.details || connectionError.hint,
+        },
+        { status: 500 }
+      )
     }
 
     // Store bank accounts
