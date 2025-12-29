@@ -6,7 +6,7 @@ import {
   CountryCode,
   Products,
 } from 'plaid'
-import { env } from './env'
+import { env, validatePlaidConfig } from './env'
 
 // Initialize Plaid client
 const configuration = new Configuration({
@@ -31,26 +31,14 @@ export class PlaidService {
    * Create a link token for the Link flow
    */
   static async createLinkToken(userId: string) {
-    // Log configuration status (without exposing secrets)
-    console.log('Plaid configuration check:', {
-      hasClientId: !!env.PLAID_CLIENT_ID,
-      hasSecret: !!env.PLAID_SECRET,
-      environment: env.PLAID_ENV,
-      clientIdLength: env.PLAID_CLIENT_ID?.length || 0,
-      secretLength: env.PLAID_SECRET?.length || 0,
-    })
-
-    if (!env.PLAID_CLIENT_ID || !env.PLAID_SECRET) {
-      const missing = []
-      if (!env.PLAID_CLIENT_ID) missing.push('PLAID_CLIENT_ID')
-      if (!env.PLAID_SECRET) {
-        if (env.PLAID_ENV === 'production') {
-          missing.push('PLAID_SECRET_PRODUCTION')
-        } else {
-          missing.push('PLAID_SECRET_SANDBOX')
-        }
-      }
-      throw new Error(`Plaid credentials not configured. Missing: ${missing.join(', ')}`)
+    // Validate Plaid configuration
+    try {
+      validatePlaidConfig()
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Plaid credentials not configured'
+      console.error('Plaid configuration error:', errorMessage)
+      throw new Error(errorMessage)
     }
 
     const request: LinkTokenCreateRequest = {
@@ -61,7 +49,9 @@ export class PlaidService {
       products: [Products.Transactions, Products.Auth],
       country_codes: [CountryCode.Us],
       language: 'en',
-      webhook: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/modules/budget-optimizer/plaid/webhook`,
+      webhook:
+        env.PLAID_WEBHOOK_URL ||
+        `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/modules/budget-optimizer/plaid/webhook`,
     }
 
     try {

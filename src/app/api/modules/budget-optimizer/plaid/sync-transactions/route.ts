@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { PlaidService } from '@/lib/plaid'
+import { decrypt } from '@/lib/crypto'
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +34,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Bank connection not found' }, { status: 404 })
     }
 
+    // Decrypt access token
+    let accessToken: string
+    try {
+      accessToken = decrypt(bankConnection.access_token)
+    } catch (error) {
+      console.error('Error decrypting access token:', error)
+      // If decryption fails, try using the token as-is (for backward compatibility with unencrypted tokens)
+      accessToken = bankConnection.access_token
+    }
+
     // Get bank accounts for this connection
     const { data: bankAccounts, error: accountsError } = await supabase
       .from('bank_accounts')
@@ -51,7 +62,7 @@ export async function POST(request: NextRequest) {
     // Get transactions from Plaid
     const accountIds = bankAccounts.map((account) => account.account_id)
     const transactionsResponse = await PlaidService.getTransactions(
-      bankConnection.access_token,
+      accessToken,
       startDate,
       endDate,
       accountIds
@@ -135,7 +146,7 @@ export async function POST(request: NextRequest) {
       .eq('id', bank_connection_id)
 
     // Update account balances
-    const balancesResponse = await PlaidService.getBalances(bankConnection.access_token)
+    const balancesResponse = await PlaidService.getBalances(accessToken)
     for (const account of balancesResponse.accounts) {
       const bankAccount = bankAccounts.find((acc) => acc.account_id === account.account_id)
       if (bankAccount) {

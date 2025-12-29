@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { PlaidService } from '@/lib/plaid'
+import { encrypt } from '@/lib/crypto'
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,12 +31,15 @@ export async function POST(request: NextRequest) {
     const accountsResponse = await PlaidService.getAccounts(accessToken)
     const accounts = accountsResponse.accounts
 
+    // Encrypt access token before storing
+    const encryptedAccessToken = encrypt(accessToken)
+
     // Store bank connection in database
     const { data: bankConnection, error: connectionError } = await supabase
       .from('bank_connections')
       .insert({
         user_id: user.id,
-        access_token: accessToken, // In production, this should be encrypted
+        access_token: encryptedAccessToken, // Encrypted for security
         item_id: itemId,
         institution_id: institution_id,
         institution_name: institution_name || 'Unknown Bank',

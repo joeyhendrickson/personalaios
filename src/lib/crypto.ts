@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
+import { env, getServerEnv } from './env'
 
 const ALGORITHM = 'aes-256-gcm'
 const IV_LENGTH = 16
@@ -8,10 +9,27 @@ const TAG_POSITION = SALT_LENGTH + IV_LENGTH
 const ENCRYPTED_POSITION = TAG_POSITION + TAG_LENGTH
 
 function getKey(salt: Buffer): Buffer {
-  return Buffer.from(
-    process.env.ENCRYPTION_KEY || 'default-key-for-development-only',
-    'utf8'
-  ).slice(0, 32)
+  // Ensure we're on the server
+  if (typeof window !== 'undefined') {
+    throw new Error('Encryption functions can only be called on the server')
+  }
+
+  const encryptionKey =
+    getServerEnv().TOKEN_ENCRYPTION_KEY ||
+    process.env.ENCRYPTION_KEY ||
+    process.env.TOKEN_ENCRYPTION_KEY ||
+    'default-key-for-development-only-change-in-production'
+
+  if (
+    encryptionKey === 'default-key-for-development-only-change-in-production' &&
+    process.env.NODE_ENV === 'production'
+  ) {
+    console.warn(
+      '⚠️  WARNING: Using default encryption key in production! Set TOKEN_ENCRYPTION_KEY environment variable.'
+    )
+  }
+
+  return Buffer.from(encryptionKey, 'utf8').slice(0, 32)
 }
 
 export function encrypt(text: string): string {
