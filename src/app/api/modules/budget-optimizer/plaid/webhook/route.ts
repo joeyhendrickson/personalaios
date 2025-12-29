@@ -1,14 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabaseAdmin'
 
+/**
+ * GET handler for Plaid webhook validation
+ * Plaid may send GET requests to validate the webhook endpoint
+ * This endpoint must be publicly accessible (no auth required)
+ */
+export async function GET(request: NextRequest) {
+  // Return 200 to indicate the endpoint is accessible
+  // Plaid may use this to validate the webhook URL
+  return NextResponse.json({
+    status: 'ok',
+    message: 'Plaid webhook endpoint is active',
+    timestamp: new Date().toISOString(),
+  })
+}
+
+/**
+ * POST handler for Plaid webhook events
+ * Plaid sends webhook events as POST requests with JSON body
+ * This endpoint must be publicly accessible (no auth required)
+ * Must always return 200 OK to acknowledge receipt
+ */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    // Parse body - handle empty or malformed JSON gracefully
+    let body: any = {}
+    try {
+      const text = await request.text()
+      if (text) {
+        body = JSON.parse(text)
+      }
+    } catch (parseError) {
+      console.warn('Failed to parse webhook body as JSON:', parseError)
+      // Still return 200 to acknowledge receipt
+      return NextResponse.json({ received: true, note: 'Body parsing failed' })
+    }
+
     const { webhook_type, webhook_code, item_id, ...webhookData } = body
 
+    // Log webhook receipt (item_id might be missing for some webhook types)
     console.log('Plaid webhook received:', { webhook_type, webhook_code, item_id })
 
-    const supabase = await createClient()
+    // If no item_id, we can't process it but still acknowledge
+    if (!item_id) {
+      console.warn('Webhook received without item_id:', { webhook_type, webhook_code })
+      return NextResponse.json({ received: true, note: 'No item_id provided' })
+    }
+
+    // Create Supabase admin client - uses service role key, no user auth required
+    // This is necessary because Plaid webhooks don't include user authentication
+    const supabase = createAdminClient()
 
     // Find the bank connection by item_id
     const { data: bankConnection, error: connectionError } = await supabase
@@ -18,42 +60,68 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (connectionError || !bankConnection) {
-      console.error('Bank connection not found for item_id:', item_id)
+      console.warn('Bank connection not found for item_id:', item_id, connectionError?.message)
       // Return 200 to acknowledge webhook even if connection not found
       // (prevents Plaid from retrying)
-      return NextResponse.json({ received: true })
+      return NextResponse.json({ received: true, note: 'Connection not found' })
     }
 
-    // Handle different webhook types
-    switch (webhook_type) {
-      case 'TRANSACTIONS':
-        await handleTransactionsWebhook(supabase, bankConnection.id, webhook_code, webhookData)
-        break
+    // Handle different webhook types asynchronously to respond quickly
+    // Process webhook in background - don't await to ensure fast response
+    processWebhookAsync(supabase, bankConnection.id, webhook_type, webhook_code, webhookData).catch(
+      (error) => {
+        console.error('Error in async webhook processing:', error)
+      }
+    )
 
-      case 'ITEM':
-        await handleItemWebhook(supabase, bankConnection.id, webhook_code, webhookData)
-        break
-
-      case 'AUTH':
-        await handleAuthWebhook(supabase, bankConnection.id, webhook_code, webhookData)
-        break
-
-      default:
-        console.log('Unhandled webhook type:', webhook_type)
-    }
-
-    // Always return 200 to acknowledge receipt
+    // Always return 200 immediately to acknowledge receipt
+    // Plaid requires a quick response (< 5 seconds)
     return NextResponse.json({ received: true })
   } catch (error) {
     console.error('Error processing Plaid webhook:', error)
-    // Return 200 to prevent Plaid from retrying on unexpected errors
-    // (you may want to log these for debugging)
+    // Always return 200 to prevent Plaid from retrying on unexpected errors
+    // Plaid will mark webhook as failed if we return non-200
     return NextResponse.json({ received: true, error: 'Processing failed' })
   }
 }
 
+/**
+ * Process webhook asynchronously to ensure fast response to Plaid
+ * Uses admin client to access database without user authentication
+ */
+async function processWebhookAsync(
+  supabase: ReturnType<typeof createAdminClient>,
+  bankConnectionId: string,
+  webhookType: string,
+  webhookCode: string,
+  webhookData: any
+) {
+  try {
+    // Handle different webhook types
+    switch (webhookType) {
+      case 'TRANSACTIONS':
+        await handleTransactionsWebhook(supabase, bankConnectionId, webhookCode, webhookData)
+        break
+
+      case 'ITEM':
+        await handleItemWebhook(supabase, bankConnectionId, webhookCode, webhookData)
+        break
+
+      case 'AUTH':
+        await handleAuthWebhook(supabase, bankConnectionId, webhookCode, webhookData)
+        break
+
+      default:
+        console.log('Unhandled webhook type:', webhookType)
+    }
+  } catch (error) {
+    console.error(`Error handling ${webhookType} webhook:`, error)
+    // Don't throw - we've already acknowledged receipt
+  }
+}
+
 async function handleTransactionsWebhook(
-  supabase: any,
+  supabase: ReturnType<typeof createAdminClient>,
   bankConnectionId: string,
   webhookCode: string,
   webhookData: any
@@ -85,7 +153,7 @@ async function handleTransactionsWebhook(
 }
 
 async function handleItemWebhook(
-  supabase: any,
+  supabase: ReturnType<typeof createAdminClient>,
   bankConnectionId: string,
   webhookCode: string,
   webhookData: any
@@ -134,7 +202,7 @@ async function handleItemWebhook(
 }
 
 async function handleAuthWebhook(
-  supabase: any,
+  supabase: ReturnType<typeof createAdminClient>,
   bankConnectionId: string,
   webhookCode: string,
   webhookData: any

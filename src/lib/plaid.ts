@@ -77,21 +77,46 @@ export class PlaidService {
     }
 
     // Build webhook URL - only include if it's a valid URL
-    // Plaid requires webhook to be a valid HTTPS URL if provided, or omit it entirely
+    // Plaid validates webhook delivery immediately, so URL must be:
+    // - Valid HTTPS URL (or HTTP for localhost/sandbox)
+    // - Not localhost (Plaid can't reach it)
+    // - Accessible and returning 200 OK
+    // - No auth required (Plaid sends no headers)
     let webhookUrl: string | undefined
     const plaidWebhookUrl = env.PLAID_WEBHOOK_URL?.trim()
     if (plaidWebhookUrl && plaidWebhookUrl.length > 0) {
       try {
         const url = new URL(plaidWebhookUrl)
-        // Plaid requires HTTPS for webhooks in production
-        if (url.protocol === 'https:' || url.protocol === 'http:') {
-          webhookUrl = plaidWebhookUrl
-          console.log('Using PLAID_WEBHOOK_URL:', webhookUrl)
+
+        // Reject localhost - Plaid cannot reach localhost URLs
+        if (
+          url.hostname === 'localhost' ||
+          url.hostname === '127.0.0.1' ||
+          url.hostname.startsWith('192.168.')
+        ) {
+          console.warn(
+            'PLAID_WEBHOOK_URL cannot be localhost - Plaid cannot reach it. Skipping webhook.'
+          )
+          webhookUrl = undefined
+        } else if (
+          url.protocol === 'https:' ||
+          (url.protocol === 'http:' && env.PLAID_ENV !== 'production')
+        ) {
+          // HTTPS required for production, HTTP allowed for sandbox/development
+          if (env.PLAID_ENV === 'production' && url.protocol !== 'https:') {
+            console.warn('PLAID_WEBHOOK_URL must use HTTPS in production. Skipping webhook.')
+            webhookUrl = undefined
+          } else {
+            webhookUrl = plaidWebhookUrl
+            console.log('Using PLAID_WEBHOOK_URL:', webhookUrl)
+          }
         } else {
           console.warn('PLAID_WEBHOOK_URL must use http:// or https:// protocol, skipping webhook')
+          webhookUrl = undefined
         }
       } catch (error) {
         console.warn('Invalid PLAID_WEBHOOK_URL format, skipping webhook configuration:', error)
+        webhookUrl = undefined
       }
     } else {
       // Fallback to constructed URL from NEXTAUTH_URL
@@ -99,17 +124,32 @@ export class PlaidService {
       if (nextAuthUrl && nextAuthUrl.length > 0) {
         try {
           const baseUrl = new URL(nextAuthUrl)
-          const constructedUrl = `${baseUrl.origin}/api/modules/budget-optimizer/plaid/webhook`
-          new URL(constructedUrl) // Validate constructed URL
-          webhookUrl = constructedUrl
-          console.log('Using constructed webhook URL from NEXTAUTH_URL:', webhookUrl)
+
+          // Reject localhost - Plaid cannot reach localhost URLs
+          if (
+            baseUrl.hostname === 'localhost' ||
+            baseUrl.hostname === '127.0.0.1' ||
+            baseUrl.hostname.startsWith('192.168.')
+          ) {
+            console.warn(
+              'NEXTAUTH_URL is localhost - cannot construct webhook URL. Plaid cannot reach localhost.'
+            )
+            webhookUrl = undefined
+          } else {
+            const constructedUrl = `${baseUrl.origin}/api/modules/budget-optimizer/plaid/webhook`
+            new URL(constructedUrl) // Validate constructed URL
+            webhookUrl = constructedUrl
+            console.log('Using constructed webhook URL from NEXTAUTH_URL:', webhookUrl)
+          }
         } catch (error) {
           console.warn('Invalid NEXTAUTH_URL, skipping webhook configuration:', error)
+          webhookUrl = undefined
         }
       } else {
         console.log(
           'No webhook URL configured - proceeding without webhook (webhooks are optional)'
         )
+        webhookUrl = undefined
       }
     }
 
