@@ -159,7 +159,7 @@ export class PlaidService {
         client_user_id: userId,
       },
       client_name: 'Lifestacks.ai',
-      products: [Products.Transactions], // Only Transactions product (Auth removed) - TOKEN_ENCRYPTION_KEY configured
+      products: [Products.Transactions], // Only Transactions product (Auth removed) - Migration 025 ensures access_token column
       country_codes: [CountryCode.Us],
       language: 'en',
     }
