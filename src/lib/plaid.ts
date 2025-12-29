@@ -77,21 +77,29 @@ export class PlaidService {
     }
 
     // Build webhook URL - only include if it's a valid URL
+    // Plaid requires webhook to be a valid HTTPS URL if provided, or omit it entirely
     let webhookUrl: string | undefined
-    if (env.PLAID_WEBHOOK_URL) {
+    const plaidWebhookUrl = env.PLAID_WEBHOOK_URL?.trim()
+    if (plaidWebhookUrl && plaidWebhookUrl.length > 0) {
       try {
-        new URL(env.PLAID_WEBHOOK_URL) // Validate URL
-        webhookUrl = env.PLAID_WEBHOOK_URL
+        const url = new URL(plaidWebhookUrl)
+        // Plaid requires HTTPS for webhooks in production
+        if (url.protocol === 'https:' || url.protocol === 'http:') {
+          webhookUrl = plaidWebhookUrl
+        } else {
+          console.warn('PLAID_WEBHOOK_URL must use http:// or https:// protocol')
+        }
       } catch {
-        console.warn('Invalid PLAID_WEBHOOK_URL, skipping webhook configuration')
+        console.warn('Invalid PLAID_WEBHOOK_URL format, skipping webhook configuration')
       }
     } else {
       // Fallback to constructed URL from NEXTAUTH_URL
-      const nextAuthUrl = process.env.NEXTAUTH_URL
-      if (nextAuthUrl) {
+      const nextAuthUrl = process.env.NEXTAUTH_URL?.trim()
+      if (nextAuthUrl && nextAuthUrl.length > 0) {
         try {
-          const constructedUrl = `${nextAuthUrl}/api/modules/budget-optimizer/plaid/webhook`
-          new URL(constructedUrl) // Validate URL
+          const baseUrl = new URL(nextAuthUrl)
+          const constructedUrl = `${baseUrl.origin}/api/modules/budget-optimizer/plaid/webhook`
+          new URL(constructedUrl) // Validate constructed URL
           webhookUrl = constructedUrl
         } catch {
           console.warn('Invalid NEXTAUTH_URL, skipping webhook configuration')
