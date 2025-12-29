@@ -159,7 +159,7 @@ export class PlaidService {
         client_user_id: userId,
       },
       client_name: 'Personal AI OS',
-      products: [Products.Transactions],
+      products: [Products.Transactions], // Only Transactions product (Auth removed)
       country_codes: [CountryCode.Us],
       language: 'en',
     }
