@@ -76,6 +76,29 @@ export class PlaidService {
       throw new Error(errorMessage)
     }
 
+    // Build webhook URL - only include if it's a valid URL
+    let webhookUrl: string | undefined
+    if (env.PLAID_WEBHOOK_URL) {
+      try {
+        new URL(env.PLAID_WEBHOOK_URL) // Validate URL
+        webhookUrl = env.PLAID_WEBHOOK_URL
+      } catch {
+        console.warn('Invalid PLAID_WEBHOOK_URL, skipping webhook configuration')
+      }
+    } else {
+      // Fallback to constructed URL from NEXTAUTH_URL
+      const nextAuthUrl = process.env.NEXTAUTH_URL
+      if (nextAuthUrl) {
+        try {
+          const constructedUrl = `${nextAuthUrl}/api/modules/budget-optimizer/plaid/webhook`
+          new URL(constructedUrl) // Validate URL
+          webhookUrl = constructedUrl
+        } catch {
+          console.warn('Invalid NEXTAUTH_URL, skipping webhook configuration')
+        }
+      }
+    }
+
     const request: LinkTokenCreateRequest = {
       user: {
         client_user_id: userId,
@@ -84,9 +107,7 @@ export class PlaidService {
       products: [Products.Transactions, Products.Auth],
       country_codes: [CountryCode.Us],
       language: 'en',
-      webhook:
-        env.PLAID_WEBHOOK_URL ||
-        `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/modules/budget-optimizer/plaid/webhook`,
+      ...(webhookUrl && { webhook: webhookUrl }), // Only include webhook if valid URL
     }
 
     try {
