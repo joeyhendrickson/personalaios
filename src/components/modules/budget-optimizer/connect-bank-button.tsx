@@ -78,7 +78,10 @@ export function ConnectBankButton({
 
         if (!response.ok) {
           const errorData = await response.json()
-          throw new Error(errorData.error || 'Failed to exchange token')
+          // Include detailed error message if available
+          const errorMessage = errorData.message || errorData.error || 'Failed to exchange token'
+          const errorDetails = errorData.details ? `: ${errorData.details}` : ''
+          throw new Error(`${errorMessage}${errorDetails}`)
         }
 
         const data = await response.json()
