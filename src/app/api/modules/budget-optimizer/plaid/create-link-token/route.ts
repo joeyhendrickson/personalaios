@@ -17,6 +17,15 @@ export async function POST(request: NextRequest) {
     // Create link token for the user
     const linkTokenResponse = await PlaidService.createLinkToken(user.id)
 
+    // Log webhook configuration for debugging (server-side only)
+    const webhookUrl =
+      process.env.PLAID_WEBHOOK_URL ||
+      (process.env.NEXTAUTH_URL
+        ? `${process.env.NEXTAUTH_URL}/api/modules/budget-optimizer/plaid/webhook`
+        : 'not configured')
+
+    console.log('Link token created successfully. Webhook URL:', webhookUrl)
+
     return NextResponse.json({
       success: true,
       link_token: linkTokenResponse.link_token,
