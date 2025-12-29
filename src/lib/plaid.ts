@@ -113,6 +113,7 @@ export class PlaidService {
       }
     }
 
+    // Build request object - only include webhook if we have a valid URL
     const request: LinkTokenCreateRequest = {
       user: {
         client_user_id: userId,
@@ -121,7 +122,25 @@ export class PlaidService {
       products: [Products.Transactions, Products.Auth],
       country_codes: [CountryCode.Us],
       language: 'en',
-      ...(webhookUrl && { webhook: webhookUrl }), // Only include webhook if valid URL
+    }
+
+    // Only add webhook if we have a valid, non-empty URL
+    // Plaid will reject the request if webhook is provided but invalid
+    if (webhookUrl && webhookUrl.length > 0) {
+      // Double-check it's a valid URL before adding
+      try {
+        const testUrl = new URL(webhookUrl)
+        if (testUrl.protocol === 'https:' || testUrl.protocol === 'http:') {
+          request.webhook = webhookUrl
+          console.log('Including webhook in link token request:', webhookUrl)
+        } else {
+          console.warn('Skipping webhook - invalid protocol:', testUrl.protocol)
+        }
+      } catch (error) {
+        console.warn('Skipping webhook - failed URL validation:', error)
+      }
+    } else {
+      console.log('No webhook included in link token request (webhooks are optional)')
     }
 
     try {
