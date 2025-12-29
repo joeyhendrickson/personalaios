@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     // Log user info for debugging
     console.log('Attempting to store bank connection:', {
       user_id: user.id,
-      plaid_item_id: itemId,
+      item_id: itemId,
       institution_id: institution_id,
       institution_name: institution_name,
       encrypted_token_length: encryptedAccessToken.length,
@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
       .from('bank_connections')
       .insert({
         user_id: user.id,
-        plaid_access_token: encryptedAccessToken, // Encrypted for security
-        plaid_item_id: itemId,
+        access_token: encryptedAccessToken, // Encrypted for security
+        item_id: itemId,
         institution_id: institution_id,
         institution_name: institution_name || 'Unknown Bank',
         status: 'active',

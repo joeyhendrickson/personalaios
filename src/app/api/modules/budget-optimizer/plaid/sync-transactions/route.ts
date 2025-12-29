@@ -37,11 +37,11 @@ export async function POST(request: NextRequest) {
     // Decrypt access token
     let accessToken: string
     try {
-      accessToken = decrypt(bankConnection.plaid_access_token)
+      accessToken = decrypt(bankConnection.access_token)
     } catch (error) {
       console.error('Error decrypting access token:', error)
       // If decryption fails, try using the token as-is (for backward compatibility with unencrypted tokens)
-      accessToken = bankConnection.plaid_access_token
+      accessToken = bankConnection.access_token
     }
 
     // Get bank accounts for this connection
