@@ -158,7 +158,7 @@ export class PlaidService {
       user: {
         client_user_id: userId,
       },
-      client_name: 'Personal AI OS',
+      client_name: 'Lifestacks.ai',
       products: [Products.Transactions], // Only Transactions product (Auth removed)
       country_codes: [CountryCode.Us],
       language: 'en',
