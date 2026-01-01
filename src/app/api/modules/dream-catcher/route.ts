@@ -74,7 +74,12 @@ export async function POST(request: NextRequest) {
       personality_question_index: response.personality_question_index,
     })
   } catch (error) {
-    console.error('Error in Dream Catcher API:', error)
+    console.error('Error in Dream Catcher API:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      hasOpenAIKey: !!env.OPENAI_API_KEY,
+      openAIModel: env.OPENAI_MODEL || 'gpt-4o-mini',
+    })
 
     if (error instanceof Error && error.message.includes('API key')) {
       return NextResponse.json(
@@ -86,10 +91,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Provide more detailed error information
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorDetails =
+      error instanceof Error && error.stack
+        ? error.stack.split('\n').slice(0, 3).join('\n')
+        : undefined
+
     return NextResponse.json(
       {
         error: 'Failed to generate Dream Catcher response',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: errorMessage,
+        ...(errorDetails && { stack: errorDetails }),
       },
       { status: 500 }
     )
@@ -388,21 +401,36 @@ IMPORTANT:
 `
 
   // Use AI to generate response
-  const { text: aiResponse } = await generateText({
-    model: openai('gpt-4o-mini'),
-    messages: [
-      {
-        role: 'system',
-        content:
-          'You are Dream Catcher, an expert personal consultant helping people discover their authentic dreams and create actionable plans. You are warm, empathetic, curious, and skilled at asking powerful questions that help people explore their true selves.',
-      },
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ],
-    temperature: 0.8,
-  })
+  let aiResponse: string
+  try {
+    const result = await generateText({
+      model: openai(env.OPENAI_MODEL || 'gpt-4o-mini'),
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are Dream Catcher, an expert personal consultant helping people discover their authentic dreams and create actionable plans. You are warm, empathetic, curious, and skilled at asking powerful questions that help people explore their true selves.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.8,
+    })
+    aiResponse = result.text
+  } catch (generateError) {
+    console.error('Error calling OpenAI generateText:', {
+      error: generateError instanceof Error ? generateError.message : String(generateError),
+      stack: generateError instanceof Error ? generateError.stack : undefined,
+      hasOpenAIKey: !!env.OPENAI_API_KEY,
+      model: env.OPENAI_MODEL || 'gpt-4o-mini',
+      promptLength: prompt.length,
+    })
+    throw new Error(
+      `Failed to generate AI response: ${generateError instanceof Error ? generateError.message : 'Unknown error'}`
+    )
+  }
 
   let parsedResponse
   try {
