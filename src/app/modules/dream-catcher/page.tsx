@@ -202,7 +202,7 @@ function DreamCatcherModuleContent() {
           // In continuous mode, auto-submit after 10 seconds of silence
           // Trigger when mic is active and user has spoken (any transcript appears)
           // We'll submit the final transcript (confirmed speech) after 10 seconds of silence
-          if (continuousMode && currentTranscript.trim()) {
+          if (continuousMode && isListening && currentTranscript.trim()) {
             // Clear existing timeout
             if (speechTimeoutRef.current) {
               clearTimeout(speechTimeoutRef.current)
@@ -212,8 +212,23 @@ function DreamCatcherModuleContent() {
             speechTimeoutRef.current = setTimeout(() => {
               // Use finalTranscript (confirmed speech) for submission, fallback to currentTranscript if no final yet
               const textToSubmit = finalTranscript.trim() || currentTranscript.trim()
-              if (textToSubmit && !isLoading) {
+              if (textToSubmit && !isLoading && continuousMode && isListening) {
                 console.log('Auto-submitting after 10s silence:', textToSubmit)
+                // Stop the mic after submitting
+                setContinuousMode(false)
+                setIsListening(false)
+                if (recognitionRef.current) {
+                  try {
+                    recognitionRef.current.stop()
+                  } catch (error) {
+                    console.log('Error stopping recognition:', error)
+                  }
+                }
+                // Clear timeout
+                if (speechTimeoutRef.current) {
+                  clearTimeout(speechTimeoutRef.current)
+                  speechTimeoutRef.current = null
+                }
                 // Auto-submit the message
                 setInputMessage('')
                 sendMessageDirectly(textToSubmit)
@@ -257,24 +272,9 @@ function DreamCatcherModuleContent() {
 
         recognition.onend = () => {
           setIsListening(false)
-          // Only restart listening if user explicitly activated continuous mode (mic button clicked)
-          // AND continuousMode is still true (user hasn't turned it off)
-          // This prevents auto-restart when AI is speaking or when user hasn't clicked mic
-          if (continuousMode && isListening && recognitionRef.current) {
-            // User wants continuous mode, restart after a brief delay
-            setTimeout(() => {
-              // Double-check that continuous mode is still active and user still wants it
-              if (continuousMode && recognitionRef.current) {
-                try {
-                  recognitionRef.current.start()
-                  setIsListening(true)
-                } catch (error) {
-                  // Ignore errors when already listening
-                  console.log('Recognition already active or error:', error)
-                }
-              }
-            }, 500)
-          }
+          // DO NOT auto-restart recognition
+          // The mic should only be active when the user explicitly clicks the red mic button
+          // This prevents the mic from picking up the AI's voice
         }
 
         recognitionRef.current = recognition
@@ -379,22 +379,9 @@ function DreamCatcherModuleContent() {
               URL.revokeObjectURL(audioUrl)
               currentAudioRef.current = null
 
-              // Only restart listening if user explicitly activated continuous mode (mic button was clicked)
-              // Do NOT auto-start recognition - user must click mic button to activate
-              // This prevents picking up AI voice when user hasn't clicked mic
-              if (continuousMode && isListening && recognitionRef.current) {
-                // User has mic active, restart listening after AI finishes
-                setTimeout(() => {
-                  if (continuousMode && isListening && recognitionRef.current) {
-                    try {
-                      recognitionRef.current.start()
-                    } catch (error) {
-                      // Ignore errors when already listening
-                      console.log('Recognition already active or error:', error)
-                    }
-                  }
-                }, 500)
-              }
+              // DO NOT auto-restart recognition after AI finishes speaking
+              // The mic should stay OFF until the user explicitly clicks the red mic button
+              // This ensures the AI can speak without being interrupted
             }
 
             audio.onerror = () => {
@@ -422,8 +409,8 @@ function DreamCatcherModuleContent() {
   // Initialize with welcome message
   useEffect(() => {
     const welcomeContent = isNewUser
-      ? "Welcome to Life Stacks! 🌟 Before we set up your dashboard, let's discover your true dreams and create a clear vision for your future. This journey will help us personalize your experience.\n\nYou can save your progress at any time using the 'Save Progress' button, so you can pause and continue later. Your progress will be saved automatically as you go through the journey.\n\nWe'll go through 8 phases together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nAt the end, you can choose to autofill your dashboard with the goals we create together!\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!"
-      : "Welcome back to Dream Catcher! 🌟 I'm here to help you discover your true dreams and create a clear vision for your future. We'll go through a journey together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nYou can save your progress at any time using the 'Save Progress' button, so you can pause and continue later. At the end, you can save your dreams and choose to add them to your dashboard (they'll be added to your existing goals, not replace them).\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!"
+      ? "Welcome to Life Stacks! 🌟 Before we set up your dashboard, let's discover your true dreams and create a clear vision for your future. This journey will help us personalize your experience.\n\nYou can save your progress at any time using the 'Save Progress' button, so you can pause and continue later. Your progress will be saved automatically as you go through the journey.\n\nWe'll go through 8 phases together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nAt the end, you can choose to autofill your dashboard with the goals we create together!\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!\n\nWhen you're ready to respond, click the red microphone button to speak your answer. After you finish speaking, your response will automatically be submitted after 10 seconds of silence."
+      : "Welcome back to Dream Catcher! 🌟 I'm here to help you discover your true dreams and create a clear vision for your future. We'll go through a journey together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nYou can save your progress at any time using the 'Save Progress' button, so you can pause and continue later. At the end, you can save your dreams and choose to add them to your dashboard (they'll be added to your existing goals, not replace them).\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!\n\nWhen you're ready to respond, click the red microphone button to speak your answer. After you finish speaking, your response will automatically be submitted after 10 seconds of silence."
 
     const welcomeMessage: ChatMessage = {
       id: 'welcome',
@@ -437,6 +424,24 @@ function DreamCatcherModuleContent() {
 
   const sendMessageDirectly = async (messageText: string) => {
     if (!messageText.trim() || isLoading) return
+
+    // Stop the mic when user submits a message
+    if (continuousMode) {
+      setContinuousMode(false)
+      setIsListening(false)
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop()
+        } catch (error) {
+          console.log('Error stopping recognition on submit:', error)
+        }
+      }
+      // Clear any pending auto-submit timeout
+      if (speechTimeoutRef.current) {
+        clearTimeout(speechTimeoutRef.current)
+        speechTimeoutRef.current = null
+      }
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -514,16 +519,8 @@ function DreamCatcherModuleContent() {
           setShowResults(true)
         }
 
-        // In continuous mode, restart listening after AI responds
-        if (continuousMode && recognitionRef.current && !isListening) {
-          setTimeout(() => {
-            try {
-              recognitionRef.current?.start()
-            } catch (error) {
-              // Ignore errors when already listening
-            }
-          }, 1000)
-        }
+        // DO NOT auto-restart listening after AI responds
+        // The mic should stay OFF until the user explicitly clicks the red mic button
       } else {
         const errorData = await response.json()
         const errorMessage: ChatMessage = {
