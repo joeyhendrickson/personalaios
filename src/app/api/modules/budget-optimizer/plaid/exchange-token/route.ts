@@ -57,8 +57,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Get account information
+    // At this point, accessToken is guaranteed to be defined (validated above)
     let accountsResponse
     try {
+      if (!accessToken) {
+        throw new Error('Access token is missing')
+      }
       accountsResponse = await PlaidService.getAccounts(accessToken)
     } catch (error: any) {
       console.error('Error getting accounts:', error)
