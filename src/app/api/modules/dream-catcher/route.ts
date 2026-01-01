@@ -482,3 +482,4 @@ function buildContextSummary(assessmentData: any, userData: any, conversationHis
 
   return summary.length > 0 ? summary.join('\n') : 'Starting fresh journey of discovery.'
 }
+// Force rebuild
