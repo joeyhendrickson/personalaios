@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       hasOpenAIKey: !!env.OPENAI_API_KEY,
-      openAIModel: env.OPENAI_MODEL || 'gpt-4o-mini',
+      openAIModel: env.OPENAI_MODEL || 'gpt-4.1-mini',
     })
 
     if (error instanceof Error && error.message.includes('API key')) {
@@ -404,7 +404,7 @@ IMPORTANT:
   let aiResponse: string
   try {
     const result = await generateText({
-      model: openai(env.OPENAI_MODEL || 'gpt-4o-mini'),
+      model: openai(env.OPENAI_MODEL || 'gpt-4.1-mini'),
       messages: [
         {
           role: 'system',
@@ -424,7 +424,7 @@ IMPORTANT:
       error: generateError instanceof Error ? generateError.message : String(generateError),
       stack: generateError instanceof Error ? generateError.stack : undefined,
       hasOpenAIKey: !!env.OPENAI_API_KEY,
-      model: env.OPENAI_MODEL || 'gpt-4o-mini',
+      model: env.OPENAI_MODEL || 'gpt-4.1-mini',
       promptLength: prompt.length,
     })
     throw new Error(
