@@ -272,7 +272,13 @@ function DreamCatcherModuleContent() {
     if (isVoiceEnabled && messages.length > 0) {
       const lastMessage = messages[messages.length - 1]
       if (lastMessage.role === 'assistant') {
-        // Cancel any ongoing speech
+        // Stop any existing audio immediately to prevent overlapping voices
+        if (currentAudioRef.current) {
+          currentAudioRef.current.pause()
+          currentAudioRef.current = null
+        }
+
+        // Cancel any ongoing browser TTS
         if (synthRef.current) {
           synthRef.current.cancel()
         }
@@ -298,6 +304,12 @@ function DreamCatcherModuleContent() {
             throw new Error('Failed to generate speech')
           })
           .then((audioBlob) => {
+            // Double-check: stop any audio that might have started while fetching
+            if (currentAudioRef.current) {
+              currentAudioRef.current.pause()
+              currentAudioRef.current = null
+            }
+
             const audioUrl = URL.createObjectURL(audioBlob)
             const audio = new Audio(audioUrl)
             currentAudioRef.current = audio
@@ -491,6 +503,15 @@ function DreamCatcherModuleContent() {
         speechTimeoutRef.current = null
       }
     } else {
+      // Stop any playing audio immediately when mic is activated
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause()
+        currentAudioRef.current = null
+      }
+      if (synthRef.current) {
+        synthRef.current.cancel()
+      }
+
       setContinuousMode(true)
       if (recognitionRef.current && !isListening) {
         try {

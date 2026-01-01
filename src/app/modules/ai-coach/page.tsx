@@ -403,10 +403,15 @@ export default function AICoachModule() {
   const speakWithElevenLabs = async (text: string) => {
     if (!isVoiceEnabled) return
 
-    // Stop any current audio
+    // Stop any current audio immediately to prevent overlapping voices
     if (currentAudioRef.current) {
       currentAudioRef.current.pause()
       currentAudioRef.current = null
+    }
+
+    // Also cancel any browser TTS
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel()
     }
 
     try {

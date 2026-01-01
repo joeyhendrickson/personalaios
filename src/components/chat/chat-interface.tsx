@@ -430,6 +430,16 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
     // Use ElevenLabs for voice synthesis
     try {
+      // Stop any existing audio immediately to prevent overlapping voices
+      if ((window as any).__currentChatAudio) {
+        ;(window as any).__currentChatAudio.pause()
+        ;(window as any).__currentChatAudio = null
+      }
+      if (synthesisRef.current) {
+        window.speechSynthesis.cancel()
+        synthesisRef.current = null
+      }
+
       setIsSpeaking(true)
       const response = await fetch('/api/elevenlabs/text-to-speech', {
         method: 'POST',
@@ -444,6 +454,13 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
       if (response.ok) {
         const audioBlob = await response.blob()
+
+        // Double-check: stop any audio that might have started while fetching
+        if ((window as any).__currentChatAudio) {
+          ;(window as any).__currentChatAudio.pause()
+          ;(window as any).__currentChatAudio = null
+        }
+
         const audioUrl = URL.createObjectURL(audioBlob)
         const audio = new Audio(audioUrl)
 
