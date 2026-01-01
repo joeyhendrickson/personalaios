@@ -21,6 +21,9 @@ import {
   Clock,
   AlertTriangle,
   X,
+  Mic,
+  Volume2,
+  VolumeX,
 } from 'lucide-react'
 
 interface ChatMessage {
@@ -86,7 +89,11 @@ function DreamCatcherModuleContent() {
   const [showResults, setShowResults] = useState(false)
   const [showExitWarning, setShowExitWarning] = useState(false)
   const [isAutofilling, setIsAutofilling] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const recognitionRef = useRef<any>(null)
+  const synthRef = useRef<SpeechSynthesis | null>(null)
 
   // Scroll to bottom when new messages are added
   useEffect(() => {
@@ -96,8 +103,8 @@ function DreamCatcherModuleContent() {
   // Initialize with welcome message
   useEffect(() => {
     const welcomeContent = isNewUser
-      ? "Welcome to Life Stacks! 🌟 Before we set up your dashboard, let's discover your true dreams and create a clear vision for your future. This journey will help us personalize your experience.\n\n**Important:** If you exit before completing this journey, you'll lose all the information you've shared and won't be able to autofill your dashboard. You can always come back later, but your progress won't be saved.\n\nWe'll go through 8 phases together:\n\n1. **Personality Assessment** - I'll ask you 20 structured questions to understand your personality profile\n2. **Personal Assessment** - Exploring your values and desires\n3. **Influence Exploration** - Questioning what shapes your thoughts\n4. **Executive Skills Assessment** - Evaluating your executive functioning capabilities\n5. **Executive Blocking Factors** - Identifying and removing personal barriers\n6. **Dream Discovery** - Identifying your authentic dreams\n7. **Vision Creation** - Crafting your vision statement\n8. **Goal Generation** - Creating actionable goals\n\nAt the end, you can choose to autofill your dashboard with the goals we create together!\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!"
-      : "Welcome back to Dream Catcher! 🌟 I'm here to help you discover your true dreams and create a clear vision for your future. We'll go through a journey together:\n\n1. **Personality Assessment** - I'll ask you 20 structured questions to understand your personality profile\n2. **Personal Assessment** - Exploring your values and desires\n3. **Influence Exploration** - Questioning what shapes your thoughts\n4. **Executive Skills Assessment** - Evaluating your executive functioning capabilities\n5. **Executive Blocking Factors** - Identifying and removing personal barriers\n6. **Dream Discovery** - Identifying your authentic dreams\n7. **Vision Creation** - Crafting your vision statement\n8. **Goal Generation** - Creating actionable goals\n\n**Note:** You can exit at any time, but if you exit before completing, you'll lose your progress. At the end, you can save your dreams and choose to add them to your dashboard (they'll be added to your existing goals, not replace them).\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!"
+      ? "Welcome to Life Stacks! 🌟 Before we set up your dashboard, let's discover your true dreams and create a clear vision for your future. This journey will help us personalize your experience.\n\nImportant: If you exit before completing this journey, you'll lose all the information you've shared and won't be able to autofill your dashboard. You can always come back later, but your progress won't be saved.\n\nWe'll go through 8 phases together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nAt the end, you can choose to autofill your dashboard with the goals we create together!\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!"
+      : "Welcome back to Dream Catcher! 🌟 I'm here to help you discover your true dreams and create a clear vision for your future. We'll go through a journey together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nNote: You can exit at any time, but if you exit before completing, you'll lose your progress. At the end, you can save your dreams and choose to add them to your dashboard (they'll be added to your existing goals, not replace them).\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!"
 
     const welcomeMessage: ChatMessage = {
       id: 'welcome',
