@@ -59,6 +59,15 @@ export async function POST(request: NextRequest) {
 
     // Call ElevenLabs API directly
     // Use the API key we retrieved above
+    // Log diagnostic info (without exposing the full key)
+    console.log('Calling ElevenLabs API:', {
+      voiceId,
+      textLength: text.length,
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey?.length || 0,
+      apiKeyPrefix: apiKey ? `${apiKey.substring(0, 10)}...` : 'none',
+    })
+
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: {
@@ -94,7 +103,11 @@ export async function POST(request: NextRequest) {
         voiceId: voiceId,
         hasApiKey: !!apiKey,
         apiKeyLength: apiKey?.length || 0,
-        apiKeyPrefix: apiKey ? `${apiKey.substring(0, 8)}...` : 'none',
+        apiKeyPrefix: apiKey ? `${apiKey.substring(0, 10)}...` : 'none',
+        apiKeyEndsWith:
+          apiKey && apiKey.length > 10 ? `...${apiKey.substring(apiKey.length - 4)}` : 'none',
+        // Check if key looks valid (ElevenLabs keys typically start with specific patterns)
+        apiKeyLooksValid: apiKey ? /^[a-zA-Z0-9]{20,}/.test(apiKey) : false,
       })
 
       return NextResponse.json(
