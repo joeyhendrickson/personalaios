@@ -43,6 +43,10 @@ const clientEnvSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   BUG_REPORT_EMAIL: z.string().email().optional(),
 
+  // ElevenLabs Configuration
+  ELEVENLABS_API_KEY: z.string().optional(),
+  ELEVENLABS_VOICE_ID: z.string().optional(),
+
   // Next.js Configuration
   NEXTAUTH_SECRET: z.string().min(1, 'NextAuth secret is required').optional(),
   NEXTAUTH_URL: z.string().url('Must be a valid URL').optional(),

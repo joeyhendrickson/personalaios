@@ -145,21 +145,55 @@ function DreamCatcherModuleContent() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Speak AI responses when voice is enabled
+  // Speak AI responses when voice is enabled using ElevenLabs
   useEffect(() => {
     if (isVoiceEnabled && messages.length > 0) {
       const lastMessage = messages[messages.length - 1]
-      if (lastMessage.role === 'assistant' && synthRef.current) {
+      if (lastMessage.role === 'assistant') {
         // Cancel any ongoing speech
-        synthRef.current.cancel()
+        if (synthRef.current) {
+          synthRef.current.cancel()
+        }
 
-        // Remove markdown formatting and speak the message
-        const cleanText = lastMessage.content.replace(/\*\*/g, '').replace(/\n/g, ' ')
-        const utterance = new SpeechSynthesisUtterance(cleanText)
-        utterance.rate = 0.9
-        utterance.pitch = 1
-        utterance.volume = 0.8
-        synthRef.current.speak(utterance)
+        // Remove markdown formatting and clean text
+        const cleanText = lastMessage.content.replace(/\*\*/g, '').replace(/\n/g, ' ').trim()
+
+        // Use ElevenLabs for voice synthesis
+        fetch('/api/elevenlabs/text-to-speech', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: cleanText,
+            voiceId: 'Henry', // Use Henry voice
+          }),
+        })
+          .then((response) => {
+            if (response.ok) {
+              return response.blob()
+            }
+            throw new Error('Failed to generate speech')
+          })
+          .then((audioBlob) => {
+            const audioUrl = URL.createObjectURL(audioBlob)
+            const audio = new Audio(audioUrl)
+            audio.play()
+            audio.onended = () => {
+              URL.revokeObjectURL(audioUrl)
+            }
+          })
+          .catch((error) => {
+            console.error('Error playing ElevenLabs audio:', error)
+            // Fallback to browser TTS if ElevenLabs fails
+            if (synthRef.current) {
+              const utterance = new SpeechSynthesisUtterance(cleanText)
+              utterance.rate = 0.9
+              utterance.pitch = 1
+              utterance.volume = 0.8
+              synthRef.current.speak(utterance)
+            }
+          })
       }
     }
   }, [messages, isVoiceEnabled])

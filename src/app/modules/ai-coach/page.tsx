@@ -192,6 +192,11 @@ export default function AICoachModule() {
         if (data.personality_insights) {
           setPersonalityInsights(data.personality_insights)
         }
+
+        // Speak AI response using ElevenLabs (if voice is enabled)
+        if (data.response) {
+          speakWithElevenLabs(data.response)
+        }
       } else {
         const errorData = await response.json()
         const errorMessage: ChatMessage = {
@@ -214,6 +219,49 @@ export default function AICoachModule() {
       setMessages((prev) => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const speakWithElevenLabs = async (text: string) => {
+    if (!isVoiceEnabled) return
+
+    // Stop any current audio
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
+    }
+
+    try {
+      const response = await fetch('/api/elevenlabs/text-to-speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim(),
+          voiceIdOrName: 'Henry',
+        }),
+      })
+
+      if (response.ok) {
+        const audioBlob = await response.blob()
+        const audioUrl = URL.createObjectURL(audioBlob)
+        const audio = new Audio(audioUrl)
+        currentAudioRef.current = audio
+
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl)
+          currentAudioRef.current = null
+        }
+        audio.onerror = () => {
+          URL.revokeObjectURL(audioUrl)
+          currentAudioRef.current = null
+        }
+
+        await audio.play()
+      }
+    } catch (error) {
+      console.error('Error playing ElevenLabs audio:', error)
     }
   }
 

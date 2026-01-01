@@ -417,8 +417,60 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
   }
 
   // Voice output functions
-  const speakText = (text: string) => {
-    if (!voiceEnabled || !('speechSynthesis' in window)) return
+  const speakText = async (text: string) => {
+    if (!voiceEnabled) return
+
+    // Stop any current speech
+    if (synthesisRef.current) {
+      window.speechSynthesis.cancel()
+    }
+
+    // Use ElevenLabs for voice synthesis
+    try {
+      setIsSpeaking(true)
+      const response = await fetch('/api/elevenlabs/text-to-speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: text,
+          voiceIdOrName: 'Henry', // Use Henry voice
+        }),
+      })
+
+      if (response.ok) {
+        const audioBlob = await response.blob()
+        const audioUrl = URL.createObjectURL(audioBlob)
+        const audio = new Audio(audioUrl)
+
+        audio.onplay = () => setIsSpeaking(true)
+        audio.onended = () => {
+          setIsSpeaking(false)
+          URL.revokeObjectURL(audioUrl)
+        }
+        audio.onerror = () => {
+          setIsSpeaking(false)
+          URL.revokeObjectURL(audioUrl)
+          // Fallback to browser TTS if ElevenLabs fails
+          fallbackToBrowserTTS(text)
+        }
+
+        await audio.play()
+        return
+      } else {
+        // Fallback to browser TTS if ElevenLabs fails
+        fallbackToBrowserTTS(text)
+      }
+    } catch (error) {
+      console.error('Error playing ElevenLabs audio:', error)
+      // Fallback to browser TTS if ElevenLabs fails
+      fallbackToBrowserTTS(text)
+    }
+  }
+
+  const fallbackToBrowserTTS = (text: string) => {
+    if (!('speechSynthesis' in window)) return
 
     // Stop any current speech
     window.speechSynthesis.cancel()
