@@ -408,8 +408,8 @@ function DreamCatcherModuleContent() {
   // Initialize with welcome message
   useEffect(() => {
     const welcomeContent = isNewUser
-      ? "Welcome to Life Stacks! 🌟 Before we set up your dashboard, let's discover your true dreams and create a clear vision for your future. This journey will help us personalize your experience.\n\nImportant: If you exit before completing this journey, you'll lose all the information you've shared and won't be able to autofill your dashboard. You can always come back later, but your progress won't be saved.\n\nWe'll go through 8 phases together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nAt the end, you can choose to autofill your dashboard with the goals we create together!\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!"
-      : "Welcome back to Dream Catcher! 🌟 I'm here to help you discover your true dreams and create a clear vision for your future. We'll go through a journey together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nNote: You can exit at any time, but if you exit before completing, you'll lose your progress. At the end, you can save your dreams and choose to add them to your dashboard (they'll be added to your existing goals, not replace them).\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!"
+      ? "Welcome to Life Stacks! 🌟 Before we set up your dashboard, let's discover your true dreams and create a clear vision for your future. This journey will help us personalize your experience.\n\nYou can save your progress at any time using the 'Save Progress' button, so you can pause and continue later. Your progress will be saved automatically as you go through the journey.\n\nWe'll go through 8 phases together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nAt the end, you can choose to autofill your dashboard with the goals we create together!\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!"
+      : "Welcome back to Dream Catcher! 🌟 I'm here to help you discover your true dreams and create a clear vision for your future. We'll go through a journey together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nYou can save your progress at any time using the 'Save Progress' button, so you can pause and continue later. At the end, you can save your dreams and choose to add them to your dashboard (they'll be added to your existing goals, not replace them).\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!"
 
     const welcomeMessage: ChatMessage = {
       id: 'welcome',
@@ -644,8 +644,8 @@ function DreamCatcherModuleContent() {
   }
 
   const handleSaveDreams = async () => {
-    if (!assessmentData.goals_generated || assessmentData.goals_generated.length === 0) {
-      alert('No dreams to save. Please complete the Dream Catcher journey first.')
+    if (!assessmentData || Object.keys(assessmentData).length === 0) {
+      alert('No progress to save yet. Please answer at least one question first.')
       return
     }
 
@@ -657,21 +657,28 @@ function DreamCatcherModuleContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           assessment_data: assessmentData,
+          completed_at:
+            assessmentData.goals_generated && assessmentData.goals_generated.length > 0
+              ? new Date().toISOString()
+              : null, // Mark as incomplete if no goals yet
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to save dreams')
+        throw new Error(errorData.error || 'Failed to save progress')
       }
 
+      const hasGoals = assessmentData.goals_generated && assessmentData.goals_generated.length > 0
       alert(
-        'Your Dream Catcher session has been saved! You can view it anytime from the Dream Catcher module.'
+        hasGoals
+          ? 'Your Dream Catcher session has been saved! You can view it anytime from the Dream Catcher module.'
+          : 'Your progress has been saved! You can continue later from where you left off.'
       )
-      // Don't redirect, let them stay to see results or autofill
+      // Don't redirect, let them stay to continue or autofill
     } catch (error) {
-      console.error('Error saving dreams:', error)
-      alert(error instanceof Error ? error.message : 'Failed to save dreams. Please try again.')
+      console.error('Error saving progress:', error)
+      alert(error instanceof Error ? error.message : 'Failed to save progress. Please try again.')
     } finally {
       setIsAutofilling(false)
     }
@@ -849,6 +856,22 @@ function DreamCatcherModuleContent() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              {/* Save Progress Button - Always visible */}
+              <button
+                onClick={handleSaveDreams}
+                disabled={
+                  isAutofilling || !assessmentData || Object.keys(assessmentData).length === 0
+                }
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 hover:bg-gray-100 text-blue-600 disabled:text-gray-400"
+                title="Save your current progress"
+              >
+                {isAutofilling ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+                <span>{isAutofilling ? 'Saving...' : 'Save Progress'}</span>
+              </button>
               {!isNewUser && (
                 <Link href="/modules/dream-catcher/saved">
                   <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 hover:bg-gray-100 text-purple-600">
@@ -1513,8 +1536,8 @@ function DreamCatcherModuleContent() {
                   </h3>
                   <p className="text-sm text-gray-600 mb-4">
                     {isNewUser
-                      ? "If you exit now, you'll lose all the information you've shared and won't be able to autofill your dashboard. You can always come back later, but your progress won't be saved."
-                      : "If you exit now, you'll lose all the information you've shared. You can save your progress by completing the journey and clicking 'Save Dreams'."}
+                      ? "If you exit now without saving, you'll lose your progress. Click 'Save Progress' in the header to save your current progress before exiting."
+                      : "If you exit now without saving, you'll lose your progress. Click 'Save Progress' in the header to save your current progress before exiting."}
                   </p>
                   <div className="flex space-x-3">
                     <button

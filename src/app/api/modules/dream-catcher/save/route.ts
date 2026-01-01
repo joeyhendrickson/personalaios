@@ -16,9 +16,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { assessment_data, completed_at } = body
 
-    if (!assessment_data || !assessment_data.goals_generated) {
-      return NextResponse.json({ error: 'Assessment data with goals is required' }, { status: 400 })
+    if (!assessment_data) {
+      return NextResponse.json({ error: 'Assessment data is required' }, { status: 400 })
     }
+
+    // Allow saving partial progress - don't require goals_generated
+    // Users can save their progress at any time during the journey
 
     // Save Dream Catcher session to database
     const { data: savedSession, error: saveError } = await supabase
@@ -50,13 +53,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Log activity
+    const goalsCount = assessment_data.goals_generated?.length || 0
     await supabase.from('activity_logs').insert({
       user_id: user.id,
       activity_type: 'dream_catcher_saved',
-      description: `Dream Catcher session saved with ${assessment_data.goals_generated.length} goals`,
+      description:
+        goalsCount > 0
+          ? `Dream Catcher session saved with ${goalsCount} goals`
+          : 'Dream Catcher progress saved',
       metadata: {
         session_id: savedSession.id,
-        goals_count: assessment_data.goals_generated.length,
+        goals_count: goalsCount,
+        is_complete: goalsCount > 0,
       },
     })
 
