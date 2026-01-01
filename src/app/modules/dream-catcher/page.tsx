@@ -503,13 +503,22 @@ function DreamCatcherModuleContent() {
         speechTimeoutRef.current = null
       }
     } else {
-      // Stop any playing audio immediately when mic is activated
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause()
+      // CRITICAL: Stop any playing audio immediately when mic is activated
+      // This prevents speech-to-text from picking up the AI voice
+      const currentAudio = currentAudioRef.current
+      if (currentAudio) {
+        currentAudio.pause()
+        currentAudio.currentTime = 0 // Reset to beginning
         currentAudioRef.current = null
       }
       if (synthRef.current) {
         synthRef.current.cancel()
+        synthRef.current = null
+      }
+
+      // Also stop any browser TTS that might be playing
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel()
       }
 
       setContinuousMode(true)
@@ -531,7 +540,21 @@ function DreamCatcherModuleContent() {
   }
 
   const toggleVoice = () => {
-    setIsVoiceEnabled(!isVoiceEnabled)
+    const newVoiceState = !isVoiceEnabled
+    setIsVoiceEnabled(newVoiceState)
+
+    // If turning voice off, immediately stop any playing audio
+    if (!newVoiceState) {
+      const currentAudio = currentAudioRef.current
+      if (currentAudio) {
+        currentAudio.pause()
+        currentAudioRef.current = null
+      }
+      if (synthRef.current) {
+        synthRef.current.cancel()
+        synthRef.current = null
+      }
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
