@@ -31,6 +31,8 @@ import {
   Settings,
   BarChart3,
   PieChart,
+  Volume2,
+  VolumeX,
 } from 'lucide-react'
 
 interface ChatMessage {
@@ -567,6 +569,21 @@ export default function AICoachModule() {
                     rows={2}
                     disabled={isLoading}
                   />
+                  <button
+                    onClick={() => setIsVoiceEnabled(!isVoiceEnabled)}
+                    className={`p-2 rounded-lg transition-colors ${
+                      isVoiceEnabled
+                        ? 'bg-green-500 text-white hover:bg-green-600'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                    title={isVoiceEnabled ? 'Disable voice output' : 'Enable voice output'}
+                  >
+                    {isVoiceEnabled ? (
+                      <Volume2 className="h-4 w-4" />
+                    ) : (
+                      <VolumeX className="h-4 w-4" />
+                    )}
+                  </button>
                   <button
                     onClick={sendMessage}
                     disabled={!inputMessage.trim() || isLoading}
