@@ -145,6 +145,12 @@ function DreamCatcherModuleContent() {
 
       if (response.ok) {
         const data = await response.json()
+
+        // Update personality question index if provided
+        if (data.personality_question_index !== undefined) {
+          setPersonalityQuestionIndex(data.personality_question_index)
+        }
+
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
@@ -158,6 +164,10 @@ function DreamCatcherModuleContent() {
         // Update phase if changed
         if (data.next_phase && data.next_phase !== currentPhase) {
           setCurrentPhase(data.next_phase)
+          // Reset question index when moving to a new phase
+          if (data.next_phase !== 'personality') {
+            setPersonalityQuestionIndex(0)
+          }
         }
 
         // Update assessment data
