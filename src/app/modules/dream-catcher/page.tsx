@@ -252,21 +252,9 @@ function DreamCatcherModuleContent() {
 
           if (event.error !== 'no-speech') {
             setIsListening(false)
-            // Only restart if user explicitly wants continuous mode (mic button was clicked)
-            if (continuousMode && isListening && recognitionRef.current) {
-              // Restart listening after error (except for no-speech and permission errors)
-              setTimeout(() => {
-                // Double-check that continuous mode is still active
-                if (continuousMode && recognitionRef.current) {
-                  try {
-                    recognitionRef.current.start()
-                    setIsListening(true)
-                  } catch (error) {
-                    console.error('Error restarting recognition:', error)
-                  }
-                }
-              }, 1000)
-            }
+            setContinuousMode(false)
+            // DO NOT auto-restart recognition after errors
+            // The mic should only be active when the user explicitly clicks the red mic button
           }
         }
 
