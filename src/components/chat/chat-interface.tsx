@@ -842,6 +842,47 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
             >
               {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </Button>
+            {voiceEnabled && (
+              <div className="relative voice-selector-container">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowVoiceSelector(!showVoiceSelector)}
+                  className="h-8 px-3 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium"
+                  title={`Select voice (Current: ${selectedVoice})`}
+                >
+                  {selectedVoice}
+                </Button>
+                {showVoiceSelector && availableVoices.length > 0 && (
+                  <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[150px] max-h-[200px] overflow-y-auto">
+                    <div className="p-2 border-b border-gray-200">
+                      <p className="text-xs font-semibold text-gray-700">Select Voice</p>
+                    </div>
+                    {availableVoices.map((voice) => (
+                      <button
+                        key={voice.id}
+                        onClick={() => {
+                          setSelectedVoice(voice.name)
+                          localStorage.setItem('elevenlabs_selected_voice', voice.name)
+                          setShowVoiceSelector(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                          selectedVoice === voice.name || selectedVoice === voice.id
+                            ? 'bg-purple-50 text-purple-700 font-medium'
+                            : 'text-gray-700'
+                        }`}
+                      >
+                        {voice.name}
+                        {(selectedVoice === voice.name || selectedVoice === voice.id) && (
+                          <span className="ml-2 text-purple-600">✓</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <span className="text-xs text-gray-500">
               {isListening
                 ? continuousMode
