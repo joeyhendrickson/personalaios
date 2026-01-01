@@ -196,8 +196,10 @@ function DreamCatcherModuleContent() {
           setInputMessage(currentTranscript)
           lastSpeechTimeRef.current = Date.now()
 
-          // In continuous mode, auto-submit after 2 seconds of silence
-          if (continuousMode && finalTranscript.trim()) {
+          // In continuous mode, auto-submit after 10 seconds of silence
+          // Trigger when mic is active and user has spoken (any transcript appears)
+          // We'll submit the final transcript (confirmed speech) after 10 seconds of silence
+          if (continuousMode && currentTranscript.trim()) {
             // Clear existing timeout
             if (speechTimeoutRef.current) {
               clearTimeout(speechTimeoutRef.current)
@@ -205,11 +207,13 @@ function DreamCatcherModuleContent() {
 
             // Set up auto-submit after 10 seconds of silence
             speechTimeoutRef.current = setTimeout(() => {
-              if (finalTranscript.trim() && !isLoading) {
+              // Use finalTranscript (confirmed speech) for submission, fallback to currentTranscript if no final yet
+              const textToSubmit = finalTranscript.trim() || currentTranscript.trim()
+              if (textToSubmit && !isLoading) {
+                console.log('Auto-submitting after 10s silence:', textToSubmit)
                 // Auto-submit the message
-                const messageToSend = finalTranscript.trim()
                 setInputMessage('')
-                sendMessageDirectly(messageToSend)
+                sendMessageDirectly(textToSubmit)
               }
             }, 10000) // 10 seconds
           }
