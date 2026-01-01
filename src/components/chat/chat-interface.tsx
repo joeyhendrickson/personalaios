@@ -55,6 +55,9 @@ export function ChatInterface({
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [speechSupported, setSpeechSupported] = useState(false)
   const [voiceEnabled, setVoiceEnabled] = useState(true)
+  const [availableVoices, setAvailableVoices] = useState<Array<{ id: string; name: string }>>([])
+  const [selectedVoice, setSelectedVoice] = useState<string>('Henry')
+  const [showVoiceSelector, setShowVoiceSelector] = useState(false)
   const [continuousMode, setContinuousMode] = useState(false)
   const [lastSpeechTime, setLastSpeechTime] = useState(0)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
@@ -435,7 +438,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         },
         body: JSON.stringify({
           text: text,
-          voiceIdOrName: 'Henry', // Use Henry voice
+          voiceIdOrName: selectedVoice, // Use selected voice
         }),
       })
 
