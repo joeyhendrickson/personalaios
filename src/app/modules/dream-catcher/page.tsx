@@ -429,6 +429,17 @@ function DreamCatcherModuleContent() {
         ) {
           setShowResults(true)
         }
+
+        // In continuous mode, restart listening after AI responds
+        if (continuousMode && recognitionRef.current && !isListening) {
+          setTimeout(() => {
+            try {
+              recognitionRef.current?.start()
+            } catch (error) {
+              // Ignore errors when already listening
+            }
+          }, 1000)
+        }
       } else {
         const errorData = await response.json()
         const errorMessage: ChatMessage = {
