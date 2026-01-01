@@ -323,11 +323,32 @@ function DreamCatcherModuleContent() {
             voiceIdOrName: selectedVoice, // Use selected voice
           }),
         })
-          .then((response) => {
+          .then(async (response) => {
             if (response.ok) {
               return response.blob()
             }
-            throw new Error('Failed to generate speech')
+            // Parse error response to get details
+            let errorMessage = 'Failed to generate speech'
+            try {
+              const errorData = await response.json()
+              errorMessage = errorData.details || errorData.error || errorMessage
+              console.error('ElevenLabs API error:', {
+                status: response.status,
+                error: errorData,
+                voice: selectedVoice,
+                textLength: cleanText.length,
+              })
+            } catch (parseError) {
+              const errorText = await response.text()
+              console.error('ElevenLabs API error (non-JSON):', {
+                status: response.status,
+                statusText: response.statusText,
+                errorText,
+                voice: selectedVoice,
+              })
+              errorMessage = `Failed to generate speech: ${response.status} ${response.statusText}`
+            }
+            throw new Error(errorMessage)
           })
           .then((audioBlob) => {
             // Double-check: stop any audio that might have started while fetching
