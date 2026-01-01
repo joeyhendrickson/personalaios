@@ -70,11 +70,30 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('ElevenLabs API error:', errorText)
+      let errorDetails: any = { status: response.status, statusText: response.statusText }
+
+      try {
+        const errorJson = JSON.parse(errorText)
+        errorDetails = { ...errorDetails, ...errorJson }
+      } catch {
+        errorDetails.message = errorText
+      }
+
+      console.error('ElevenLabs API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorDetails,
+        voiceId: voiceId,
+        hasApiKey: !!env.ELEVENLABS_API_KEY,
+      })
+
       return NextResponse.json(
         {
           error: 'Failed to generate speech',
-          details: `ElevenLabs API error: ${response.status} ${response.statusText}`,
+          details:
+            errorDetails.message ||
+            `ElevenLabs API error: ${response.status} ${response.statusText}`,
+          status: response.status,
         },
         { status: response.status }
       )
@@ -90,7 +109,11 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error in text-to-speech API:', error)
+    console.error('Error in text-to-speech API:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      hasApiKey: !!env.ELEVENLABS_API_KEY,
+    })
     return NextResponse.json(
       {
         error: 'Failed to generate speech',
