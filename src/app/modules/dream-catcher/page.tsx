@@ -104,6 +104,7 @@ function DreamCatcherModuleContent() {
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
   const speechTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSpeechTimeRef = useRef<number>(0)
+  const isRecognitionRunningRef = useRef<boolean>(false)
 
   // Load available voices and selected voice preference
   useEffect(() => {
@@ -176,6 +177,11 @@ function DreamCatcherModuleContent() {
         recognition.interimResults = true // Get interim results for better UX
         recognition.lang = 'en-US'
 
+        recognition.onstart = () => {
+          isRecognitionRunningRef.current = true
+          setIsListening(true)
+        }
+
         recognition.onresult = (event: any) => {
           let finalTranscript = ''
           let interimTranscript = ''
@@ -216,14 +222,15 @@ function DreamCatcherModuleContent() {
                 console.log('Auto-submitting after 10s silence:', textToSubmit)
                 // Stop the mic after submitting
                 setContinuousMode(false)
-                setIsListening(false)
-                if (recognitionRef.current) {
+                if (recognitionRef.current && isRecognitionRunningRef.current) {
                   try {
                     recognitionRef.current.stop()
                   } catch (error) {
                     console.log('Error stopping recognition:', error)
                   }
                 }
+                isRecognitionRunningRef.current = false
+                setIsListening(false)
                 // Clear timeout
                 if (speechTimeoutRef.current) {
                   clearTimeout(speechTimeoutRef.current)
@@ -242,6 +249,7 @@ function DreamCatcherModuleContent() {
 
           // Handle permission errors specifically
           if (event.error === 'not-allowed' || event.error === 'denied') {
+            isRecognitionRunningRef.current = false
             setIsListening(false)
             setContinuousMode(false)
             setMicPermissionError(
@@ -251,6 +259,7 @@ function DreamCatcherModuleContent() {
           }
 
           if (event.error !== 'no-speech') {
+            isRecognitionRunningRef.current = false
             setIsListening(false)
             setContinuousMode(false)
             // DO NOT auto-restart recognition after errors
@@ -259,6 +268,7 @@ function DreamCatcherModuleContent() {
         }
 
         recognition.onend = () => {
+          isRecognitionRunningRef.current = false
           setIsListening(false)
           // DO NOT auto-restart recognition
           // The mic should only be active when the user explicitly clicks the red mic button
@@ -291,12 +301,18 @@ function DreamCatcherModuleContent() {
       if (lastMessage.role === 'assistant') {
         // CRITICAL: Stop speech recognition when AI starts speaking
         // This prevents the mic from picking up the AI's voice
-        if (recognitionRef.current && isListening) {
+        if (recognitionRef.current && isRecognitionRunningRef.current) {
           try {
             recognitionRef.current.stop()
+            isRecognitionRunningRef.current = false
             setIsListening(false)
+            setContinuousMode(false)
           } catch (error) {
             console.log('Error stopping recognition when AI speaks:', error)
+            // Update state even if stop fails
+            isRecognitionRunningRef.current = false
+            setIsListening(false)
+            setContinuousMode(false)
           }
         }
 
@@ -414,16 +430,17 @@ function DreamCatcherModuleContent() {
     if (!messageText.trim() || isLoading) return
 
     // Stop the mic when user submits a message
-    if (continuousMode) {
+    if (continuousMode || isRecognitionRunningRef.current) {
       setContinuousMode(false)
-      setIsListening(false)
-      if (recognitionRef.current) {
+      if (recognitionRef.current && isRecognitionRunningRef.current) {
         try {
           recognitionRef.current.stop()
         } catch (error) {
           console.log('Error stopping recognition on submit:', error)
         }
       }
+      isRecognitionRunningRef.current = false
+      setIsListening(false)
       // Clear any pending auto-submit timeout
       if (speechTimeoutRef.current) {
         clearTimeout(speechTimeoutRef.current)
@@ -572,10 +589,17 @@ function DreamCatcherModuleContent() {
   const toggleContinuousMode = async () => {
     if (continuousMode) {
       setContinuousMode(false)
-      if (recognitionRef.current && isListening) {
-        recognitionRef.current.stop()
-        setIsListening(false)
+      // Always stop recognition if it's running, regardless of state
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop()
+        } catch (error) {
+          // Ignore errors if already stopped
+          console.log('Error stopping recognition (may already be stopped):', error)
+        }
       }
+      isRecognitionRunningRef.current = false
+      setIsListening(false)
       if (speechTimeoutRef.current) {
         clearTimeout(speechTimeoutRef.current)
         speechTimeoutRef.current = null
@@ -609,15 +633,34 @@ function DreamCatcherModuleContent() {
         window.speechSynthesis.cancel()
       }
 
+      // Always stop recognition first to ensure clean state
+      if (recognitionRef.current && isRecognitionRunningRef.current) {
+        try {
+          recognitionRef.current.stop()
+          // Wait a brief moment for recognition to fully stop
+          await new Promise((resolve) => setTimeout(resolve, 100))
+        } catch (error) {
+          // Ignore errors if already stopped
+          console.log('Error stopping recognition before restart:', error)
+        }
+      }
+
       setContinuousMode(true)
-      if (recognitionRef.current && !isListening) {
+      if (recognitionRef.current && !isRecognitionRunningRef.current) {
         try {
           recognitionRef.current.start()
-          setIsListening(true)
-        } catch (error) {
+          // State will be updated by onstart handler
+        } catch (error: any) {
           console.error('Error starting recognition:', error)
-          setMicPermissionError('Failed to start speech recognition. Please try again.')
-          setContinuousMode(false)
+          // Check if error is because it's already started
+          if (error.name === 'InvalidStateError' || error.message?.includes('already started')) {
+            console.log('Recognition already started, updating state')
+            isRecognitionRunningRef.current = true
+            setIsListening(true)
+          } else {
+            setMicPermissionError('Failed to start speech recognition. Please try again.')
+            setContinuousMode(false)
+          }
         }
       }
     }
