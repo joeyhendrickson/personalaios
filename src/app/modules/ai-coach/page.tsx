@@ -404,8 +404,9 @@ export default function AICoachModule() {
     if (!isVoiceEnabled) return
 
     // Stop any current audio immediately to prevent overlapping voices
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause()
+    const currentAudio = currentAudioRef.current
+    if (currentAudio) {
+      currentAudio.pause()
       currentAudioRef.current = null
     }
 
@@ -430,8 +431,9 @@ export default function AICoachModule() {
         const audioBlob = await response.blob()
 
         // Double-check: stop any audio that might have started while fetching
-        if (currentAudioRef.current) {
-          currentAudioRef.current.pause()
+        const existingAudio = currentAudioRef.current
+        if (existingAudio) {
+          existingAudio.pause()
           currentAudioRef.current = null
         }
 
