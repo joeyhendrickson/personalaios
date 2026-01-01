@@ -351,19 +351,18 @@ function DreamCatcherModuleContent() {
     setMessages([welcomeMessage])
   }, [isNewUser])
 
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return
+  const sendMessageDirectly = async (messageText: string) => {
+    if (!messageText.trim() || isLoading) return
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: inputMessage,
+      content: messageText,
       timestamp: new Date(),
       phase: currentPhase,
     }
 
     setMessages((prev) => [...prev, userMessage])
-    setInputMessage('')
     setIsLoading(true)
 
     try {
@@ -373,7 +372,7 @@ function DreamCatcherModuleContent() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: inputMessage,
+          message: messageText,
           conversation_history: messages.slice(-10).map((msg) => ({
             role: msg.role,
             content: msg.content,
