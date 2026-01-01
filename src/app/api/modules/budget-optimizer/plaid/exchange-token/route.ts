@@ -118,12 +118,19 @@ export async function POST(request: NextRequest) {
     })
 
     // Prepare insert data - ensure all NOT NULL fields are provided
+    // NOTE: The table has BOTH plaid_* columns AND legacy columns, both are NOT NULL
+    // We populate both sets to satisfy all constraints
     const insertData: any = {
       user_id: user.id,
+      // Plaid-specific columns (from SETUP_BUDGET_OPTIMIZER.sql)
       plaid_access_token: encryptedAccessToken, // Encrypted for security
       plaid_item_id: itemId,
-      institution_id: institution_id || 'unknown', // NOT NULL in schema
-      institution_name: institution_name || 'Unknown Bank', // NOT NULL in schema
+      // Legacy columns (from migration 015) - also NOT NULL, populate with same values
+      access_token: encryptedAccessToken, // Same encrypted token
+      item_id: itemId, // Same item ID
+      // Institution info (NOT NULL in SETUP_BUDGET_OPTIMIZER.sql)
+      institution_id: institution_id || 'unknown',
+      institution_name: institution_name || 'Unknown Bank',
       status: 'active',
       last_sync_at: new Date().toISOString(),
     }
