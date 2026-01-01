@@ -95,10 +95,74 @@ function DreamCatcherModuleContent() {
   const recognitionRef = useRef<any>(null)
   const synthRef = useRef<SpeechSynthesis | null>(null)
 
+  // Initialize speech recognition and synthesis
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Initialize speech synthesis
+      synthRef.current = window.speechSynthesis
+
+      // Initialize speech recognition if available
+      const SpeechRecognition =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition()
+        recognition.continuous = false
+        recognition.interimResults = false
+        recognition.lang = 'en-US'
+
+        recognition.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript
+          setInputMessage(transcript)
+          setIsListening(false)
+        }
+
+        recognition.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error)
+          setIsListening(false)
+        }
+
+        recognition.onend = () => {
+          setIsListening(false)
+        }
+
+        recognitionRef.current = recognition
+      }
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop()
+      }
+      if (synthRef.current) {
+        synthRef.current.cancel()
+      }
+    }
+  }, [])
+
   // Scroll to bottom when new messages are added
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Speak AI responses when voice is enabled
+  useEffect(() => {
+    if (isVoiceEnabled && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1]
+      if (lastMessage.role === 'assistant' && synthRef.current) {
+        // Cancel any ongoing speech
+        synthRef.current.cancel()
+
+        // Remove markdown formatting and speak the message
+        const cleanText = lastMessage.content.replace(/\*\*/g, '').replace(/\n/g, ' ')
+        const utterance = new SpeechSynthesisUtterance(cleanText)
+        utterance.rate = 0.9
+        utterance.pitch = 1
+        utterance.volume = 0.8
+        synthRef.current.speak(utterance)
+      }
+    }
+  }, [messages, isVoiceEnabled])
 
   // Initialize with welcome message
   useEffect(() => {
@@ -158,10 +222,13 @@ function DreamCatcherModuleContent() {
           setPersonalityQuestionIndex(data.personality_question_index)
         }
 
+        // Remove markdown formatting from AI response
+        const cleanResponse = data.response.replace(/\*\*/g, '').replace(/\n{3,}/g, '\n\n')
+
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: data.response,
+          content: cleanResponse,
           timestamp: new Date(),
           phase: data.next_phase || currentPhase,
         }
@@ -581,15 +648,44 @@ function DreamCatcherModuleContent() {
               {/* Input */}
               <div className="border-t border-gray-200 p-4 bg-white">
                 <div className="flex space-x-2">
+                  <button
+                    onClick={isListening ? stopListening : startListening}
+                    disabled={isLoading}
+                    className={`p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isListening
+                        ? 'bg-red-500 text-white animate-pulse'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                    title={isListening ? 'Stop listening' : 'Start voice input'}
+                  >
+                    <Mic className="h-4 w-4" />
+                  </button>
                   <textarea
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="Share your thoughts..."
+                    placeholder={
+                      isListening ? 'Listening...' : 'Share your thoughts or click mic...'
+                    }
                     className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     rows={2}
                     disabled={isLoading}
                   />
+                  <button
+                    onClick={toggleVoice}
+                    className={`p-2 rounded-lg transition-colors ${
+                      isVoiceEnabled
+                        ? 'bg-green-500 text-white hover:bg-green-600'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                    title={isVoiceEnabled ? 'Disable voice output' : 'Enable voice output'}
+                  >
+                    {isVoiceEnabled ? (
+                      <Volume2 className="h-4 w-4" />
+                    ) : (
+                      <VolumeX className="h-4 w-4" />
+                    )}
+                  </button>
                   <button
                     onClick={sendMessage}
                     disabled={!inputMessage.trim() || isLoading}
@@ -598,6 +694,12 @@ function DreamCatcherModuleContent() {
                     <Send className="h-4 w-4" />
                   </button>
                 </div>
+                {isListening && (
+                  <p className="text-xs text-red-600 mt-2 flex items-center">
+                    <Mic className="h-3 w-3 mr-1 animate-pulse" />
+                    Listening... Speak now or click the mic again to stop
+                  </p>
+                )}
               </div>
             </div>
           </div>
