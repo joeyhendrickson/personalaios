@@ -4,7 +4,14 @@ import { env } from '@/lib/env'
 
 export async function GET(request: NextRequest) {
   try {
-    if (!env.ELEVENLABS_API_KEY) {
+    // Get API key directly from process.env to ensure we have the latest value
+    const apiKey = process.env.ELEVENLABS_API_KEY?.trim() || env.ELEVENLABS_API_KEY?.trim()
+
+    if (!apiKey) {
+      console.error('ElevenLabs API key is not configured', {
+        hasEnvKey: !!env.ELEVENLABS_API_KEY,
+        hasProcessEnvKey: !!process.env.ELEVENLABS_API_KEY,
+      })
       return NextResponse.json({ error: 'ElevenLabs API key is not configured' }, { status: 500 })
     }
 

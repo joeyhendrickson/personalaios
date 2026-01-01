@@ -42,7 +42,10 @@ export class ElevenLabsService {
    * @returns Audio blob URL
    */
   static async textToSpeech(text: string, voiceIdOrName?: string): Promise<string> {
-    if (!env.ELEVENLABS_API_KEY) {
+    // Get API key directly from process.env to ensure we have the latest value
+    const apiKey = process.env.ELEVENLABS_API_KEY?.trim() || env.ELEVENLABS_API_KEY?.trim()
+
+    if (!apiKey) {
       throw new Error('ElevenLabs API key is not configured')
     }
 
@@ -81,7 +84,7 @@ export class ElevenLabsService {
         headers: {
           Accept: 'audio/mpeg',
           'Content-Type': 'application/json',
-          'xi-api-key': env.ELEVENLABS_API_KEY,
+          'xi-api-key': apiKey,
         },
         body: JSON.stringify({
           text: text,
@@ -113,14 +116,17 @@ export class ElevenLabsService {
    * @returns Array of available voices
    */
   static async getVoices(): Promise<any[]> {
-    if (!env.ELEVENLABS_API_KEY) {
+    // Get API key directly from process.env to ensure we have the latest value
+    const apiKey = process.env.ELEVENLABS_API_KEY?.trim() || env.ELEVENLABS_API_KEY?.trim()
+
+    if (!apiKey) {
       throw new Error('ElevenLabs API key is not configured')
     }
 
     try {
       const response = await fetch(`${this.API_URL}/voices`, {
         headers: {
-          'xi-api-key': env.ELEVENLABS_API_KEY,
+          'xi-api-key': apiKey,
         },
       })
 

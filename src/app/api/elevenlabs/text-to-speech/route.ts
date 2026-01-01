@@ -4,7 +4,14 @@ import { env } from '@/lib/env'
 
 export async function POST(request: NextRequest) {
   try {
-    if (!env.ELEVENLABS_API_KEY) {
+    // Get API key directly from process.env to ensure we have the latest value
+    const apiKey = process.env.ELEVENLABS_API_KEY?.trim() || env.ELEVENLABS_API_KEY?.trim()
+
+    if (!apiKey) {
+      console.error('ElevenLabs API key is not configured', {
+        hasEnvKey: !!env.ELEVENLABS_API_KEY,
+        hasProcessEnvKey: !!process.env.ELEVENLABS_API_KEY,
+      })
       return NextResponse.json({ error: 'ElevenLabs API key is not configured' }, { status: 500 })
     }
 
@@ -51,12 +58,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Call ElevenLabs API directly
+    // Use the API key we retrieved above
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: {
         Accept: 'audio/mpeg',
         'Content-Type': 'application/json',
-        'xi-api-key': env.ELEVENLABS_API_KEY,
+        'xi-api-key': apiKey,
       },
       body: JSON.stringify({
         text: text,
@@ -84,7 +92,9 @@ export async function POST(request: NextRequest) {
         statusText: response.statusText,
         error: errorDetails,
         voiceId: voiceId,
-        hasApiKey: !!env.ELEVENLABS_API_KEY,
+        hasApiKey: !!apiKey,
+        apiKeyLength: apiKey?.length || 0,
+        apiKeyPrefix: apiKey ? `${apiKey.substring(0, 8)}...` : 'none',
       })
 
       return NextResponse.json(
