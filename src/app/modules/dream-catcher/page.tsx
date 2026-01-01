@@ -94,6 +94,7 @@ function DreamCatcherModuleContent() {
   const [isListening, setIsListening] = useState(false)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true)
   const [continuousMode, setContinuousMode] = useState(false)
+  const [micPermissionError, setMicPermissionError] = useState<string | null>(null)
   const [availableVoices, setAvailableVoices] = useState<Array<{ id: string; name: string }>>([])
   const [selectedVoice, setSelectedVoice] = useState<string>('Henry')
   const [showVoiceSelector, setShowVoiceSelector] = useState(false)
@@ -223,11 +224,22 @@ function DreamCatcherModuleContent() {
 
         recognition.onerror = (event: any) => {
           console.error('Speech recognition error:', event.error)
+
+          // Handle permission errors specifically
+          if (event.error === 'not-allowed' || event.error === 'denied') {
+            setIsListening(false)
+            setContinuousMode(false)
+            setMicPermissionError(
+              'Microphone access was denied. Please allow microphone access in your browser settings and try again.'
+            )
+            return
+          }
+
           if (event.error !== 'no-speech') {
             setIsListening(false)
             // Only restart if user explicitly wants continuous mode (mic button was clicked)
             if (continuousMode && isListening && recognitionRef.current) {
-              // Restart listening after error (except for no-speech)
+              // Restart listening after error (except for no-speech and permission errors)
               setTimeout(() => {
                 // Double-check that continuous mode is still active
                 if (continuousMode && recognitionRef.current) {
@@ -546,7 +558,33 @@ function DreamCatcherModuleContent() {
     await sendMessageDirectly(messageToSend)
   }
 
-  const toggleContinuousMode = () => {
+  const requestMicrophonePermission = async (): Promise<boolean> => {
+    try {
+      // Request microphone permission explicitly
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        // Stop the stream immediately - we just needed permission
+        stream.getTracks().forEach((track) => track.stop())
+        setMicPermissionError(null)
+        return true
+      }
+      return false
+    } catch (error: any) {
+      console.error('Microphone permission error:', error)
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        setMicPermissionError(
+          'Microphone access was denied. Please allow microphone access in your browser settings and try again.'
+        )
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        setMicPermissionError('No microphone found. Please connect a microphone and try again.')
+      } else {
+        setMicPermissionError('Failed to access microphone. Please check your browser settings.')
+      }
+      return false
+    }
+  }
+
+  const toggleContinuousMode = async () => {
     if (continuousMode) {
       setContinuousMode(false)
       if (recognitionRef.current && isListening) {
@@ -558,6 +596,16 @@ function DreamCatcherModuleContent() {
         speechTimeoutRef.current = null
       }
     } else {
+      // Clear any previous permission errors
+      setMicPermissionError(null)
+
+      // Request microphone permission before starting recognition
+      const hasPermission = await requestMicrophonePermission()
+      if (!hasPermission) {
+        // Permission was denied, don't start recognition
+        return
+      }
+
       // CRITICAL: Stop any playing audio immediately when mic is activated
       // This prevents speech-to-text from picking up the AI voice
       const currentAudio = currentAudioRef.current
@@ -583,6 +631,8 @@ function DreamCatcherModuleContent() {
           setIsListening(true)
         } catch (error) {
           console.error('Error starting recognition:', error)
+          setMicPermissionError('Failed to start speech recognition. Please try again.')
+          setContinuousMode(false)
         }
       }
     }
@@ -1099,6 +1149,18 @@ function DreamCatcherModuleContent() {
                       <Send className="h-4 w-4" />
                     </button>
                   </div>
+                  {micPermissionError && (
+                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                      <p className="font-medium mb-1">Microphone Access Required</p>
+                      <p>{micPermissionError}</p>
+                      <button
+                        onClick={() => setMicPermissionError(null)}
+                        className="mt-1 text-red-600 hover:text-red-800 underline"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
                   {isListening && (
                     <p className="text-xs text-red-600 mt-2 flex items-center">
                       <Mic className="h-3 w-3 mr-1 animate-pulse" />
