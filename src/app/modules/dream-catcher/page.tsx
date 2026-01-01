@@ -223,12 +223,15 @@ function DreamCatcherModuleContent() {
           console.error('Speech recognition error:', event.error)
           if (event.error !== 'no-speech') {
             setIsListening(false)
-            if (continuousMode) {
+            // Only restart if user explicitly wants continuous mode (mic button was clicked)
+            if (continuousMode && isListening && recognitionRef.current) {
               // Restart listening after error (except for no-speech)
               setTimeout(() => {
+                // Double-check that continuous mode is still active
                 if (continuousMode && recognitionRef.current) {
                   try {
                     recognitionRef.current.start()
+                    setIsListening(true)
                   } catch (error) {
                     console.error('Error restarting recognition:', error)
                   }
@@ -240,13 +243,21 @@ function DreamCatcherModuleContent() {
 
         recognition.onend = () => {
           setIsListening(false)
-          // Restart listening if in continuous mode
-          if (continuousMode && recognitionRef.current) {
+          // Only restart listening if user explicitly activated continuous mode (mic button clicked)
+          // AND continuousMode is still true (user hasn't turned it off)
+          // This prevents auto-restart when AI is speaking or when user hasn't clicked mic
+          if (continuousMode && isListening && recognitionRef.current) {
+            // User wants continuous mode, restart after a brief delay
             setTimeout(() => {
-              try {
-                recognitionRef.current.start()
-              } catch (error) {
-                // Ignore errors when already listening
+              // Double-check that continuous mode is still active and user still wants it
+              if (continuousMode && recognitionRef.current) {
+                try {
+                  recognitionRef.current.start()
+                  setIsListening(true)
+                } catch (error) {
+                  // Ignore errors when already listening
+                  console.log('Recognition already active or error:', error)
+                }
               }
             }, 500)
           }
@@ -276,6 +287,17 @@ function DreamCatcherModuleContent() {
     if (isVoiceEnabled && messages.length > 0) {
       const lastMessage = messages[messages.length - 1]
       if (lastMessage.role === 'assistant') {
+        // CRITICAL: Stop speech recognition when AI starts speaking
+        // This prevents the mic from picking up the AI's voice
+        if (recognitionRef.current && isListening) {
+          try {
+            recognitionRef.current.stop()
+            setIsListening(false)
+          } catch (error) {
+            console.log('Error stopping recognition when AI speaks:', error)
+          }
+        }
+
         // Stop any existing audio immediately to prevent overlapping voices
         if (currentAudioRef.current) {
           currentAudioRef.current.pause()
@@ -322,13 +344,19 @@ function DreamCatcherModuleContent() {
               URL.revokeObjectURL(audioUrl)
               currentAudioRef.current = null
 
-              // In continuous mode, restart listening after AI finishes speaking
-              if (continuousMode && recognitionRef.current && !isListening) {
+              // Only restart listening if user explicitly activated continuous mode (mic button was clicked)
+              // Do NOT auto-start recognition - user must click mic button to activate
+              // This prevents picking up AI voice when user hasn't clicked mic
+              if (continuousMode && isListening && recognitionRef.current) {
+                // User has mic active, restart listening after AI finishes
                 setTimeout(() => {
-                  try {
-                    recognitionRef.current?.start()
-                  } catch (error) {
-                    // Ignore errors when already listening
+                  if (continuousMode && isListening && recognitionRef.current) {
+                    try {
+                      recognitionRef.current.start()
+                    } catch (error) {
+                      // Ignore errors when already listening
+                      console.log('Recognition already active or error:', error)
+                    }
                   }
                 }, 500)
               }
