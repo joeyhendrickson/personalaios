@@ -13,6 +13,7 @@ import {
   Plus,
   CheckCircle,
   Loader2,
+  Play,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,8 +33,9 @@ interface SavedSession {
     dreams_discovered?: string[]
     executive_skills?: any
     executive_blocking_factors?: any
+    personality_question_index?: number
   }
-  completed_at: string
+  completed_at: string | null
   created_at: string
 }
 
@@ -181,13 +183,32 @@ export default function SavedDreamsPage() {
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div>
-                      <CardTitle className="text-lg">Dream Catcher Session</CardTitle>
+                      <CardTitle className="text-lg">
+                        Dream Catcher Session
+                        {session.assessment_data.goals_generated &&
+                        session.assessment_data.goals_generated.length > 0 ? (
+                          <span className="ml-2 text-sm font-normal text-green-600">
+                            <CheckCircle className="h-4 w-4 inline mr-1" />
+                            Completed
+                          </span>
+                        ) : (
+                          <span className="ml-2 text-sm font-normal text-blue-600">
+                            In Progress
+                          </span>
+                        )}
+                      </CardTitle>
                       <CardDescription>
-                        {new Date(session.completed_at).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
+                        {session.completed_at
+                          ? new Date(session.completed_at).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                            })
+                          : new Date(session.created_at).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                            })}
                       </CardDescription>
                     </div>
                     <Button
@@ -234,26 +255,47 @@ export default function SavedDreamsPage() {
                   )}
 
                   <div className="flex space-x-2">
-                    <Button
-                      onClick={() =>
-                        handleAutofill(session.id, session.assessment_data.goals_generated || [])
-                      }
-                      disabled={autofilling === session.id}
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                      size="sm"
-                    >
-                      {autofilling === session.id ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          Adding...
-                        </>
-                      ) : (
-                        <>
-                          <Target className="h-4 w-4 mr-2" />
-                          Add to Dashboard
-                        </>
+                    {/* Continue button - show if session is incomplete */}
+                    {(!session.assessment_data.goals_generated ||
+                      session.assessment_data.goals_generated.length === 0) && (
+                      <Button
+                        onClick={() =>
+                          router.push(`/modules/dream-catcher?sessionId=${session.id}`)
+                        }
+                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                        size="sm"
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        Continue
+                      </Button>
+                    )}
+                    {/* Autofill button - only show if goals exist */}
+                    {session.assessment_data.goals_generated &&
+                      session.assessment_data.goals_generated.length > 0 && (
+                        <Button
+                          onClick={() =>
+                            handleAutofill(
+                              session.id,
+                              session.assessment_data.goals_generated || []
+                            )
+                          }
+                          disabled={autofilling === session.id}
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                          size="sm"
+                        >
+                          {autofilling === session.id ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              Adding...
+                            </>
+                          ) : (
+                            <>
+                              <Target className="h-4 w-4 mr-2" />
+                              Add to Dashboard
+                            </>
+                          )}
+                        </Button>
                       )}
-                    </Button>
                   </div>
                 </CardContent>
               </Card>

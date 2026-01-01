@@ -71,9 +71,11 @@ function DreamCatcherModuleContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isNewUser = searchParams.get('newUser') === 'true'
+  const sessionId = searchParams.get('sessionId')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingSession, setIsLoadingSession] = useState(false)
   const [currentPhase, setCurrentPhase] = useState<
     | 'personality'
     | 'assessment'
@@ -897,206 +899,215 @@ function DreamCatcherModuleContent() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Chat Interface */}
           <div className="lg:col-span-3">
-            <div className="bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 h-[600px] flex flex-col shadow-lg">
-              {/* Chat Header */}
-              <div className="border-b border-gray-200 p-4 bg-gradient-to-r from-purple-50 to-pink-50">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-purple-100 rounded-full">
-                    <Sparkles className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Dream Catcher</h3>
-                    <p className="text-sm text-gray-600">
-                      {phaseInfo.name} - Step{' '}
-                      {[
-                        'personality',
-                        'assessment',
-                        'influences',
-                        'executive-skills',
-                        'executive-blocking',
-                        'dreams',
-                        'vision',
-                        'goals',
-                      ].indexOf(currentPhase) + 1}{' '}
-                      of 8
-                    </p>
-                  </div>
+            {isLoadingSession ? (
+              <div className="bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 h-[600px] flex items-center justify-center shadow-lg">
+                <div className="text-center">
+                  <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
+                  <p className="text-gray-600">Loading your saved progress...</p>
                 </div>
               </div>
+            ) : (
+              <div className="bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 h-[600px] flex flex-col shadow-lg">
+                {/* Chat Header */}
+                <div className="border-b border-gray-200 p-4 bg-gradient-to-r from-purple-50 to-pink-50">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-purple-100 rounded-full">
+                      <Sparkles className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Dream Catcher</h3>
+                      <p className="text-sm text-gray-600">
+                        {phaseInfo.name} - Step{' '}
+                        {[
+                          'personality',
+                          'assessment',
+                          'influences',
+                          'executive-skills',
+                          'executive-blocking',
+                          'dreams',
+                          'vision',
+                          'goals',
+                        ].indexOf(currentPhase) + 1}{' '}
+                        of 8
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {messages.map((message) => (
                     <div
-                      className={`max-w-[85%] ${message.role === 'user' ? 'order-2' : 'order-1'}`}
+                      key={message.id}
+                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`flex items-start space-x-2 ${message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}
+                        className={`max-w-[85%] ${message.role === 'user' ? 'order-2' : 'order-1'}`}
                       >
                         <div
-                          className={`p-2 rounded-full ${
-                            message.role === 'user'
-                              ? 'bg-blue-100 text-blue-600'
-                              : 'bg-purple-100 text-purple-600'
-                          }`}
+                          className={`flex items-start space-x-2 ${message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}
                         >
-                          {message.role === 'user' ? (
-                            <User className="h-4 w-4" />
-                          ) : (
-                            <Bot className="h-4 w-4" />
-                          )}
-                        </div>
-                        <div
-                          className={`rounded-lg p-3 ${
-                            message.role === 'user'
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-900'
-                          }`}
-                        >
-                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                          <p
-                            className={`text-xs mt-1 ${
-                              message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+                          <div
+                            className={`p-2 rounded-full ${
+                              message.role === 'user'
+                                ? 'bg-blue-100 text-blue-600'
+                                : 'bg-purple-100 text-purple-600'
                             }`}
                           >
-                            {formatTime(message.timestamp)}
-                          </p>
+                            {message.role === 'user' ? (
+                              <User className="h-4 w-4" />
+                            ) : (
+                              <Bot className="h-4 w-4" />
+                            )}
+                          </div>
+                          <div
+                            className={`rounded-lg p-3 ${
+                              message.role === 'user'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-900'
+                            }`}
+                          >
+                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                            <p
+                              className={`text-xs mt-1 ${
+                                message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+                              }`}
+                            >
+                              {formatTime(message.timestamp)}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="flex items-start space-x-2">
-                      <div className="p-2 bg-purple-100 rounded-full">
-                        <Bot className="h-4 w-4 text-purple-600" />
-                      </div>
-                      <div className="bg-gray-100 rounded-lg p-3">
-                        <div className="flex items-center space-x-2">
-                          <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
-                          <span className="text-sm text-gray-600">
-                            Reflecting on your response...
-                          </span>
+                  {isLoading && (
+                    <div className="flex justify-start">
+                      <div className="flex items-start space-x-2">
+                        <div className="p-2 bg-purple-100 rounded-full">
+                          <Bot className="h-4 w-4 text-purple-600" />
+                        </div>
+                        <div className="bg-gray-100 rounded-lg p-3">
+                          <div className="flex items-center space-x-2">
+                            <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                            <span className="text-sm text-gray-600">
+                              Reflecting on your response...
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                <div ref={messagesEndRef} />
-              </div>
+                  <div ref={messagesEndRef} />
+                </div>
 
-              {/* Input */}
-              <div className="border-t border-gray-200 p-4 bg-white">
-                <div className="flex space-x-2">
-                  <button
-                    onClick={toggleContinuousMode}
-                    disabled={isLoading}
-                    className={`p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      continuousMode
-                        ? 'bg-red-500 text-white animate-pulse'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                    title={
-                      continuousMode
-                        ? 'Stop continuous voice chat'
-                        : 'Start continuous voice-to-voice chat'
-                    }
-                  >
-                    <Mic className="h-4 w-4" />
-                  </button>
-                  <textarea
-                    value={inputMessage}
-                    onChange={(e) => {
-                      // Stop any playing audio when user types
-                      if (currentAudioRef.current) {
-                        currentAudioRef.current.pause()
-                        currentAudioRef.current = null
-                      }
-                      setInputMessage(e.target.value)
-                    }}
-                    onKeyPress={handleKeyPress}
-                    placeholder={
-                      isListening ? 'Listening...' : 'Share your thoughts or click mic...'
-                    }
-                    className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    rows={2}
-                    disabled={isLoading}
-                  />
-                  <div className="relative voice-selector-container">
+                {/* Input */}
+                <div className="border-t border-gray-200 p-4 bg-white">
+                  <div className="flex space-x-2">
                     <button
-                      onClick={() => setShowVoiceSelector(!showVoiceSelector)}
-                      disabled={!isVoiceEnabled}
+                      onClick={toggleContinuousMode}
+                      disabled={isLoading}
+                      className={`p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                        continuousMode
+                          ? 'bg-red-500 text-white animate-pulse'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                      title={
+                        continuousMode
+                          ? 'Stop continuous voice chat'
+                          : 'Start continuous voice-to-voice chat'
+                      }
+                    >
+                      <Mic className="h-4 w-4" />
+                    </button>
+                    <textarea
+                      value={inputMessage}
+                      onChange={(e) => {
+                        // Stop any playing audio when user types
+                        if (currentAudioRef.current) {
+                          currentAudioRef.current.pause()
+                          currentAudioRef.current = null
+                        }
+                        setInputMessage(e.target.value)
+                      }}
+                      onKeyPress={handleKeyPress}
+                      placeholder={
+                        isListening ? 'Listening...' : 'Share your thoughts or click mic...'
+                      }
+                      className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      rows={2}
+                      disabled={isLoading}
+                    />
+                    <div className="relative voice-selector-container">
+                      <button
+                        onClick={() => setShowVoiceSelector(!showVoiceSelector)}
+                        disabled={!isVoiceEnabled}
+                        className={`p-2 rounded-lg transition-colors ${
+                          isVoiceEnabled
+                            ? 'bg-blue-500 text-white hover:bg-blue-600'
+                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        }`}
+                        title={`Select voice (Current: ${selectedVoice})`}
+                      >
+                        <span className="text-xs font-medium">{selectedVoice}</span>
+                      </button>
+                      {showVoiceSelector && availableVoices.length > 0 && (
+                        <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[150px] max-h-[200px] overflow-y-auto">
+                          <div className="p-2 border-b border-gray-200">
+                            <p className="text-xs font-semibold text-gray-700">Select Voice</p>
+                          </div>
+                          {availableVoices.map((voice) => (
+                            <button
+                              key={voice.id}
+                              onClick={() => handleVoiceChange(voice.name)}
+                              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                                selectedVoice === voice.name || selectedVoice === voice.id
+                                  ? 'bg-purple-50 text-purple-700 font-medium'
+                                  : 'text-gray-700'
+                              }`}
+                            >
+                              {voice.name}
+                              {(selectedVoice === voice.name || selectedVoice === voice.id) && (
+                                <span className="ml-2 text-purple-600">✓</span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={toggleVoice}
                       className={`p-2 rounded-lg transition-colors ${
                         isVoiceEnabled
-                          ? 'bg-blue-500 text-white hover:bg-blue-600'
-                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          ? 'bg-green-500 text-white hover:bg-green-600'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                       }`}
-                      title={`Select voice (Current: ${selectedVoice})`}
+                      title={isVoiceEnabled ? 'Disable voice output' : 'Enable voice output'}
                     >
-                      <span className="text-xs font-medium">{selectedVoice}</span>
+                      {isVoiceEnabled ? (
+                        <Volume2 className="h-4 w-4" />
+                      ) : (
+                        <VolumeX className="h-4 w-4" />
+                      )}
                     </button>
-                    {showVoiceSelector && availableVoices.length > 0 && (
-                      <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[150px] max-h-[200px] overflow-y-auto">
-                        <div className="p-2 border-b border-gray-200">
-                          <p className="text-xs font-semibold text-gray-700">Select Voice</p>
-                        </div>
-                        {availableVoices.map((voice) => (
-                          <button
-                            key={voice.id}
-                            onClick={() => handleVoiceChange(voice.name)}
-                            className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors ${
-                              selectedVoice === voice.name || selectedVoice === voice.id
-                                ? 'bg-purple-50 text-purple-700 font-medium'
-                                : 'text-gray-700'
-                            }`}
-                          >
-                            {voice.name}
-                            {(selectedVoice === voice.name || selectedVoice === voice.id) && (
-                              <span className="ml-2 text-purple-600">✓</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    <button
+                      onClick={sendMessage}
+                      disabled={!inputMessage.trim() || isLoading}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                    >
+                      <Send className="h-4 w-4" />
+                    </button>
                   </div>
-                  <button
-                    onClick={toggleVoice}
-                    className={`p-2 rounded-lg transition-colors ${
-                      isVoiceEnabled
-                        ? 'bg-green-500 text-white hover:bg-green-600'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                    title={isVoiceEnabled ? 'Disable voice output' : 'Enable voice output'}
-                  >
-                    {isVoiceEnabled ? (
-                      <Volume2 className="h-4 w-4" />
-                    ) : (
-                      <VolumeX className="h-4 w-4" />
-                    )}
-                  </button>
-                  <button
-                    onClick={sendMessage}
-                    disabled={!inputMessage.trim() || isLoading}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
+                  {isListening && (
+                    <p className="text-xs text-red-600 mt-2 flex items-center">
+                      <Mic className="h-3 w-3 mr-1 animate-pulse" />
+                      Listening... Speak now or click the mic again to stop
+                    </p>
+                  )}
                 </div>
-                {isListening && (
-                  <p className="text-xs text-red-600 mt-2 flex items-center">
-                    <Mic className="h-3 w-3 mr-1 animate-pulse" />
-                    Listening... Speak now or click the mic again to stop
-                  </p>
-                )}
               </div>
-            </div>
+            )}
           </div>
 
           {/* Sidebar */}

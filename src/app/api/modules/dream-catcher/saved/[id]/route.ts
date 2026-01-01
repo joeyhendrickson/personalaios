@@ -1,6 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const supabase = await createClient()
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id: sessionId } = await params
+
+    // Fetch the session
+    const { data: session, error: fetchError } = await supabase
+      .from('dream_catcher_sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (fetchError || !session) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      session: session,
+    })
+  } catch (error) {
+    console.error('Error in get session API:', error)
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch session',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
