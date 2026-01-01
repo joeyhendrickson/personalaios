@@ -467,6 +467,47 @@ function DreamCatcherModuleContent() {
     }
   }
 
+  const sendMessage = async () => {
+    if (!inputMessage.trim() || isLoading) return
+    const messageToSend = inputMessage.trim()
+    setInputMessage('')
+    await sendMessageDirectly(messageToSend)
+  }
+
+  const toggleContinuousMode = () => {
+    if (continuousMode) {
+      setContinuousMode(false)
+      if (recognitionRef.current && isListening) {
+        recognitionRef.current.stop()
+        setIsListening(false)
+      }
+      if (speechTimeoutRef.current) {
+        clearTimeout(speechTimeoutRef.current)
+        speechTimeoutRef.current = null
+      }
+    } else {
+      setContinuousMode(true)
+      if (recognitionRef.current && !isListening) {
+        try {
+          recognitionRef.current.start()
+          setIsListening(true)
+        } catch (error) {
+          console.error('Error starting recognition:', error)
+        }
+      }
+    }
+  }
+
+  const handleVoiceChange = (voiceName: string) => {
+    setSelectedVoice(voiceName)
+    localStorage.setItem('elevenlabs_selected_voice', voiceName)
+    setShowVoiceSelector(false)
+  }
+
+  const toggleVoice = () => {
+    setIsVoiceEnabled(!isVoiceEnabled)
+  }
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -830,14 +871,18 @@ function DreamCatcherModuleContent() {
               <div className="border-t border-gray-200 p-4 bg-white">
                 <div className="flex space-x-2">
                   <button
-                    onClick={isListening ? stopListening : startListening}
+                    onClick={toggleContinuousMode}
                     disabled={isLoading}
                     className={`p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      isListening
+                      continuousMode
                         ? 'bg-red-500 text-white animate-pulse'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
-                    title={isListening ? 'Stop listening' : 'Start voice input'}
+                    title={
+                      continuousMode
+                        ? 'Stop continuous voice chat'
+                        : 'Start continuous voice-to-voice chat'
+                    }
                   >
                     <Mic className="h-4 w-4" />
                   </button>

@@ -231,7 +231,7 @@ export default function AICoachModule() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: inputMessage,
+          message: messageText,
           conversation_history: messages.slice(-10).map((msg) => ({
             role: msg.role,
             content: msg.content,
@@ -297,6 +297,13 @@ export default function AICoachModule() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const sendMessage = async () => {
+    if (!inputMessage.trim() || isLoading) return
+    const messageToSend = inputMessage.trim()
+    setInputMessage('')
+    await sendMessageDirectly(messageToSend)
   }
 
   const speakWithElevenLabs = async (text: string) => {

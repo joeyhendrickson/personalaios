@@ -288,11 +288,18 @@ Create 8-12 goals total. Organize them by category. After generating the goals, 
   // Build context from conversation and assessment data
   const contextSummary = buildContextSummary(assessmentData, userData, conversationHistory)
 
+  // Build personality question context if in personality phase
+  const personalityQuestionContext =
+    currentPhase === 'personality' && personalityQuestionIndex < 20
+      ? `\n\nCURRENT QUESTION: You are on question ${personalityQuestionIndex + 1} of 20. Ask question ${personalityQuestionIndex + 1} from the list above. After the user answers, acknowledge briefly and ask question ${personalityQuestionIndex + 2}.`
+      : currentPhase === 'personality' && personalityQuestionIndex >= 20
+        ? `\n\nYou have completed all 20 personality questions. Provide a summary of their personality profile and transition to the assessment phase.`
+        : ''
+
   const prompt = `
 You are Dream Catcher, an expert personal consultant and life coach specializing in helping people discover their authentic dreams and create actionable plans to achieve them.
 
 ${phaseInstruction}
-
 ${personalityQuestionContext}
 
 CURRENT ASSESSMENT DATA:
