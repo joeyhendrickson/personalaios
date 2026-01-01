@@ -117,14 +117,24 @@ export function ChatInterface({
           }
 
           // Set up auto-submit after 10 seconds of silence
+          // Trigger when mic is active (continuousMode) and user has spoken (any transcript appears)
+          // We'll submit the final transcript (confirmed speech) after 10 seconds of silence
           if (continuousMode && currentTranscript.trim()) {
-            console.log('Setting up auto-submit timeout for:', currentTranscript)
+            console.log(
+              'Setting up auto-submit timeout - final:',
+              finalTranscript,
+              'interim:',
+              interimTranscript
+            )
             speechTimeoutRef.current = setTimeout(() => {
               console.log('Auto-submit triggered after 10s silence!')
-              if (currentTranscript.trim()) {
-                console.log('Auto-submitting:', currentTranscript)
-                // Directly submit the current transcript
-                submitMessage(currentTranscript)
+              // Use finalTranscript (confirmed speech) for submission, fallback to currentTranscript if no final yet
+              const textToSubmit = finalTranscript.trim() || currentTranscript.trim()
+              if (textToSubmit) {
+                console.log('Auto-submitting:', textToSubmit)
+                // Clear the input and submit
+                setInput('')
+                submitMessage(textToSubmit)
               }
             }, 10000) // 10 seconds
           }
@@ -391,6 +401,24 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
   // Voice input functions
   const startListening = () => {
     if (recognitionRef.current && !isListening) {
+      // CRITICAL: Stop any playing audio immediately when mic is activated
+      // This prevents speech-to-text from picking up the AI voice
+      const currentAudio = (window as any).__currentChatAudio
+      if (currentAudio) {
+        currentAudio.pause()
+        currentAudio.currentTime = 0 // Reset to beginning
+        ;(window as any).__currentChatAudio = null
+      }
+      if (synthesisRef.current) {
+        window.speechSynthesis.cancel()
+        synthesisRef.current = null
+      }
+
+      // Also stop any browser TTS that might be playing
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+      }
+
       try {
         setContinuousMode(true)
         recognitionRef.current.start()
@@ -612,7 +640,29 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
   }
 
   const toggleVoice = () => {
-    setVoiceEnabled(!voiceEnabled)
+    const newVoiceState = !voiceEnabled
+    setVoiceEnabled(newVoiceState)
+
+    // If turning voice off, immediately stop any playing audio
+    if (!newVoiceState) {
+      const currentAudio = (window as any).__currentChatAudio
+      if (currentAudio) {
+        currentAudio.pause()
+        currentAudio.currentTime = 0 // Reset to beginning
+        ;(window as any).__currentChatAudio = null
+      }
+      if (synthesisRef.current) {
+        window.speechSynthesis.cancel()
+        synthesisRef.current = null
+      }
+
+      // Also stop any browser TTS that might be playing
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+      }
+    }
+
+    // Also call stopSpeaking if currently speaking
     if (isSpeaking) {
       stopSpeaking()
     }
