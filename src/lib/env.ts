@@ -105,6 +105,8 @@ const parseEnv = () => {
     FITBIT_CLIENT_SECRET: getEnv('FITBIT_CLIENT_SECRET'),
     RESEND_API_KEY: getEnv('RESEND_API_KEY'),
     BUG_REPORT_EMAIL: getEnv('BUG_REPORT_EMAIL') || 'joeyhendrickson@me.com',
+    ELEVENLABS_API_KEY: getEnv('ELEVENLABS_API_KEY'),
+    ELEVENLABS_VOICE_ID: getEnv('ELEVENLABS_VOICE_ID'),
     NEXTAUTH_SECRET: getEnv('NEXTAUTH_SECRET'),
     NEXTAUTH_URL: getEnv('NEXTAUTH_URL'),
   })
