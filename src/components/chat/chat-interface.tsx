@@ -451,6 +451,17 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         audio.onended = () => {
           setIsSpeaking(false)
           URL.revokeObjectURL(audioUrl)
+
+          // In continuous mode, restart listening after AI finishes speaking
+          if (continuousMode && recognitionRef.current && !isListening) {
+            setTimeout(() => {
+              try {
+                recognitionRef.current?.start()
+              } catch (error) {
+                // Ignore errors when already listening
+              }
+            }, 500)
+          }
         }
         audio.onerror = () => {
           setIsSpeaking(false)

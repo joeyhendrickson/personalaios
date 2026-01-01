@@ -91,12 +91,16 @@ function DreamCatcherModuleContent() {
   const [isAutofilling, setIsAutofilling] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true)
+  const [continuousMode, setContinuousMode] = useState(false)
   const [availableVoices, setAvailableVoices] = useState<Array<{ id: string; name: string }>>([])
   const [selectedVoice, setSelectedVoice] = useState<string>('Henry')
   const [showVoiceSelector, setShowVoiceSelector] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
   const synthRef = useRef<SpeechSynthesis | null>(null)
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null)
+  const speechTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastSpeechTimeRef = useRef<number>(0)
 
   // Load available voices and selected voice preference
   useEffect(() => {
@@ -165,23 +169,78 @@ function DreamCatcherModuleContent() {
 
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition()
-        recognition.continuous = false
-        recognition.interimResults = false
+        recognition.continuous = true // Enable continuous listening for voice-to-voice
+        recognition.interimResults = true // Get interim results for better UX
         recognition.lang = 'en-US'
 
         recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript
-          setInputMessage(transcript)
-          setIsListening(false)
+          let finalTranscript = ''
+          let interimTranscript = ''
+
+          // Process all results
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript
+            } else {
+              interimTranscript += transcript
+            }
+          }
+
+          const currentTranscript = finalTranscript + interimTranscript
+          setInputMessage(currentTranscript)
+          lastSpeechTimeRef.current = Date.now()
+
+          // In continuous mode, auto-submit after 2 seconds of silence
+          if (continuousMode && finalTranscript.trim()) {
+            // Clear existing timeout
+            if (speechTimeoutRef.current) {
+              clearTimeout(speechTimeoutRef.current)
+            }
+
+            // Set up auto-submit after 2 seconds of silence
+            speechTimeoutRef.current = setTimeout(() => {
+              if (finalTranscript.trim() && !isLoading) {
+                // Auto-submit the message
+                const messageToSend = finalTranscript.trim()
+                setInputMessage('')
+                sendMessageDirectly(messageToSend)
+              }
+            }, 2000)
+          }
         }
 
         recognition.onerror = (event: any) => {
           console.error('Speech recognition error:', event.error)
-          setIsListening(false)
+          if (event.error !== 'no-speech') {
+            setIsListening(false)
+            if (continuousMode) {
+              // Restart listening after error (except for no-speech)
+              setTimeout(() => {
+                if (continuousMode && recognitionRef.current) {
+                  try {
+                    recognitionRef.current.start()
+                  } catch (error) {
+                    console.error('Error restarting recognition:', error)
+                  }
+                }
+              }, 1000)
+            }
+          }
         }
 
         recognition.onend = () => {
           setIsListening(false)
+          // Restart listening if in continuous mode
+          if (continuousMode && recognitionRef.current) {
+            setTimeout(() => {
+              try {
+                recognitionRef.current.start()
+              } catch (error) {
+                // Ignore errors when already listening
+              }
+            }, 500)
+          }
         }
 
         recognitionRef.current = recognition
@@ -236,10 +295,30 @@ function DreamCatcherModuleContent() {
           .then((audioBlob) => {
             const audioUrl = URL.createObjectURL(audioBlob)
             const audio = new Audio(audioUrl)
-            audio.play()
+            currentAudioRef.current = audio
+
             audio.onended = () => {
               URL.revokeObjectURL(audioUrl)
+              currentAudioRef.current = null
+
+              // In continuous mode, restart listening after AI finishes speaking
+              if (continuousMode && recognitionRef.current && !isListening) {
+                setTimeout(() => {
+                  try {
+                    recognitionRef.current?.start()
+                  } catch (error) {
+                    // Ignore errors when already listening
+                  }
+                }, 500)
+              }
             }
+
+            audio.onerror = () => {
+              URL.revokeObjectURL(audioUrl)
+              currentAudioRef.current = null
+            }
+
+            audio.play()
           })
           .catch((error) => {
             console.error('Error playing ElevenLabs audio:', error)

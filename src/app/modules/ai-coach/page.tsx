@@ -123,11 +123,16 @@ export default function AICoachModule() {
   const [personalityInsights, setPersonalityInsights] = useState<PersonalityInsights | null>(null)
   const [activeTab, setActiveTab] = useState<'chat' | 'insights' | 'recommendations'>('chat')
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true)
+  const [continuousMode, setContinuousMode] = useState(false)
+  const [isListening, setIsListening] = useState(false)
   const [availableVoices, setAvailableVoices] = useState<Array<{ id: string; name: string }>>([])
   const [selectedVoice, setSelectedVoice] = useState<string>('Henry')
   const [showVoiceSelector, setShowVoiceSelector] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
+  const recognitionRef = useRef<any>(null)
+  const speechTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastSpeechTimeRef = useRef<number>(0)
 
   // Load available voices and selected voice preference
   useEffect(() => {
@@ -206,18 +211,17 @@ export default function AICoachModule() {
     setMessages([welcomeMessage])
   }, [])
 
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return
+  const sendMessageDirectly = async (messageText: string) => {
+    if (!messageText.trim() || isLoading) return
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: inputMessage,
+      content: messageText,
       timestamp: new Date(),
     }
 
     setMessages((prev) => [...prev, userMessage])
-    setInputMessage('')
     setIsLoading(true)
 
     try {
@@ -314,6 +318,17 @@ export default function AICoachModule() {
         audio.onended = () => {
           URL.revokeObjectURL(audioUrl)
           currentAudioRef.current = null
+
+          // In continuous mode, restart listening after AI finishes speaking
+          if (continuousMode && recognitionRef.current && !isListening) {
+            setTimeout(() => {
+              try {
+                recognitionRef.current?.start()
+              } catch (error) {
+                // Ignore errors when already listening
+              }
+            }, 500)
+          }
         }
         audio.onerror = () => {
           URL.revokeObjectURL(audioUrl)
