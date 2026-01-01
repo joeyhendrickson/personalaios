@@ -1119,7 +1119,7 @@ function DreamCatcherModuleContent() {
                             >
                               {voice.name}
                               {(selectedVoice === voice.name || selectedVoice === voice.id) && (
-                                <span className="ml-2 text-purple-600">✓</span>
+                                <span className="ml-2 text-purple-600">&#10003;</span>
                               )}
                             </button>
                           ))}
