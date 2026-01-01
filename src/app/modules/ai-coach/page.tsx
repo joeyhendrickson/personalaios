@@ -428,6 +428,13 @@ export default function AICoachModule() {
 
       if (response.ok) {
         const audioBlob = await response.blob()
+
+        // Double-check: stop any audio that might have started while fetching
+        if (currentAudioRef.current) {
+          currentAudioRef.current.pause()
+          currentAudioRef.current = null
+        }
+
         const audioUrl = URL.createObjectURL(audioBlob)
         const audio = new Audio(audioUrl)
         currentAudioRef.current = audio
