@@ -15,13 +15,72 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Text is required and must be a string' }, { status: 400 })
     }
 
-    // Generate speech using ElevenLabs
-    // voiceIdOrName can be a voice ID (UUID) or voice name (e.g., "Henry")
-    const audioUrl = await ElevenLabsService.textToSpeech(text, voiceIdOrName)
+    // Generate speech using ElevenLabs directly
+    // We need to call the API directly here since blob URLs don't work server-side
+    let voiceId = voiceIdOrName || env.ELEVENLABS_VOICE_ID
 
-    // Fetch the audio blob and return it
-    const audioResponse = await fetch(audioUrl)
-    const audioBlob = await audioResponse.blob()
+    // If it's a name (not a UUID), look it up
+    if (
+      voiceId &&
+      !voiceId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    ) {
+      const foundVoiceId = await ElevenLabsService.getVoiceIdByName(voiceId)
+      if (foundVoiceId) {
+        voiceId = foundVoiceId
+      } else {
+        // Fallback to "Henry" if lookup fails
+        const henryVoiceId = await ElevenLabsService.getVoiceIdByName('Henry')
+        voiceId = henryVoiceId || voiceId
+      }
+    }
+
+    // Default to "Henry" if no voice specified
+    if (!voiceId) {
+      const henryVoiceId = await ElevenLabsService.getVoiceIdByName('Henry')
+      voiceId = henryVoiceId || ''
+    }
+
+    if (!voiceId) {
+      return NextResponse.json(
+        {
+          error:
+            'Voice ID not found. Please configure ELEVENLABS_VOICE_ID or ensure "Henry" voice exists.',
+        },
+        { status: 400 }
+      )
+    }
+
+    // Call ElevenLabs API directly
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: 'POST',
+      headers: {
+        Accept: 'audio/mpeg',
+        'Content-Type': 'application/json',
+        'xi-api-key': env.ELEVENLABS_API_KEY,
+      },
+      body: JSON.stringify({
+        text: text,
+        model_id: 'eleven_monolingual_v1',
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75,
+        },
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('ElevenLabs API error:', errorText)
+      return NextResponse.json(
+        {
+          error: 'Failed to generate speech',
+          details: `ElevenLabs API error: ${response.status} ${response.statusText}`,
+        },
+        { status: response.status }
+      )
+    }
+
+    const audioBlob = await response.blob()
 
     // Return the audio as a response
     return new NextResponse(audioBlob, {
