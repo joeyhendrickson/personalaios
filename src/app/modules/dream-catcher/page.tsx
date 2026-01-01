@@ -82,6 +82,7 @@ function DreamCatcherModuleContent() {
     | 'goals'
   >('personality')
   const [assessmentData, setAssessmentData] = useState<AssessmentData>({})
+  const [personalityQuestionIndex, setPersonalityQuestionIndex] = useState(0)
   const [showResults, setShowResults] = useState(false)
   const [showExitWarning, setShowExitWarning] = useState(false)
   const [isAutofilling, setIsAutofilling] = useState(false)
@@ -138,6 +139,7 @@ function DreamCatcherModuleContent() {
           })),
           current_phase: currentPhase,
           assessment_data: assessmentData,
+          personality_question_index: personalityQuestionIndex,
         }),
       })
 
