@@ -60,8 +60,9 @@ export async function POST(request: NextRequest) {
     // At this point, accessToken is guaranteed to be defined (validated above)
     let accountsResponse
     try {
-      if (!accessToken) {
-        throw new Error('Access token is missing')
+      // TypeScript type narrowing - accessToken is validated above
+      if (!accessToken || !itemId) {
+        throw new Error('Access token or item ID is missing')
       }
       accountsResponse = await PlaidService.getAccounts(accessToken)
     } catch (error: any) {
@@ -77,25 +78,6 @@ export async function POST(request: NextRequest) {
     }
 
     const accounts = accountsResponse.accounts
-
-    // Encrypt access token before storing
-    let encryptedAccessToken: string
-    try {
-      encryptedAccessToken = encrypt(accessToken)
-      console.log('Access token encrypted successfully')
-    } catch (encryptError) {
-      console.error('Error encrypting access token:', encryptError)
-      return NextResponse.json(
-        {
-          error: 'Encryption failed',
-          message:
-            'Failed to encrypt access token. Please check TOKEN_ENCRYPTION_KEY environment variable.',
-          details:
-            encryptError instanceof Error ? encryptError.message : 'Unknown encryption error',
-        },
-        { status: 500 }
-      )
-    }
 
     // Validate required fields before proceeding
     if (!itemId) {
@@ -114,9 +96,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!encryptedAccessToken) {
-      console.error('encryptedAccessToken is missing')
-      return NextResponse.json({ error: 'Failed to encrypt access token' }, { status: 500 })
+    // Encrypt access token before storing
+    // At this point, accessToken is guaranteed to be defined (validated above)
+    let encryptedAccessToken: string
+    try {
+      encryptedAccessToken = encrypt(accessToken)
+      console.log('Access token encrypted successfully')
+    } catch (encryptError) {
+      console.error('Error encrypting access token:', encryptError)
+      return NextResponse.json(
+        {
+          error: 'Encryption failed',
+          message:
+            'Failed to encrypt access token. Please check TOKEN_ENCRYPTION_KEY environment variable.',
+          details:
+            encryptError instanceof Error ? encryptError.message : 'Unknown encryption error',
+        },
+        { status: 500 }
+      )
     }
 
     // Store bank connection in database
