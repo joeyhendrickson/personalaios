@@ -51,7 +51,8 @@ export async function POST(request: NextRequest) {
       current_phase,
       assessment_data,
       userData,
-      conversation_history
+      conversation_history,
+      body.personality_question_index || 0
     )
 
     // Store the conversation in activity logs
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
       response: response.message,
       next_phase: response.next_phase,
       assessment_data: response.assessment_data,
+      personality_question_index: response.personality_question_index,
     })
   } catch (error) {
     console.error('Error in Dream Catcher API:', error)
@@ -116,21 +118,41 @@ async function generateDreamCatcherResponse(
   currentPhase: string,
   assessmentData: any,
   userData: any,
-  conversationHistory: any[]
+  conversationHistory: any[],
+  personalityQuestionIndex: number = 0
 ) {
   const phaseInstructions = {
     personality: `
-You are in the PERSONALITY ASSESSMENT phase. Your goal is to understand the user's core personality traits, characteristics, and behavioral patterns.
+You are in the PERSONALITY ASSESSMENT phase. Your goal is to conduct a structured 20-question personality assessment that will lead to a comprehensive understanding of the user's personality profile.
 
-Ask thoughtful questions to explore:
-- Core personality traits (introversion/extroversion, thinking/feeling, etc.)
-- How they see themselves
-- How others might see them
-- Their natural tendencies and preferences
-- Their communication style
-- Their approach to challenges
+IMPORTANT: You must ask ONE question at a time from the list below. Track which questions have been asked using the conversation history. Do NOT ask multiple questions at once. After the user answers, acknowledge their response briefly, then ask the next question.
 
-Extract and update personality traits as you learn more. Be warm, curious, and non-judgmental. After gathering enough information (typically 3-5 exchanges), naturally transition to the assessment phase by saying something like "Now that I understand your personality better, let's explore what truly matters to you..."
+Here are the 20 questions you must ask in order:
+
+1. "On a scale of 1-10, how much do you recharge your energy from being alone versus being with others? (1 = completely alone, 10 = completely with others)"
+2. "When making decisions, do you tend to rely more on logic and facts, or on your feelings and values? Can you give me a recent example?"
+3. "How do you typically handle stress or overwhelming situations? What's your go-to response?"
+4. "Describe your ideal weekend. What activities would you choose and why?"
+5. "When you're in a group setting, do you prefer to lead the conversation, participate actively, observe quietly, or something else?"
+6. "Think about a time you had to solve a difficult problem. Walk me through your thought process - how did you approach it?"
+7. "How do you prefer to receive information? Do you like detailed explanations, quick summaries, visual aids, or hands-on experience?"
+8. "When you're working on a project, do you prefer to plan everything out in advance, or do you like to figure it out as you go?"
+9. "How do you typically respond to criticism or feedback? Can you give me an example?"
+10. "What energizes you more: completing tasks and checking things off a list, or exploring new ideas and possibilities?"
+11. "Describe your communication style. Are you direct and straightforward, or do you prefer to be diplomatic and considerate of others' feelings?"
+12. "When facing a conflict with someone, what's your typical approach? Do you address it head-on, avoid it, seek compromise, or something else?"
+13. "How do you feel about taking risks? Are you comfortable with uncertainty, or do you prefer stability and predictability?"
+14. "Think about your work or daily routine. Do you prefer structure and routine, or variety and spontaneity?"
+15. "How do you express creativity? Are you someone who enjoys creative activities, or do you prefer more analytical pursuits?"
+16. "When you're learning something new, what helps you learn best? Reading, watching, doing, discussing, or teaching others?"
+17. "How do you make sense of the world around you? Do you focus more on what's concrete and real, or on patterns, possibilities, and what could be?"
+18. "Describe how you typically approach deadlines. Are you someone who finishes early, right on time, or do you work best under pressure?"
+19. "When you're in a leadership role (or imagine you are), what's your leadership style? Do you delegate, collaborate, direct, or inspire?"
+20. "Looking at your life overall, what percentage of your time do you spend: (a) following routines and maintaining stability, (b) exploring new things and seeking change, (c) a mix of both?"
+
+TRACKING: Keep track of which question number you're on. After asking question 20 and receiving the answer, provide a comprehensive personality profile summary based on all their responses, then transition to the assessment phase by saying something like "Thank you for sharing so openly. Based on your responses, I now have a clear picture of your personality. Let's explore what truly matters to you..."
+
+Extract and update personality traits as you learn more. Be warm, curious, and non-judgmental. Ask ONE question at a time and wait for their response before moving to the next.
 `,
 
     assessment: `
@@ -271,6 +293,8 @@ You are Dream Catcher, an expert personal consultant and life coach specializing
 
 ${phaseInstruction}
 
+${personalityQuestionContext}
+
 CURRENT ASSESSMENT DATA:
 ${JSON.stringify(assessmentData, null, 2)}
 
@@ -304,8 +328,9 @@ INSTRUCTIONS:
 RESPONSE FORMAT:
 Your response should be a JSON object with this structure:
 {
-  "message": "Your conversational response to the user (warm, engaging, with questions)",
-  "next_phase": "personality|assessment|influences|executive-skills|executive-blocking|dreams|vision|goals" (only change if transitioning),
+  "message": "Your conversational response to the user (warm, engaging, with ONE question if in personality phase)",
+  "next_phase": "personality|assessment|influences|executive-skills|executive-blocking|dreams|vision|goals" (only change if transitioning after question 20),
+  "personality_question_index": ${currentPhase === 'personality' ? personalityQuestionIndex + 1 : personalityQuestionIndex} (increment by 1 after asking each question in personality phase, only if currentPhase is 'personality'),
   "assessment_data": {
     "personality_traits": ["trait1", "trait2", ...] (update as you learn),
     "personal_insights": ["insight1", "insight2", ...] (from assessment phase),
