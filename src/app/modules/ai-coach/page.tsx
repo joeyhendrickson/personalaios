@@ -189,6 +189,100 @@ export default function AICoachModule() {
     }
   }, [showVoiceSelector])
 
+  // Initialize speech recognition for continuous mode
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition()
+        recognition.continuous = true
+        recognition.interimResults = true
+        recognition.lang = 'en-US'
+
+        recognition.onresult = (event: any) => {
+          let finalTranscript = ''
+          let interimTranscript = ''
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript
+            } else {
+              interimTranscript += transcript
+            }
+          }
+
+          const currentTranscript = finalTranscript + interimTranscript
+          // Stop any playing audio when user speaks
+          if (currentAudioRef.current) {
+            currentAudioRef.current.pause()
+            currentAudioRef.current = null
+          }
+          setInputMessage(currentTranscript)
+          lastSpeechTimeRef.current = Date.now()
+
+          // Auto-submit after 10 seconds of silence in continuous mode
+          if (continuousMode && finalTranscript.trim()) {
+            if (speechTimeoutRef.current) {
+              clearTimeout(speechTimeoutRef.current)
+            }
+
+            speechTimeoutRef.current = setTimeout(() => {
+              if (finalTranscript.trim() && !isLoading) {
+                const messageToSend = finalTranscript.trim()
+                setInputMessage('')
+                sendMessageDirectly(messageToSend)
+              }
+            }, 10000) // 10 seconds
+          }
+        }
+
+        recognition.onerror = (event: any) => {
+          if (event.error !== 'no-speech') {
+            setIsListening(false)
+            if (continuousMode) {
+              setTimeout(() => {
+                if (continuousMode && recognitionRef.current) {
+                  try {
+                    recognitionRef.current.start()
+                  } catch (error) {
+                    // Ignore errors
+                  }
+                }
+              }, 1000)
+            }
+          }
+        }
+
+        recognition.onend = () => {
+          setIsListening(false)
+          if (continuousMode && recognitionRef.current) {
+            setTimeout(() => {
+              try {
+                recognitionRef.current.start()
+              } catch (error) {
+                // Ignore errors
+              }
+            }, 500)
+          }
+        }
+
+        recognitionRef.current = recognition
+      }
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop()
+      }
+      if (speechTimeoutRef.current) {
+        clearTimeout(speechTimeoutRef.current)
+      }
+    }
+  }, [continuousMode, isLoading])
+
   // Scroll to bottom when new messages are added
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -661,7 +755,14 @@ export default function AICoachModule() {
                 <div className="flex space-x-2">
                   <textarea
                     value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
+                    onChange={(e) => {
+                      // Stop any playing audio when user types
+                      if (currentAudioRef.current) {
+                        currentAudioRef.current.pause()
+                        currentAudioRef.current = null
+                      }
+                      setInputMessage(e.target.value)
+                    }}
                     onKeyPress={handleKeyPress}
                     placeholder="Ask me anything about your goals, habits, or how to improve your life..."
                     className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"

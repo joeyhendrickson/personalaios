@@ -116,17 +116,17 @@ export function ChatInterface({
             clearTimeout(speechTimeoutRef.current)
           }
 
-          // Set up auto-submit after 2.5 seconds of silence
+          // Set up auto-submit after 10 seconds of silence
           if (continuousMode && currentTranscript.trim()) {
             console.log('Setting up auto-submit timeout for:', currentTranscript)
             speechTimeoutRef.current = setTimeout(() => {
-              console.log('Auto-submit triggered after 2.5s silence!')
+              console.log('Auto-submit triggered after 10s silence!')
               if (currentTranscript.trim()) {
                 console.log('Auto-submitting:', currentTranscript)
                 // Directly submit the current transcript
                 submitMessage(currentTranscript)
               }
-            }, 2500) // 2.5 seconds
+            }, 10000) // 10 seconds
           }
         }
 
@@ -447,10 +447,14 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         const audioUrl = URL.createObjectURL(audioBlob)
         const audio = new Audio(audioUrl)
 
+        // Store audio reference for stopping when user inputs
+        ;(window as any).__currentChatAudio = audio
+
         audio.onplay = () => setIsSpeaking(true)
         audio.onended = () => {
           setIsSpeaking(false)
           URL.revokeObjectURL(audioUrl)
+          ;(window as any).__currentChatAudio = null
 
           // In continuous mode, restart listening after AI finishes speaking
           if (continuousMode && recognitionRef.current && !isListening) {
@@ -466,6 +470,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         audio.onerror = () => {
           setIsSpeaking(false)
           URL.revokeObjectURL(audioUrl)
+          ;(window as any).__currentChatAudio = null
           // Fallback to browser TTS if ElevenLabs fails
           fallbackToBrowserTTS(text)
         }
@@ -913,6 +918,16 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
           <Input
             value={input}
             onChange={(e) => {
+              // Stop any playing audio when user types
+              if (synthesisRef.current) {
+                window.speechSynthesis.cancel()
+                synthesisRef.current = null
+              }
+              // Stop ElevenLabs audio if playing
+              if ((window as any).__currentChatAudio) {
+                ;(window as any).__currentChatAudio.pause()
+                ;(window as any).__currentChatAudio = null
+              }
               console.log('=== INPUT CHANGED ===', e.target.value)
               setInput(e.target.value)
             }}

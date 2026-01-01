@@ -188,6 +188,11 @@ function DreamCatcherModuleContent() {
           }
 
           const currentTranscript = finalTranscript + interimTranscript
+          // Stop any playing audio when user speaks
+          if (currentAudioRef.current) {
+            currentAudioRef.current.pause()
+            currentAudioRef.current = null
+          }
           setInputMessage(currentTranscript)
           lastSpeechTimeRef.current = Date.now()
 
@@ -198,7 +203,7 @@ function DreamCatcherModuleContent() {
               clearTimeout(speechTimeoutRef.current)
             }
 
-            // Set up auto-submit after 2 seconds of silence
+            // Set up auto-submit after 10 seconds of silence
             speechTimeoutRef.current = setTimeout(() => {
               if (finalTranscript.trim() && !isLoading) {
                 // Auto-submit the message
@@ -206,7 +211,7 @@ function DreamCatcherModuleContent() {
                 setInputMessage('')
                 sendMessageDirectly(messageToSend)
               }
-            }, 2000)
+            }, 10000) // 10 seconds
           }
         }
 
@@ -888,7 +893,14 @@ function DreamCatcherModuleContent() {
                   </button>
                   <textarea
                     value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
+                    onChange={(e) => {
+                      // Stop any playing audio when user types
+                      if (currentAudioRef.current) {
+                        currentAudioRef.current.pause()
+                        currentAudioRef.current = null
+                      }
+                      setInputMessage(e.target.value)
+                    }}
                     onKeyPress={handleKeyPress}
                     placeholder={
                       isListening ? 'Listening...' : 'Share your thoughts or click mic...'
