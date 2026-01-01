@@ -91,9 +91,67 @@ function DreamCatcherModuleContent() {
   const [isAutofilling, setIsAutofilling] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true)
+  const [availableVoices, setAvailableVoices] = useState<Array<{ id: string; name: string }>>([])
+  const [selectedVoice, setSelectedVoice] = useState<string>('Henry')
+  const [showVoiceSelector, setShowVoiceSelector] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
   const synthRef = useRef<SpeechSynthesis | null>(null)
+
+  // Load available voices and selected voice preference
+  useEffect(() => {
+    // Load selected voice from localStorage
+    const savedVoice = localStorage.getItem('elevenlabs_selected_voice')
+    if (savedVoice) {
+      setSelectedVoice(savedVoice)
+    }
+
+    // Fetch available voices from ElevenLabs
+    fetch('/api/elevenlabs/voices')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.voices && data.voices.length > 0) {
+          setAvailableVoices(data.voices)
+          // If saved voice is not in the list, use the first available voice
+          if (
+            savedVoice &&
+            !data.voices.find((v: any) => v.name === savedVoice || v.id === savedVoice)
+          ) {
+            setSelectedVoice(data.voices[0].name)
+            localStorage.setItem('elevenlabs_selected_voice', data.voices[0].name)
+          }
+        }
+      })
+      .catch((error) => {
+        console.error('Error fetching voices:', error)
+        // Fallback to default voices if API fails
+        setAvailableVoices([
+          { id: 'Henry', name: 'Henry' },
+          { id: 'Titan', name: 'Titan' },
+          { id: 'Joel', name: 'Joel' },
+          { id: 'Marcelo', name: 'Marcelo' },
+          { id: 'Frank', name: 'Frank' },
+          { id: 'Chuck', name: 'Chuck' },
+        ])
+      })
+  }, [])
+
+  // Close voice selector when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (showVoiceSelector && !target.closest('.voice-selector-container')) {
+        setShowVoiceSelector(false)
+      }
+    }
+
+    if (showVoiceSelector) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+      }
+    }
+  }, [showVoiceSelector])
 
   // Initialize speech recognition and synthesis
   useEffect(() => {
@@ -166,7 +224,7 @@ function DreamCatcherModuleContent() {
           },
           body: JSON.stringify({
             text: cleanText,
-            voiceId: 'Henry', // Use Henry voice
+            voiceIdOrName: selectedVoice, // Use selected voice
           }),
         })
           .then((response) => {
@@ -705,6 +763,43 @@ function DreamCatcherModuleContent() {
                     rows={2}
                     disabled={isLoading}
                   />
+                  <div className="relative voice-selector-container">
+                    <button
+                      onClick={() => setShowVoiceSelector(!showVoiceSelector)}
+                      disabled={!isVoiceEnabled}
+                      className={`p-2 rounded-lg transition-colors ${
+                        isVoiceEnabled
+                          ? 'bg-blue-500 text-white hover:bg-blue-600'
+                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
+                      title={`Select voice (Current: ${selectedVoice})`}
+                    >
+                      <span className="text-xs font-medium">{selectedVoice}</span>
+                    </button>
+                    {showVoiceSelector && availableVoices.length > 0 && (
+                      <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[150px] max-h-[200px] overflow-y-auto">
+                        <div className="p-2 border-b border-gray-200">
+                          <p className="text-xs font-semibold text-gray-700">Select Voice</p>
+                        </div>
+                        {availableVoices.map((voice) => (
+                          <button
+                            key={voice.id}
+                            onClick={() => handleVoiceChange(voice.name)}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                              selectedVoice === voice.name || selectedVoice === voice.id
+                                ? 'bg-purple-50 text-purple-700 font-medium'
+                                : 'text-gray-700'
+                            }`}
+                          >
+                            {voice.name}
+                            {(selectedVoice === voice.name || selectedVoice === voice.id) && (
+                              <span className="ml-2 text-purple-600">✓</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <button
                     onClick={toggleVoice}
                     className={`p-2 rounded-lg transition-colors ${
