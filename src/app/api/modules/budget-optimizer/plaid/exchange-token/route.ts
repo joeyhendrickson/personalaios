@@ -93,11 +93,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate required fields before inserting
+    // Validate required fields before proceeding
     if (!itemId) {
       console.error('itemId is missing from token response:', tokenResponse)
       return NextResponse.json(
         { error: 'Invalid token response: missing item_id' },
+        { status: 500 }
+      )
+    }
+
+    if (!accessToken) {
+      console.error('accessToken is missing from token response:', tokenResponse)
+      return NextResponse.json(
+        { error: 'Invalid token response: missing access_token' },
         { status: 500 }
       )
     }
