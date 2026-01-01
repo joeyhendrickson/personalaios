@@ -246,10 +246,36 @@ Current environment: ${envType}`
       const response = await client.itemPublicTokenExchange({
         public_token: publicToken,
       })
+
+      // Validate response structure
+      if (!response.data?.access_token) {
+        console.error('Plaid response missing access_token:', response.data)
+        throw new Error('Invalid Plaid response: missing access_token')
+      }
+
+      if (!response.data?.item_id) {
+        console.error('Plaid response missing item_id:', response.data)
+        throw new Error('Invalid Plaid response: missing item_id')
+      }
+
       return response.data
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error exchanging public token:', error)
-      throw new Error('Failed to exchange public token')
+
+      // Check if it's a Plaid API error
+      if (error.response?.data?.error_code) {
+        const plaidError = error.response.data
+        throw new Error(
+          `Failed to exchange public token: ${plaidError.error_message} (Plaid Code: ${plaidError.error_code})`
+        )
+      }
+
+      // Re-throw if it's already our custom error
+      if (error.message?.includes('Invalid Plaid response')) {
+        throw error
+      }
+
+      throw new Error(`Failed to exchange public token: ${error.message || 'Unknown error'}`)
     }
   }
 

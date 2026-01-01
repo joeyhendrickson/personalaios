@@ -23,14 +23,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Exchange public token for access token
-    let tokenResponse
-    let accessToken: string
-    let itemId: string
+    let tokenResponse: any
+    let accessToken: string | undefined
+    let itemId: string | undefined
 
     try {
       tokenResponse = await PlaidService.exchangePublicToken(public_token)
-      accessToken = tokenResponse.access_token
-      itemId = tokenResponse.item_id
+      accessToken = tokenResponse?.access_token
+      itemId = tokenResponse?.item_id
+
+      // Log the response structure for debugging
+      console.log('Plaid token exchange response:', {
+        has_access_token: !!accessToken,
+        has_item_id: !!itemId,
+        response_keys: tokenResponse ? Object.keys(tokenResponse) : 'no response',
+      })
     } catch (error: any) {
       const errorMessage = error?.message || 'Unknown error'
       console.error('Error exchanging public token:', errorMessage)
@@ -40,7 +47,10 @@ export async function POST(request: NextRequest) {
           error: 'Failed to exchange token',
           message: errorMessage.includes('INVALID_PUBLIC_TOKEN')
             ? 'The connection link has expired. Please try connecting again.'
-            : 'Failed to connect your bank account. Please try again.',
+            : errorMessage.includes('missing item_id')
+              ? 'Invalid response from Plaid. Please try connecting again.'
+              : 'Failed to connect your bank account. Please try again.',
+          details: errorMessage,
         },
         { status: 400 }
       )
