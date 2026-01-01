@@ -122,7 +122,12 @@ export default function AICoachModule() {
   const [isLoading, setIsLoading] = useState(false)
   const [personalityInsights, setPersonalityInsights] = useState<PersonalityInsights | null>(null)
   const [activeTab, setActiveTab] = useState<'chat' | 'insights' | 'recommendations'>('chat')
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true)
+  const [availableVoices, setAvailableVoices] = useState<Array<{ id: string; name: string }>>([])
+  const [selectedVoice, setSelectedVoice] = useState<string>('Henry')
+  const [showVoiceSelector, setShowVoiceSelector] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null)
 
   // Load available voices and selected voice preference
   useEffect(() => {
