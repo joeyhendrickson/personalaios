@@ -333,7 +333,7 @@ function DreamCatcherModuleContent() {
           })
       }
     }
-  }, [messages, isVoiceEnabled])
+  }, [messages, isVoiceEnabled, continuousMode, selectedVoice])
 
   // Initialize with welcome message
   useEffect(() => {
