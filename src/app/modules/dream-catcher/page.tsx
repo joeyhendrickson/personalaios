@@ -347,8 +347,9 @@ function DreamCatcherModuleContent() {
             }
             // Parse error response to get details
             let errorMessage = 'Failed to generate speech'
+            let errorData: any = null
             try {
-              const errorData = await response.json()
+              errorData = await response.json()
               errorMessage = errorData.details || errorData.error || errorMessage
               console.error('ElevenLabs API error:', {
                 status: response.status,
@@ -366,9 +367,23 @@ function DreamCatcherModuleContent() {
               })
               errorMessage = `Failed to generate speech: ${response.status} ${response.statusText}`
             }
-            throw new Error(errorMessage)
+            // Return null to trigger fallback instead of throwing
+            console.warn('ElevenLabs failed, falling back to browser TTS:', errorMessage)
+            return null
           })
           .then((audioBlob) => {
+            if (!audioBlob) {
+              // ElevenLabs failed, use browser TTS fallback
+              if (synthRef.current) {
+                const utterance = new SpeechSynthesisUtterance(cleanText)
+                utterance.rate = 0.9
+                utterance.pitch = 1
+                utterance.volume = 0.8
+                synthRef.current.speak(utterance)
+              }
+              return
+            }
+
             // Double-check: stop any audio that might have started while fetching
             if (currentAudioRef.current) {
               currentAudioRef.current.pause()
@@ -391,12 +406,30 @@ function DreamCatcherModuleContent() {
             audio.onerror = () => {
               URL.revokeObjectURL(audioUrl)
               currentAudioRef.current = null
+              // Fallback to browser TTS if audio playback fails
+              if (synthRef.current) {
+                const utterance = new SpeechSynthesisUtterance(cleanText)
+                utterance.rate = 0.9
+                utterance.pitch = 1
+                utterance.volume = 0.8
+                synthRef.current.speak(utterance)
+              }
             }
 
-            audio.play()
+            audio.play().catch((playError) => {
+              console.error('Error playing audio:', playError)
+              // Fallback to browser TTS if play fails
+              if (synthRef.current) {
+                const utterance = new SpeechSynthesisUtterance(cleanText)
+                utterance.rate = 0.9
+                utterance.pitch = 1
+                utterance.volume = 0.8
+                synthRef.current.speak(utterance)
+              }
+            })
           })
           .catch((error) => {
-            console.error('Error playing ElevenLabs audio:', error)
+            console.error('Error in ElevenLabs fetch:', error)
             // Fallback to browser TTS if ElevenLabs fails
             if (synthRef.current) {
               const utterance = new SpeechSynthesisUtterance(cleanText)
