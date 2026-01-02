@@ -96,7 +96,8 @@ export async function POST(request: NextRequest) {
         errorDetails.message = errorText
       }
 
-      console.error('ElevenLabs API error:', {
+      // Enhanced logging for production debugging
+      const diagnosticInfo = {
         status: response.status,
         statusText: response.statusText,
         error: errorDetails,
@@ -106,9 +107,16 @@ export async function POST(request: NextRequest) {
         apiKeyPrefix: apiKey ? `${apiKey.substring(0, 10)}...` : 'none',
         apiKeyEndsWith:
           apiKey && apiKey.length > 10 ? `...${apiKey.substring(apiKey.length - 4)}` : 'none',
-        // Check if key looks valid (ElevenLabs keys typically start with specific patterns)
         apiKeyLooksValid: apiKey ? /^[a-zA-Z0-9]{20,}/.test(apiKey) : false,
-      })
+        // Check environment variable sources
+        hasProcessEnv: !!process.env.ELEVENLABS_API_KEY,
+        hasEnvObject: !!env.ELEVENLABS_API_KEY,
+        processEnvLength: process.env.ELEVENLABS_API_KEY?.length || 0,
+        envObjectLength: env.ELEVENLABS_API_KEY?.length || 0,
+        nodeEnv: process.env.NODE_ENV,
+      }
+
+      console.error('ElevenLabs API error (detailed):', diagnosticInfo)
 
       return NextResponse.json(
         {
