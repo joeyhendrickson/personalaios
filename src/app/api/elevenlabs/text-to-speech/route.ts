@@ -25,33 +25,60 @@ export async function POST(request: NextRequest) {
     // Generate speech using ElevenLabs directly
     // We need to call the API directly here since blob URLs don't work server-side
     let voiceId = voiceIdOrName || env.ELEVENLABS_VOICE_ID
+    const isUUID = (id: string) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 
     // If it's a name (not a UUID), look it up
-    if (
-      voiceId &&
-      !voiceId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
-    ) {
+    if (voiceId && !isUUID(voiceId)) {
+      console.log('Looking up voice ID for name:', voiceId)
       const foundVoiceId = await ElevenLabsService.getVoiceIdByName(voiceId)
-      if (foundVoiceId) {
+      if (foundVoiceId && isUUID(foundVoiceId)) {
+        console.log('Found voice ID:', foundVoiceId)
         voiceId = foundVoiceId
       } else {
+        console.warn('Voice lookup failed for:', voiceId, 'falling back to Henry')
         // Fallback to "Henry" if lookup fails
         const henryVoiceId = await ElevenLabsService.getVoiceIdByName('Henry')
-        voiceId = henryVoiceId || voiceId
+        if (henryVoiceId && isUUID(henryVoiceId)) {
+          voiceId = henryVoiceId
+        } else {
+          console.error('Henry voice lookup also failed, cannot proceed')
+          return NextResponse.json(
+            {
+              error: 'Voice ID lookup failed. Please use a valid voice ID (UUID format).',
+              details: `Could not find voice ID for "${voiceId}" or fallback "Henry"`,
+            },
+            { status: 400 }
+          )
+        }
       }
     }
 
     // Default to "Henry" if no voice specified
-    if (!voiceId) {
+    if (!voiceId || !isUUID(voiceId)) {
+      console.log('No valid voice ID, looking up Henry')
       const henryVoiceId = await ElevenLabsService.getVoiceIdByName('Henry')
-      voiceId = henryVoiceId || ''
+      if (henryVoiceId && isUUID(henryVoiceId)) {
+        voiceId = henryVoiceId
+      } else {
+        console.error('Henry voice lookup failed')
+        return NextResponse.json(
+          {
+            error:
+              'Voice ID not found. Please configure ELEVENLABS_VOICE_ID or ensure "Henry" voice exists.',
+          },
+          { status: 400 }
+        )
+      }
     }
 
-    if (!voiceId) {
+    // Final validation - ensure we have a valid UUID
+    if (!voiceId || !isUUID(voiceId)) {
+      console.error('Invalid voice ID format:', voiceId)
       return NextResponse.json(
         {
-          error:
-            'Voice ID not found. Please configure ELEVENLABS_VOICE_ID or ensure "Henry" voice exists.',
+          error: 'Invalid voice ID format. Voice ID must be a UUID.',
+          details: `Received: "${voiceId}"`,
         },
         { status: 400 }
       )
