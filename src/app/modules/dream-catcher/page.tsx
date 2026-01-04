@@ -106,6 +106,63 @@ function DreamCatcherModuleContent() {
   const lastSpeechTimeRef = useRef<number>(0)
   const isRecognitionRunningRef = useRef<boolean>(false)
 
+  // Load available voices from ElevenLabs
+  useEffect(() => {
+    // Load selected voice from localStorage
+    const savedVoice = localStorage.getItem('elevenlabs_selected_voice')
+    if (savedVoice) {
+      setSelectedVoice(savedVoice)
+    }
+
+    // Fetch available voices from ElevenLabs (includes user's "My Voices")
+    fetch('/api/elevenlabs/voices')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.voices && data.voices.length > 0) {
+          setAvailableVoices(data.voices)
+          // Store the ID for the saved voice if we have it
+          if (savedVoice) {
+            const savedVoiceObj = data.voices.find(
+              (v: any) => v.name === savedVoice || v.id === savedVoice
+            )
+            if (savedVoiceObj) {
+              localStorage.setItem('elevenlabs_selected_voice_id', savedVoiceObj.id)
+            }
+          }
+          // If saved voice is not in the list, use the first available voice
+          if (
+            savedVoice &&
+            !data.voices.find((v: any) => v.name === savedVoice || v.id === savedVoice)
+          ) {
+            setSelectedVoice(data.voices[0].name)
+            localStorage.setItem('elevenlabs_selected_voice', data.voices[0].name)
+            localStorage.setItem('elevenlabs_selected_voice_id', data.voices[0].id)
+          }
+        }
+      })
+      .catch((error) => {
+        console.error('Error fetching voices:', error)
+        // Don't set fallback - let API handle default
+      })
+  }, [])
+
+  // Close voice selector when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (showVoiceSelector && !target.closest('.voice-selector-container')) {
+        setShowVoiceSelector(false)
+      }
+    }
+
+    if (showVoiceSelector) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+      }
+    }
+  }, [showVoiceSelector])
+
   // Initialize speech recognition and synthesis
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -283,9 +340,11 @@ function DreamCatcherModuleContent() {
           },
           body: JSON.stringify({
             text: cleanText,
-            // Use selected voice ID or name (will be looked up by API if needed)
+            // Use voice ID from localStorage if available, otherwise try to find in availableVoices, fallback to name
             voiceIdOrName:
-              availableVoices.find((v) => v.name === selectedVoice)?.id || selectedVoice,
+              localStorage.getItem('elevenlabs_selected_voice_id') ||
+              availableVoices.find((v) => v.name === selectedVoice)?.id ||
+              selectedVoice,
           }),
         })
           .then(async (response) => {
@@ -646,7 +705,15 @@ function DreamCatcherModuleContent() {
 
   const handleVoiceChange = (voiceName: string) => {
     setSelectedVoice(voiceName)
-    localStorage.setItem('elevenlabs_selected_voice', voiceName)
+    // Store both name and ID for lookup
+    const voice = availableVoices.find((v) => v.name === voiceName)
+    if (voice) {
+      localStorage.setItem('elevenlabs_selected_voice', voiceName)
+      localStorage.setItem('elevenlabs_selected_voice_id', voice.id)
+    } else {
+      localStorage.setItem('elevenlabs_selected_voice', voiceName)
+      localStorage.removeItem('elevenlabs_selected_voice_id')
+    }
     setShowVoiceSelector(false)
   }
 

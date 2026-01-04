@@ -476,8 +476,11 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         },
         body: JSON.stringify({
           text: text,
-          // Use selected voice ID or name (will be looked up by API if needed)
-          voiceIdOrName: availableVoices.find((v) => v.name === selectedVoice)?.id || selectedVoice,
+          // Use voice ID from localStorage if available, otherwise try to find in availableVoices, fallback to name
+          voiceIdOrName:
+            localStorage.getItem('elevenlabs_selected_voice_id') ||
+            availableVoices.find((v) => v.name === selectedVoice)?.id ||
+            selectedVoice,
         }),
       })
 
@@ -642,7 +645,15 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
   const handleVoiceChange = (voiceName: string) => {
     setSelectedVoice(voiceName)
-    localStorage.setItem('elevenlabs_selected_voice', voiceName)
+    // Store both name and ID for lookup
+    const voice = availableVoices.find((v) => v.name === voiceName)
+    if (voice) {
+      localStorage.setItem('elevenlabs_selected_voice', voiceName)
+      localStorage.setItem('elevenlabs_selected_voice_id', voice.id)
+    } else {
+      localStorage.setItem('elevenlabs_selected_voice', voiceName)
+      localStorage.removeItem('elevenlabs_selected_voice_id')
+    }
     setShowVoiceSelector(false)
   }
 
