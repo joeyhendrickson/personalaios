@@ -134,61 +134,6 @@ export default function AICoachModule() {
   const speechTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSpeechTimeRef = useRef<number>(0)
 
-  // Load available voices and selected voice preference
-  useEffect(() => {
-    // Load selected voice from localStorage
-    const savedVoice = localStorage.getItem('elevenlabs_selected_voice')
-    if (savedVoice) {
-      setSelectedVoice(savedVoice)
-    }
-
-    // Fetch available voices from ElevenLabs
-    fetch('/api/elevenlabs/voices')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.voices && data.voices.length > 0) {
-          setAvailableVoices(data.voices)
-          // If saved voice is not in the list, use the first available voice
-          if (
-            savedVoice &&
-            !data.voices.find((v: any) => v.name === savedVoice || v.id === savedVoice)
-          ) {
-            setSelectedVoice(data.voices[0].name)
-            localStorage.setItem('elevenlabs_selected_voice', data.voices[0].name)
-          }
-        }
-      })
-      .catch((error) => {
-        console.error('Error fetching voices:', error)
-        // Fallback to default voices if API fails
-        setAvailableVoices([
-          { id: 'Henry', name: 'Henry' },
-          { id: 'Titan', name: 'Titan' },
-          { id: 'Joel', name: 'Joel' },
-          { id: 'Marcelo', name: 'Marcelo' },
-          { id: 'Frank', name: 'Frank' },
-          { id: 'Chuck', name: 'Chuck' },
-        ])
-      })
-  }, [])
-
-  // Close voice selector when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-      if (showVoiceSelector && !target.closest('.voice-selector-container')) {
-        setShowVoiceSelector(false)
-      }
-    }
-
-    if (showVoiceSelector) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside)
-      }
-    }
-  }, [showVoiceSelector])
-
   // Initialize speech recognition for continuous mode
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -423,7 +368,8 @@ export default function AICoachModule() {
         },
         body: JSON.stringify({
           text: text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim(),
-          voiceIdOrName: selectedVoice,
+          // Use selected voice ID or name (will be looked up by API if needed)
+          voiceIdOrName: availableVoices.find((v) => v.name === selectedVoice)?.id || selectedVoice,
         }),
       })
 

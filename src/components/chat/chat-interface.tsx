@@ -476,7 +476,8 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         },
         body: JSON.stringify({
           text: text,
-          voiceIdOrName: selectedVoice, // Use selected voice
+          // Use selected voice ID or name (will be looked up by API if needed)
+          voiceIdOrName: availableVoices.find((v) => v.name === selectedVoice)?.id || selectedVoice,
         }),
       })
 
@@ -637,6 +638,12 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
       window.speechSynthesis.cancel()
       setIsSpeaking(false)
     }
+  }
+
+  const handleVoiceChange = (voiceName: string) => {
+    setSelectedVoice(voiceName)
+    localStorage.setItem('elevenlabs_selected_voice', voiceName)
+    setShowVoiceSelector(false)
   }
 
   const toggleVoice = () => {
@@ -945,11 +952,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
                     {availableVoices.map((voice) => (
                       <button
                         key={voice.id}
-                        onClick={() => {
-                          setSelectedVoice(voice.name)
-                          localStorage.setItem('elevenlabs_selected_voice', voice.name)
-                          setShowVoiceSelector(false)
-                        }}
+                        onClick={() => handleVoiceChange(voice.name)}
                         className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors ${
                           selectedVoice === voice.name || selectedVoice === voice.id
                             ? 'bg-purple-50 text-purple-700 font-medium'

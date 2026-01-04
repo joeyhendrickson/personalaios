@@ -58,8 +58,15 @@ function getPlaidClient(): PlaidApi {
   return plaidClientInstance
 }
 
-// Export for backward compatibility, but prefer using getPlaidClient() directly
-export const plaidClient = getPlaidClient()
+// Lazy export - don't initialize at module load time (causes build errors)
+// Always use getPlaidClient() directly instead of this export
+export const plaidClient = new Proxy({} as PlaidApi, {
+  get: function (target, prop) {
+    const client = getPlaidClient()
+    const value = (client as any)[prop]
+    return typeof value === 'function' ? value.bind(client) : value
+  },
+})
 
 export class PlaidService {
   /**

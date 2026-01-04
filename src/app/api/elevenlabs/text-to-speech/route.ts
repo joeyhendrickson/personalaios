@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { text, voiceIdOrName } = body
+    // Use ELEVENLABS_VOICE_ID from env var (defaults to "Henry")
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'Text is required and must be a string' }, { status: 400 })
