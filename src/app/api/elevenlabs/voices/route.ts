@@ -24,12 +24,13 @@ export async function GET(request: NextRequest) {
     // We check for custom/cloned category, or if it's in the user's library
     const customVoices = voices.filter((voice) => {
       // Include all custom/cloned voices (these are in "My Voices")
-      // Also include premade voices that the user has access to
+      // Also include premade and professional voices that the user has access to
       // The API returns all voices the user has access to, including their custom ones
       return (
         voice.category === 'custom' ||
         voice.category === 'cloned' ||
         voice.category === 'premade' ||
+        voice.category === 'professional' ||
         // Include any voice that's not a system default
         !voice.category
       )
