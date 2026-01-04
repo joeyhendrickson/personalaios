@@ -338,7 +338,9 @@ function DreamCatcherModuleContent() {
           },
           body: JSON.stringify({
             text: cleanText,
-            voiceIdOrName: selectedVoice, // Use selected voice
+            // Use voice ID if available in availableVoices, otherwise use name (will be looked up)
+            voiceIdOrName:
+              availableVoices.find((v) => v.name === selectedVoice)?.id || selectedVoice,
           }),
         })
           .then(async (response) => {
