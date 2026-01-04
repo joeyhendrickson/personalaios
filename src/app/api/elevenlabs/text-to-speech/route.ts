@@ -102,6 +102,10 @@ export async function POST(request: NextRequest) {
         statusText: response.statusText,
         error: errorDetails,
         voiceId: voiceId,
+        voiceIdIsUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          voiceId || ''
+        ),
+        originalVoiceIdOrName: voiceIdOrName,
         hasApiKey: !!apiKey,
         apiKeyLength: apiKey?.length || 0,
         apiKeyPrefix: apiKey ? `${apiKey.substring(0, 10)}...` : 'none',
@@ -114,9 +118,11 @@ export async function POST(request: NextRequest) {
         processEnvLength: process.env.ELEVENLABS_API_KEY?.length || 0,
         envObjectLength: env.ELEVENLABS_API_KEY?.length || 0,
         nodeEnv: process.env.NODE_ENV,
+        // Test the API key directly to see if it works
+        apiKeyTest: 'See /api/elevenlabs/debug for API key test',
       }
 
-      console.error('ElevenLabs API error (detailed):', diagnosticInfo)
+      console.error('ElevenLabs text-to-speech API error (detailed):', diagnosticInfo)
 
       return NextResponse.json(
         {
