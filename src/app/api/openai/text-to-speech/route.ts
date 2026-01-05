@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { text, voice = 'alloy' } = body
+    const { text, voice = 'alloy', prompt } = body
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'Text is required and must be a string' }, { status: 400 })
@@ -22,6 +22,10 @@ export async function POST(request: NextRequest) {
     // Validate voice option (OpenAI TTS supports: alloy, echo, fable, onyx, nova, shimmer)
     const validVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']
     const selectedVoice = validVoices.includes(voice) ? voice : 'alloy'
+
+    // Optional prompt for advanced speech control (accent, emotional range, intonation, impressions, speed, tone, whispering)
+    // Example: "Speak with a warm, enthusiastic tone at a moderate pace"
+    const speechPrompt = prompt && typeof prompt === 'string' ? prompt : undefined
 
     // Initialize OpenAI client
     const openai = new OpenAI({
@@ -32,15 +36,24 @@ export async function POST(request: NextRequest) {
       voice: selectedVoice,
       textLength: text.length,
       hasApiKey: !!apiKey,
+      hasPrompt: !!speechPrompt,
     })
 
     // Call OpenAI TTS API
-    // Using tts-1 model (faster, cheaper) - can use tts-1-hd for higher quality
-    const mp3 = await openai.audio.speech.create({
-      model: 'tts-1',
+    // Using gpt-4o-mini-tts model - newest and most reliable text-to-speech model
+    // Supports advanced features: accent, emotional range, intonation, impressions, speed, tone, whispering
+    const speechOptions: any = {
+      model: 'gpt-4o-mini-tts',
       voice: selectedVoice as any,
       input: text,
-    })
+    }
+
+    // Add prompt for advanced speech control if provided
+    if (speechPrompt) {
+      speechOptions.prompt = speechPrompt
+    }
+
+    const mp3 = await openai.audio.speech.create(speechOptions)
 
     // Convert the response to a buffer
     const buffer = Buffer.from(await mp3.arrayBuffer())
