@@ -4,8 +4,8 @@ import { env } from '@/lib/env'
 
 export async function POST(request: NextRequest) {
   try {
-    // Get API key from environment
-    const apiKey = process.env.OPENAI_API_KEY?.trim()
+    // Get API key from environment (use env object for consistency)
+    const apiKey = env.OPENAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim()
 
     if (!apiKey) {
       console.error('OpenAI API key is not configured')
@@ -36,14 +36,14 @@ export async function POST(request: NextRequest) {
 
     // Call OpenAI TTS API
     // Using tts-1 model (faster, cheaper) - can use tts-1-hd for higher quality
-    const response = await openai.audio.speech.create({
+    const mp3 = await openai.audio.speech.create({
       model: 'tts-1',
       voice: selectedVoice as any,
       input: text,
     })
 
     // Convert the response to a buffer
-    const buffer = Buffer.from(await response.arrayBuffer())
+    const buffer = Buffer.from(await mp3.arrayBuffer())
 
     // Return the audio as a response
     return new NextResponse(buffer, {
@@ -52,28 +52,40 @@ export async function POST(request: NextRequest) {
         'Content-Disposition': 'inline; filename="speech.mp3"',
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     // Enhanced error logging
     const errorDetails: any = {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
-      hasApiKey: !!process.env.OPENAI_API_KEY,
-      apiKeyLength: process.env.OPENAI_API_KEY?.length || 0,
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey?.length || 0,
     }
 
-    // If it's an OpenAI API error, capture more details
-    if (error instanceof Error && 'response' in error) {
-      const openaiError = error as any
-      errorDetails.openaiStatus = openaiError.response?.status
-      errorDetails.openaiStatusText = openaiError.response?.statusText
-      errorDetails.openaiError = openaiError.response?.data
+    // Handle OpenAI API errors specifically
+    if (error?.status) {
+      errorDetails.openaiStatus = error.status
+      errorDetails.openaiStatusText = error.statusText
+      errorDetails.openaiError = error.error
+      errorDetails.openaiMessage = error.message
+    }
+
+    // Handle OpenAI SDK errors
+    if (error?.response) {
+      errorDetails.openaiResponse = {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+      }
     }
 
     console.error('Error in OpenAI TTS API:', errorDetails)
 
     // Return more specific error information
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    const statusCode = error instanceof Error && 'status' in error ? (error as any).status : 500
+    const errorMessage =
+      error?.message ||
+      error?.error?.message ||
+      (error instanceof Error ? error.message : 'Unknown error')
+    const statusCode = error?.status || error?.response?.status || 500
 
     return NextResponse.json(
       {
