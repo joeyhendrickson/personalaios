@@ -53,17 +53,35 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error in OpenAI TTS API:', {
+    // Enhanced error logging
+    const errorDetails: any = {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       hasApiKey: !!process.env.OPENAI_API_KEY,
-    })
+      apiKeyLength: process.env.OPENAI_API_KEY?.length || 0,
+    }
+
+    // If it's an OpenAI API error, capture more details
+    if (error instanceof Error && 'response' in error) {
+      const openaiError = error as any
+      errorDetails.openaiStatus = openaiError.response?.status
+      errorDetails.openaiStatusText = openaiError.response?.statusText
+      errorDetails.openaiError = openaiError.response?.data
+    }
+
+    console.error('Error in OpenAI TTS API:', errorDetails)
+
+    // Return more specific error information
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const statusCode = error instanceof Error && 'status' in error ? (error as any).status : 500
+
     return NextResponse.json(
       {
         error: 'Failed to generate speech',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: errorMessage,
+        ...(process.env.NODE_ENV === 'development' && { debug: errorDetails }),
       },
-      { status: 500 }
+      { status: statusCode >= 400 && statusCode < 600 ? statusCode : 500 }
     )
   }
 }
