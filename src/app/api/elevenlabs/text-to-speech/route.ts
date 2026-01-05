@@ -4,8 +4,9 @@ import { env } from '@/lib/env'
 
 export async function POST(request: NextRequest) {
   try {
-    // Get API key directly from process.env to ensure we have the latest value
-    const apiKey = process.env.ELEVENLABS_API_KEY?.trim() || env.ELEVENLABS_API_KEY?.trim()
+    // Get API key directly from process.env (same as debug endpoint)
+    const apiKeyFromProcess = process.env.ELEVENLABS_API_KEY
+    const apiKey = apiKeyFromProcess?.trim()
 
     if (!apiKey) {
       console.error('ElevenLabs API key is not configured', {
