@@ -405,15 +405,175 @@ export default function AICoachModule() {
             }, 500)
           }
         }
-        audio.onerror = () => {
+        audio.onerror = async () => {
           URL.revokeObjectURL(audioUrl)
           currentAudioRef.current = null
+          // Try OpenAI TTS fallback before browser TTS
+          const cleanText = text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim()
+          try {
+            const openaiResponse = await fetch('/api/openai/text-to-speech', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                text: cleanText,
+                voice: 'alloy',
+              }),
+            })
+
+            if (openaiResponse.ok) {
+              const openaiBlob = await openaiResponse.blob()
+              const openaiUrl = URL.createObjectURL(openaiBlob)
+              const openaiAudio = new Audio(openaiUrl)
+              currentAudioRef.current = openaiAudio
+
+              openaiAudio.onended = () => {
+                URL.revokeObjectURL(openaiUrl)
+                currentAudioRef.current = null
+              }
+
+              openaiAudio.onerror = () => {
+                URL.revokeObjectURL(openaiUrl)
+                currentAudioRef.current = null
+                // Final fallback to browser TTS
+                if (typeof window !== 'undefined' && window.speechSynthesis) {
+                  const utterance = new SpeechSynthesisUtterance(cleanText)
+                  utterance.rate = 0.9
+                  utterance.pitch = 1
+                  utterance.volume = 0.8
+                  window.speechSynthesis.speak(utterance)
+                }
+              }
+
+              await openaiAudio.play()
+              return
+            }
+          } catch (openaiError) {
+            console.error('Error in OpenAI TTS fallback:', openaiError)
+          }
+
+          // Final fallback to browser TTS
+          if (typeof window !== 'undefined' && window.speechSynthesis) {
+            const utterance = new SpeechSynthesisUtterance(cleanText)
+            utterance.rate = 0.9
+            utterance.pitch = 1
+            utterance.volume = 0.8
+            window.speechSynthesis.speak(utterance)
+          }
         }
 
         await audio.play()
+      } else {
+        // Try OpenAI TTS fallback before browser TTS
+        const cleanText = text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim()
+        try {
+          const openaiResponse = await fetch('/api/openai/text-to-speech', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text: cleanText,
+              voice: 'alloy',
+            }),
+          })
+
+          if (openaiResponse.ok) {
+            const openaiBlob = await openaiResponse.blob()
+            const openaiUrl = URL.createObjectURL(openaiBlob)
+            const openaiAudio = new Audio(openaiUrl)
+            currentAudioRef.current = openaiAudio
+
+            openaiAudio.onended = () => {
+              URL.revokeObjectURL(openaiUrl)
+              currentAudioRef.current = null
+            }
+
+            openaiAudio.onerror = () => {
+              URL.revokeObjectURL(openaiUrl)
+              currentAudioRef.current = null
+              // Final fallback to browser TTS
+              if (typeof window !== 'undefined' && window.speechSynthesis) {
+                const utterance = new SpeechSynthesisUtterance(cleanText)
+                utterance.rate = 0.9
+                utterance.pitch = 1
+                utterance.volume = 0.8
+                window.speechSynthesis.speak(utterance)
+              }
+            }
+
+            await openaiAudio.play()
+            return
+          }
+        } catch (openaiError) {
+          console.error('Error in OpenAI TTS fallback:', openaiError)
+        }
+
+        // Final fallback to browser TTS
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          const utterance = new SpeechSynthesisUtterance(cleanText)
+          utterance.rate = 0.9
+          utterance.pitch = 1
+          utterance.volume = 0.8
+          window.speechSynthesis.speak(utterance)
+        }
       }
     } catch (error) {
       console.error('Error playing ElevenLabs audio:', error)
+      // Try OpenAI TTS fallback before browser TTS
+      const cleanText = text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim()
+      try {
+        const openaiResponse = await fetch('/api/openai/text-to-speech', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: cleanText,
+            voice: 'alloy',
+          }),
+        })
+
+        if (openaiResponse.ok) {
+          const openaiBlob = await openaiResponse.blob()
+          const openaiUrl = URL.createObjectURL(openaiBlob)
+          const openaiAudio = new Audio(openaiUrl)
+          currentAudioRef.current = openaiAudio
+
+          openaiAudio.onended = () => {
+            URL.revokeObjectURL(openaiUrl)
+            currentAudioRef.current = null
+          }
+
+          openaiAudio.onerror = () => {
+            URL.revokeObjectURL(openaiUrl)
+            currentAudioRef.current = null
+            // Final fallback to browser TTS
+            if (typeof window !== 'undefined' && window.speechSynthesis) {
+              const utterance = new SpeechSynthesisUtterance(cleanText)
+              utterance.rate = 0.9
+              utterance.pitch = 1
+              utterance.volume = 0.8
+              window.speechSynthesis.speak(utterance)
+            }
+          }
+
+          await openaiAudio.play()
+          return
+        }
+      } catch (openaiError) {
+        console.error('Error in OpenAI TTS fallback:', openaiError)
+      }
+
+      // Final fallback to browser TTS
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        const utterance = new SpeechSynthesisUtterance(cleanText)
+        utterance.rate = 0.9
+        utterance.pitch = 1
+        utterance.volume = 0.8
+        window.speechSynthesis.speak(utterance)
+      }
     }
   }
 

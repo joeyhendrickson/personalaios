@@ -379,12 +379,65 @@ function DreamCatcherModuleContent() {
               errorMessage = `Failed to generate speech: ${response.status} ${response.statusText}`
             }
             // Return null to trigger fallback instead of throwing
-            console.warn('ElevenLabs failed, falling back to browser TTS:', errorMessage)
+            console.warn('ElevenLabs failed, falling back to OpenAI TTS:', errorMessage)
             return null
           })
-          .then((audioBlob) => {
+          .then(async (audioBlob) => {
             if (!audioBlob) {
-              // ElevenLabs failed, use browser TTS fallback
+              // ElevenLabs failed, try OpenAI TTS as fallback
+              try {
+                console.log('Attempting OpenAI TTS fallback...')
+                const openaiResponse = await fetch('/api/openai/text-to-speech', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    text: cleanText,
+                    voice: 'alloy', // Default OpenAI voice
+                  }),
+                })
+
+                if (openaiResponse.ok) {
+                  const openaiBlob = await openaiResponse.blob()
+                  // Use OpenAI audio blob
+                  if (currentAudioRef.current) {
+                    currentAudioRef.current.pause()
+                    currentAudioRef.current = null
+                  }
+
+                  const audioUrl = URL.createObjectURL(openaiBlob)
+                  const audio = new Audio(audioUrl)
+                  currentAudioRef.current = audio
+
+                  audio.onended = () => {
+                    URL.revokeObjectURL(audioUrl)
+                    currentAudioRef.current = null
+                  }
+
+                  audio.onerror = () => {
+                    URL.revokeObjectURL(audioUrl)
+                    currentAudioRef.current = null
+                    // Final fallback to browser TTS
+                    if (synthRef.current) {
+                      const utterance = new SpeechSynthesisUtterance(cleanText)
+                      utterance.rate = 0.9
+                      utterance.pitch = 1
+                      utterance.volume = 0.8
+                      synthRef.current.speak(utterance)
+                    }
+                  }
+
+                  await audio.play()
+                  return
+                } else {
+                  console.warn('OpenAI TTS failed, falling back to browser TTS')
+                }
+              } catch (openaiError) {
+                console.error('Error in OpenAI TTS fallback:', openaiError)
+              }
+
+              // Final fallback to browser TTS if OpenAI also fails
               if (synthRef.current) {
                 const utterance = new SpeechSynthesisUtterance(cleanText)
                 utterance.rate = 0.9
@@ -414,10 +467,54 @@ function DreamCatcherModuleContent() {
               // This ensures the AI can speak without being interrupted
             }
 
-            audio.onerror = () => {
+            audio.onerror = async () => {
               URL.revokeObjectURL(audioUrl)
               currentAudioRef.current = null
-              // Fallback to browser TTS if audio playback fails
+              // Try OpenAI TTS fallback before browser TTS
+              try {
+                const openaiResponse = await fetch('/api/openai/text-to-speech', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    text: cleanText,
+                    voice: 'alloy',
+                  }),
+                })
+
+                if (openaiResponse.ok) {
+                  const openaiBlob = await openaiResponse.blob()
+                  const openaiUrl = URL.createObjectURL(openaiBlob)
+                  const openaiAudio = new Audio(openaiUrl)
+                  currentAudioRef.current = openaiAudio
+
+                  openaiAudio.onended = () => {
+                    URL.revokeObjectURL(openaiUrl)
+                    currentAudioRef.current = null
+                  }
+
+                  openaiAudio.onerror = () => {
+                    URL.revokeObjectURL(openaiUrl)
+                    currentAudioRef.current = null
+                    // Final fallback to browser TTS
+                    if (synthRef.current) {
+                      const utterance = new SpeechSynthesisUtterance(cleanText)
+                      utterance.rate = 0.9
+                      utterance.pitch = 1
+                      utterance.volume = 0.8
+                      synthRef.current.speak(utterance)
+                    }
+                  }
+
+                  await openaiAudio.play()
+                  return
+                }
+              } catch (openaiError) {
+                console.error('Error in OpenAI TTS fallback:', openaiError)
+              }
+
+              // Final fallback to browser TTS
               if (synthRef.current) {
                 const utterance = new SpeechSynthesisUtterance(cleanText)
                 utterance.rate = 0.9
@@ -427,9 +524,53 @@ function DreamCatcherModuleContent() {
               }
             }
 
-            audio.play().catch((playError) => {
+            audio.play().catch(async (playError) => {
               console.error('Error playing audio:', playError)
-              // Fallback to browser TTS if play fails
+              // Try OpenAI TTS fallback before browser TTS
+              try {
+                const openaiResponse = await fetch('/api/openai/text-to-speech', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    text: cleanText,
+                    voice: 'alloy',
+                  }),
+                })
+
+                if (openaiResponse.ok) {
+                  const openaiBlob = await openaiResponse.blob()
+                  const openaiUrl = URL.createObjectURL(openaiBlob)
+                  const openaiAudio = new Audio(openaiUrl)
+                  currentAudioRef.current = openaiAudio
+
+                  openaiAudio.onended = () => {
+                    URL.revokeObjectURL(openaiUrl)
+                    currentAudioRef.current = null
+                  }
+
+                  openaiAudio.onerror = () => {
+                    URL.revokeObjectURL(openaiUrl)
+                    currentAudioRef.current = null
+                    // Final fallback to browser TTS
+                    if (synthRef.current) {
+                      const utterance = new SpeechSynthesisUtterance(cleanText)
+                      utterance.rate = 0.9
+                      utterance.pitch = 1
+                      utterance.volume = 0.8
+                      synthRef.current.speak(utterance)
+                    }
+                  }
+
+                  await openaiAudio.play()
+                  return
+                }
+              } catch (openaiError) {
+                console.error('Error in OpenAI TTS fallback:', openaiError)
+              }
+
+              // Final fallback to browser TTS
               if (synthRef.current) {
                 const utterance = new SpeechSynthesisUtterance(cleanText)
                 utterance.rate = 0.9
@@ -439,9 +580,58 @@ function DreamCatcherModuleContent() {
               }
             })
           })
-          .catch((error) => {
+          .catch(async (error) => {
             console.error('Error in ElevenLabs fetch:', error)
-            // Fallback to browser TTS if ElevenLabs fails
+            // Try OpenAI TTS fallback before browser TTS
+            try {
+              const openaiResponse = await fetch('/api/openai/text-to-speech', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  text: cleanText,
+                  voice: 'alloy',
+                }),
+              })
+
+              if (openaiResponse.ok) {
+                const openaiBlob = await openaiResponse.blob()
+                if (currentAudioRef.current) {
+                  currentAudioRef.current.pause()
+                  currentAudioRef.current = null
+                }
+
+                const openaiUrl = URL.createObjectURL(openaiBlob)
+                const openaiAudio = new Audio(openaiUrl)
+                currentAudioRef.current = openaiAudio
+
+                openaiAudio.onended = () => {
+                  URL.revokeObjectURL(openaiUrl)
+                  currentAudioRef.current = null
+                }
+
+                openaiAudio.onerror = () => {
+                  URL.revokeObjectURL(openaiUrl)
+                  currentAudioRef.current = null
+                  // Final fallback to browser TTS
+                  if (synthRef.current) {
+                    const utterance = new SpeechSynthesisUtterance(cleanText)
+                    utterance.rate = 0.9
+                    utterance.pitch = 1
+                    utterance.volume = 0.8
+                    synthRef.current.speak(utterance)
+                  }
+                }
+
+                await openaiAudio.play()
+                return
+              }
+            } catch (openaiError) {
+              console.error('Error in OpenAI TTS fallback:', openaiError)
+            }
+
+            // Final fallback to browser TTS
             if (synthRef.current) {
               const utterance = new SpeechSynthesisUtterance(cleanText)
               utterance.rate = 0.9

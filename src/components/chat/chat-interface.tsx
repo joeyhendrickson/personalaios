@@ -516,25 +516,70 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
             }, 500)
           }
         }
-        audio.onerror = () => {
+        audio.onerror = async () => {
           setIsSpeaking(false)
           URL.revokeObjectURL(audioUrl)
           ;(window as any).__currentChatAudio = null
-          // Fallback to browser TTS if ElevenLabs fails
-          fallbackToBrowserTTS(text)
+          // Try OpenAI TTS fallback before browser TTS
+          await fallbackToOpenAITTS(text)
         }
 
         await audio.play()
         return
       } else {
-        // Fallback to browser TTS if ElevenLabs fails
-        fallbackToBrowserTTS(text)
+        // Try OpenAI TTS fallback before browser TTS
+        await fallbackToOpenAITTS(text)
       }
     } catch (error) {
       console.error('Error playing ElevenLabs audio:', error)
-      // Fallback to browser TTS if ElevenLabs fails
-      fallbackToBrowserTTS(text)
+      // Try OpenAI TTS fallback before browser TTS
+      await fallbackToOpenAITTS(text)
     }
+  }
+
+  const fallbackToOpenAITTS = async (text: string) => {
+    try {
+      const cleanText = text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim()
+      const openaiResponse = await fetch('/api/openai/text-to-speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: cleanText,
+          voice: 'alloy',
+        }),
+      })
+
+      if (openaiResponse.ok) {
+        const openaiBlob = await openaiResponse.blob()
+        const openaiUrl = URL.createObjectURL(openaiBlob)
+        const openaiAudio = new Audio(openaiUrl)
+        ;(window as any).__currentChatAudio = openaiAudio
+
+        openaiAudio.onended = () => {
+          setIsSpeaking(false)
+          URL.revokeObjectURL(openaiUrl)
+          ;(window as any).__currentChatAudio = null
+        }
+
+        openaiAudio.onerror = () => {
+          setIsSpeaking(false)
+          URL.revokeObjectURL(openaiUrl)
+          ;(window as any).__currentChatAudio = null
+          // Final fallback to browser TTS
+          fallbackToBrowserTTS(text)
+        }
+
+        await openaiAudio.play()
+        return
+      }
+    } catch (openaiError) {
+      console.error('Error in OpenAI TTS fallback:', openaiError)
+    }
+
+    // Final fallback to browser TTS
+    fallbackToBrowserTTS(text)
   }
 
   const fallbackToBrowserTTS = (text: string) => {
