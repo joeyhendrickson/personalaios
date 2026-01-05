@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     // Enhanced error logging
+    const apiKey = env.OPENAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim()
     const errorDetails: any = {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
