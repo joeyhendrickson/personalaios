@@ -447,7 +447,7 @@ function DreamCatcherModuleContent() {
           const resumeMessage: ChatMessage = {
             id: 'resume',
             role: 'assistant',
-            content: `Welcome back! 🌟 I've loaded your saved progress. We were in the ${session.assessment_data.current_phase || 'personality'} phase. Let's continue where we left off!\n\nWhen you're ready to continue, click the red microphone button to speak your response.`,
+            content: `Welcome back! 🌟 I've loaded your saved progress. We were in the ${session.assessment_data.current_phase || 'personality'} phase. Let's continue where we left off!\n\nWhen you're ready to continue, type your responses or click the microphone button to speak your response.`,
             timestamp: new Date(),
             phase: session.assessment_data.current_phase || 'personality',
           }
