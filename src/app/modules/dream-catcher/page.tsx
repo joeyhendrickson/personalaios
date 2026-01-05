@@ -106,6 +106,13 @@ function DreamCatcherModuleContent() {
   const lastSpeechTimeRef = useRef<number>(0)
   const isRecognitionRunningRef = useRef<boolean>(false)
 
+  // Helper function to extract first name from voice name (e.g., "Henry - Deep, Professional, and Soothing" -> "Henry")
+  const getFirstName = (fullName: string): string => {
+    // Split on " - " or " – " (different dash types) and take the first part
+    const match = fullName.match(/^([^-–]+)/)
+    return match ? match[1].trim() : fullName
+  }
+
   // Load available voices from ElevenLabs
   useEffect(() => {
     // Load selected voice from localStorage
@@ -1171,9 +1178,9 @@ function DreamCatcherModuleContent() {
                             ? 'bg-blue-500 text-white hover:bg-blue-600'
                             : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                         }`}
-                        title={`Select voice (Current: ${selectedVoice})`}
+                        title={`Select voice (Current: ${getFirstName(selectedVoice)})`}
                       >
-                        <span className="text-xs font-medium">{selectedVoice}</span>
+                        <span className="text-xs font-medium">{getFirstName(selectedVoice)}</span>
                       </button>
                       {showVoiceSelector && availableVoices.length > 0 && (
                         <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[150px] max-h-[200px] overflow-y-auto">
@@ -1190,7 +1197,7 @@ function DreamCatcherModuleContent() {
                                   : 'text-gray-700'
                               }`}
                             >
-                              {voice.name}
+                              {getFirstName(voice.name)}
                               {(selectedVoice === voice.name || selectedVoice === voice.id) && (
                                 <span className="ml-2 text-purple-600">&#10003;</span>
                               )}
