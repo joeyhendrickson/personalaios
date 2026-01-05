@@ -54,14 +54,12 @@ export async function POST(request: NextRequest) {
 
     // Also update user's profile with assessment data (excluding conversation messages)
     // This makes the assessment data available for future AI conversations
+    const { conversation_messages, ...restOfAssessmentData } = assessment_data
     const profileAssessmentData = {
-      ...assessment_data,
-      // Remove conversation_messages from profile data (keep it only in sessions)
-      conversation_messages: undefined,
+      ...restOfAssessmentData,
       // Include metadata about when it was last updated
       last_updated: new Date().toISOString(),
     }
-    delete profileAssessmentData.conversation_messages
 
     // Try to update profiles table first
     const { error: profileUpdateError } = await supabase
