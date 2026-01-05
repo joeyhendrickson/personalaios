@@ -113,7 +113,7 @@ async function fetchComprehensiveUserData(supabase: any, userId: string) {
     .select('assessment_data')
     .eq('id', userId)
     .single()
-    .then((result) => {
+    .then((result: any) => {
       // If profiles table doesn't have data, try user_profiles
       if (result.error || !result.data?.assessment_data) {
         return supabase
