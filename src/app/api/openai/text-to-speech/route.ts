@@ -40,8 +40,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Call OpenAI TTS API
-    // Using gpt-4o-mini-tts model - newest and most reliable text-to-speech model
-    // Supports advanced features: accent, emotional range, intonation, impressions, speed, tone, whispering
+    // Try gpt-4o-mini-tts first, fallback to tts-1 if not available
     const speechOptions: any = {
       model: 'gpt-4o-mini-tts',
       voice: selectedVoice as any,
@@ -53,7 +52,21 @@ export async function POST(request: NextRequest) {
       speechOptions.prompt = speechPrompt
     }
 
-    const mp3 = await openai.audio.speech.create(speechOptions)
+    let mp3
+    try {
+      mp3 = await openai.audio.speech.create(speechOptions)
+    } catch (error: any) {
+      // If gpt-4o-mini-tts is not available, try tts-1 as fallback
+      if (error?.status === 403 || error?.message?.includes('does not have access to model')) {
+        console.log('gpt-4o-mini-tts not available, trying tts-1 fallback')
+        speechOptions.model = 'tts-1'
+        // Remove prompt if using tts-1 (not supported)
+        delete speechOptions.prompt
+        mp3 = await openai.audio.speech.create(speechOptions)
+      } else {
+        throw error
+      }
+    }
 
     // Convert the response to a buffer
     const buffer = Buffer.from(await mp3.arrayBuffer())

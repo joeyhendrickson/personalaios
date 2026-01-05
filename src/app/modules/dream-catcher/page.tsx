@@ -357,29 +357,62 @@ function DreamCatcherModuleContent() {
 
         // Fallback function for browser TTS
         function fallbackToBrowserTTS(text: string) {
-          if (typeof window !== 'undefined' && window.speechSynthesis) {
-            console.log('Using browser TTS fallback')
+          console.log('Attempting browser TTS fallback, text length:', text.length)
+
+          if (typeof window === 'undefined') {
+            console.error('Browser TTS not available: window is undefined')
+            return
+          }
+
+          if (!window.speechSynthesis) {
+            console.error('Browser TTS not available: speechSynthesis not supported')
+            return
+          }
+
+          // Cancel any ongoing speech
+          window.speechSynthesis.cancel()
+
+          // Wait a moment for cancellation to complete
+          setTimeout(() => {
+            console.log('Creating SpeechSynthesisUtterance')
             const utterance = new SpeechSynthesisUtterance(text)
             utterance.rate = 0.9
             utterance.pitch = 1
             utterance.volume = 0.8
 
             utterance.onstart = () => {
-              console.log('Browser TTS started speaking')
+              console.log('✅ Browser TTS started speaking')
             }
 
             utterance.onerror = (error) => {
-              console.error('Browser TTS error:', error)
+              console.error('❌ Browser TTS error:', {
+                error: error.error,
+                type: error.type,
+                charIndex: error.charIndex,
+                charLength: error.charLength,
+              })
             }
 
             utterance.onend = () => {
-              console.log('Browser TTS finished speaking')
+              console.log('✅ Browser TTS finished speaking')
             }
 
-            window.speechSynthesis.speak(utterance)
-          } else {
-            console.warn('Browser TTS not available (speechSynthesis not supported)')
-          }
+            utterance.onpause = () => {
+              console.log('⏸️ Browser TTS paused')
+            }
+
+            utterance.onresume = () => {
+              console.log('▶️ Browser TTS resumed')
+            }
+
+            try {
+              console.log('Calling window.speechSynthesis.speak()')
+              window.speechSynthesis.speak(utterance)
+              console.log('window.speechSynthesis.speak() called successfully')
+            } catch (speakError) {
+              console.error('❌ Error calling speechSynthesis.speak():', speakError)
+            }
+          }, 100)
         }
       }
     }
