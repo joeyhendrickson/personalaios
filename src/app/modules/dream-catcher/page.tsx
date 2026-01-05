@@ -95,9 +95,6 @@ function DreamCatcherModuleContent() {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true)
   const [continuousMode, setContinuousMode] = useState(false)
   const [micPermissionError, setMicPermissionError] = useState<string | null>(null)
-  const [availableVoices, setAvailableVoices] = useState<Array<{ id: string; name: string }>>([])
-  const [selectedVoice, setSelectedVoice] = useState<string>('Henry')
-  const [showVoiceSelector, setShowVoiceSelector] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
   const synthRef = useRef<SpeechSynthesis | null>(null)
@@ -105,70 +102,6 @@ function DreamCatcherModuleContent() {
   const speechTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSpeechTimeRef = useRef<number>(0)
   const isRecognitionRunningRef = useRef<boolean>(false)
-
-  // Helper function to extract first name from voice name (e.g., "Henry - Deep, Professional, and Soothing" -> "Henry")
-  const getFirstName = (fullName: string): string => {
-    // Split on " - " or " – " (different dash types) and take the first part
-    const match = fullName.match(/^([^-–]+)/)
-    return match ? match[1].trim() : fullName
-  }
-
-  // Load available voices from ElevenLabs
-  useEffect(() => {
-    // Load selected voice from localStorage
-    const savedVoice = localStorage.getItem('elevenlabs_selected_voice')
-    if (savedVoice) {
-      setSelectedVoice(savedVoice)
-    }
-
-    // Fetch available voices from ElevenLabs (includes user's "My Voices")
-    fetch('/api/elevenlabs/voices')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.voices && data.voices.length > 0) {
-          setAvailableVoices(data.voices)
-          // Store the ID for the saved voice if we have it
-          if (savedVoice) {
-            const savedVoiceObj = data.voices.find(
-              (v: any) => v.name === savedVoice || v.id === savedVoice
-            )
-            if (savedVoiceObj) {
-              localStorage.setItem('elevenlabs_selected_voice_id', savedVoiceObj.id)
-            }
-          }
-          // If saved voice is not in the list, use the first available voice
-          if (
-            savedVoice &&
-            !data.voices.find((v: any) => v.name === savedVoice || v.id === savedVoice)
-          ) {
-            setSelectedVoice(data.voices[0].name)
-            localStorage.setItem('elevenlabs_selected_voice', data.voices[0].name)
-            localStorage.setItem('elevenlabs_selected_voice_id', data.voices[0].id)
-          }
-        }
-      })
-      .catch((error) => {
-        console.error('Error fetching voices:', error)
-        // Don't set fallback - let API handle default
-      })
-  }, [])
-
-  // Close voice selector when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-      if (showVoiceSelector && !target.closest('.voice-selector-container')) {
-        setShowVoiceSelector(false)
-      }
-    }
-
-    if (showVoiceSelector) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside)
-      }
-    }
-  }, [showVoiceSelector])
 
   // Initialize speech recognition and synthesis
   useEffect(() => {
@@ -303,11 +236,16 @@ function DreamCatcherModuleContent() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Speak AI responses when voice is enabled using ElevenLabs
+  // Speak AI responses when voice is enabled using OpenAI TTS
   useEffect(() => {
     if (isVoiceEnabled && messages.length > 0) {
       const lastMessage = messages[messages.length - 1]
       if (lastMessage.role === 'assistant') {
+        console.log('Voice enabled, speaking assistant message:', {
+          messageId: lastMessage.id,
+          contentLength: lastMessage.content.length,
+          isVoiceEnabled,
+        })
         // CRITICAL: Stop speech recognition when AI starts speaking
         // This prevents the mic from picking up the AI's voice
         if (recognitionRef.current && isRecognitionRunningRef.current) {
@@ -339,326 +277,212 @@ function DreamCatcherModuleContent() {
         // Remove markdown formatting and clean text
         const cleanText = lastMessage.content.replace(/\*\*/g, '').replace(/\n/g, ' ').trim()
 
-        // Use ElevenLabs for voice synthesis
-        fetch('/api/elevenlabs/text-to-speech', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: cleanText,
-            // Use voice ID from localStorage if available, otherwise try to find in availableVoices, fallback to name
-            voiceIdOrName:
-              localStorage.getItem('elevenlabs_selected_voice_id') ||
-              availableVoices.find((v) => v.name === selectedVoice)?.id ||
-              selectedVoice,
-          }),
-        })
-          .then(async (response) => {
-            if (response.ok) {
-              return response.blob()
-            }
-            // Parse error response to get details
-            let errorMessage = 'Failed to generate speech'
-            let errorData: any = null
-            try {
-              errorData = await response.json()
-              errorMessage = errorData.details || errorData.error || errorMessage
-              console.error('ElevenLabs API error:', {
-                status: response.status,
-                error: errorData,
-                textLength: cleanText.length,
-              })
-            } catch (parseError) {
-              const errorText = await response.text()
-              console.error('ElevenLabs API error (non-JSON):', {
-                status: response.status,
-                statusText: response.statusText,
-                errorText,
-              })
-              errorMessage = `Failed to generate speech: ${response.status} ${response.statusText}`
-            }
-            // Return null to trigger fallback instead of throwing
-            console.warn('ElevenLabs failed, falling back to OpenAI TTS:', errorMessage)
-            return null
-          })
-          .then(async (audioBlob) => {
-            if (!audioBlob) {
-              // ElevenLabs failed, try OpenAI TTS as fallback
-              try {
-                console.log('Attempting OpenAI TTS fallback...')
-                const openaiResponse = await fetch('/api/openai/text-to-speech', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    text: cleanText,
-                    voice: 'alloy', // Default OpenAI voice
-                  }),
-                })
+        // Use OpenAI TTS as primary, with browser TTS as fallback
+        ;(async () => {
+          console.log('Attempting to speak with OpenAI TTS, text length:', cleanText.length)
 
-                if (openaiResponse.ok) {
-                  const openaiBlob = await openaiResponse.blob()
-                  // Use OpenAI audio blob
-                  if (currentAudioRef.current) {
-                    currentAudioRef.current.pause()
-                    currentAudioRef.current = null
-                  }
-
-                  const audioUrl = URL.createObjectURL(openaiBlob)
-                  const audio = new Audio(audioUrl)
-                  currentAudioRef.current = audio
-
-                  audio.onended = () => {
-                    URL.revokeObjectURL(audioUrl)
-                    currentAudioRef.current = null
-                  }
-
-                  audio.onerror = () => {
-                    URL.revokeObjectURL(audioUrl)
-                    currentAudioRef.current = null
-                    // Final fallback to browser TTS
-                    if (synthRef.current) {
-                      const utterance = new SpeechSynthesisUtterance(cleanText)
-                      utterance.rate = 0.9
-                      utterance.pitch = 1
-                      utterance.volume = 0.8
-                      synthRef.current.speak(utterance)
-                    }
-                  }
-
-                  await audio.play()
-                  return
-                } else {
-                  console.warn('OpenAI TTS failed, falling back to browser TTS')
-                }
-              } catch (openaiError) {
-                console.error('Error in OpenAI TTS fallback:', openaiError)
-              }
-
-              // Final fallback to browser TTS if OpenAI also fails
-              if (synthRef.current) {
-                const utterance = new SpeechSynthesisUtterance(cleanText)
-                utterance.rate = 0.9
-                utterance.pitch = 1
-                utterance.volume = 0.8
-                synthRef.current.speak(utterance)
-              }
-              return
-            }
-
-            // Double-check: stop any audio that might have started while fetching
-            if (currentAudioRef.current) {
-              currentAudioRef.current.pause()
-              currentAudioRef.current = null
-            }
-
-            const audioUrl = URL.createObjectURL(audioBlob)
-            const audio = new Audio(audioUrl)
-            currentAudioRef.current = audio
-
-            audio.onended = () => {
-              URL.revokeObjectURL(audioUrl)
-              currentAudioRef.current = null
-
-              // DO NOT auto-restart recognition after AI finishes speaking
-              // The mic should stay OFF until the user explicitly clicks the red mic button
-              // This ensures the AI can speak without being interrupted
-            }
-
-            audio.onerror = async () => {
-              URL.revokeObjectURL(audioUrl)
-              currentAudioRef.current = null
-              // Try OpenAI TTS fallback before browser TTS
-              try {
-                const openaiResponse = await fetch('/api/openai/text-to-speech', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    text: cleanText,
-                    voice: 'alloy',
-                  }),
-                })
-
-                if (openaiResponse.ok) {
-                  const openaiBlob = await openaiResponse.blob()
-                  const openaiUrl = URL.createObjectURL(openaiBlob)
-                  const openaiAudio = new Audio(openaiUrl)
-                  currentAudioRef.current = openaiAudio
-
-                  openaiAudio.onended = () => {
-                    URL.revokeObjectURL(openaiUrl)
-                    currentAudioRef.current = null
-                  }
-
-                  openaiAudio.onerror = () => {
-                    URL.revokeObjectURL(openaiUrl)
-                    currentAudioRef.current = null
-                    // Final fallback to browser TTS
-                    if (synthRef.current) {
-                      const utterance = new SpeechSynthesisUtterance(cleanText)
-                      utterance.rate = 0.9
-                      utterance.pitch = 1
-                      utterance.volume = 0.8
-                      synthRef.current.speak(utterance)
-                    }
-                  }
-
-                  await openaiAudio.play()
-                  return
-                }
-              } catch (openaiError) {
-                console.error('Error in OpenAI TTS fallback:', openaiError)
-              }
-
-              // Final fallback to browser TTS
-              if (synthRef.current) {
-                const utterance = new SpeechSynthesisUtterance(cleanText)
-                utterance.rate = 0.9
-                utterance.pitch = 1
-                utterance.volume = 0.8
-                synthRef.current.speak(utterance)
-              }
-            }
-
-            audio.play().catch(async (playError) => {
-              console.error('Error playing audio:', playError)
-              // Try OpenAI TTS fallback before browser TTS
-              try {
-                const openaiResponse = await fetch('/api/openai/text-to-speech', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    text: cleanText,
-                    voice: 'alloy',
-                  }),
-                })
-
-                if (openaiResponse.ok) {
-                  const openaiBlob = await openaiResponse.blob()
-                  const openaiUrl = URL.createObjectURL(openaiBlob)
-                  const openaiAudio = new Audio(openaiUrl)
-                  currentAudioRef.current = openaiAudio
-
-                  openaiAudio.onended = () => {
-                    URL.revokeObjectURL(openaiUrl)
-                    currentAudioRef.current = null
-                  }
-
-                  openaiAudio.onerror = () => {
-                    URL.revokeObjectURL(openaiUrl)
-                    currentAudioRef.current = null
-                    // Final fallback to browser TTS
-                    if (synthRef.current) {
-                      const utterance = new SpeechSynthesisUtterance(cleanText)
-                      utterance.rate = 0.9
-                      utterance.pitch = 1
-                      utterance.volume = 0.8
-                      synthRef.current.speak(utterance)
-                    }
-                  }
-
-                  await openaiAudio.play()
-                  return
-                }
-              } catch (openaiError) {
-                console.error('Error in OpenAI TTS fallback:', openaiError)
-              }
-
-              // Final fallback to browser TTS
-              if (synthRef.current) {
-                const utterance = new SpeechSynthesisUtterance(cleanText)
-                utterance.rate = 0.9
-                utterance.pitch = 1
-                utterance.volume = 0.8
-                synthRef.current.speak(utterance)
-              }
+          try {
+            const openaiResponse = await fetch('/api/openai/text-to-speech', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                text: cleanText,
+                voice: 'alloy', // Default OpenAI voice (options: alloy, echo, fable, onyx, nova, shimmer)
+              }),
             })
-          })
-          .catch(async (error) => {
-            console.error('Error in ElevenLabs fetch:', error)
-            // Try OpenAI TTS fallback before browser TTS
-            try {
-              const openaiResponse = await fetch('/api/openai/text-to-speech', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  text: cleanText,
-                  voice: 'alloy',
-                }),
-              })
 
-              if (openaiResponse.ok) {
-                const openaiBlob = await openaiResponse.blob()
-                if (currentAudioRef.current) {
-                  currentAudioRef.current.pause()
-                  currentAudioRef.current = null
-                }
+            if (openaiResponse.ok) {
+              const openaiBlob = await openaiResponse.blob()
+              console.log('OpenAI TTS audio blob received, size:', openaiBlob.size)
 
-                const openaiUrl = URL.createObjectURL(openaiBlob)
-                const openaiAudio = new Audio(openaiUrl)
-                currentAudioRef.current = openaiAudio
-
-                openaiAudio.onended = () => {
-                  URL.revokeObjectURL(openaiUrl)
-                  currentAudioRef.current = null
-                }
-
-                openaiAudio.onerror = () => {
-                  URL.revokeObjectURL(openaiUrl)
-                  currentAudioRef.current = null
-                  // Final fallback to browser TTS
-                  if (synthRef.current) {
-                    const utterance = new SpeechSynthesisUtterance(cleanText)
-                    utterance.rate = 0.9
-                    utterance.pitch = 1
-                    utterance.volume = 0.8
-                    synthRef.current.speak(utterance)
-                  }
-                }
-
-                await openaiAudio.play()
-                return
+              // Stop any existing audio
+              if (currentAudioRef.current) {
+                currentAudioRef.current.pause()
+                currentAudioRef.current = null
               }
-            } catch (openaiError) {
-              console.error('Error in OpenAI TTS fallback:', openaiError)
+
+              const audioUrl = URL.createObjectURL(openaiBlob)
+              const audio = new Audio(audioUrl)
+              currentAudioRef.current = audio
+
+              audio.onended = () => {
+                console.log('OpenAI TTS audio playback ended')
+                URL.revokeObjectURL(audioUrl)
+                currentAudioRef.current = null
+              }
+
+              audio.onerror = (error) => {
+                console.error('OpenAI TTS audio playback error:', error)
+                URL.revokeObjectURL(audioUrl)
+                currentAudioRef.current = null
+                // Fallback to browser TTS
+                fallbackToBrowserTTS(cleanText)
+              }
+
+              audio.onplay = () => {
+                console.log('OpenAI TTS audio playback started')
+              }
+
+              try {
+                await audio.play()
+                console.log('OpenAI TTS audio play() succeeded')
+                return // Success, don't fallback
+              } catch (playError: any) {
+                console.error('Error calling audio.play():', playError)
+                // Fallback to browser TTS on play error
+                fallbackToBrowserTTS(cleanText)
+              }
+            } else {
+              // Non-OK response, try to read error details
+              let errorText = ''
+              try {
+                errorText = await openaiResponse.text()
+                console.log('OpenAI TTS API error response:', errorText)
+              } catch {}
+
+              console.warn(
+                'OpenAI TTS failed (status:',
+                openaiResponse.status,
+                '), falling back to browser TTS'
+              )
+              fallbackToBrowserTTS(cleanText)
+            }
+          } catch (openaiError) {
+            console.error('Error in OpenAI TTS:', openaiError)
+            fallbackToBrowserTTS(cleanText)
+          }
+        })()
+
+        // Fallback function for browser TTS
+        function fallbackToBrowserTTS(text: string) {
+          if (typeof window !== 'undefined' && window.speechSynthesis) {
+            console.log('Using browser TTS fallback')
+            const utterance = new SpeechSynthesisUtterance(text)
+            utterance.rate = 0.9
+            utterance.pitch = 1
+            utterance.volume = 0.8
+
+            utterance.onstart = () => {
+              console.log('Browser TTS started speaking')
             }
 
-            // Final fallback to browser TTS
-            if (synthRef.current) {
-              const utterance = new SpeechSynthesisUtterance(cleanText)
-              utterance.rate = 0.9
-              utterance.pitch = 1
-              utterance.volume = 0.8
-              synthRef.current.speak(utterance)
+            utterance.onerror = (error) => {
+              console.error('Browser TTS error:', error)
             }
-          })
+
+            utterance.onend = () => {
+              console.log('Browser TTS finished speaking')
+            }
+
+            window.speechSynthesis.speak(utterance)
+          } else {
+            console.warn('Browser TTS not available (speechSynthesis not supported)')
+          }
+        }
       }
     }
-  }, [messages, isVoiceEnabled, continuousMode, selectedVoice, availableVoices])
+  }, [messages, isVoiceEnabled, continuousMode])
 
-  // Initialize with welcome message
+  // Load saved session if sessionId is present
   useEffect(() => {
-    const welcomeContent = isNewUser
-      ? "Welcome to Life Stacks! 🌟 Before we set up your dashboard, let's discover your true dreams and create a clear vision for your future. This journey will help us personalize your experience.\n\nYou can save your progress at any time using the 'Save Progress' button, so you can pause and continue later. Your progress will be saved automatically as you go through the journey.\n\nWe'll go through 8 phases together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nAt the end, you can choose to autofill your dashboard with the goals we create together!\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!\n\nWhen you're ready to respond, click the red microphone button to speak your answer. After you finish speaking, your response will automatically be submitted after 10 seconds of silence."
-      : "Welcome back to Dream Catcher! 🌟 I'm here to help you discover your true dreams and create a clear vision for your future. We'll go through a journey together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nYou can save your progress at any time using the 'Save Progress' button, so you can pause and continue later. At the end, you can save your dreams and choose to add them to your dashboard (they'll be added to your existing goals, not replace them).\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!\n\nWhen you're ready to respond, click the red microphone button to speak your answer. After you finish speaking, your response will automatically be submitted after 10 seconds of silence."
-
-    const welcomeMessage: ChatMessage = {
-      id: 'welcome',
-      role: 'assistant',
-      content: welcomeContent,
-      timestamp: new Date(),
-      phase: 'personality',
+    if (sessionId) {
+      loadSavedSession(sessionId)
     }
-    setMessages([welcomeMessage])
-  }, [isNewUser])
+  }, [sessionId])
+
+  // Load saved session function
+  const loadSavedSession = async (id: string) => {
+    setIsLoadingSession(true)
+    try {
+      const response = await fetch(`/api/modules/dream-catcher/saved/${id}`)
+      if (!response.ok) {
+        throw new Error('Failed to load saved session')
+      }
+      const data = await response.json()
+      const session = data.session
+
+      if (session && session.assessment_data) {
+        console.log('Loading saved session:', {
+          sessionId: id,
+          hasAssessmentData: !!session.assessment_data,
+          hasMessages: !!session.assessment_data.conversation_messages,
+          messageCount: session.assessment_data.conversation_messages?.length || 0,
+          currentPhase: session.assessment_data.current_phase,
+          questionIndex: session.assessment_data.personality_question_index,
+        })
+
+        // Restore assessment data (but exclude conversation_messages from the main assessment data)
+        const { conversation_messages, ...restoredAssessmentData } = session.assessment_data
+        setAssessmentData(restoredAssessmentData)
+
+        // Restore phase
+        if (session.assessment_data.current_phase) {
+          setCurrentPhase(session.assessment_data.current_phase)
+        }
+
+        // Restore personality question index
+        if (session.assessment_data.personality_question_index !== undefined) {
+          setPersonalityQuestionIndex(session.assessment_data.personality_question_index)
+        }
+
+        // Restore conversation messages if they exist
+        if (
+          conversation_messages &&
+          Array.isArray(conversation_messages) &&
+          conversation_messages.length > 0
+        ) {
+          const restoredMessages = conversation_messages.map((msg: any) => ({
+            id: msg.id || Date.now().toString() + Math.random(),
+            role: msg.role,
+            content: msg.content,
+            timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
+            phase: msg.phase || 'personality',
+          }))
+          console.log('Restoring', restoredMessages.length, 'messages')
+          setMessages(restoredMessages)
+        } else {
+          // If no conversation messages, show resume message
+          const resumeMessage: ChatMessage = {
+            id: 'resume',
+            role: 'assistant',
+            content: `Welcome back! 🌟 I've loaded your saved progress. We were in the ${session.assessment_data.current_phase || 'personality'} phase. Let's continue where we left off!\n\nWhen you're ready to continue, click the red microphone button to speak your response.`,
+            timestamp: new Date(),
+            phase: session.assessment_data.current_phase || 'personality',
+          }
+          setMessages([resumeMessage])
+        }
+      } else {
+        console.warn('Session loaded but no assessment data found')
+        throw new Error('No assessment data in saved session')
+      }
+    } catch (error) {
+      console.error('Error loading saved session:', error)
+      alert('Failed to load saved session. Starting a new session.')
+      // Fall through to show welcome message
+    } finally {
+      setIsLoadingSession(false)
+    }
+  }
+
+  // Initialize with welcome message (only if no sessionId and not loading and no messages exist)
+  useEffect(() => {
+    if (!sessionId && !isLoadingSession && messages.length === 0) {
+      const welcomeContent = isNewUser
+        ? "Welcome to Life Stacks! 🌟 Before we set up your dashboard, let's discover your true dreams and create a clear vision for your future. This journey will help us personalize your experience.\n\nYou can save your progress at any time using the 'Save Progress' button, so you can pause and continue later. Your progress will be saved automatically as you go through the journey.\n\nWe'll go through 8 phases together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nAt the end, you can choose to autofill your dashboard with the goals we create together!\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!\n\nWhen you're ready to respond, click the red microphone button to speak your answer. After you finish speaking, your response will automatically be submitted after 10 seconds of silence."
+        : "Welcome back to Dream Catcher! 🌟 I'm here to help you discover your true dreams and create a clear vision for your future. We'll go through a journey together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nYou can save your progress at any time using the 'Save Progress' button, so you can pause and continue later. At the end, you can save your dreams and choose to add them to your dashboard (they'll be added to your existing goals, not replace them).\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!\n\nWhen you're ready to respond, click the red microphone button to speak your answer. After you finish speaking, your response will automatically be submitted after 10 seconds of silence."
+
+      const welcomeMessage: ChatMessage = {
+        id: 'welcome',
+        role: 'assistant',
+        content: welcomeContent,
+        timestamp: new Date(),
+        phase: 'personality',
+      }
+      setMessages([welcomeMessage])
+    }
+  }, [isNewUser, sessionId, isLoadingSession, messages.length])
 
   const sendMessageDirectly = async (messageText: string) => {
     if (!messageText.trim() || isLoading) return
@@ -721,7 +545,7 @@ function DreamCatcherModuleContent() {
         }
 
         // Remove markdown formatting from AI response
-        const cleanResponse = data.response.replace(/\*\*/g, '').replace(/\n{3,}/g, '\n\n')
+        const cleanResponse = data.response.replace(/\*\*/g, '').replace(/\n\n\n+/g, '\n\n')
 
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
@@ -900,20 +724,6 @@ function DreamCatcherModuleContent() {
     }
   }
 
-  const handleVoiceChange = (voiceName: string) => {
-    setSelectedVoice(voiceName)
-    // Store both name and ID for lookup
-    const voice = availableVoices.find((v) => v.name === voiceName)
-    if (voice) {
-      localStorage.setItem('elevenlabs_selected_voice', voiceName)
-      localStorage.setItem('elevenlabs_selected_voice_id', voice.id)
-    } else {
-      localStorage.setItem('elevenlabs_selected_voice', voiceName)
-      localStorage.removeItem('elevenlabs_selected_voice_id')
-    }
-    setShowVoiceSelector(false)
-  }
-
   const toggleVoice = () => {
     const newVoiceState = !isVoiceEnabled
     setIsVoiceEnabled(newVoiceState)
@@ -974,11 +784,25 @@ function DreamCatcherModuleContent() {
     setIsAutofilling(true)
 
     try {
+      // Include conversation messages and current state in saved data
+      const saveData = {
+        ...assessmentData,
+        conversation_messages: messages.map((msg) => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.timestamp.toISOString(),
+          phase: msg.phase,
+        })),
+        current_phase: currentPhase,
+        personality_question_index: personalityQuestionIndex,
+      }
+
       const response = await fetch('/api/modules/dream-catcher/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          assessment_data: assessmentData,
+          assessment_data: saveData,
           completed_at:
             assessmentData.goals_generated && assessmentData.goals_generated.length > 0
               ? new Date().toISOString()
@@ -1359,43 +1183,6 @@ function DreamCatcherModuleContent() {
                       rows={2}
                       disabled={isLoading}
                     />
-                    <div className="relative voice-selector-container">
-                      <button
-                        onClick={() => setShowVoiceSelector(!showVoiceSelector)}
-                        disabled={!isVoiceEnabled}
-                        className={`p-2 rounded-lg transition-colors ${
-                          isVoiceEnabled
-                            ? 'bg-blue-500 text-white hover:bg-blue-600'
-                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        }`}
-                        title={`Select voice (Current: ${getFirstName(selectedVoice)})`}
-                      >
-                        <span className="text-xs font-medium">{getFirstName(selectedVoice)}</span>
-                      </button>
-                      {showVoiceSelector && availableVoices.length > 0 && (
-                        <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[150px] max-h-[200px] overflow-y-auto">
-                          <div className="p-2 border-b border-gray-200">
-                            <p className="text-xs font-semibold text-gray-700">Select Voice</p>
-                          </div>
-                          {availableVoices.map((voice) => (
-                            <button
-                              key={voice.id}
-                              onClick={() => handleVoiceChange(voice.name)}
-                              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors ${
-                                selectedVoice === voice.name || selectedVoice === voice.id
-                                  ? 'bg-purple-50 text-purple-700 font-medium'
-                                  : 'text-gray-700'
-                              }`}
-                            >
-                              {getFirstName(voice.name)}
-                              {(selectedVoice === voice.name || selectedVoice === voice.id) && (
-                                <span className="ml-2 text-purple-600">&#10003;</span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
                     <button
                       onClick={toggleVoice}
                       className={`p-2 rounded-lg transition-colors ${
@@ -1420,15 +1207,58 @@ function DreamCatcherModuleContent() {
                     </button>
                   </div>
                   {micPermissionError && (
-                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-                      <p className="font-medium mb-1">Microphone Access Required</p>
-                      <p>{micPermissionError}</p>
-                      <button
-                        onClick={() => setMicPermissionError(null)}
-                        className="mt-1 text-red-600 hover:text-red-800 underline"
-                      >
-                        Dismiss
-                      </button>
+                    <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                      <p className="font-medium mb-2">Microphone Access Required</p>
+                      <p className="mb-2">{micPermissionError}</p>
+                      <div className="text-xs mb-2">
+                        <p className="font-medium mb-1">How to enable microphone access:</p>
+                        <ul className="list-disc list-inside space-y-1 ml-2">
+                          <li>
+                            <strong>Chrome/Edge:</strong> Click the lock icon in the address bar →
+                            Site settings → Microphone → Allow
+                          </li>
+                          <li>
+                            <strong>Firefox:</strong> Click the shield icon → Permissions →
+                            Microphone → Allow
+                          </li>
+                          <li>
+                            <strong>Safari:</strong> Safari → Settings → Websites → Microphone →
+                            Allow for this site
+                          </li>
+                        </ul>
+                      </div>
+                      <div className="flex space-x-2 mt-3">
+                        <button
+                          onClick={async () => {
+                            setMicPermissionError(null)
+                            // Try to request permission again
+                            const hasPermission = await requestMicrophonePermission()
+                            if (hasPermission) {
+                              // If permission granted, try to start recognition
+                              if (recognitionRef.current) {
+                                try {
+                                  recognitionRef.current.start()
+                                  setContinuousMode(true)
+                                } catch (error) {
+                                  console.error(
+                                    'Error starting recognition after permission grant:',
+                                    error
+                                  )
+                                }
+                              }
+                            }
+                          }}
+                          className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs"
+                        >
+                          Retry
+                        </button>
+                        <button
+                          onClick={() => setMicPermissionError(null)}
+                          className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-xs"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
                     </div>
                   )}
                   {isListening && (

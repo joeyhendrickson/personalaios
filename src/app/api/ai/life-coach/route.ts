@@ -107,6 +107,23 @@ export async function POST(request: NextRequest) {
 }
 
 async function fetchComprehensiveUserData(supabase: any, userId: string) {
+  // Fetch user profile with assessment data
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('assessment_data')
+    .eq('id', userId)
+    .single()
+    .then((result) => {
+      // If profiles table doesn't have data, try user_profiles
+      if (result.error || !result.data?.assessment_data) {
+        return supabase
+          .from('user_profiles')
+          .select('assessment_data')
+          .eq('user_id', userId)
+          .single()
+      }
+      return result
+    })
   // Fetch all user data in parallel
   const [
     goalsResult,
@@ -253,11 +270,27 @@ async function generateLifeCoachResponse(
   message: string,
   userData: any,
   personalityAnalysis: any,
-  conversationHistory: any[]
+  conversationHistory: any[],
+  assessmentData: any = {}
 ) {
   // Create comprehensive prompt for AI
   const prompt = `
 You are an expert Life Coach integrated into a Personal AI OS system. You have access to comprehensive user data and should provide personalized, positive, and actionable advice.
+
+${
+  assessmentData && Object.keys(assessmentData).length > 0
+    ? `USER'S PERSONAL PROFILE (from Dream Catcher Assessment):
+${assessmentData.personality_traits?.length > 0 ? `- Personality Traits: ${assessmentData.personality_traits.join(', ')}` : ''}
+${assessmentData.personal_insights?.length > 0 ? `- Personal Insights: ${assessmentData.personal_insights.join('; ')}` : ''}
+${assessmentData.dreams_discovered?.length > 0 ? `- Dreams Discovered: ${assessmentData.dreams_discovered.join(', ')}` : ''}
+${assessmentData.vision_statement ? `- Vision Statement: ${assessmentData.vision_statement}` : ''}
+${assessmentData.executive_skills ? `- Executive Skills: ${JSON.stringify(assessmentData.executive_skills, null, 2)}` : ''}
+${assessmentData.executive_blocking_factors?.length > 0 ? `- Blocking Factors: ${assessmentData.executive_blocking_factors.map((f: any) => `${f.factor} (${f.impact} impact) - Strategies: ${f.strategies?.join(', ')}`).join('; ')}` : ''}
+Use this profile information to provide more personalized coaching. Reference the user's personality traits, dreams, vision, and blocking factors when providing advice.
+
+`
+    : ''
+}
 
 USER DATA ANALYSIS:
 ${JSON.stringify(

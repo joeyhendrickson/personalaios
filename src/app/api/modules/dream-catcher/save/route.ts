@@ -52,6 +52,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to save Dream Catcher session' }, { status: 500 })
     }
 
+    // Also update user's profile with assessment data (excluding conversation messages)
+    // This makes the assessment data available for future AI conversations
+    const profileAssessmentData = {
+      ...assessment_data,
+      // Remove conversation_messages from profile data (keep it only in sessions)
+      conversation_messages: undefined,
+      // Include metadata about when it was last updated
+      last_updated: new Date().toISOString(),
+    }
+    delete profileAssessmentData.conversation_messages
+
+    // Try to update profiles table first
+    const { error: profileUpdateError } = await supabase
+      .from('profiles')
+      .update({
+        assessment_data: profileAssessmentData,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id)
+
+    // If profiles table doesn't exist or update fails, try user_profiles table
+    if (profileUpdateError) {
+      console.log(
+        'Could not update profiles table, trying user_profiles:',
+        profileUpdateError.message
+      )
+      const { error: userProfileUpdateError } = await supabase
+        .from('user_profiles')
+        .update({
+          assessment_data: profileAssessmentData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id)
+
+      if (userProfileUpdateError) {
+        console.log('Could not update user_profiles table either:', userProfileUpdateError.message)
+        // Don't fail the save if profile update fails - session is still saved
+      }
+    }
+
     // Log activity
     const goalsCount = assessment_data.goals_generated?.length || 0
     await supabase.from('activity_logs').insert({

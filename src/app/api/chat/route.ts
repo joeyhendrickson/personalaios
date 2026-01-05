@@ -21,7 +21,7 @@ export async function POST(req: Request) {
 
     console.log('Chat API user authenticated:', user.id)
 
-    // Fetch user's dashboard data
+    // Fetch user's dashboard data and profile assessment data
     const [
       goalsResult,
       tasksResult,
@@ -33,6 +33,7 @@ export async function POST(req: Request) {
       completedTasksTodayResult,
       relationshipsResult,
       habitCompletionsResult,
+      profileResult,
     ] = await Promise.all([
       // Weekly goals
       supabase
@@ -104,6 +105,9 @@ export async function POST(req: Request) {
         .select('*, daily_habits(title)')
         .eq('user_id', user.id)
         .gte('completed_at', new Date().setHours(0, 0, 0, 0)),
+
+      // User profile with assessment data (try profiles table first, then user_profiles)
+      supabase.from('profiles').select('assessment_data').eq('id', user.id).single(),
     ])
 
     // Fetch data from installed life hack modules
@@ -269,6 +273,17 @@ export async function POST(req: Request) {
       (p) => p.title?.includes('🔥') || p.priority_level === 'fire' || p.priority_score >= 90
     )
 
+    // Extract assessment data from profile (try user_profiles if profiles doesn't have it)
+    let assessmentData = profileResult?.data?.assessment_data || {}
+    if (!assessmentData || Object.keys(assessmentData).length === 0) {
+      const { data: userProfileData } = await supabase
+        .from('user_profiles')
+        .select('assessment_data')
+        .eq('user_id', user.id)
+        .single()
+      assessmentData = userProfileData?.assessment_data || {}
+    }
+
     const userContext = {
       weeklyPoints,
       dailyPoints,
@@ -301,7 +316,20 @@ export async function POST(req: Request) {
       messages,
       system: `You are an intelligent AI assistant for a Personal AI OS dashboard. You have access to the user's complete dashboard data and can provide personalized advice based on their goals, tasks, habits, education items, and priorities.
 
-USER'S CURRENT DASHBOARD DATA:
+${
+  assessmentData && Object.keys(assessmentData).length > 0
+    ? `USER'S PERSONAL PROFILE (from Dream Catcher Assessment):
+${assessmentData.personality_traits?.length > 0 ? `- Personality Traits: ${assessmentData.personality_traits.join(', ')}` : ''}
+${assessmentData.personal_insights?.length > 0 ? `- Personal Insights: ${assessmentData.personal_insights.join('; ')}` : ''}
+${assessmentData.dreams_discovered?.length > 0 ? `- Dreams Discovered: ${assessmentData.dreams_discovered.join(', ')}` : ''}
+${assessmentData.vision_statement ? `- Vision Statement: ${assessmentData.vision_statement}` : ''}
+${assessmentData.executive_skills ? `- Executive Skills: ${JSON.stringify(assessmentData.executive_skills, null, 2)}` : ''}
+${assessmentData.executive_blocking_factors?.length > 0 ? `- Blocking Factors: ${assessmentData.executive_blocking_factors.map((f: any) => f.factor).join(', ')}` : ''}
+Use this profile information to provide more personalized and contextually relevant advice. Reference the user's personality traits, dreams, and vision when appropriate.
+
+`
+    : ''
+}USER'S CURRENT DASHBOARD DATA:
 - Weekly Points: ${userContext.weeklyPoints}
 - Daily Points: ${userContext.dailyPoints}
 - Total Goals: ${userContext.totalGoals}

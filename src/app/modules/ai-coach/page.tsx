@@ -125,9 +125,6 @@ export default function AICoachModule() {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true)
   const [continuousMode, setContinuousMode] = useState(false)
   const [isListening, setIsListening] = useState(false)
-  const [availableVoices, setAvailableVoices] = useState<Array<{ id: string; name: string }>>([])
-  const [selectedVoice, setSelectedVoice] = useState<string>('Henry')
-  const [showVoiceSelector, setShowVoiceSelector] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
   const recognitionRef = useRef<any>(null)
@@ -298,9 +295,9 @@ export default function AICoachModule() {
           setPersonalityInsights(data.personality_insights)
         }
 
-        // Speak AI response using ElevenLabs (if voice is enabled)
+        // Speak AI response using OpenAI TTS (if voice is enabled)
         if (data.response && isVoiceEnabled) {
-          speakWithElevenLabs(data.response)
+          speakWithOpenAI(data.response)
         }
 
         // In continuous mode, restart listening after AI responds
@@ -345,7 +342,7 @@ export default function AICoachModule() {
     await sendMessageDirectly(messageToSend)
   }
 
-  const speakWithElevenLabs = async (text: string) => {
+  const speakWithOpenAI = async (text: string) => {
     if (!isVoiceEnabled) return
 
     // Stop any current audio immediately to prevent overlapping voices
@@ -360,24 +357,23 @@ export default function AICoachModule() {
       window.speechSynthesis.cancel()
     }
 
+    const cleanText = text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim()
+
+    // Use OpenAI TTS (primary)
     try {
-      const response = await fetch('/api/elevenlabs/text-to-speech', {
+      const openaiResponse = await fetch('/api/openai/text-to-speech', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          text: text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim(),
-          // Use voice ID from localStorage if available, otherwise try to find in availableVoices, fallback to name
-          voiceIdOrName:
-            localStorage.getItem('elevenlabs_selected_voice_id') ||
-            availableVoices.find((v) => v.name === selectedVoice)?.id ||
-            selectedVoice,
+          text: cleanText,
+          voice: 'alloy',
         }),
       })
 
-      if (response.ok) {
-        const audioBlob = await response.blob()
+      if (openaiResponse.ok) {
+        const openaiBlob = await openaiResponse.blob()
 
         // Double-check: stop any audio that might have started while fetching
         const existingAudio = currentAudioRef.current
@@ -386,7 +382,7 @@ export default function AICoachModule() {
           currentAudioRef.current = null
         }
 
-        const audioUrl = URL.createObjectURL(audioBlob)
+        const audioUrl = URL.createObjectURL(openaiBlob)
         const audio = new Audio(audioUrl)
         currentAudioRef.current = audio
 
@@ -405,55 +401,11 @@ export default function AICoachModule() {
             }, 500)
           }
         }
-        audio.onerror = async () => {
+
+        audio.onerror = () => {
           URL.revokeObjectURL(audioUrl)
           currentAudioRef.current = null
-          // Try OpenAI TTS fallback before browser TTS
-          const cleanText = text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim()
-          try {
-            const openaiResponse = await fetch('/api/openai/text-to-speech', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                text: cleanText,
-                voice: 'alloy',
-              }),
-            })
-
-            if (openaiResponse.ok) {
-              const openaiBlob = await openaiResponse.blob()
-              const openaiUrl = URL.createObjectURL(openaiBlob)
-              const openaiAudio = new Audio(openaiUrl)
-              currentAudioRef.current = openaiAudio
-
-              openaiAudio.onended = () => {
-                URL.revokeObjectURL(openaiUrl)
-                currentAudioRef.current = null
-              }
-
-              openaiAudio.onerror = () => {
-                URL.revokeObjectURL(openaiUrl)
-                currentAudioRef.current = null
-                // Final fallback to browser TTS
-                if (typeof window !== 'undefined' && window.speechSynthesis) {
-                  const utterance = new SpeechSynthesisUtterance(cleanText)
-                  utterance.rate = 0.9
-                  utterance.pitch = 1
-                  utterance.volume = 0.8
-                  window.speechSynthesis.speak(utterance)
-                }
-              }
-
-              await openaiAudio.play()
-              return
-            }
-          } catch (openaiError) {
-            console.error('Error in OpenAI TTS fallback:', openaiError)
-          }
-
-          // Final fallback to browser TTS
+          // Fallback to browser TTS
           if (typeof window !== 'undefined' && window.speechSynthesis) {
             const utterance = new SpeechSynthesisUtterance(cleanText)
             utterance.rate = 0.9
@@ -465,52 +417,8 @@ export default function AICoachModule() {
 
         await audio.play()
       } else {
-        // Try OpenAI TTS fallback before browser TTS
-        const cleanText = text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim()
-        try {
-          const openaiResponse = await fetch('/api/openai/text-to-speech', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              text: cleanText,
-              voice: 'alloy',
-            }),
-          })
-
-          if (openaiResponse.ok) {
-            const openaiBlob = await openaiResponse.blob()
-            const openaiUrl = URL.createObjectURL(openaiBlob)
-            const openaiAudio = new Audio(openaiUrl)
-            currentAudioRef.current = openaiAudio
-
-            openaiAudio.onended = () => {
-              URL.revokeObjectURL(openaiUrl)
-              currentAudioRef.current = null
-            }
-
-            openaiAudio.onerror = () => {
-              URL.revokeObjectURL(openaiUrl)
-              currentAudioRef.current = null
-              // Final fallback to browser TTS
-              if (typeof window !== 'undefined' && window.speechSynthesis) {
-                const utterance = new SpeechSynthesisUtterance(cleanText)
-                utterance.rate = 0.9
-                utterance.pitch = 1
-                utterance.volume = 0.8
-                window.speechSynthesis.speak(utterance)
-              }
-            }
-
-            await openaiAudio.play()
-            return
-          }
-        } catch (openaiError) {
-          console.error('Error in OpenAI TTS fallback:', openaiError)
-        }
-
-        // Final fallback to browser TTS
+        console.warn('OpenAI TTS failed, falling back to browser TTS')
+        // Fallback to browser TTS
         if (typeof window !== 'undefined' && window.speechSynthesis) {
           const utterance = new SpeechSynthesisUtterance(cleanText)
           utterance.rate = 0.9
@@ -520,53 +428,8 @@ export default function AICoachModule() {
         }
       }
     } catch (error) {
-      console.error('Error playing ElevenLabs audio:', error)
-      // Try OpenAI TTS fallback before browser TTS
-      const cleanText = text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim()
-      try {
-        const openaiResponse = await fetch('/api/openai/text-to-speech', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: cleanText,
-            voice: 'alloy',
-          }),
-        })
-
-        if (openaiResponse.ok) {
-          const openaiBlob = await openaiResponse.blob()
-          const openaiUrl = URL.createObjectURL(openaiBlob)
-          const openaiAudio = new Audio(openaiUrl)
-          currentAudioRef.current = openaiAudio
-
-          openaiAudio.onended = () => {
-            URL.revokeObjectURL(openaiUrl)
-            currentAudioRef.current = null
-          }
-
-          openaiAudio.onerror = () => {
-            URL.revokeObjectURL(openaiUrl)
-            currentAudioRef.current = null
-            // Final fallback to browser TTS
-            if (typeof window !== 'undefined' && window.speechSynthesis) {
-              const utterance = new SpeechSynthesisUtterance(cleanText)
-              utterance.rate = 0.9
-              utterance.pitch = 1
-              utterance.volume = 0.8
-              window.speechSynthesis.speak(utterance)
-            }
-          }
-
-          await openaiAudio.play()
-          return
-        }
-      } catch (openaiError) {
-        console.error('Error in OpenAI TTS fallback:', openaiError)
-      }
-
-      // Final fallback to browser TTS
+      console.error('Error playing OpenAI TTS audio:', error)
+      // Fallback to browser TTS
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         const utterance = new SpeechSynthesisUtterance(cleanText)
         utterance.rate = 0.9
@@ -575,20 +438,6 @@ export default function AICoachModule() {
         window.speechSynthesis.speak(utterance)
       }
     }
-  }
-
-  const handleVoiceChange = (voiceName: string) => {
-    setSelectedVoice(voiceName)
-    // Store both name and ID for lookup
-    const voice = availableVoices.find((v) => v.name === voiceName)
-    if (voice) {
-      localStorage.setItem('elevenlabs_selected_voice', voiceName)
-      localStorage.setItem('elevenlabs_selected_voice_id', voice.id)
-    } else {
-      localStorage.setItem('elevenlabs_selected_voice', voiceName)
-      localStorage.removeItem('elevenlabs_selected_voice_id')
-    }
-    setShowVoiceSelector(false)
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -900,43 +749,6 @@ export default function AICoachModule() {
                     rows={2}
                     disabled={isLoading}
                   />
-                  <div className="relative voice-selector-container">
-                    <button
-                      onClick={() => setShowVoiceSelector(!showVoiceSelector)}
-                      disabled={!isVoiceEnabled}
-                      className={`p-2 rounded-lg transition-colors ${
-                        isVoiceEnabled
-                          ? 'bg-blue-500 text-white hover:bg-blue-600'
-                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      }`}
-                      title={`Select voice (Current: ${selectedVoice})`}
-                    >
-                      <span className="text-xs font-medium">{selectedVoice}</span>
-                    </button>
-                    {showVoiceSelector && availableVoices.length > 0 && (
-                      <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[150px] max-h-[200px] overflow-y-auto">
-                        <div className="p-2 border-b border-gray-200">
-                          <p className="text-xs font-semibold text-gray-700">Select Voice</p>
-                        </div>
-                        {availableVoices.map((voice) => (
-                          <button
-                            key={voice.id}
-                            onClick={() => handleVoiceChange(voice.name)}
-                            className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors ${
-                              selectedVoice === voice.name || selectedVoice === voice.id
-                                ? 'bg-purple-50 text-purple-700 font-medium'
-                                : 'text-gray-700'
-                            }`}
-                          >
-                            {voice.name}
-                            {(selectedVoice === voice.name || selectedVoice === voice.id) && (
-                              <span className="ml-2 text-purple-600">✓</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
                   <button
                     onClick={() => setIsVoiceEnabled(!isVoiceEnabled)}
                     className={`p-2 rounded-lg transition-colors ${

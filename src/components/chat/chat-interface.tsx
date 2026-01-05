@@ -55,9 +55,6 @@ export function ChatInterface({
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [speechSupported, setSpeechSupported] = useState(false)
   const [voiceEnabled, setVoiceEnabled] = useState(true)
-  const [availableVoices, setAvailableVoices] = useState<Array<{ id: string; name: string }>>([])
-  const [selectedVoice, setSelectedVoice] = useState<string>('Henry')
-  const [showVoiceSelector, setShowVoiceSelector] = useState(false)
   const [continuousMode, setContinuousMode] = useState(false)
   const [lastSpeechTime, setLastSpeechTime] = useState(0)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
@@ -456,7 +453,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
       window.speechSynthesis.cancel()
     }
 
-    // Use ElevenLabs for voice synthesis
+    // Use OpenAI TTS for voice synthesis (primary)
     try {
       // Stop any existing audio immediately to prevent overlapping voices
       if ((window as any).__currentChatAudio) {
@@ -469,23 +466,20 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
       }
 
       setIsSpeaking(true)
-      const response = await fetch('/api/elevenlabs/text-to-speech', {
+      const cleanText = text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim()
+      const openaiResponse = await fetch('/api/openai/text-to-speech', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          text: text,
-          // Use voice ID from localStorage if available, otherwise try to find in availableVoices, fallback to name
-          voiceIdOrName:
-            localStorage.getItem('elevenlabs_selected_voice_id') ||
-            availableVoices.find((v) => v.name === selectedVoice)?.id ||
-            selectedVoice,
+          text: cleanText,
+          voice: 'alloy',
         }),
       })
 
-      if (response.ok) {
-        const audioBlob = await response.blob()
+      if (openaiResponse.ok) {
+        const openaiBlob = await openaiResponse.blob()
 
         // Double-check: stop any audio that might have started while fetching
         if ((window as any).__currentChatAudio) {
@@ -493,7 +487,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
           ;(window as any).__currentChatAudio = null
         }
 
-        const audioUrl = URL.createObjectURL(audioBlob)
+        const audioUrl = URL.createObjectURL(openaiBlob)
         const audio = new Audio(audioUrl)
 
         // Store audio reference for stopping when user inputs
@@ -516,24 +510,25 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
             }, 500)
           }
         }
-        audio.onerror = async () => {
+        audio.onerror = () => {
           setIsSpeaking(false)
           URL.revokeObjectURL(audioUrl)
           ;(window as any).__currentChatAudio = null
-          // Try OpenAI TTS fallback before browser TTS
-          await fallbackToOpenAITTS(text)
+          // Fallback to browser TTS
+          fallbackToBrowserTTS(text)
         }
 
         await audio.play()
         return
       } else {
-        // Try OpenAI TTS fallback before browser TTS
-        await fallbackToOpenAITTS(text)
+        console.warn('OpenAI TTS failed, falling back to browser TTS')
+        // Fallback to browser TTS
+        fallbackToBrowserTTS(text)
       }
     } catch (error) {
-      console.error('Error playing ElevenLabs audio:', error)
-      // Try OpenAI TTS fallback before browser TTS
-      await fallbackToOpenAITTS(text)
+      console.error('Error playing OpenAI TTS audio:', error)
+      // Fallback to browser TTS
+      fallbackToBrowserTTS(text)
     }
   }
 
@@ -686,20 +681,6 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
       window.speechSynthesis.cancel()
       setIsSpeaking(false)
     }
-  }
-
-  const handleVoiceChange = (voiceName: string) => {
-    setSelectedVoice(voiceName)
-    // Store both name and ID for lookup
-    const voice = availableVoices.find((v) => v.name === voiceName)
-    if (voice) {
-      localStorage.setItem('elevenlabs_selected_voice', voiceName)
-      localStorage.setItem('elevenlabs_selected_voice_id', voice.id)
-    } else {
-      localStorage.setItem('elevenlabs_selected_voice', voiceName)
-      localStorage.removeItem('elevenlabs_selected_voice_id')
-    }
-    setShowVoiceSelector(false)
   }
 
   const toggleVoice = () => {
@@ -988,43 +969,6 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
             >
               {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </Button>
-            {voiceEnabled && (
-              <div className="relative voice-selector-container">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowVoiceSelector(!showVoiceSelector)}
-                  className="h-8 px-3 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium"
-                  title={`Select voice (Current: ${selectedVoice})`}
-                >
-                  {selectedVoice}
-                </Button>
-                {showVoiceSelector && availableVoices.length > 0 && (
-                  <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[150px] max-h-[200px] overflow-y-auto">
-                    <div className="p-2 border-b border-gray-200">
-                      <p className="text-xs font-semibold text-gray-700">Select Voice</p>
-                    </div>
-                    {availableVoices.map((voice) => (
-                      <button
-                        key={voice.id}
-                        onClick={() => handleVoiceChange(voice.name)}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors ${
-                          selectedVoice === voice.name || selectedVoice === voice.id
-                            ? 'bg-purple-50 text-purple-700 font-medium'
-                            : 'text-gray-700'
-                        }`}
-                      >
-                        {voice.name}
-                        {(selectedVoice === voice.name || selectedVoice === voice.id) && (
-                          <span className="ml-2 text-purple-600">✓</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
             <span className="text-xs text-gray-500">
               {isListening
                 ? continuousMode
@@ -1049,7 +993,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
                 window.speechSynthesis.cancel()
                 synthesisRef.current = null
               }
-              // Stop ElevenLabs audio if playing
+              // Stop audio if playing
               if ((window as any).__currentChatAudio) {
                 ;(window as any).__currentChatAudio.pause()
                 ;(window as any).__currentChatAudio = null
