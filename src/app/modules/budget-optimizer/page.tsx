@@ -2771,8 +2771,9 @@ export default function BudgetOptimizerModule() {
                   )}
 
                   {/* Expected Income/Expense Updates */}
-                  {(analysis.budget_recommendations.expected_income_updates?.length > 0 ||
-                    analysis.budget_recommendations.expected_expense_updates?.length > 0) && (
+                  {((analysis.budget_recommendations.expected_income_updates?.length ?? 0) > 0 ||
+                    (analysis.budget_recommendations.expected_expense_updates?.length ?? 0) >
+                      0) && (
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
                       <h3 className="text-lg font-semibold mb-4 flex items-center">
                         <Edit className="h-5 w-5 mr-2" />
