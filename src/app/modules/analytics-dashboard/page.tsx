@@ -143,7 +143,7 @@ export default function AnalyticsDashboardPage() {
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 flex items-center">
                   <BarChart3 className="h-8 w-8 mr-3 text-purple-600" />
-                  Analytics Dashboard
+                  Productivity Analyst
                 </h1>
                 <p className="text-sm text-gray-600">
                   Deep insights into your productivity, habits, and progress toward goals

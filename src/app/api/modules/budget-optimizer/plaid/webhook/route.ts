@@ -52,18 +52,40 @@ export async function POST(request: NextRequest) {
     // This is necessary because Plaid webhooks don't include user authentication
     const supabase = createAdminClient()
 
-    // Find the bank connection by plaid_item_id
-    const { data: bankConnection, error: connectionError } = await supabase
+    // Find the bank connection by item_id or plaid_item_id
+    // Support both schema variants - try plaid_item_id first (SETUP_BUDGET_OPTIMIZER.sql schema)
+    let bankConnection: any = null
+    let connectionError: any = null
+
+    // Try plaid_item_id first (matches SETUP_BUDGET_OPTIMIZER.sql schema)
+    const { data: connection1, error: error1 } = await supabase
       .from('bank_connections')
       .select('*')
       .eq('plaid_item_id', item_id)
-      .single()
+      .maybeSingle()
 
-    if (connectionError || !bankConnection) {
+    if (connection1 && !error1) {
+      bankConnection = connection1
+    } else {
+      // Fallback to item_id (matches migration 015 schema)
+      const { data: connection2, error: error2 } = await supabase
+        .from('bank_connections')
+        .select('*')
+        .eq('item_id', item_id)
+        .maybeSingle()
+
+      if (connection2 && !error2) {
+        bankConnection = connection2
+      } else {
+        connectionError = error1 || error2
+      }
+    }
+
+    if (!bankConnection) {
       console.warn(
-        'Bank connection not found for plaid_item_id:',
+        'Bank connection not found for item_id/plaid_item_id:',
         item_id,
-        connectionError?.message
+        connectionError?.message || 'Connection not found'
       )
       // Return 200 to acknowledge webhook even if connection not found
       // (prevents Plaid from retrying)

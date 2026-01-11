@@ -607,7 +607,7 @@ export default function DayTraderModule() {
               <div>
                 <h1 className="text-3xl font-bold text-black flex items-center">
                   <TrendingUp className="h-8 w-8 mr-3 text-green-600" />
-                  Day Trader
+                  Market Advisor
                 </h1>
                 <p className="text-sm text-gray-600">
                   Advanced stock analysis and trading pattern detection with AI-powered insights

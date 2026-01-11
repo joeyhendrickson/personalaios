@@ -21,34 +21,64 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '100')
     const offset = parseInt(searchParams.get('offset') || '0')
 
-    // Build query
+    // First, get all bank account IDs for this user's connections
+    const { data: userConnections, error: connectionsError } = await supabase
+      .from('bank_connections')
+      .select('id')
+      .eq('user_id', user.id)
+
+    if (connectionsError) {
+      console.error('Error fetching bank connections:', connectionsError)
+      return NextResponse.json({ error: 'Failed to fetch bank connections' }, { status: 500 })
+    }
+
+    if (!userConnections || userConnections.length === 0) {
+      return NextResponse.json({
+        success: true,
+        transactions: [],
+        pagination: {
+          total: 0,
+          limit,
+          offset,
+          has_more: false,
+        },
+      })
+    }
+
+    const connectionIds = userConnections.map((c) => c.id)
+
+    // Get bank account IDs for these connections
+    const { data: bankAccounts, error: accountsError } = await supabase
+      .from('bank_accounts')
+      .select('id, name, type, bank_connection_id')
+      .in('bank_connection_id', connectionIds)
+
+    if (accountsError) {
+      console.error('Error fetching bank accounts:', accountsError)
+      return NextResponse.json({ error: 'Failed to fetch bank accounts' }, { status: 500 })
+    }
+
+    if (!bankAccounts || bankAccounts.length === 0) {
+      return NextResponse.json({
+        success: true,
+        transactions: [],
+        pagination: {
+          total: 0,
+          limit,
+          offset,
+          has_more: false,
+        },
+      })
+    }
+
+    const bankAccountIds = bankAccounts.map((a) => a.id)
+
+    // Build transaction query
     let query = supabase
       .from('transactions')
-      .select(
-        `
-        *,
-        bank_accounts!inner (
-          id,
-          name,
-          type,
-          bank_connections!inner (
-            user_id
-          )
-        ),
-        transaction_categorizations (
-          category_id,
-          budget_categories (
-            id,
-            name,
-            color,
-            icon
-          )
-        )
-      `
-      )
-      .eq('bank_accounts.bank_connections.user_id', user.id)
+      .select('*')
+      .in('bank_account_id', bankAccountIds)
       .order('date', { ascending: false })
-      .order('datetime', { ascending: false })
       .range(offset, offset + limit - 1)
 
     // Apply filters
@@ -69,14 +99,21 @@ export async function GET(request: NextRequest) {
 
     if (transactionsError) {
       console.error('Error fetching transactions:', transactionsError)
-      return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 })
+      return NextResponse.json(
+        {
+          error: 'Failed to fetch transactions',
+          details: transactionsError.message,
+          code: transactionsError.code,
+        },
+        { status: 500 }
+      )
     }
 
     // Get total count for pagination
     let countQuery = supabase
       .from('transactions')
       .select('id', { count: 'exact', head: true })
-      .eq('bank_accounts.bank_connections.user_id', user.id)
+      .in('bank_account_id', bankAccountIds)
 
     if (startDate) {
       countQuery = countQuery.gte('date', startDate)
@@ -97,9 +134,24 @@ export async function GET(request: NextRequest) {
       console.error('Error counting transactions:', countError)
     }
 
+    // Enrich transactions with bank account info
+    const enrichedTransactions = (transactions || []).map((transaction) => {
+      const account = bankAccounts.find((a) => a.id === transaction.bank_account_id)
+      return {
+        ...transaction,
+        bank_accounts: account
+          ? {
+              id: account.id,
+              name: account.name,
+              type: account.type,
+            }
+          : null,
+      }
+    })
+
     return NextResponse.json({
       success: true,
-      transactions: transactions || [],
+      transactions: enrichedTransactions,
       pagination: {
         total: count || 0,
         limit,

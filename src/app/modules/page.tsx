@@ -73,7 +73,7 @@ interface AppRating {
 const modules: Module[] = [
   {
     id: 'day-trader',
-    title: 'Day Trader',
+    title: 'Market Advisor',
     description: 'Advanced stock analysis and trading pattern detection with AI-powered insights.',
     category: 'Finance',
     icon: <TrendingUp className="h-8 w-8" />,
@@ -83,7 +83,7 @@ const modules: Module[] = [
   },
   {
     id: 'budget-optimizer',
-    title: 'Budget Optimizer',
+    title: 'Budget Advisor',
     description: 'AI-powered budget analysis and spending optimization recommendations.',
     category: 'Finance',
     icon: <DollarSign className="h-8 w-8" />,
@@ -163,7 +163,7 @@ const modules: Module[] = [
   },
   {
     id: 'analytics-dashboard',
-    title: 'Analytics Dashboard',
+    title: 'Productivity Analyst',
     description: 'Comprehensive analytics and insights for all your life metrics.',
     category: 'Analytics',
     icon: <BarChart3 className="h-8 w-8" />,
@@ -420,10 +420,7 @@ export default function ModulesPage() {
                 </button>
               </Link>
               <div>
-                <h1 className="text-3xl font-bold text-black flex items-center">
-                  <Plus className="h-8 w-8 mr-3 text-black" />
-                  {t('modules.title')}
-                </h1>
+                <h1 className="text-3xl font-bold text-black">{t('modules.title')}</h1>
                 <p className="text-sm text-gray-600">{t('modules.subtitle')}</p>
               </div>
             </div>

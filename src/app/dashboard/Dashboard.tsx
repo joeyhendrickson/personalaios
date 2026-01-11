@@ -400,6 +400,9 @@ export default function Dashboard() {
   })
   const [highLevelGoals, setHighLevelGoals] = useState<Record<string, unknown>[]>([])
   const [priorities, setPriorities] = useState<Record<string, unknown>[]>([])
+  const [budgetGoalRecommendations, setBudgetGoalRecommendations] = useState<
+    Record<string, unknown>[]
+  >([])
   const [showAddGoal, setShowAddGoal] = useState(false)
   const [showAddHighLevelGoal, setShowAddHighLevelGoal] = useState(false)
   const [dashboardCategories, setDashboardCategories] = useState<
@@ -633,6 +636,7 @@ export default function Dashboard() {
 
       // Fetch goals and priorities
       await fetchHighLevelGoals()
+      await fetchBudgetGoalRecommendations()
       if (user) {
         await fetchPriorities()
       }
@@ -681,6 +685,41 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Error fetching high-level goals:', error)
+    }
+  }
+
+  const fetchBudgetGoalRecommendations = async () => {
+    try {
+      const response = await fetch('/api/budget/goals/recommendations')
+      if (response.ok) {
+        const data = await response.json()
+        setBudgetGoalRecommendations(data.recommendations || [])
+      }
+    } catch (error) {
+      console.error('Error fetching budget goal recommendations:', error)
+    }
+  }
+
+  const handleAddBudgetGoalToDashboard = async (budgetGoalId: string) => {
+    try {
+      const response = await fetch('/api/budget/goals/recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ budget_goal_id: budgetGoalId }),
+      })
+
+      if (response.ok) {
+        // Refresh goals and recommendations
+        await fetchHighLevelGoals()
+        await fetchBudgetGoalRecommendations()
+        alert('✅ Goal added to dashboard!')
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to add goal to dashboard')
+      }
+    } catch (error) {
+      console.error('Error adding budget goal to dashboard:', error)
+      alert('Failed to add goal to dashboard')
     }
   }
 
@@ -2114,121 +2153,187 @@ export default function Dashboard() {
                           </div>
                         ))
                       )
-                    ) : // Show active goals
-                    highLevelGoals.length === 0 ? (
-                      <div className="col-span-2 text-center py-8">
-                        <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">
-                          {t('goals.noGoals')}
-                        </h3>
-                        <p className="text-gray-600 mb-4">{t('goals.noGoals')}</p>
-                        <button
-                          onClick={() => setShowAddHighLevelGoal(true)}
-                          className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                        >
-                          {t('goals.addGoal')}
-                        </button>
-                      </div>
                     ) : (
-                      highLevelGoals.map((goal) => (
-                        <div
-                          key={(goal as any).id}
-                          className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-gray-900 mb-1">
-                                {(goal as any).title}
-                              </h3>
-                              <p className="text-sm text-gray-600 mb-2">
-                                {(goal as any).description}
-                              </p>
-                              <div className="flex items-center space-x-2 text-xs text-gray-500">
-                                <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
-                                  {(goal as any).goal_type}
-                                </span>
-                                <span>
-                                  {t('goals.priority')}: {(goal as any).priority_level}/5
-                                </span>
+                      <>
+                        {/* Budget Goal Recommendations */}
+                        {budgetGoalRecommendations.length > 0 && !showCompletedGoals && (
+                          <div className="col-span-2 mb-4">
+                            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                              <div className="flex items-center mb-3">
+                                <Star className="h-5 w-5 text-purple-600 mr-2" />
+                                <h4 className="font-semibold text-purple-900">
+                                  Recommended Goals from Budget Advisor
+                                </h4>
+                              </div>
+                              <div className="space-y-3">
+                                {budgetGoalRecommendations.map((rec: any) => (
+                                  <div
+                                    key={rec.id}
+                                    className="bg-white rounded-lg border border-purple-200 p-4 flex items-start justify-between"
+                                  >
+                                    <div className="flex-1">
+                                      <div className="flex items-center space-x-2 mb-1">
+                                        <h5 className="font-semibold text-gray-900">{rec.title}</h5>
+                                        <span
+                                          className={`px-2 py-1 text-xs rounded-full ${
+                                            rec.goal_category === 'income'
+                                              ? 'bg-green-100 text-green-800'
+                                              : 'bg-red-100 text-red-800'
+                                          }`}
+                                        >
+                                          {rec.goal_category === 'income'
+                                            ? 'Income Goal'
+                                            : 'Budget Reduction'}
+                                        </span>
+                                      </div>
+                                      {rec.description && (
+                                        <p className="text-sm text-gray-600 mb-2">
+                                          {rec.description}
+                                        </p>
+                                      )}
+                                      <div className="flex items-center space-x-4 text-xs text-gray-500">
+                                        <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
+                                          {rec.goal_type}
+                                        </span>
+                                        {rec.target_value && (
+                                          <span>
+                                            Target: {rec.target_unit === 'dollars' ? '$' : ''}
+                                            {rec.target_value.toLocaleString()}
+                                            {rec.target_unit !== 'dollars' && ` ${rec.target_unit}`}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => handleAddBudgetGoalToDashboard(rec.id)}
+                                      className="ml-3 px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors"
+                                    >
+                                      Add to Goals
+                                    </button>
+                                  </div>
+                                ))}
                               </div>
                             </div>
-                            <div className="flex space-x-1">
-                              <button
-                                onClick={() => openEditHighLevelGoal(goal)}
-                                className="text-gray-400 hover:text-gray-600"
-                                title="Edit Goal"
-                              >
-                                <Settings className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => deleteHighLevelGoal((goal as any).id)}
-                                className="text-gray-400 hover:text-red-600"
-                                title="Delete Goal"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
                           </div>
+                        )}
 
-                          {(goal as any).target_value && (
-                            <div className="mb-3">
-                              {/* Interactive Progress Slider */}
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                  <span>Progress</span>
-                                  <span>
-                                    {(goal as any).current_value}/{(goal as any).target_value}{' '}
-                                    {(goal as any).target_unit || ''}
-                                  </span>
+                        {/* Active Goals */}
+                        {highLevelGoals.length === 0 ? (
+                          <div className="col-span-2 text-center py-8">
+                            <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">
+                              {t('goals.noGoals')}
+                            </h3>
+                            <p className="text-gray-600 mb-4">{t('goals.noGoals')}</p>
+                            <button
+                              onClick={() => setShowAddHighLevelGoal(true)}
+                              className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                            >
+                              {t('goals.addGoal')}
+                            </button>
+                          </div>
+                        ) : (
+                          highLevelGoals.map((goal) => (
+                            <div
+                              key={(goal as any).id}
+                              className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex-1">
+                                  <h3 className="font-semibold text-gray-900 mb-1">
+                                    {(goal as any).title}
+                                  </h3>
+                                  <p className="text-sm text-gray-600 mb-2">
+                                    {(goal as any).description}
+                                  </p>
+                                  <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                    <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
+                                      {(goal as any).goal_type}
+                                    </span>
+                                    <span>
+                                      {t('goals.priority')}: {(goal as any).priority_level}/5
+                                    </span>
+                                  </div>
                                 </div>
-                                <Slider
-                                  value={
-                                    localProgress[(goal as any).id] !== undefined
-                                      ? localProgress[(goal as any).id]
-                                      : Math.min(
-                                          100,
-                                          ((goal as any).current_value /
-                                            (goal as any).target_value) *
-                                            100
-                                        )
-                                  }
-                                  onChange={(value) =>
-                                    handleProgressChange((goal as any).id, value)
-                                  }
-                                  onValueCommit={(value) =>
-                                    handleProgressCommit((goal as any).id, value)
-                                  }
-                                  min={0}
-                                  max={100}
-                                  step={1}
-                                  className="w-full"
-                                  disabled={updatingProgress === (goal as any).id}
-                                />
-                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                  <span>
-                                    {localProgress[(goal as any).id] !== undefined
-                                      ? `${localProgress[(goal as any).id]}%`
-                                      : `${Math.min(
-                                          100,
-                                          Math.round(
-                                            ((goal as any).current_value /
-                                              (goal as any).target_value) *
-                                              100
-                                          )
-                                        )}%`}
-                                  </span>
-                                  <span>100%</span>
+                                <div className="flex space-x-1">
+                                  <button
+                                    onClick={() => openEditHighLevelGoal(goal)}
+                                    className="text-gray-400 hover:text-gray-600"
+                                    title="Edit Goal"
+                                  >
+                                    <Settings className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteHighLevelGoal((goal as any).id)}
+                                    className="text-gray-400 hover:text-red-600"
+                                    title="Delete Goal"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
                                 </div>
                               </div>
-                            </div>
-                          )}
 
-                          <div className="text-xs text-gray-500">
-                            {(goal as any).target_date &&
-                              `Target: ${new Date((goal as any).target_date).toLocaleDateString()}`}
-                          </div>
-                        </div>
-                      ))
+                              {(goal as any).target_value && (
+                                <div className="mb-3">
+                                  {/* Interactive Progress Slider */}
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-xs text-gray-500">
+                                      <span>Progress</span>
+                                      <span>
+                                        {(goal as any).current_value}/{(goal as any).target_value}{' '}
+                                        {(goal as any).target_unit || ''}
+                                      </span>
+                                    </div>
+                                    <Slider
+                                      value={
+                                        localProgress[(goal as any).id] !== undefined
+                                          ? localProgress[(goal as any).id]
+                                          : Math.min(
+                                              100,
+                                              ((goal as any).current_value /
+                                                (goal as any).target_value) *
+                                                100
+                                            )
+                                      }
+                                      onChange={(value) =>
+                                        handleProgressChange((goal as any).id, value)
+                                      }
+                                      onValueCommit={(value) =>
+                                        handleProgressCommit((goal as any).id, value)
+                                      }
+                                      min={0}
+                                      max={100}
+                                      step={1}
+                                      className="w-full"
+                                      disabled={updatingProgress === (goal as any).id}
+                                    />
+                                    <div className="flex items-center justify-between text-xs text-gray-500">
+                                      <span>
+                                        {localProgress[(goal as any).id] !== undefined
+                                          ? `${localProgress[(goal as any).id]}%`
+                                          : `${Math.min(
+                                              100,
+                                              Math.round(
+                                                ((goal as any).current_value /
+                                                  (goal as any).target_value) *
+                                                  100
+                                              )
+                                            )}%`}
+                                      </span>
+                                      <span>100%</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="text-xs text-gray-500">
+                                {(goal as any).target_date &&
+                                  `Target: ${new Date((goal as any).target_date).toLocaleDateString()}`}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

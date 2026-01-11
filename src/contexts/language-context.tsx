@@ -179,7 +179,7 @@ const translations = {
 
     // Modules/Life Hacks
     'modules.title': 'Life Hacks & Business Tools',
-    'modules.subtitle': 'Powerful productivity tools and business utilities',
+    'modules.subtitle': 'Powerful productivity and improvement tools',
     'modules.searchPlaceholder': 'Search modules...',
     'modules.complexityFilter': 'Filter by complexity',
     'modules.complexity.all': 'All',

@@ -120,24 +120,24 @@ export async function POST(request: NextRequest) {
     // Log user info for debugging
     console.log('Attempting to store bank connection:', {
       user_id: user.id,
-      plaid_item_id: itemId,
+      item_id: itemId,
       institution_id: institution_id || 'not provided',
       institution_name: institution_name || 'Unknown Bank',
       encrypted_token_length: encryptedAccessToken.length,
     })
 
     // Prepare insert data - ensure all NOT NULL fields are provided
-    // NOTE: The table has BOTH plaid_* columns AND legacy columns, both are NOT NULL
-    // We populate both sets to satisfy all constraints
+    // NOTE: Support both schema variants:
+    // - SETUP_BUDGET_OPTIMIZER.sql uses: plaid_item_id, plaid_access_token
+    // - Migration 015 uses: item_id, access_token
+    // We populate both to work with either schema
     const insertData: any = {
       user_id: user.id,
-      // Plaid-specific columns (from SETUP_BUDGET_OPTIMIZER.sql)
-      plaid_access_token: encryptedAccessToken, // Encrypted for security
+      // Support both schema variants
       plaid_item_id: itemId,
-      // Legacy columns (from migration 015) - also NOT NULL, populate with same values
-      access_token: encryptedAccessToken, // Same encrypted token
-      item_id: itemId, // Same item ID
-      // Institution info (NOT NULL in SETUP_BUDGET_OPTIMIZER.sql)
+      plaid_access_token: encryptedAccessToken,
+      item_id: itemId,
+      access_token: encryptedAccessToken,
       institution_id: institution_id || 'unknown',
       institution_name: institution_name || 'Unknown Bank',
       status: 'active',

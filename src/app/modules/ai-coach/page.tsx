@@ -77,8 +77,8 @@ interface ModuleRecommendation {
 }
 
 const moduleIcons: Record<string, React.ReactNode> = {
-  'Day Trader': <TrendingUp className="h-5 w-5" />,
-  'Budget Optimizer': <DollarSign className="h-5 w-5" />,
+  'Market Advisor': <TrendingUp className="h-5 w-5" />,
+  'Budget Advisor': <DollarSign className="h-5 w-5" />,
   'Fitness Tracker': <Activity className="h-5 w-5" />,
   'Time Blocker': <Clock className="h-5 w-5" />,
   'Learning Tracker': <BookOpen className="h-5 w-5" />,
@@ -87,7 +87,7 @@ const moduleIcons: Record<string, React.ReactNode> = {
   'Energy Optimizer': <Zap className="h-5 w-5" />,
   'Goal Achiever': <Star className="h-5 w-5" />,
   'Calendar AI': <Calendar className="h-5 w-5" />,
-  'Analytics Dashboard': <BarChart3 className="h-5 w-5" />,
+  'Productivity Analyst': <BarChart3 className="h-5 w-5" />,
   'Sleep Optimizer': <Clock className="h-5 w-5" />,
   'Focus Enhancer': <Target className="h-5 w-5" />,
   'Stress Manager': <Heart className="h-5 w-5" />,
@@ -97,8 +97,8 @@ const moduleIcons: Record<string, React.ReactNode> = {
 }
 
 const moduleCategories: Record<string, string> = {
-  'Day Trader': 'Finance',
-  'Budget Optimizer': 'Finance',
+  'Market Advisor': 'Finance',
+  'Budget Advisor': 'Finance',
   'Fitness Tracker': 'Health',
   'Time Blocker': 'Productivity',
   'Learning Tracker': 'Education',
@@ -107,7 +107,7 @@ const moduleCategories: Record<string, string> = {
   'Energy Optimizer': 'Health',
   'Goal Achiever': 'Productivity',
   'Calendar AI': 'Productivity',
-  'Analytics Dashboard': 'Analytics',
+  'Productivity Analyst': 'Analytics',
   'Sleep Optimizer': 'Health',
   'Focus Enhancer': 'Productivity',
   'Stress Manager': 'Health',

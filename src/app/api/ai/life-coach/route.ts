@@ -377,8 +377,8 @@ INSTRUCTIONS:
 7. Keep the tone conversational and supportive
 
 AVAILABLE MODULES TO RECOMMEND (Only recommend modules that are NOT already active):
-- Day Trader: For financial growth and investment learning
-- Budget Optimizer: For financial management and spending optimization
+- Market Advisor: For financial growth and investment learning
+- Budget Advisor: For financial management and spending optimization
 - Life Coach: For personalized coaching and motivation
 - Fitness Tracker: For health and wellness goals
 - Time Blocker: For productivity and time management
@@ -386,7 +386,7 @@ AVAILABLE MODULES TO RECOMMEND (Only recommend modules that are NOT already acti
 - Mood Tracker: For mental health and emotional well-being
 - Energy Optimizer: For energy management and performance
 - Calendar AI: For smart scheduling and time optimization
-- Analytics Dashboard: For comprehensive data visualization and insights
+- Productivity Analyst: For comprehensive data visualization and insights
 - Focus Enhancer: For advanced focus tracking and concentration optimization
 - Stress Manager: For stress level tracking and management techniques
 - Creativity Boost: For AI-powered brainstorming and idea generation

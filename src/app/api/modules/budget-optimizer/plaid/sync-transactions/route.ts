@@ -35,13 +35,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Decrypt access token
+    // Support both schema variants: plaid_access_token or access_token
     let accessToken: string
+    const encryptedToken = bankConnection.plaid_access_token || bankConnection.access_token
+
+    if (!encryptedToken) {
+      return NextResponse.json(
+        { error: 'Access token not found in bank connection' },
+        { status: 500 }
+      )
+    }
+
     try {
-      accessToken = decrypt(bankConnection.plaid_access_token)
+      accessToken = decrypt(encryptedToken)
     } catch (error) {
       console.error('Error decrypting access token:', error)
       // If decryption fails, try using the token as-is (for backward compatibility with unencrypted tokens)
-      accessToken = bankConnection.plaid_access_token
+      accessToken = encryptedToken
     }
 
     // Get bank accounts for this connection
@@ -138,24 +148,24 @@ export async function POST(request: NextRequest) {
       const bankAccount = bankAccounts.find((acc) => acc.account_id === transaction.account_id)
       if (!bankAccount) continue
 
-      const transactionData = {
+      // Build transaction data - use basic fields that exist in SETUP_BUDGET_OPTIMIZER.sql schema
+      // That schema has: id, bank_account_id, transaction_id, amount, date, name, merchant_name, category, pending
+      // We'll use only these fields to avoid schema mismatch errors
+      const transactionData: any = {
         bank_account_id: bankAccount.id,
         transaction_id: transaction.transaction_id,
-        amount: transaction.amount,
+        amount: transaction.amount || 0,
         date: transaction.date,
-        datetime: transaction.datetime,
-        name: transaction.name,
-        merchant_name: transaction.merchant_name,
-        category: transaction.category,
-        category_id: transaction.category_id,
-        subcategory: (transaction as any).subcategory || null,
-        account_owner: transaction.account_owner,
-        pending: transaction.pending,
-        iso_currency_code: transaction.iso_currency_code || 'USD',
-        location: transaction.location,
-        payment_meta: transaction.payment_meta,
-        personal_finance_category: transaction.personal_finance_category,
+        name: transaction.name || 'Unknown Transaction',
+        merchant_name: transaction.merchant_name || null,
+        category: transaction.category || null, // TEXT[] array from Plaid
+        pending: transaction.pending || false,
       }
+
+      // Note: Additional fields like datetime, category_id, subcategory, account_owner,
+      // iso_currency_code, location, payment_meta, personal_finance_category exist in
+      // migration 015 schema but not in SETUP_BUDGET_OPTIMIZER.sql schema
+      // If you need these fields, you'll need to add them via a migration
 
       // Check if transaction already exists
       const { data: existingTransaction } = await supabase
@@ -174,14 +184,33 @@ export async function POST(request: NextRequest) {
 
     // Insert new transactions
     if (transactionsToInsert.length > 0) {
-      const { error: insertError } = await supabase
+      const { error: insertError, data: insertedData } = await supabase
         .from('transactions')
         .insert(transactionsToInsert)
+        .select()
 
       if (insertError) {
         console.error('Error inserting transactions:', insertError)
-        return NextResponse.json({ error: 'Failed to insert transactions' }, { status: 500 })
+        console.error('Insert error details:', {
+          code: insertError.code,
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          sample_transaction: transactionsToInsert[0],
+        })
+        return NextResponse.json(
+          {
+            error: 'Failed to insert transactions',
+            details: insertError.message,
+            code: insertError.code,
+            hint: insertError.hint,
+          },
+          { status: 500 }
+        )
       }
+      console.log(
+        `Successfully inserted ${insertedData?.length || transactionsToInsert.length} transactions`
+      )
     }
 
     // Update existing transactions
