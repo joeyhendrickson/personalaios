@@ -1254,8 +1254,8 @@ export default function BudgetOptimizerModule() {
             <nav className="flex space-x-8 px-6">
               {[
                 { id: 'overview', label: 'Overview', icon: BarChart3 },
-                { id: 'transactions', label: 'Transactions', icon: CreditCard },
                 { id: 'income-expenses', label: 'Income & Expenses', icon: DollarSign },
+                { id: 'transactions', label: 'Transactions', icon: CreditCard },
                 { id: 'analysis', label: 'AI Analysis', icon: Brain },
                 { id: 'settings', label: 'Settings', icon: Settings },
               ].map(({ id, label, icon: Icon }) => (
