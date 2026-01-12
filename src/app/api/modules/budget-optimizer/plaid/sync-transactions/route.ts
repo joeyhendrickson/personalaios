@@ -69,6 +69,8 @@ export async function POST(request: NextRequest) {
     const startDate =
       start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
+    console.log(`Syncing transactions for date range: ${startDate} to ${endDate}`)
+
     // Get transactions from Plaid
     const accountIds = bankAccounts.map((account) => account.account_id)
     let transactionsResponse
@@ -82,9 +84,16 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
       // Handle Plaid-specific errors
       const errorMessage = error?.message || 'Unknown error'
+      const errorCode = error?.response?.data?.error_code || ''
 
-      // Check for specific Plaid error codes
-      if (errorMessage.includes('ITEM_LOGIN_REQUIRED')) {
+      // Check for specific Plaid error codes - handle multiple variations
+      if (
+        errorCode === 'ITEM_LOGIN_REQUIRED' ||
+        errorMessage.includes('ITEM_LOGIN_REQUIRED') ||
+        errorMessage.includes('login details of this item have changed') ||
+        errorMessage.includes('user login is required') ||
+        errorMessage.includes('update mode to restore')
+      ) {
         // Update connection status to indicate re-authentication needed
         await supabase
           .from('bank_connections')
@@ -139,6 +148,9 @@ export async function POST(request: NextRequest) {
     }
 
     const transactions = transactionsResponse.transactions
+    console.log(
+      `Received ${transactions.length} transactions from Plaid for date range ${startDate} to ${endDate}`
+    )
 
     // Process and store transactions
     const transactionsToInsert = []
@@ -184,6 +196,7 @@ export async function POST(request: NextRequest) {
 
     // Insert new transactions
     if (transactionsToInsert.length > 0) {
+      console.log(`Attempting to insert ${transactionsToInsert.length} new transactions`)
       const { error: insertError, data: insertedData } = await supabase
         .from('transactions')
         .insert(transactionsToInsert)
@@ -211,6 +224,10 @@ export async function POST(request: NextRequest) {
       console.log(
         `Successfully inserted ${insertedData?.length || transactionsToInsert.length} transactions`
       )
+    } else {
+      console.log(
+        `No new transactions to insert - ${transactions.length} transactions from Plaid were all duplicates`
+      )
     }
 
     // Update existing transactions
@@ -234,20 +251,29 @@ export async function POST(request: NextRequest) {
       .update({ last_sync_at: new Date().toISOString() })
       .eq('id', bank_connection_id)
 
-    // Update account balances
-    const balancesResponse = await PlaidService.getBalances(accessToken)
-    for (const account of balancesResponse.accounts) {
-      const bankAccount = bankAccounts.find((acc) => acc.account_id === account.account_id)
-      if (bankAccount) {
-        await supabase
-          .from('bank_accounts')
-          .update({
-            current_balance: account.balances.current,
-            available_balance: account.balances.available,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', bankAccount.id)
+    // Update account balances (don't fail the sync if this fails)
+    try {
+      const balancesResponse = await PlaidService.getBalances(accessToken)
+      for (const account of balancesResponse.accounts) {
+        const bankAccount = bankAccounts.find((acc) => acc.account_id === account.account_id)
+        if (bankAccount) {
+          await supabase
+            .from('bank_accounts')
+            .update({
+              current_balance: account.balances.current,
+              available_balance: account.balances.available,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', bankAccount.id)
+        }
       }
+    } catch (balanceError: any) {
+      // Log balance error but don't fail the sync - transactions were successfully synced
+      console.error(
+        'Error updating account balances (non-fatal):',
+        balanceError?.message || balanceError
+      )
+      // Continue - transactions were already synced successfully
     }
 
     return NextResponse.json({
@@ -257,12 +283,33 @@ export async function POST(request: NextRequest) {
       total_transactions: transactions.length,
       date_range: { start_date, end_date },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error syncing transactions:', error)
+
+    // Log detailed error information
+    const errorDetails: any = {
+      message: error?.message || 'Unknown error',
+      stack: error?.stack,
+    }
+
+    // Include Plaid error details if available
+    if (error?.response?.data) {
+      errorDetails.plaid_error = {
+        error_code: error.response.data.error_code,
+        error_message: error.response.data.error_message,
+        error_type: error.response.data.error_type,
+        display_message: error.response.data.display_message,
+        request_id: error.response.data.request_id,
+      }
+    }
+
+    console.error('Full error details:', JSON.stringify(errorDetails, null, 2))
+
     return NextResponse.json(
       {
         error: 'Failed to sync transactions',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: errorDetails.message,
+        plaid_error: errorDetails.plaid_error || undefined,
       },
       { status: 500 }
     )

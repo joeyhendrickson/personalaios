@@ -260,8 +260,20 @@ export async function POST(request: NextRequest) {
     const calculate30DayActuals = () => {
       const last30Days = last30DaysTransactions || []
       const actuals: {
-        income: Array<{ category: string; expected: number; actual: number; difference: number }>
-        expenses: Array<{ category: string; expected: number; actual: number; difference: number }>
+        income: Array<{
+          category: string
+          expected: number
+          actual: number
+          difference: number
+          transactions: Array<{ date: string; name: string; amount: number }>
+        }>
+        expenses: Array<{
+          category: string
+          expected: number
+          actual: number
+          difference: number
+          transactions: Array<{ date: string; name: string; amount: number }>
+        }>
       } = { income: [], expenses: [] }
 
       // Calculate income actuals
@@ -281,39 +293,135 @@ export async function POST(request: NextRequest) {
           )
         })
         const actual = matchingTransactions.reduce((sum: number, t: any) => sum + t.amount, 0)
+        const transactionDetails = matchingTransactions.map((t: any) => ({
+          date: t.date,
+          name: t.name || t.merchant_name || 'Unknown',
+          amount: t.amount,
+        }))
         actuals.income.push({
           category: inc.category,
           expected: expectedMonthly,
           actual,
           difference: actual - expectedMonthly,
+          transactions: transactionDetails,
         })
       })
 
       // Calculate expense actuals
       expectedExpenses.forEach((exp: any) => {
         const expectedMonthly = calculateMonthlyAmount(exp)
+        const categoryName = exp.category.toLowerCase()
+
+        // Create category-specific keywords for better matching
+        const categoryKeywords: string[] = []
+        if (categoryName.includes('utilities')) {
+          categoryKeywords.push(
+            'utility',
+            'electric',
+            'gas',
+            'water',
+            'sewer',
+            'trash',
+            'internet',
+            'cable',
+            'phone bill'
+          )
+        } else if (categoryName.includes('rent')) {
+          categoryKeywords.push('rent', 'apartment', 'housing payment', 'landlord')
+        } else if (categoryName.includes('grocery')) {
+          categoryKeywords.push(
+            'grocery',
+            'supermarket',
+            'walmart',
+            'target',
+            'costco',
+            'kroger',
+            'safeway',
+            'whole foods',
+            'trader joe',
+            'aldi',
+            'food',
+            'grocery store'
+          )
+        } else if (categoryName.includes('meals') || categoryName.includes('entertainment')) {
+          categoryKeywords.push(
+            'restaurant',
+            'dining',
+            'cafe',
+            'bar',
+            'entertainment',
+            'movies',
+            'theater',
+            'concert',
+            'event'
+          )
+        }
+
         const matchingTransactions = last30Days.filter((t: any) => {
+          // Skip if transaction is income
+          if (t.amount >= 0) return false
+
           const name = (t.name || '').toLowerCase()
           const merchant = (t.merchant_name || '').toLowerCase()
-          const categoryName = exp.category.toLowerCase()
-          const categoryArray = (t.category || []).map((c: string) => c.toLowerCase()).join(' ')
-          return (
-            t.amount < 0 &&
-            (name.includes(categoryName) ||
-              merchant.includes(categoryName) ||
-              categoryArray.includes(categoryName) ||
-              categoryName.includes(name.split(' ')[0]) ||
-              categoryName.includes(merchant.split(' ')[0]))
-          )
+          const transactionText = `${name} ${merchant}`.toLowerCase()
+          const plaidCategories = (t.category || []).map((c: string) => c.toLowerCase())
+
+          // Primary: Check if Plaid category matches (most reliable)
+          const plaidMatch = plaidCategories.some((cat: string) => {
+            if (
+              categoryName.includes('utilities') &&
+              (cat.includes('utilities') || cat.includes('utility'))
+            )
+              return true
+            if (categoryName.includes('rent') && (cat.includes('rent') || cat.includes('housing')))
+              return true
+            if (
+              categoryName.includes('grocery') &&
+              (cat.includes('grocery') || cat.includes('food and drink'))
+            )
+              return true
+            if (
+              (categoryName.includes('meals') || categoryName.includes('entertainment')) &&
+              (cat.includes('restaurant') ||
+                cat.includes('food and drink') ||
+                cat.includes('entertainment'))
+            )
+              return true
+            return false
+          })
+
+          if (plaidMatch) return true
+
+          // Secondary: Check category-specific keywords (more precise)
+          if (categoryKeywords.length > 0) {
+            const keywordMatch = categoryKeywords.some((keyword) =>
+              transactionText.includes(keyword)
+            )
+            if (keywordMatch) return true
+          }
+
+          // Tertiary: Direct category name match in transaction text (fallback)
+          if (categoryName.length > 3 && transactionText.includes(categoryName)) {
+            return true
+          }
+
+          return false
         })
+
         const actual = Math.abs(
           matchingTransactions.reduce((sum: number, t: any) => sum + t.amount, 0)
         )
+        const transactionDetails = matchingTransactions.map((t: any) => ({
+          date: t.date,
+          name: t.name || t.merchant_name || 'Unknown',
+          amount: Math.abs(t.amount),
+        }))
         actuals.expenses.push({
           category: exp.category,
           expected: expectedMonthly,
           actual,
           difference: actual - expectedMonthly,
+          transactions: transactionDetails,
         })
       })
 
@@ -321,6 +429,18 @@ export async function POST(request: NextRequest) {
     }
 
     const thirtyDayActuals = calculate30DayActuals()
+
+    // Validate expense actuals - check for duplicate values (indicating matching bug)
+    if (thirtyDayActuals.expenses.length > 1) {
+      const actualValues = thirtyDayActuals.expenses.map((e) => e.actual)
+      const uniqueValues = new Set(actualValues)
+      if (uniqueValues.size === 1 && actualValues[0] > 0) {
+        console.warn(
+          'WARNING: All expense categories have the same actual value. This indicates a matching logic bug.'
+        )
+        console.warn('Expense actuals:', thirtyDayActuals.expenses)
+      }
+    }
 
     // Calculate spending by category
     const categorySpending: Record<string, number> = {}
@@ -675,17 +795,53 @@ ${habits.map((h: any) => `- ${h.title || h.name}: ${h.description || 'No descrip
 
 === 30-DAY ACTUALS SUMMARY ===
 Last 30 Days Income Actuals (${thirtyDaysAgoStr} to ${todayStr}):
-${thirtyDayActuals.income.map((a) => `- ${a.category}: Expected $${a.expected.toFixed(2)}/month, Actual $${a.actual.toFixed(2)}, Difference: $${a.difference.toFixed(2)}`).join('\n') || 'No income categories'}
+${
+  thirtyDayActuals.income
+    .map((a) => {
+      const percentageDiff = a.expected > 0 ? (a.difference / a.expected) * 100 : 0
+      const transactionList =
+        a.transactions.length > 0
+          ? `\n  Transactions (${a.transactions.length}): ${a.transactions
+              .slice(0, 10)
+              .map((t) => `${t.date}: ${t.name} $${t.amount.toFixed(2)}`)
+              .join(
+                ', '
+              )}${a.transactions.length > 10 ? ` ... and ${a.transactions.length - 10} more` : ''}`
+          : ''
+      return `- ${a.category}: Expected $${a.expected.toFixed(2)}/month, Actual $${a.actual.toFixed(2)}, Difference: $${a.difference.toFixed(2)} (${percentageDiff.toFixed(1)}%)${transactionList}`
+    })
+    .join('\n') || 'No income categories'
+}
 
 Last 30 Days Expense Actuals:
-${thirtyDayActuals.expenses.map((a) => `- ${a.category}: Expected $${a.expected.toFixed(2)}/month, Actual $${a.actual.toFixed(2)}, Difference: $${a.difference.toFixed(2)}`).join('\n') || 'No expense categories'}
+${
+  thirtyDayActuals.expenses
+    .map((a) => {
+      const percentageDiff = a.expected > 0 ? (a.difference / a.expected) * 100 : 0
+      const transactionList =
+        a.transactions.length > 0
+          ? `\n  Transactions (${a.transactions.length}): ${a.transactions
+              .slice(0, 10)
+              .map((t) => `${t.date}: ${t.name} $${t.amount.toFixed(2)}`)
+              .join(
+                ', '
+              )}${a.transactions.length > 10 ? ` ... and ${a.transactions.length - 10} more` : ''}`
+          : ''
+      return `- ${a.category}: Expected $${a.expected.toFixed(2)}/month, Actual $${a.actual.toFixed(2)}, Difference: $${a.difference.toFixed(2)} (${percentageDiff.toFixed(1)}%)${transactionList}`
+    })
+    .join('\n') || 'No expense categories'
+}
+
+IMPORTANT: If multiple expense categories show identical actual amounts, this indicates a data processing error. Do NOT report these as real spending discrepancies. Instead, note that the category matching logic needs review. Each expense category should have distinct actual spending values based on transaction categorization.
 
 ANALYSIS TYPE: ${analysis_type}
 
 Please provide a comprehensive budget analysis with the following enhanced structure:
 
 1. SPENDING PATTERNS & DISCREPANCIES: Compare expected vs actual income/expenses based on the selected date range. Identify where expectations don't match reality (flag discrepancies >20%).
-2. ACCOUNTABILITY QUESTIONS: Ask specific questions about spending habits (e.g., "Why are you spending $X on Y when your expected budget is $Z?")
+2. ACCOUNTABILITY QUESTIONS: Ask specific questions about spending habits (e.g., "Why are you spending $X on Y when your expected budget is $Z?"). 
+   CRITICAL RULE: For ANY discrepancy >20% or any question about spending that exceeds expected amounts, you MUST include the specific transactions that contributed to that discrepancy. List the transaction dates, merchant names, and amounts that were used to calculate the actual spending. This ensures transparency and helps users verify the analysis.
+   ADDITIONAL RULE: If you ask a question about a SPECIFIC TRANSACTION or mention a specific transaction by name/merchant, you MUST include that transaction's full details (date, name, amount) in the transactions array. Users should be able to see exactly which transaction you're referring to.
 3. DASHBOARD ALIGNMENT: Review the user's current goals, tasks, and habits. Make specific recommendations on how to update the dashboard based on financial analysis findings (e.g., suggest adding new goals, modifying existing goals, adding tasks, or creating habits).
 4. MODULE RECOMMENDATIONS: Recommend specific Lifestacks modules based on detected financial patterns:
    - If user has habitual spending problems (e.g., excessive retail/impulse buying): Recommend creating a daily habit in the dashboard to track and reduce this behavior
@@ -722,7 +878,14 @@ Format your response as JSON with this structure:
     {
       "question": "Specific question about spending habits",
       "category": "Category this relates to",
-      "context": "Why this question matters"
+      "context": "Why this question matters",
+      "transactions": [
+        {
+          "date": "YYYY-MM-DD",
+          "name": "Merchant/Transaction name",
+          "amount": 0.00
+        }
+      ]
     }
   ],
   "side_business_analysis": {
@@ -906,6 +1069,7 @@ IMPORTANT INSTRUCTIONS:
 - Be specific: Reference actual transaction amounts, categories, and user goals
 - Focus on action: Every recommendation should be actionable and tied to specific goals
 - Ask questions: Don't just tell, ask questions that prompt reflection and change
+- CRITICAL: For any discrepancy >20% between expected and actual spending/income, or any accountability question about excessive spending, you MUST include the "transactions" array in the accountability_question object. This array should list the specific transactions (date, name, amount) that contributed to the discrepancy. Use the transaction data from the 30-DAY ACTUALS SUMMARY above. This rule is mandatory - do not ask questions about spending discrepancies without listing the underlying transactions.
 
 Focus on actionable, specific recommendations that help improve financial situation and achieve income/business goals. Be encouraging but hold users accountable to their stated goals and expectations.
 `
@@ -950,6 +1114,7 @@ Focus on actionable, specific recommendations that help improve financial situat
               'Review the detailed analysis above for specific questions about your spending habits',
             category: 'General',
             context: 'Understanding your spending patterns',
+            transactions: [],
           },
         ],
         side_business_analysis: {
@@ -1083,6 +1248,23 @@ Focus on actionable, specific recommendations that help improve financial situat
     ]
 
     await supabase.from('budget_insights').insert(insightsToInsert)
+
+    // Store accountability questions in database
+    if (
+      parsedAnalysis.accountability_questions &&
+      parsedAnalysis.accountability_questions.length > 0
+    ) {
+      const questionsToInsert = parsedAnalysis.accountability_questions.map((q: any) => ({
+        user_id: user.id,
+        question: q.question,
+        category: q.category,
+        context: q.context || null,
+        transactions: q.transactions || null,
+        status: 'pending',
+      }))
+
+      await supabase.from('accountability_questions').insert(questionsToInsert)
+    }
 
     return NextResponse.json({
       success: true,

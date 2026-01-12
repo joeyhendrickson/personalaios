@@ -73,15 +73,10 @@ export async function GET(request: NextRequest) {
 
     const bankAccountIds = bankAccounts.map((a) => a.id)
 
-    // Build transaction query
-    let query = supabase
-      .from('transactions')
-      .select('*')
-      .in('bank_account_id', bankAccountIds)
-      .order('date', { ascending: false })
-      .range(offset, offset + limit - 1)
+    // Build transaction query with date filters
+    let query = supabase.from('transactions').select('*').in('bank_account_id', bankAccountIds)
 
-    // Apply filters
+    // Apply date filters (must be applied before ordering and range)
     if (startDate) {
       query = query.gte('date', startDate)
     }
@@ -95,10 +90,23 @@ export async function GET(request: NextRequest) {
       query = query.contains('category', [category])
     }
 
+    // Order by date descending (newest first)
+    query = query.order('date', { ascending: false })
+
+    // Apply range for pagination (Supabase requires this)
+    query = query.range(offset, offset + limit - 1)
+
     const { data: transactions, error: transactionsError } = await query
 
     if (transactionsError) {
       console.error('Error fetching transactions:', transactionsError)
+      console.error('Query parameters:', {
+        startDate,
+        endDate,
+        limit,
+        offset,
+        bankAccountIds: bankAccountIds.length,
+      })
       return NextResponse.json(
         {
           error: 'Failed to fetch transactions',
@@ -108,6 +116,11 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    // Debug: Log what we got
+    console.log(
+      `Fetched ${transactions?.length || 0} transactions for date range ${startDate} to ${endDate}`
+    )
 
     // Get total count for pagination
     let countQuery = supabase
@@ -132,7 +145,14 @@ export async function GET(request: NextRequest) {
 
     if (countError) {
       console.error('Error counting transactions:', countError)
+      console.error('Count query parameters:', {
+        startDate,
+        endDate,
+        bankAccountIds: bankAccountIds.length,
+      })
     }
+
+    console.log(`Total count for date range ${startDate} to ${endDate}: ${count || 0}`)
 
     // Enrich transactions with bank account info
     const enrichedTransactions = (transactions || []).map((transaction) => {

@@ -308,6 +308,7 @@ Current environment: ${envType}`
 
   /**
    * Get transactions for a specific date range (legacy method)
+   * Handles pagination to fetch all transactions (Plaid returns max 500 per call)
    */
   static async getTransactions(
     accessToken: string,
@@ -321,15 +322,103 @@ Current environment: ${envType}`
 
     try {
       const client = getPlaidClient()
-      const response = await client.transactionsGet({
-        access_token: accessToken,
-        start_date: startDate,
-        end_date: endDate,
-      })
-      return response.data
-    } catch (error) {
+      const allTransactions: any[] = []
+      let offset = 0
+      const count = 500 // Maximum allowed by Plaid
+      let totalTransactions = 0
+      let accounts: any[] = []
+      let item: any = null
+      let requestId: string = ''
+
+      while (true) {
+        const response = await client.transactionsGet({
+          access_token: accessToken,
+          start_date: startDate,
+          end_date: endDate,
+          options: {
+            count,
+            offset,
+          },
+        })
+
+        const data = response.data
+        const transactions = data.transactions || []
+
+        // Store accounts and item from first response (they don't change)
+        if (offset === 0) {
+          accounts = data.accounts || []
+          item = data.item || null
+          totalTransactions = data.total_transactions || 0
+          requestId = data.request_id || ''
+          console.log(
+            `Plaid transactionsGet Request ID: ${requestId} (view in Plaid Dashboard: https://dashboard.plaid.com/activity/logs)`
+          )
+          console.log(
+            `Plaid returned ${totalTransactions} total transactions for date range ${startDate} to ${endDate}`
+          )
+        }
+
+        allTransactions.push(...transactions)
+
+        console.log(
+          `Fetched page: ${transactions.length} transactions, total so far: ${allTransactions.length}, expected total: ${totalTransactions}`
+        )
+
+        // Check if we need to fetch more
+        // If we got fewer transactions than requested, or we've fetched all available, we're done
+        if (transactions.length < count || allTransactions.length >= totalTransactions) {
+          console.log(
+            `Pagination complete: fetched ${allTransactions.length} transactions (expected ${totalTransactions})`
+          )
+          break
+        }
+
+        offset += count
+
+        // Safety check to prevent infinite loops
+        if (offset > 50000) {
+          console.warn('Reached safety limit for transaction pagination (50,000 transactions)')
+          break
+        }
+
+        // Small delay to avoid rate limiting
+        if (offset > 0 && offset % 2000 === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 100))
+        }
+      }
+
+      // Return in the same format as the original response
+      return {
+        accounts,
+        transactions: allTransactions,
+        total_transactions: allTransactions.length,
+        item,
+        request_id: requestId,
+      }
+    } catch (error: any) {
       console.error('Error getting transactions:', error)
-      throw new Error('Failed to get transactions')
+
+      // Provide more detailed error information
+      if (error?.response?.data) {
+        const plaidError = error.response.data
+        console.error('Plaid API Error Details:', {
+          error_code: plaidError.error_code,
+          error_message: plaidError.error_message,
+          error_type: plaidError.error_type,
+          display_message: plaidError.display_message,
+          request_id: plaidError.request_id,
+          status_code: error?.response?.status,
+        })
+        // Log the request_id which can be used to look up the request in Plaid Dashboard
+        if (plaidError.request_id) {
+          console.error(`Plaid Request ID (use this in Plaid Dashboard): ${plaidError.request_id}`)
+        }
+        throw new Error(
+          `Plaid API error: ${plaidError.error_message || plaidError.error_code || 'Unknown error'}`
+        )
+      }
+
+      throw new Error(`Failed to get transactions: ${error.message || 'Unknown error'}`)
     }
   }
 

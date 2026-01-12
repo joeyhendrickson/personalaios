@@ -32,6 +32,11 @@ import {
   Edit,
   X,
   Save,
+  MessageCircle,
+  Send,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
 } from 'lucide-react'
 
 interface BankConnection {
@@ -126,6 +131,11 @@ interface BudgetAnalysis {
     question: string
     category: string
     context: string
+    transactions?: Array<{
+      date: string
+      name: string
+      amount: number
+    }>
   }>
   side_business_analysis?: {
     potential_income: number
@@ -261,6 +271,391 @@ interface BudgetAnalysis {
   }
 }
 
+// Accountability Question Card Component with Discussion and Completion
+function AccountabilityQuestionCard({
+  question,
+  index,
+  onExpectedExpenseUpdated,
+}: {
+  question: {
+    question: string
+    category: string
+    context: string
+    transactions?: Array<{ date: string; name: string; amount: number }>
+  }
+  index: number
+  onExpectedExpenseUpdated?: () => void
+}) {
+  const [showDiscussion, setShowDiscussion] = useState(false)
+  const [discussionMessages, setDiscussionMessages] = useState<
+    Array<{ role: 'user' | 'assistant'; message: string; created_at: string }>
+  >([])
+  const [discussionInput, setDiscussionInput] = useState('')
+  const [isLoadingDiscussion, setIsLoadingDiscussion] = useState(false)
+  const [isCompleting, setIsCompleting] = useState(false)
+  const [isCompleted, setIsCompleted] = useState(false)
+  const [questionId, setQuestionId] = useState<string | null>(null)
+  const [showUpdateModal, setShowUpdateModal] = useState(false)
+  const [updateAmount, setUpdateAmount] = useState('')
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [actualAmount, setActualAmount] = useState<number | null>(null)
+
+  // Find question ID by matching question text
+  useEffect(() => {
+    const findQuestionId = async () => {
+      try {
+        const response = await fetch('/api/budget/accountability/questions')
+        if (response.ok) {
+          const data = await response.json()
+          const match = data.questions?.find(
+            (q: any) => q.question === question.question && q.status !== 'completed'
+          )
+          if (match) {
+            setQuestionId(match.id)
+            setIsCompleted(match.status === 'completed')
+            // Load discussion history
+            if (match.discussions) {
+              setDiscussionMessages(match.discussions)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error finding question ID:', error)
+      }
+    }
+    findQuestionId()
+  }, [question.question])
+
+  const handleDiscuss = async () => {
+    if (!discussionInput.trim() || !questionId || isLoadingDiscussion) return
+
+    setIsLoadingDiscussion(true)
+    try {
+      const response = await fetch('/api/budget/accountability/discuss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          questionId,
+          message: discussionInput,
+          conversationHistory: discussionMessages.map((m) => ({
+            role: m.role,
+            content: m.message,
+          })),
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        // Add user message and AI response
+        setDiscussionMessages((prev) => [
+          ...prev,
+          { role: 'user', message: discussionInput, created_at: new Date().toISOString() },
+          { role: 'assistant', message: data.response, created_at: new Date().toISOString() },
+        ])
+        setDiscussionInput('')
+        // Reload to get updated discussions
+        const qResponse = await fetch('/api/budget/accountability/questions')
+        if (qResponse.ok) {
+          const qData = await qResponse.json()
+          const match = qData.questions?.find((q: any) => q.id === questionId)
+          if (match?.discussions) {
+            setDiscussionMessages(match.discussions)
+          }
+        }
+      } else {
+        alert('Failed to send message. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error discussing question:', error)
+      alert('Failed to send message. Please try again.')
+    } finally {
+      setIsLoadingDiscussion(false)
+    }
+  }
+
+  const handleComplete = async () => {
+    if (!questionId || isCompleting || isCompleted) return
+
+    setIsCompleting(true)
+    try {
+      const response = await fetch('/api/budget/accountability/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questionId }),
+      })
+
+      if (response.ok) {
+        setIsCompleted(true)
+      } else {
+        alert('Failed to complete question. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error completing question:', error)
+      alert('Failed to complete question. Please try again.')
+    } finally {
+      setIsCompleting(false)
+    }
+  }
+
+  // Get actual spending amount from transactions if available
+  useEffect(() => {
+    if (question.transactions && question.transactions.length > 0) {
+      const total = question.transactions.reduce((sum, txn) => sum + txn.amount, 0)
+      // Convert to monthly if needed (assuming transactions are for last 30 days)
+      setActualAmount(total)
+      setUpdateAmount(total.toFixed(2))
+    }
+  }, [question.transactions])
+
+  const handleUpdateExpectedSpending = async () => {
+    if (!updateAmount || isUpdating) return
+
+    const amount = parseFloat(updateAmount)
+    if (isNaN(amount) || amount < 0) {
+      alert('Please enter a valid amount')
+      return
+    }
+
+    setIsUpdating(true)
+    try {
+      const response = await fetch('/api/budget/expected-expenses/update-by-category', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: question.category,
+          amount: amount,
+          frequency: 'monthly', // Default to monthly
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setShowUpdateModal(false)
+        if (onExpectedExpenseUpdated) {
+          onExpectedExpenseUpdated()
+        }
+        alert(
+          `Expected spending for ${question.category} has been ${data.action === 'created' ? 'set' : 'updated'} to $${amount.toFixed(2)}/month`
+        )
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to update expected spending')
+      }
+    } catch (error) {
+      console.error('Error updating expected spending:', error)
+      alert('Failed to update expected spending. Please try again.')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  return (
+    <div className="bg-white border border-orange-200 rounded-lg p-4">
+      <div className="flex items-start space-x-3">
+        <div className="flex-shrink-0 w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-semibold">
+          {index + 1}
+        </div>
+        <div className="flex-1">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h4 className="font-semibold text-orange-900 mb-1">{question.question}</h4>
+              <p className="text-sm text-gray-600 mb-1">
+                <span className="font-medium">Category:</span> {question.category}
+              </p>
+              <p className="text-sm text-gray-700 mb-2">{question.context}</p>
+              {question.transactions && question.transactions.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <p className="text-xs font-semibold text-gray-700 mb-2">
+                    Supporting Transactions ({question.transactions.length}):
+                  </p>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {question.transactions.map((txn, txnIndex) => (
+                      <div
+                        key={txnIndex}
+                        className="text-xs text-gray-600 flex justify-between items-center bg-gray-50 px-2 py-1 rounded"
+                      >
+                        <span>
+                          {new Date(txn.date).toLocaleDateString()} - {txn.name}
+                        </span>
+                        <span className="font-medium text-red-600">${txn.amount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            {isCompleted && (
+              <div className="ml-4 flex items-center text-green-600">
+                <CheckCircle className="h-5 w-5" />
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="mt-3 flex gap-2 flex-wrap">
+            <button
+              onClick={() => setShowDiscussion(!showDiscussion)}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors"
+              disabled={isCompleted}
+            >
+              <MessageCircle className="h-4 w-4" />
+              {showDiscussion ? 'Hide Discussion' : 'Discuss'}
+              {showDiscussion ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+            <button
+              onClick={() => setShowUpdateModal(true)}
+              disabled={isCompleted}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Edit className="h-4 w-4" />
+              Update Expected Spending
+            </button>
+            <button
+              onClick={handleComplete}
+              disabled={isCompleted || isCompleting || !questionId}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isCompleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle className="h-4 w-4" />
+              )}
+              {isCompleted ? 'Completed' : 'Complete'}
+            </button>
+          </div>
+
+          {/* Discussion Interface */}
+          {showDiscussion && !isCompleted && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <h5 className="font-semibold text-sm mb-3">Discussion</h5>
+
+              {/* Discussion Messages */}
+              <div className="space-y-3 max-h-60 overflow-y-auto mb-3">
+                {discussionMessages.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">
+                    No discussion yet. Start the conversation!
+                  </p>
+                ) : (
+                  discussionMessages.map((msg, msgIndex) => (
+                    <div
+                      key={msgIndex}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[80%] rounded-lg px-3 py-2 ${
+                          msg.role === 'user'
+                            ? 'bg-orange-100 text-orange-900'
+                            : 'bg-gray-100 text-gray-900'
+                        }`}
+                      >
+                        <p className="text-sm">{msg.message}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+                {isLoadingDiscussion && (
+                  <div className="flex justify-start">
+                    <div className="bg-gray-100 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm text-gray-600">Thinking...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Discussion Input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={discussionInput}
+                  onChange={(e) => setDiscussionInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleDiscuss()}
+                  placeholder="Type your response..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  disabled={isLoadingDiscussion || !questionId}
+                />
+                <button
+                  onClick={handleDiscuss}
+                  disabled={!discussionInput.trim() || isLoadingDiscussion || !questionId}
+                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Update Expected Spending Modal */}
+          {showUpdateModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                <h3 className="text-lg font-semibold mb-4">Update Expected Spending</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Update the expected monthly spending for <strong>{question.category}</strong>
+                </p>
+
+                {actualAmount !== null && (
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                    <p className="text-xs text-gray-600 mb-1">Actual spending (last 30 days):</p>
+                    <p className="text-lg font-semibold text-blue-700">
+                      ${actualAmount.toFixed(2)}
+                    </p>
+                  </div>
+                )}
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Monthly Expected Amount ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={updateAmount}
+                    onChange={(e) => setUpdateAmount(e.target.value)}
+                    step="0.01"
+                    min="0"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter monthly amount"
+                  />
+                </div>
+
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => setShowUpdateModal(false)}
+                    className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    disabled={isUpdating}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdateExpectedSpending}
+                    disabled={isUpdating || !updateAmount}
+                    className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isUpdating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      'Update'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function BudgetOptimizerModule() {
   const [connections, setConnections] = useState<BankConnection[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -312,6 +707,10 @@ export default function BudgetOptimizerModule() {
   }>({ incomeSuggestions: [], budgetReductionSuggestions: [] })
   const [showIncomeGoalModal, setShowIncomeGoalModal] = useState(false)
   const [showBudgetReductionGoalModal, setShowBudgetReductionGoalModal] = useState(false)
+  const [showTransactionRulesModal, setShowTransactionRulesModal] = useState(false)
+  const [transactionRulesPrompt, setTransactionRulesPrompt] = useState('')
+  const [transactionRulesResponse, setTransactionRulesResponse] = useState('')
+  const [isGeneratingRules, setIsGeneratingRules] = useState(false)
   const [incomeGoalForm, setIncomeGoalForm] = useState({
     title: '',
     description: '',
@@ -436,6 +835,50 @@ export default function BudgetOptimizerModule() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expectedExpenses])
+
+  // Auto-sync and load transactions when transactions tab is opened or date range changes
+  useEffect(() => {
+    if (activeTab === 'transactions' && dateRange.start && dateRange.end) {
+      // First sync from Plaid, then load from database
+      const syncAndLoad = async () => {
+        // Fetch connections fresh to ensure we have the latest
+        const currentConnections = await fetch('/api/budget/connections')
+          .then((res) => res.json())
+          .then((data) => data.connections || [])
+          .catch(() => [])
+
+        if (currentConnections.length > 0) {
+          // Sync transactions from Plaid for the selected date range (silently, without alerts)
+          try {
+            for (const connection of currentConnections) {
+              if (connection.status === 'active') {
+                try {
+                  await fetch('/api/modules/budget-optimizer/plaid/sync-transactions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      bank_connection_id: connection.id,
+                      start_date: dateRange.start,
+                      end_date: dateRange.end,
+                    }),
+                  })
+                  // Silently handle errors during auto-sync (don't show alerts)
+                } catch (error) {
+                  console.error(`Error auto-syncing ${connection.institution_name}:`, error)
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error during auto-sync:', error)
+          }
+        }
+        // Load transactions from database after sync
+        await loadTransactions()
+      }
+      syncAndLoad()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, dateRange.start, dateRange.end])
 
   const loadGoals = async () => {
     try {
@@ -781,15 +1224,37 @@ export default function BudgetOptimizerModule() {
   }
 
   const loadTransactions = async () => {
+    if (!dateRange.start || !dateRange.end) {
+      console.warn('Date range not set, skipping transaction load')
+      return
+    }
+
     setIsLoading(true)
     try {
-      const response = await fetch(
-        `/api/budget/transactions?start_date=${dateRange.start}&end_date=${dateRange.end}&limit=10000`
-      )
-      if (response.ok) {
-        const data = await response.json()
-        setTransactions(data.transactions || [])
+      // Fetch all transactions by paginating through results
+      const allTransactions: Transaction[] = []
+      const pageSize = 1000
+      let offset = 0
+      let hasMore = true
+
+      while (hasMore) {
+        const response = await fetch(
+          `/api/budget/transactions?start_date=${dateRange.start}&end_date=${dateRange.end}&limit=${pageSize}&offset=${offset}`
+        )
+        if (response.ok) {
+          const data = await response.json()
+          if (data.transactions && data.transactions.length > 0) {
+            allTransactions.push(...data.transactions)
+            hasMore = data.pagination?.has_more || false
+            offset += pageSize
+          } else {
+            hasMore = false
+          }
+        } else {
+          hasMore = false
+        }
       }
+      setTransactions(allTransactions)
     } catch (error) {
       console.error('Error loading transactions:', error)
     } finally {
@@ -850,6 +1315,100 @@ export default function BudgetOptimizerModule() {
       }
     } catch (error) {
       console.error('Error syncing transactions:', error)
+      alert('❌ Failed to sync transactions. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const syncAllConnections = async () => {
+    if (!dateRange.start || !dateRange.end) {
+      alert('Please select a date range first')
+      return
+    }
+
+    if (connections.length === 0) {
+      alert('No bank connections found. Please connect a bank account first.')
+      return
+    }
+
+    setIsLoading(true)
+    let totalSynced = 0
+    let errors = 0
+
+    try {
+      // Sync all active connections sequentially
+      for (const connection of connections) {
+        if (connection.status === 'active') {
+          try {
+            const response = await fetch('/api/modules/budget-optimizer/plaid/sync-transactions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                bank_connection_id: connection.id,
+                start_date: dateRange.start,
+                end_date: dateRange.end,
+              }),
+            })
+
+            if (!response.ok) {
+              // Try to parse error response
+              let errorData
+              try {
+                errorData = await response.json()
+              } catch (parseError) {
+                errorData = { error: `HTTP ${response.status}: ${response.statusText}` }
+              }
+
+              errors++
+              const errorMessage =
+                errorData.details ||
+                errorData.message ||
+                errorData.error ||
+                `HTTP ${response.status} error`
+              const plaidError = errorData.plaid_error
+
+              console.error(`Failed to sync ${connection.institution_name}:`, errorMessage)
+              if (plaidError) {
+                console.error(`Plaid error details for ${connection.institution_name}:`, {
+                  error_code: plaidError.error_code,
+                  error_message: plaidError.error_message,
+                  error_type: plaidError.error_type,
+                  display_message: plaidError.display_message,
+                  request_id: plaidError.request_id,
+                })
+              }
+            } else {
+              const data = await response.json()
+              totalSynced += data.transactions_synced || 0
+            }
+          } catch (error: any) {
+            errors++
+            console.error(`Error syncing ${connection.institution_name}:`, error)
+            console.error(`Error details:`, {
+              message: error?.message,
+              stack: error?.stack,
+              name: error?.name,
+            })
+          }
+        }
+      }
+
+      // Reload transactions and connections after all syncs complete
+      await loadTransactions()
+      await loadBankConnections()
+
+      if (errors > 0) {
+        alert(
+          `✅ Synced ${totalSynced} new transactions from ${connections.length - errors} connection(s). ${errors} connection(s) had errors.`
+        )
+      } else {
+        alert(`✅ Synced ${totalSynced} new transactions from ${connections.length} connection(s)`)
+      }
+    } catch (error) {
+      console.error('Error syncing all connections:', error)
       alert('❌ Failed to sync transactions. Please try again.')
     } finally {
       setIsLoading(false)
@@ -1254,7 +1813,7 @@ export default function BudgetOptimizerModule() {
             <nav className="flex space-x-8 px-6">
               {[
                 { id: 'overview', label: 'Overview', icon: BarChart3 },
-                { id: 'income-expenses', label: 'Income & Expenses', icon: DollarSign },
+                { id: 'income-expenses', label: 'Income & Spending', icon: DollarSign },
                 { id: 'transactions', label: 'Transactions', icon: CreditCard },
                 { id: 'analysis', label: 'AI Analysis', icon: Brain },
                 { id: 'settings', label: 'Settings', icon: Settings },
@@ -1715,7 +2274,7 @@ export default function BudgetOptimizerModule() {
           </div>
         )}
 
-        {/* Income & Expenses Tab */}
+        {/* Income & Spending Tab */}
         {activeTab === 'income-expenses' && (
           <div className="space-y-6">
             {/* Expected Income Section */}
@@ -2364,9 +2923,29 @@ export default function BudgetOptimizerModule() {
                   <button
                     onClick={loadTransactions}
                     disabled={isLoading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
                   >
-                    {isLoading ? 'Loading...' : 'Load Transactions'}
+                    <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    {isLoading ? 'Loading...' : 'Refresh'}
+                  </button>
+                  {connections.length > 0 && (
+                    <button
+                      onClick={syncAllConnections}
+                      disabled={isLoading}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                      title="Sync transactions from all bank connections for the selected date range"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                      {isLoading ? 'Syncing...' : 'Sync All'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowTransactionRulesModal(true)}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+                    title="Manage transaction categorization rules and colors"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Rules
                   </button>
                 </div>
               </div>
@@ -2394,52 +2973,133 @@ export default function BudgetOptimizerModule() {
                       </span>
                     )}
                   </div>
-                  {transactions.map((transaction) => (
-                    <div
-                      key={transaction.id}
-                      className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div
-                          className={`p-2 rounded-full ${
-                            transaction.amount > 0
-                              ? 'bg-green-100 text-green-600'
-                              : 'bg-red-100 text-red-600'
-                          }`}
-                        >
-                          {transaction.amount > 0 ? (
-                            <TrendingUp className="h-4 w-4" />
-                          ) : (
-                            <TrendingDown className="h-4 w-4" />
+                  {transactions.map((transaction) => {
+                    // Helper function to detect if this is a money transfer (neutral transaction)
+                    // BUT exclude "Payment from" transactions as those are income, not transfers
+                    const isTransfer = () => {
+                      const name = (transaction.name || '').toLowerCase()
+                      const merchant = (transaction.merchant_name || '').toLowerCase()
+                      const transactionText = `${name} ${merchant}`.toLowerCase()
+                      const categories = (transaction.category || []).map((c: string) =>
+                        c.toLowerCase()
+                      )
+
+                      // EXCLUDE "Payment from" transactions - these are income, not transfers
+                      if (transactionText.includes('payment from')) {
+                        return false
+                      }
+
+                      // Check Plaid categories for transfer indicators (but not "payment" category alone)
+                      const transferCategories = [
+                        'bank transfer',
+                        'ach',
+                        'wire',
+                        'internal transfer',
+                        'external transfer',
+                      ]
+                      const hasTransferCategory = categories.some((cat: string) =>
+                        transferCategories.some((keyword) => cat.includes(keyword))
+                      )
+                      if (hasTransferCategory) return true
+
+                      // Check transaction name/merchant for transfer keywords
+                      // Exclude "payment from" - only look for outgoing transfers
+                      const transferKeywords = [
+                        'transfer',
+                        'ach',
+                        'wire',
+                        'zelle',
+                        'move money',
+                        'send money',
+                        'payment to',
+                        'internal transfer',
+                        'external transfer',
+                        'p2p',
+                      ]
+                      const hasTransferKeyword = transferKeywords.some((keyword) =>
+                        transactionText.includes(keyword)
+                      )
+                      return hasTransferKeyword
+                    }
+
+                    const isMoneyTransfer = isTransfer()
+
+                    // Account type determines how to interpret the amount sign
+                    // Credit cards: Positive = payment/expense (RED), Negative = credit/income (GREEN)
+                    // Debit/Checking/PayPal: Positive = deposit/income (GREEN), Negative = payment/expense (RED)
+                    const accountType = (transaction.bank_accounts?.type || '').toLowerCase()
+                    const isCreditCard = accountType.includes('credit') || accountType === 'credit'
+
+                    let isExpense = false
+                    let isIncome = false
+
+                    if (!isMoneyTransfer) {
+                      if (isCreditCard) {
+                        // Credit cards: positive = expense (payment), negative = income (credit/refund)
+                        isExpense = transaction.amount > 0
+                        isIncome = transaction.amount < 0
+                      } else {
+                        // Debit/Checking/PayPal: positive = income (deposit), negative = expense (payment)
+                        isExpense = transaction.amount < 0
+                        isIncome = transaction.amount > 0
+                      }
+                    }
+
+                    return (
+                      <div
+                        key={transaction.id}
+                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div
+                            className={`p-2 rounded-full ${
+                              isMoneyTransfer
+                                ? 'bg-gray-100 text-gray-600'
+                                : isExpense
+                                  ? 'bg-red-100 text-red-600'
+                                  : 'bg-green-100 text-green-600'
+                            }`}
+                          >
+                            {isMoneyTransfer ? (
+                              <RefreshCw className="h-4 w-4" />
+                            ) : isExpense ? (
+                              <TrendingDown className="h-4 w-4" />
+                            ) : (
+                              <TrendingUp className="h-4 w-4" />
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-medium">{transaction.name}</h4>
+                            <p className="text-sm text-gray-600">
+                              {transaction.bank_accounts.name} •{' '}
+                              {new Date(transaction.date).toLocaleDateString()}
+                              {transaction.pending && (
+                                <span className="text-yellow-600 ml-2">• Pending</span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div
+                            className={`font-semibold ${
+                              isMoneyTransfer
+                                ? 'text-gray-600'
+                                : isExpense
+                                  ? 'text-red-600'
+                                  : 'text-green-600'
+                            }`}
+                          >
+                            {formatCurrency(transaction.amount)}
+                          </div>
+                          {transaction.transaction_categorizations?.[0]?.budget_categories && (
+                            <div className="text-xs text-gray-500">
+                              {transaction.transaction_categorizations[0].budget_categories.name}
+                            </div>
                           )}
                         </div>
-                        <div>
-                          <h4 className="font-medium">{transaction.name}</h4>
-                          <p className="text-sm text-gray-600">
-                            {transaction.bank_accounts.name} •{' '}
-                            {new Date(transaction.date).toLocaleDateString()}
-                            {transaction.pending && (
-                              <span className="text-yellow-600 ml-2">• Pending</span>
-                            )}
-                          </p>
-                        </div>
                       </div>
-                      <div className="text-right">
-                        <div
-                          className={`font-semibold ${
-                            transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
-                          }`}
-                        >
-                          {formatCurrency(transaction.amount)}
-                        </div>
-                        {transaction.transaction_categorizations?.[0]?.budget_categories && (
-                          <div className="text-xs text-gray-500">
-                            {transaction.transaction_categorizations[0].budget_categories.name}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -2562,25 +3222,12 @@ export default function BudgetOptimizerModule() {
                         </h3>
                         <div className="space-y-3">
                           {analysis.accountability_questions.map((item, index) => (
-                            <div
+                            <AccountabilityQuestionCard
                               key={index}
-                              className="bg-white border border-orange-200 rounded-lg p-4"
-                            >
-                              <div className="flex items-start space-x-3">
-                                <div className="flex-shrink-0 w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-semibold">
-                                  {index + 1}
-                                </div>
-                                <div className="flex-1">
-                                  <h4 className="font-semibold text-orange-900 mb-1">
-                                    {item.question}
-                                  </h4>
-                                  <p className="text-sm text-gray-600 mb-1">
-                                    <span className="font-medium">Category:</span> {item.category}
-                                  </p>
-                                  <p className="text-sm text-gray-700">{item.context}</p>
-                                </div>
-                              </div>
-                            </div>
+                              question={item}
+                              index={index}
+                              onExpectedExpenseUpdated={loadExpectedExpenses}
+                            />
                           ))}
                         </div>
                       </div>
@@ -3906,6 +4553,132 @@ export default function BudgetOptimizerModule() {
                 <Save className="h-4 w-4" />
                 <span>{isLoading ? 'Saving...' : 'Save Goal'}</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transaction Rules Modal */}
+      {showTransactionRulesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Transaction Categorization Rules
+              </h3>
+              <button
+                onClick={() => {
+                  setShowTransactionRulesModal(false)
+                  setTransactionRulesPrompt('')
+                  setTransactionRulesResponse('')
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Describe transaction categorization issues or rules:
+                </label>
+                <textarea
+                  value={transactionRulesPrompt}
+                  onChange={(e) => setTransactionRulesPrompt(e.target.value)}
+                  rows={6}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Example: 'Payment from AirBnB transactions should be green income, not grey transfers. All credit card payments should be red expenses with down arrows.'"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Describe any issues you're seeing with transaction colors, arrows, or
+                  categorization. The AI will help generate rules to fix them.
+                </p>
+              </div>
+
+              {transactionRulesResponse && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 mb-2">AI-Generated Rules:</h4>
+                  <div className="text-sm text-blue-800 whitespace-pre-wrap">
+                    {transactionRulesResponse}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button
+                  onClick={() => {
+                    setShowTransactionRulesModal(false)
+                    setTransactionRulesPrompt('')
+                    setTransactionRulesResponse('')
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!transactionRulesPrompt.trim()) {
+                      alert('Please enter a prompt describing the transaction rules or issues')
+                      return
+                    }
+
+                    setIsGeneratingRules(true)
+                    try {
+                      const response = await fetch('/api/budget/transaction-rules', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          user_prompt: transactionRulesPrompt,
+                        }),
+                      })
+
+                      if (response.ok) {
+                        const data = await response.json()
+                        setTransactionRulesResponse(data.rules || 'Rules generated successfully')
+                      } else {
+                        const error = await response.json()
+                        alert(error.error || 'Failed to generate rules')
+                      }
+                    } catch (error) {
+                      console.error('Error generating rules:', error)
+                      alert('Failed to generate rules. Please try again.')
+                    } finally {
+                      setIsGeneratingRules(false)
+                    }
+                  }}
+                  disabled={isGeneratingRules || !transactionRulesPrompt.trim()}
+                  className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isGeneratingRules ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="h-4 w-4" />
+                      Generate Rules
+                    </>
+                  )}
+                </button>
+                {transactionRulesResponse && (
+                  <button
+                    onClick={() => {
+                      // Refresh transactions after applying rules
+                      loadTransactions()
+                      setShowTransactionRulesModal(false)
+                      setTransactionRulesPrompt('')
+                      setTransactionRulesResponse('')
+                    }}
+                    className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Apply & Refresh
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
