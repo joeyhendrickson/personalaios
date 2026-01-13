@@ -1,9 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { openai } from '@ai-sdk/openai'
-import { generateText } from 'ai'
-import { env } from '@/lib/env'
 
+// GET - Fetch all transaction rules for the current user
+export async function GET() {
+  try {
+    const supabase = await createClient()
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { data: rules, error } = await supabase
+      .from('transaction_rules')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching transaction rules:', error)
+      return NextResponse.json({ error: 'Failed to fetch rules' }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      rules: rules || [],
+    })
+  } catch (error: any) {
+    console.error('Error in GET /api/budget/transaction-rules:', error)
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch transaction rules',
+        details: error?.message || 'Unknown error',
+      },
+      { status: 500 }
+    )
+  }
+}
+
+// POST - Create a new transaction rule
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -17,60 +55,62 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { user_prompt, transaction_sample } = body
+    const { keyword, transaction_type, category_type, is_active } = body
 
-    if (!user_prompt) {
-      return NextResponse.json({ error: 'User prompt is required' }, { status: 400 })
+    if (!keyword || !transaction_type || !category_type) {
+      return NextResponse.json(
+        { error: 'keyword, transaction_type, and category_type are required' },
+        { status: 400 }
+      )
     }
 
-    // Get user's transaction categorization rules/preferences (if stored)
-    // For now, we'll generate a response based on the user's prompt
-    const systemPrompt = `You are a financial transaction categorization assistant. 
-Your role is to help users define rules for categorizing and displaying their bank transactions.
+    if (!['income', 'expense', 'transfer'].includes(transaction_type)) {
+      return NextResponse.json(
+        { error: 'transaction_type must be income, expense, or transfer' },
+        { status: 400 }
+      )
+    }
 
-Based on user input, provide:
-1. Clear categorization rules (which transactions should be marked as income, expense, or transfer)
-2. Color coding rules (when to use red/green/grey)
-3. Arrow direction rules (when to use up/down arrows)
-4. Account-type specific rules (credit cards vs debit/checking accounts)
+    if (!['personal', 'business'].includes(category_type)) {
+      return NextResponse.json(
+        { error: 'category_type must be personal or business' },
+        { status: 400 }
+      )
+    }
 
-Key principles:
-- Credit cards: Positive amounts = expenses (RED, down arrow), Negative amounts = income/credits (GREEN, up arrow)
-- Debit/Checking/PayPal: Positive amounts = income (GREEN, up arrow), Negative amounts = expenses (RED, down arrow)
-- Money transfers between accounts = GREY
-- "Payment from" transactions = Income (GREEN, up arrow)
-- "Payment to" transactions = Expenses (RED, down arrow)
+    const { data: rule, error } = await supabase
+      .from('transaction_rules')
+      .insert({
+        user_id: user.id,
+        keyword: keyword.trim().toLowerCase(),
+        transaction_type,
+        category_type,
+        is_active: is_active !== undefined ? is_active : true,
+      })
+      .select()
+      .single()
 
-Respond with clear, actionable rules that can be applied to transaction categorization.`
-
-    const userMessage = transaction_sample
-      ? `${user_prompt}
-
-Sample transaction data:
-${JSON.stringify(transaction_sample, null, 2)}
-
-Please provide specific rules for this type of transaction.`
-      : user_prompt
-
-    const { text: aiResponse } = await generateText({
-      model: openai(env.OPENAI_MODEL || 'gpt-4.1-mini'),
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-      temperature: 0.7,
-    })
+    if (error) {
+      console.error('Error creating transaction rule:', error)
+      // Check if it's a unique constraint violation
+      if (error.code === '23505') {
+        return NextResponse.json(
+          { error: 'A rule with this keyword already exists' },
+          { status: 409 }
+        )
+      }
+      return NextResponse.json({ error: 'Failed to create rule' }, { status: 500 })
+    }
 
     return NextResponse.json({
       success: true,
-      rules: aiResponse,
-      summary: 'Transaction categorization rules generated based on your input',
+      rule,
     })
   } catch (error: any) {
-    console.error('Error generating transaction rules:', error)
+    console.error('Error in POST /api/budget/transaction-rules:', error)
     return NextResponse.json(
       {
-        error: 'Failed to generate transaction rules',
+        error: 'Failed to create transaction rule',
         details: error?.message || 'Unknown error',
       },
       { status: 500 }

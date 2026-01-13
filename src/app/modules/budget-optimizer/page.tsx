@@ -115,6 +115,16 @@ interface Transaction {
   }>
 }
 
+interface TransactionRule {
+  id: string
+  keyword: string
+  transaction_type: 'income' | 'expense' | 'transfer'
+  category_type: 'personal' | 'business'
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 interface BudgetAnalysis {
   spending_patterns: {
     trends: string[]
@@ -708,9 +718,19 @@ export default function BudgetOptimizerModule() {
   const [showIncomeGoalModal, setShowIncomeGoalModal] = useState(false)
   const [showBudgetReductionGoalModal, setShowBudgetReductionGoalModal] = useState(false)
   const [showTransactionRulesModal, setShowTransactionRulesModal] = useState(false)
-  const [transactionRulesPrompt, setTransactionRulesPrompt] = useState('')
-  const [transactionRulesResponse, setTransactionRulesResponse] = useState('')
-  const [isGeneratingRules, setIsGeneratingRules] = useState(false)
+  const [transactionRules, setTransactionRules] = useState<TransactionRule[]>([])
+  const [transactionRuleForm, setTransactionRuleForm] = useState<{
+    keyword: string
+    transaction_type: 'income' | 'expense' | 'transfer'
+    category_type: 'personal' | 'business'
+  }>({
+    keyword: '',
+    transaction_type: 'expense',
+    category_type: 'personal',
+  })
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null)
+  const [isLoadingRules, setIsLoadingRules] = useState(false)
+  const [isSavingRule, setIsSavingRule] = useState(false)
   const [incomeGoalForm, setIncomeGoalForm] = useState({
     title: '',
     description: '',
@@ -819,14 +839,22 @@ export default function BudgetOptimizerModule() {
     'Other',
   ]
 
-  // Load bank connections, manual accounts, income, expenses, and goals on component mount
+  // Load bank connections, manual accounts, income, expenses, goals, and transaction rules on component mount
   useEffect(() => {
     loadBankConnections()
     loadManualAccounts()
     loadExpectedIncome()
     loadExpectedExpenses()
     loadGoals()
+    loadTransactionRules()
   }, [])
+
+  // Load transaction rules when transactions tab is opened
+  useEffect(() => {
+    if (activeTab === 'transactions') {
+      loadTransactionRules()
+    }
+  }, [activeTab])
 
   // Regenerate suggestions when expected expenses or dashboard goals change
   useEffect(() => {
@@ -1221,6 +1249,93 @@ export default function BudgetOptimizerModule() {
     } catch (error) {
       console.error('Error loading bank connections:', error)
     }
+  }
+
+  const loadTransactionRules = async () => {
+    setIsLoadingRules(true)
+    try {
+      const response = await fetch('/api/budget/transaction-rules')
+      if (response.ok) {
+        const data = await response.json()
+        setTransactionRules(data.rules || [])
+      } else {
+        console.error('Failed to load transaction rules')
+      }
+    } catch (error) {
+      console.error('Error loading transaction rules:', error)
+    } finally {
+      setIsLoadingRules(false)
+    }
+  }
+
+  const saveTransactionRule = async () => {
+    if (!transactionRuleForm.keyword.trim()) {
+      alert('Please enter a keyword')
+      return
+    }
+
+    setIsSavingRule(true)
+    try {
+      const url = editingRuleId
+        ? `/api/budget/transaction-rules/${editingRuleId}`
+        : '/api/budget/transaction-rules'
+      const method = editingRuleId ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transactionRuleForm),
+      })
+
+      if (response.ok) {
+        await loadTransactionRules()
+        setTransactionRuleForm({
+          keyword: '',
+          transaction_type: 'expense',
+          category_type: 'personal',
+        })
+        setEditingRuleId(null)
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to save rule')
+      }
+    } catch (error) {
+      console.error('Error saving transaction rule:', error)
+      alert('Failed to save rule. Please try again.')
+    } finally {
+      setIsSavingRule(false)
+    }
+  }
+
+  const deleteTransactionRule = async (ruleId: string) => {
+    if (!confirm('Are you sure you want to delete this rule?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/budget/transaction-rules/${ruleId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        await loadTransactionRules()
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to delete rule')
+      }
+    } catch (error) {
+      console.error('Error deleting transaction rule:', error)
+      alert('Failed to delete rule. Please try again.')
+    }
+  }
+
+  const editTransactionRule = (rule: TransactionRule) => {
+    setTransactionRuleForm({
+      keyword: rule.keyword,
+      transaction_type: rule.transaction_type,
+      category_type: rule.category_type,
+    })
+    setEditingRuleId(rule.id)
   }
 
   const loadTransactions = async () => {
@@ -2940,7 +3055,10 @@ export default function BudgetOptimizerModule() {
                     </button>
                   )}
                   <button
-                    onClick={() => setShowTransactionRulesModal(true)}
+                    onClick={async () => {
+                      setShowTransactionRulesModal(true)
+                      await loadTransactionRules()
+                    }}
                     className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
                     title="Manage transaction categorization rules and colors"
                   >
@@ -2974,74 +3092,105 @@ export default function BudgetOptimizerModule() {
                     )}
                   </div>
                   {transactions.map((transaction) => {
-                    // Helper function to detect if this is a money transfer (neutral transaction)
-                    // BUT exclude "Payment from" transactions as those are income, not transfers
-                    const isTransfer = () => {
-                      const name = (transaction.name || '').toLowerCase()
-                      const merchant = (transaction.merchant_name || '').toLowerCase()
-                      const transactionText = `${name} ${merchant}`.toLowerCase()
-                      const categories = (transaction.category || []).map((c: string) =>
-                        c.toLowerCase()
-                      )
+                    // Check user-defined rules first
+                    const transactionName = (transaction.name || '').toLowerCase()
+                    const transactionMerchant = (transaction.merchant_name || '').toLowerCase()
+                    const transactionText =
+                      `${transactionName} ${transactionMerchant}`.toLowerCase()
 
-                      // EXCLUDE "Payment from" transactions - these are income, not transfers
-                      if (transactionText.includes('payment from')) {
-                        return false
-                      }
+                    // Find matching rule (case-insensitive keyword match)
+                    const matchingRule = transactionRules.find(
+                      (rule) =>
+                        rule.is_active &&
+                        (transactionText.includes(rule.keyword.toLowerCase()) ||
+                          transactionName.includes(rule.keyword.toLowerCase()) ||
+                          transactionMerchant.includes(rule.keyword.toLowerCase()))
+                    )
 
-                      // Check Plaid categories for transfer indicators (but not "payment" category alone)
-                      const transferCategories = [
-                        'bank transfer',
-                        'ach',
-                        'wire',
-                        'internal transfer',
-                        'external transfer',
-                      ]
-                      const hasTransferCategory = categories.some((cat: string) =>
-                        transferCategories.some((keyword) => cat.includes(keyword))
-                      )
-                      if (hasTransferCategory) return true
-
-                      // Check transaction name/merchant for transfer keywords
-                      // Exclude "payment from" - only look for outgoing transfers
-                      const transferKeywords = [
-                        'transfer',
-                        'ach',
-                        'wire',
-                        'zelle',
-                        'move money',
-                        'send money',
-                        'payment to',
-                        'internal transfer',
-                        'external transfer',
-                        'p2p',
-                      ]
-                      const hasTransferKeyword = transferKeywords.some((keyword) =>
-                        transactionText.includes(keyword)
-                      )
-                      return hasTransferKeyword
-                    }
-
-                    const isMoneyTransfer = isTransfer()
-
-                    // Account type determines how to interpret the amount sign
-                    // Credit cards: Positive = payment/expense (RED), Negative = credit/income (GREEN)
-                    // Debit/Checking/PayPal: Positive = deposit/income (GREEN), Negative = payment/expense (RED)
-                    const accountType = (transaction.bank_accounts?.type || '').toLowerCase()
-                    const isCreditCard = accountType.includes('credit') || accountType === 'credit'
-
+                    let isMoneyTransfer = false
                     let isExpense = false
                     let isIncome = false
 
-                    if (!isMoneyTransfer) {
-                      if (isCreditCard) {
-                        // Credit cards: positive = expense (payment), negative = income (credit/refund)
-                        isExpense = transaction.amount > 0
-                        isIncome = transaction.amount < 0
-                      } else {
-                        // Debit/Checking/PayPal: positive = income (deposit), negative = expense (payment)
-                        isExpense = transaction.amount < 0
-                        isIncome = transaction.amount > 0
+                    // If a rule matches, use it
+                    if (matchingRule) {
+                      if (matchingRule.transaction_type === 'transfer') {
+                        isMoneyTransfer = true
+                      } else if (matchingRule.transaction_type === 'expense') {
+                        isExpense = true
+                        isIncome = false
+                      } else if (matchingRule.transaction_type === 'income') {
+                        isIncome = true
+                        isExpense = false
+                      }
+                    } else {
+                      // Fall back to default logic if no rule matches
+                      // Helper function to detect if this is a money transfer (neutral transaction)
+                      // BUT exclude "Payment from" transactions as those are income, not transfers
+                      const isTransfer = () => {
+                        const name = (transaction.name || '').toLowerCase()
+                        const merchant = (transaction.merchant_name || '').toLowerCase()
+                        const transactionText = `${name} ${merchant}`.toLowerCase()
+                        const categories = (transaction.category || []).map((c: string) =>
+                          c.toLowerCase()
+                        )
+
+                        // EXCLUDE "Payment from" transactions - these are income, not transfers
+                        if (transactionText.includes('payment from')) {
+                          return false
+                        }
+
+                        // Check Plaid categories for transfer indicators (but not "payment" category alone)
+                        const transferCategories = [
+                          'bank transfer',
+                          'ach',
+                          'wire',
+                          'internal transfer',
+                          'external transfer',
+                        ]
+                        const hasTransferCategory = categories.some((cat: string) =>
+                          transferCategories.some((keyword) => cat.includes(keyword))
+                        )
+                        if (hasTransferCategory) return true
+
+                        // Check transaction name/merchant for transfer keywords
+                        // Exclude "payment from" - only look for outgoing transfers
+                        const transferKeywords = [
+                          'transfer',
+                          'ach',
+                          'wire',
+                          'zelle',
+                          'move money',
+                          'send money',
+                          'payment to',
+                          'internal transfer',
+                          'external transfer',
+                          'p2p',
+                        ]
+                        const hasTransferKeyword = transferKeywords.some((keyword) =>
+                          transactionText.includes(keyword)
+                        )
+                        return hasTransferKeyword
+                      }
+
+                      isMoneyTransfer = isTransfer()
+
+                      // Account type determines how to interpret the amount sign
+                      // Credit cards: Positive = payment/expense (RED), Negative = credit/income (GREEN)
+                      // Debit/Checking/PayPal: Positive = deposit/income (GREEN), Negative = payment/expense (RED)
+                      const accountType = (transaction.bank_accounts?.type || '').toLowerCase()
+                      const isCreditCard =
+                        accountType.includes('credit') || accountType === 'credit'
+
+                      if (!isMoneyTransfer) {
+                        if (isCreditCard) {
+                          // Credit cards: positive = expense (payment), negative = income (credit/refund)
+                          isExpense = transaction.amount > 0
+                          isIncome = transaction.amount < 0
+                        } else {
+                          // Debit/Checking/PayPal: positive = income (deposit), negative = expense (payment)
+                          isExpense = transaction.amount < 0
+                          isIncome = transaction.amount > 0
+                        }
                       }
                     }
 
@@ -4561,7 +4710,7 @@ export default function BudgetOptimizerModule() {
       {/* Transaction Rules Modal */}
       {showTransactionRulesModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Settings className="h-5 w-5" />
@@ -4570,8 +4719,12 @@ export default function BudgetOptimizerModule() {
               <button
                 onClick={() => {
                   setShowTransactionRulesModal(false)
-                  setTransactionRulesPrompt('')
-                  setTransactionRulesResponse('')
+                  setTransactionRuleForm({
+                    keyword: '',
+                    transaction_type: 'expense',
+                    category_type: 'personal',
+                  })
+                  setEditingRuleId(null)
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -4579,105 +4732,209 @@ export default function BudgetOptimizerModule() {
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Describe transaction categorization issues or rules:
-                </label>
-                <textarea
-                  value={transactionRulesPrompt}
-                  onChange={(e) => setTransactionRulesPrompt(e.target.value)}
-                  rows={6}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder="Example: 'Payment from AirBnB transactions should be green income, not grey transfers. All credit card payments should be red expenses with down arrows.'"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Describe any issues you're seeing with transaction colors, arrows, or
-                  categorization. The AI will help generate rules to fix them.
-                </p>
-              </div>
-
-              {transactionRulesResponse && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 mb-2">AI-Generated Rules:</h4>
-                  <div className="text-sm text-blue-800 whitespace-pre-wrap">
-                    {transactionRulesResponse}
+            <div className="space-y-6">
+              {/* Add/Edit Rule Form */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h4 className="font-semibold text-gray-900 mb-4">
+                  {editingRuleId ? 'Edit Rule' : 'Add New Rule'}
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Keyword/Transaction Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={transactionRuleForm.keyword}
+                      onChange={(e) =>
+                        setTransactionRuleForm({ ...transactionRuleForm, keyword: e.target.value })
+                      }
+                      placeholder="e.g., payment from airbnb"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Matches if transaction name contains this keyword
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Transaction Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={transactionRuleForm.transaction_type}
+                      onChange={(e) =>
+                        setTransactionRuleForm({
+                          ...transactionRuleForm,
+                          transaction_type: e.target.value as 'income' | 'expense' | 'transfer',
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    >
+                      <option value="income">Income (Green, Up Arrow)</option>
+                      <option value="expense">Expense (Red, Down Arrow)</option>
+                      <option value="transfer">Transfer (Grey, Neutral)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Category Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={transactionRuleForm.category_type}
+                      onChange={(e) =>
+                        setTransactionRuleForm({
+                          ...transactionRuleForm,
+                          category_type: e.target.value as 'personal' | 'business',
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    >
+                      <option value="personal">Personal</option>
+                      <option value="business">Business</option>
+                    </select>
                   </div>
                 </div>
-              )}
+                <div className="flex justify-end gap-2 mt-4">
+                  {editingRuleId && (
+                    <button
+                      onClick={() => {
+                        setTransactionRuleForm({
+                          keyword: '',
+                          transaction_type: 'expense',
+                          category_type: 'personal',
+                        })
+                        setEditingRuleId(null)
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                  <button
+                    onClick={saveTransactionRule}
+                    disabled={isSavingRule || !transactionRuleForm.keyword.trim()}
+                    className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isSavingRule ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        {editingRuleId ? 'Update Rule' : 'Add Rule'}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
 
+              {/* Rules List */}
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3">
+                  Your Rules ({transactionRules.filter((r) => r.is_active).length} active)
+                </h4>
+                {isLoadingRules ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-gray-400" />
+                    <p className="text-sm text-gray-500 mt-2">Loading rules...</p>
+                  </div>
+                ) : transactionRules.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                    <Settings className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600">
+                      No rules yet. Add a rule above to customize how transactions are displayed.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {transactionRules.map((rule) => {
+                      const typeColors = {
+                        income: 'bg-green-100 text-green-800 border-green-200',
+                        expense: 'bg-red-100 text-red-800 border-red-200',
+                        transfer: 'bg-gray-100 text-gray-800 border-gray-200',
+                      }
+                      const categoryColors = {
+                        personal: 'bg-blue-100 text-blue-800',
+                        business: 'bg-purple-100 text-purple-800',
+                      }
+                      return (
+                        <div
+                          key={rule.id}
+                          className={`flex items-center justify-between p-3 border rounded-lg ${
+                            rule.is_active ? 'bg-white' : 'bg-gray-50 opacity-60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-medium text-gray-900">{rule.keyword}</span>
+                                <span
+                                  className={`px-2 py-0.5 text-xs font-medium rounded border ${typeColors[rule.transaction_type]}`}
+                                >
+                                  {rule.transaction_type}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 text-xs font-medium rounded ${categoryColors[rule.category_type]}`}
+                                >
+                                  {rule.category_type}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500">
+                                Created {new Date(rule.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => editTransactionRule(rule)}
+                              className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
+                              title="Edit rule"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => deleteTransactionRule(rule.id)}
+                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded"
+                              title="Delete rule"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer Actions */}
               <div className="flex justify-end gap-3 pt-4 border-t">
+                <button
+                  onClick={async () => {
+                    await loadTransactionRules()
+                    await loadTransactions()
+                  }}
+                  className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh Transactions
+                </button>
                 <button
                   onClick={() => {
                     setShowTransactionRulesModal(false)
-                    setTransactionRulesPrompt('')
-                    setTransactionRulesResponse('')
+                    setTransactionRuleForm({
+                      keyword: '',
+                      transaction_type: 'expense',
+                      category_type: 'personal',
+                    })
+                    setEditingRuleId(null)
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
                 >
-                  Cancel
+                  Close
                 </button>
-                <button
-                  onClick={async () => {
-                    if (!transactionRulesPrompt.trim()) {
-                      alert('Please enter a prompt describing the transaction rules or issues')
-                      return
-                    }
-
-                    setIsGeneratingRules(true)
-                    try {
-                      const response = await fetch('/api/budget/transaction-rules', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          user_prompt: transactionRulesPrompt,
-                        }),
-                      })
-
-                      if (response.ok) {
-                        const data = await response.json()
-                        setTransactionRulesResponse(data.rules || 'Rules generated successfully')
-                      } else {
-                        const error = await response.json()
-                        alert(error.error || 'Failed to generate rules')
-                      }
-                    } catch (error) {
-                      console.error('Error generating rules:', error)
-                      alert('Failed to generate rules. Please try again.')
-                    } finally {
-                      setIsGeneratingRules(false)
-                    }
-                  }}
-                  disabled={isGeneratingRules || !transactionRulesPrompt.trim()}
-                  className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {isGeneratingRules ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Brain className="h-4 w-4" />
-                      Generate Rules
-                    </>
-                  )}
-                </button>
-                {transactionRulesResponse && (
-                  <button
-                    onClick={() => {
-                      // Refresh transactions after applying rules
-                      loadTransactions()
-                      setShowTransactionRulesModal(false)
-                      setTransactionRulesPrompt('')
-                      setTransactionRulesResponse('')
-                    }}
-                    className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Apply & Refresh
-                  </button>
-                )}
               </div>
             </div>
           </div>
