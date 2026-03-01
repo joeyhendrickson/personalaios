@@ -32,6 +32,9 @@ import {
   Trophy,
   GraduationCap,
   RefreshCw,
+  Menu,
+  LogOut,
+  User,
 } from 'lucide-react'
 import Link from 'next/link'
 import { ChatInterface } from '@/components/chat/chat-interface'
@@ -436,6 +439,7 @@ export default function Dashboard() {
   const [showManualPriorityForm, setShowManualPriorityForm] = useState(false)
   const [showConversationalPriorityInput, setShowConversationalPriorityInput] = useState(false)
   const [triggerChatOpen, setTriggerChatOpen] = useState(false)
+  const [navMenuOpen, setNavMenuOpen] = useState(false)
   const [newGoal, setNewGoal] = useState({
     title: '',
     description: '',
@@ -1523,52 +1527,75 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <Link href="/modules">
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black text-white hover:bg-gray-800 h-9 rounded-md px-3">
-                  <Plus className="h-4 w-4" />
-                  {t('nav.modules')}
-                </button>
-              </Link>
-              <Link href="/bug-report">
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 h-9 rounded-md px-3">
-                  <Bug className="h-4 w-4" />
-                  Report Bug
-                </button>
-              </Link>
-              <Link href="/import">
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3">
-                  <FileSpreadsheet className="h-4 w-4" />
-                  {t('nav.import')}
-                </button>
-              </Link>
-              <Link href="/profile">
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3">
-                  <Settings className="h-4 w-4" />
-                  {t('nav.profile')}
-                </button>
-              </Link>
-              {isAdmin && (
-                <Link href="/admin">
-                  <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-700 h-9 rounded-md px-3">
-                    <Brain className="h-4 w-4" />
-                    Admin
-                  </button>
-                </Link>
-              )}
+            <div className="relative">
               <button
-                onClick={async () => {
-                  try {
-                    await signOut()
-                  } catch (error) {
-                    console.error('Error signing out:', error)
-                    alert('Error signing out. Please try again.')
-                  }
-                }}
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 h-9 rounded-md px-3"
+                onClick={() => setNavMenuOpen(!navMenuOpen)}
+                className="inline-flex items-center justify-center p-2 rounded-md border border-gray-300 bg-white hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400"
+                aria-label="Open menu"
+                aria-expanded={navMenuOpen}
               >
-                {t('nav.signOut')}
+                <Menu className="h-6 w-6 text-gray-700" />
               </button>
+
+              {/* Hamburger dropdown menu */}
+              {navMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setNavMenuOpen(false)}
+                    aria-hidden="true"
+                  />
+                  <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-gray-200 bg-white shadow-lg z-50 py-1">
+                    <Link href="/modules" onClick={() => setNavMenuOpen(false)}>
+                      <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                        <Plus className="h-4 w-4 text-gray-500" />
+                        {t('nav.modules')}
+                      </span>
+                    </Link>
+                    <Link href="/bug-report" onClick={() => setNavMenuOpen(false)}>
+                      <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-700 hover:bg-red-50">
+                        <Bug className="h-4 w-4" />
+                        Report Bug
+                      </span>
+                    </Link>
+                    <Link href="/import" onClick={() => setNavMenuOpen(false)}>
+                      <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                        <FileSpreadsheet className="h-4 w-4 text-gray-500" />
+                        {t('nav.import')}
+                      </span>
+                    </Link>
+                    <Link href="/profile" onClick={() => setNavMenuOpen(false)}>
+                      <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                        <User className="h-4 w-4 text-gray-500" />
+                        {t('nav.profile')}
+                      </span>
+                    </Link>
+                    {isAdmin && (
+                      <Link href="/admin" onClick={() => setNavMenuOpen(false)}>
+                        <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50">
+                          <Brain className="h-4 w-4" />
+                          Admin
+                        </span>
+                      </Link>
+                    )}
+                    <button
+                      onClick={async () => {
+                        setNavMenuOpen(false)
+                        try {
+                          await signOut()
+                        } catch (error) {
+                          console.error('Error signing out:', error)
+                          alert('Error signing out. Please try again.')
+                        }
+                      }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-700 hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      {t('nav.signOut')}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -2433,9 +2460,9 @@ export default function Dashboard() {
                               key={goal.id}
                               className="bg-green-50 rounded-xl p-6 border border-green-200 hover:shadow-md transition-all duration-200"
                             >
-                              <div className="flex items-start justify-between mb-4">
-                                <div className="flex items-center space-x-3">
-                                  <span className="text-2xl">
+                              <div className="flex items-start justify-between gap-4 mb-4">
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-2xl block mb-2">
                                     {(goal as any).category === 'quick_money'
                                       ? '⚡'
                                       : (goal as any).category === 'save_money'
@@ -2469,50 +2496,48 @@ export default function Dashboard() {
                                                                 ? '💡'
                                                                 : '📋'}
                                   </span>
-                                  <div className="flex-1">
-                                    <h3 className="font-semibold text-gray-900">
-                                      {(goal as any).title}
-                                    </h3>
-                                    <div className="space-y-2">
-                                      <p className="text-sm text-gray-600 leading-relaxed">
-                                        {(() => {
-                                          const description =
-                                            (goal as any).description || 'No description'
-                                          const shouldTruncate = description.length > 120
-                                          const displayDescription =
-                                            shouldTruncate && !expandedDescriptions[goal.id]
-                                              ? description.substring(0, 120).trim() + '...'
-                                              : description
-                                          return displayDescription
-                                        })()}
-                                      </p>
-                                      {((goal as any).description || '').length > 120 && (
-                                        <button
-                                          onClick={() =>
-                                            setExpandedDescriptions((prev) => ({
-                                              ...prev,
-                                              [goal.id]: !prev[goal.id],
-                                            }))
-                                          }
-                                          className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                                        >
-                                          {expandedDescriptions[goal.id] ? (
-                                            <>
-                                              <ChevronUp className="w-3 h-3" />
-                                              Show Less
-                                            </>
-                                          ) : (
-                                            <>
-                                              <ChevronDown className="w-3 h-3" />
-                                              {t('projects.viewDetails')}
-                                            </>
-                                          )}
-                                        </button>
-                                      )}
-                                    </div>
+                                  <h3 className="font-semibold text-gray-900 mb-1">
+                                    {(goal as any).title}
+                                  </h3>
+                                  <div className="space-y-2">
+                                    <p className="text-sm text-gray-600 leading-relaxed">
+                                      {(() => {
+                                        const description =
+                                          (goal as any).description || 'No description'
+                                        const shouldTruncate = description.length > 120
+                                        const displayDescription =
+                                          shouldTruncate && !expandedDescriptions[goal.id]
+                                            ? description.substring(0, 120).trim() + '...'
+                                            : description
+                                        return displayDescription
+                                      })()}
+                                    </p>
+                                    {((goal as any).description || '').length > 120 && (
+                                      <button
+                                        onClick={() =>
+                                          setExpandedDescriptions((prev) => ({
+                                            ...prev,
+                                            [goal.id]: !prev[goal.id],
+                                          }))
+                                        }
+                                        className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                      >
+                                        {expandedDescriptions[goal.id] ? (
+                                          <>
+                                            <ChevronUp className="w-3 h-3" />
+                                            Show Less
+                                          </>
+                                        ) : (
+                                          <>
+                                            <ChevronDown className="w-3 h-3" />
+                                            {t('projects.viewDetails')}
+                                          </>
+                                        )}
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
-                                <div className="flex items-center space-x-2 ml-4">
+                                <div className="flex items-center space-x-2 flex-shrink-0">
                                   <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-green-200 text-green-700">
                                     {(goal as any).category}
                                   </span>
@@ -2589,9 +2614,9 @@ export default function Dashboard() {
                             key={goal.id}
                             className="bg-white/50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-all duration-200"
                           >
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="flex items-center space-x-3">
-                                <span className="text-2xl">
+                            <div className="flex items-start justify-between gap-4 mb-4">
+                              <div className="flex-1 min-w-0">
+                                <span className="text-2xl block mb-2">
                                   {(goal as any).category === 'quick_money'
                                     ? '⚡'
                                     : (goal as any).category === 'save_money'
@@ -2625,50 +2650,48 @@ export default function Dashboard() {
                                                               ? '💡'
                                                               : '📋'}
                                 </span>
-                                <div className="flex-1">
-                                  <h3 className="font-semibold text-gray-900">
-                                    {(goal as any).title}
-                                  </h3>
-                                  <div className="space-y-2">
-                                    <p className="text-sm text-gray-600 leading-relaxed">
-                                      {(() => {
-                                        const description =
-                                          (goal as any).description || 'No description'
-                                        const shouldTruncate = description.length > 120
-                                        const displayDescription =
-                                          shouldTruncate && !expandedDescriptions[goal.id]
-                                            ? description.substring(0, 120).trim() + '...'
-                                            : description
-                                        return displayDescription
-                                      })()}
-                                    </p>
-                                    {((goal as any).description || '').length > 120 && (
-                                      <button
-                                        onClick={() =>
-                                          setExpandedDescriptions((prev) => ({
-                                            ...prev,
-                                            [goal.id]: !prev[goal.id],
-                                          }))
-                                        }
-                                        className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                                      >
-                                        {expandedDescriptions[goal.id] ? (
-                                          <>
-                                            <ChevronUp className="w-3 h-3" />
-                                            Show Less
-                                          </>
-                                        ) : (
-                                          <>
-                                            <ChevronDown className="w-3 h-3" />
-                                            {t('projects.viewDetails')}
-                                          </>
-                                        )}
-                                      </button>
-                                    )}
-                                  </div>
+                                <h3 className="font-semibold text-gray-900 mb-1">
+                                  {(goal as any).title}
+                                </h3>
+                                <div className="space-y-2">
+                                  <p className="text-sm text-gray-600 leading-relaxed">
+                                    {(() => {
+                                      const description =
+                                        (goal as any).description || 'No description'
+                                      const shouldTruncate = description.length > 120
+                                      const displayDescription =
+                                        shouldTruncate && !expandedDescriptions[goal.id]
+                                          ? description.substring(0, 120).trim() + '...'
+                                          : description
+                                      return displayDescription
+                                    })()}
+                                  </p>
+                                  {((goal as any).description || '').length > 120 && (
+                                    <button
+                                      onClick={() =>
+                                        setExpandedDescriptions((prev) => ({
+                                          ...prev,
+                                          [goal.id]: !prev[goal.id],
+                                        }))
+                                      }
+                                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                    >
+                                      {expandedDescriptions[goal.id] ? (
+                                        <>
+                                          <ChevronUp className="w-3 h-3" />
+                                          Show Less
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ChevronDown className="w-3 h-3" />
+                                          {t('projects.viewDetails')}
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
                                 </div>
                               </div>
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-2 flex-shrink-0">
                                 <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-blue-200 text-blue-700">
                                   {(goal as any).category}
                                 </span>

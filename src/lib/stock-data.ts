@@ -14,6 +14,15 @@ export interface StockData {
   source: string
 }
 
+export interface HistoricalDay {
+  date: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
 export class StockDataService {
   private static async fetchWithTimeout(url: string, timeout = 10000): Promise<Response> {
     const controller = new AbortController()
@@ -228,6 +237,96 @@ export class StockDataService {
     }
 
     console.error(`All data sources failed for symbol: ${cleanSymbol}`)
+    return null
+  }
+
+  /**
+   * Fetch historical daily OHLCV data for pattern analysis.
+   * Returns up to `days` trading days of history (newest first).
+   */
+  static async getStockHistoricalData(
+    symbol: string,
+    days: number
+  ): Promise<{ data: HistoricalDay[]; source: string } | null> {
+    if (!symbol || symbol.trim() === '') {
+      throw new Error('Stock symbol is required')
+    }
+    const cleanSymbol = symbol.trim().toUpperCase()
+    const cappedDays = Math.min(Math.max(1, Math.floor(days)), 365)
+
+    // Alpha Vantage: TIME_SERIES_DAILY returns daily data
+    if (env.ALPHA_VANTAGE_API_KEY) {
+      try {
+        const outputsize = cappedDays > 100 ? 'full' : 'compact'
+        const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${cleanSymbol}&apikey=${env.ALPHA_VANTAGE_API_KEY}&outputsize=${outputsize}`
+        const response = await this.fetchWithTimeout(url)
+        const data = await response.json()
+
+        if (data['Time Series (Daily)']) {
+          const timeSeries = data['Time Series (Daily)']
+          const entries = Object.entries(timeSeries)
+            .sort(([a], [b]) => (b > a ? 1 : -1))
+            .slice(0, cappedDays)
+            .map(([date, d]: [string, any]) => ({
+              date,
+              open: parseFloat(d['1. open']),
+              high: parseFloat(d['2. high']),
+              low: parseFloat(d['3. low']),
+              close: parseFloat(d['4. close']),
+              volume: parseInt(d['5. volume']),
+            }))
+          if (entries.length > 0) {
+            return { data: entries, source: 'Alpha Vantage' }
+          }
+        }
+      } catch (error) {
+        console.error('Alpha Vantage historical error:', error)
+      }
+    }
+
+    // Yahoo Finance: chart API with dynamic range
+    try {
+      const range = cappedDays <= 5 ? '5d' : cappedDays <= 60 ? '3mo' : cappedDays <= 180 ? '6mo' : '1y'
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${cleanSymbol}?interval=1d&range=${range}`
+      const response = await this.fetchWithTimeout(url)
+      const data = await response.json()
+
+      if (data.chart?.result?.[0]) {
+        const result = data.chart.result[0]
+        const quotes = result.indicators?.quote?.[0]
+        const timestamps = result.timestamp
+        if (quotes && timestamps && timestamps.length > 0) {
+          const entries: HistoricalDay[] = []
+          const startIdx = Math.max(0, timestamps.length - cappedDays)
+          for (let i = startIdx; i < timestamps.length; i++) {
+            const ts = timestamps[i]
+            const open = quotes.open?.[i]
+            const high = quotes.high?.[i]
+            const low = quotes.low?.[i]
+            const close = quotes.close?.[i]
+            const volume = quotes.volume?.[i]
+            if (open != null && high != null && low != null && close != null) {
+              entries.push({
+                date: new Date(ts * 1000).toISOString().split('T')[0],
+                open,
+                high,
+                low,
+                close,
+                volume: volume ?? 0,
+              })
+            }
+          }
+          // Newest first to match Alpha Vantage (reverse since Yahoo is oldest-first)
+          const sorted = entries.reverse().slice(0, cappedDays)
+          if (sorted.length > 0) {
+            return { data: sorted, source: 'Yahoo Finance' }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Yahoo Finance historical error:', error)
+    }
+
     return null
   }
 }

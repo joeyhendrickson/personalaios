@@ -860,7 +860,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
   if (!isExpanded) {
     return (
-      <div className="fixed bottom-4 right-4 z-50">
+      <div className="fixed bottom-4 left-4 right-auto z-50 md:left-auto md:right-4">
         <Button
           onClick={() => setIsExpanded(true)}
           className="rounded-full w-14 h-14 shadow-lg bg-black hover:bg-gray-800"

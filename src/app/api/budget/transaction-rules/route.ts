@@ -99,7 +99,23 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         )
       }
-      return NextResponse.json({ error: 'Failed to create rule' }, { status: 500 })
+      // Check if table doesn't exist
+      if (error.code === '42P01') {
+        return NextResponse.json(
+          { 
+            error: 'Transaction rules table not found. Please run the migration in Supabase SQL Editor.',
+            details: 'Run the migration file: supabase/migrations/032_create_transaction_rules.sql'
+          },
+          { status: 500 }
+        )
+      }
+      return NextResponse.json(
+        { 
+          error: 'Failed to create rule',
+          details: error.message || error.code || 'Unknown database error'
+        },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({

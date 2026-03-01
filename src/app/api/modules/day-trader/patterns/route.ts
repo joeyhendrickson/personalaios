@@ -29,11 +29,19 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     console.log('Pattern analysis request body:', body)
-    const { stockSymbol, investorType, informationSources, eventMonitoring } = body
+    const {
+      stockSymbol,
+      investorType,
+      informationSources,
+      eventMonitoring,
+      lookbackDays: rawLookbackDays,
+    } = body
 
     if (!stockSymbol) {
       return NextResponse.json({ error: 'Stock symbol is required' }, { status: 400 })
     }
+
+    const lookbackDays = Math.min(365, Math.max(1, parseInt(String(rawLookbackDays || 1), 10) || 1))
 
     // Get current date and time context
     const currentDate = new Date().toISOString().split('T')[0]
@@ -67,6 +75,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Get historical price data for the lookback period
+    let historicalData: { data: Array<{ date: string; open: number; high: number; low: number; close: number; volume: number }>; source: string } | null =
+      null
+    try {
+      const { StockDataService } = await import('@/lib/stock-data')
+      historicalData = await StockDataService.getStockHistoricalData(stockSymbol, lookbackDays)
+    } catch (error) {
+      console.error('Error fetching historical data:', error)
+    }
+
     // Create AI prompt for real-time pattern analysis
     const prompt = `
 You are an expert day trading analyst with access to real-time market data. Analyze ${stockSymbol} stock for actual trading patterns and provide real market insights.
@@ -93,6 +111,23 @@ ${
 - You must explain that users should verify current prices independently
 `
 }
+${
+  historicalData && historicalData.data.length > 0
+    ? `
+HISTORICAL PRICE DATA (last ${lookbackDays} trading days, source: ${historicalData.source}, newest first):
+${historicalData.data
+  .slice(0, 50)
+  .map(
+    (d) =>
+      `${d.date}: O=$${d.open.toFixed(2)} H=$${d.high.toFixed(2)} L=$${d.low.toFixed(2)} C=$${d.close.toFixed(2)} V=${d.volume.toLocaleString()}`
+  )
+  .join('\n')}
+${historicalData.data.length > 50 ? `... and ${historicalData.data.length - 50} more days` : ''}
+`
+    : `
+- Historical data unavailable for the ${lookbackDays}-day lookback period
+`
+}
 
 CURRENT MARKET CONTEXT:
 - Today's Date: ${currentDate} at ${currentTime} EST
@@ -110,7 +145,7 @@ ${Object.entries(eventMonitoring)
   .map(([key, value]) => `- ${key}: ${value}`)
   .join('\n')}
 
-Please analyze ${stockSymbol} and provide REAL-TIME TRADING INSIGHTS focusing on these specific day trading patterns from the last day of trading:
+Please analyze ${stockSymbol} and provide REAL-TIME TRADING INSIGHTS focusing on these specific day trading patterns from the last ${lookbackDays} trading day${lookbackDays === 1 ? '' : 's'}:
 
 1. CONSOLIDATION PATTERNS (Primary Focus):
    - Bullish/Bearish Flags: Look for initial trend followed by brief consolidation and continuation
@@ -141,7 +176,7 @@ Please analyze ${stockSymbol} and provide REAL-TIME TRADING INSIGHTS focusing on
    - Price targets based on pattern measurements
    - Risk/reward ratios
 
-Focus on patterns that have formed in the last 24 hours of trading with real price levels and volume data.
+Focus on patterns that have formed over the last ${lookbackDays} trading day${lookbackDays === 1 ? '' : 's'} using the historical price data above when available. Provide real price levels and volume data.
 
 Format your response as JSON with this structure:
 {

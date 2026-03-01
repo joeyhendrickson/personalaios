@@ -202,6 +202,10 @@ export default function DayTraderModule() {
   const [profitGoal, setProfitGoal] = useState('')
   const [timeframeDays, setTimeframeDays] = useState('')
   const [showProfitAdvisor, setShowProfitAdvisor] = useState(false)
+  const [showPatternLookbackModal, setShowPatternLookbackModal] = useState(false)
+  const [patternLookbackDays, setPatternLookbackDays] = useState(5)
+  const [patternLookbackInput, setPatternLookbackInput] = useState('5')
+  const [patternLookbackDaysUsed, setPatternLookbackDaysUsed] = useState<number | null>(null)
 
   const investorTypes = [
     {
@@ -303,11 +307,14 @@ export default function DayTraderModule() {
     }
   }
 
-  const detectTradingPatterns = async () => {
+  const detectTradingPatterns = async (lookbackDaysOverride?: number) => {
     if (!config.stockSymbol) {
       alert('Please enter a stock symbol first')
       return
     }
+
+    const days = lookbackDaysOverride ?? patternLookbackDays
+    setShowPatternLookbackModal(false)
 
     setIsAnalyzing(true)
     setShowPatterns(true)
@@ -323,6 +330,7 @@ export default function DayTraderModule() {
           investorType: config.investorType,
           informationSources: config.informationSources,
           eventMonitoring: config.eventMonitoring,
+          lookbackDays: days,
         }),
       })
 
@@ -348,6 +356,7 @@ export default function DayTraderModule() {
 
         console.log('Parsed patterns:', patterns)
         setPatterns(patterns)
+        setPatternLookbackDaysUsed(days)
 
         // Generate chart images for each pattern
         for (let i = 0; i < patterns.length; i++) {
@@ -397,6 +406,11 @@ export default function DayTraderModule() {
           investorType: config.investorType,
           informationSources: config.informationSources,
           eventMonitoring: config.eventMonitoring,
+          patterns:
+            patterns.length > 0
+              ? patterns.map(({ imageUrl: _, ...p }) => p)
+              : undefined,
+          patternLookbackDays: patternLookbackDaysUsed ?? undefined,
         }),
       })
 
@@ -1020,7 +1034,10 @@ export default function DayTraderModule() {
               <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <div className="flex flex-wrap gap-4">
                   <button
-                    onClick={detectTradingPatterns}
+                    onClick={() => {
+                      setPatternLookbackInput(String(patternLookbackDays))
+                      setShowPatternLookbackModal(true)
+                    }}
                     disabled={isAnalyzing || !config.stockSymbol}
                     className="flex items-center space-x-2 px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -1044,16 +1061,100 @@ export default function DayTraderModule() {
                 )}
               </div>
 
+              {/* Pattern Lookback Modal */}
+              {showPatternLookbackModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                  <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Market History Lookback
+                      </h3>
+                      <button
+                        onClick={() => setShowPatternLookbackModal(false)}
+                        className="p-1 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      How many days of market history should the pattern analysis consider? This
+                      context will also inform the prediction when you generate it.
+                    </p>
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-sm font-medium text-gray-700">Days to look back</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={365}
+                            value={patternLookbackInput}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              setPatternLookbackInput(val)
+                              const num = parseInt(val, 10)
+                              if (!isNaN(num) && num >= 1 && num <= 365) {
+                                setPatternLookbackDays(num)
+                              }
+                            }}
+                            onBlur={() => {
+                              const num = parseInt(patternLookbackInput, 10)
+                              const clamped = Math.min(365, Math.max(1, isNaN(num) ? 5 : num))
+                              setPatternLookbackDays(clamped)
+                              setPatternLookbackInput(String(clamped))
+                            }}
+                            className="w-16 px-2 py-1.5 border border-gray-300 rounded-md text-sm text-center"
+                          />
+                        </div>
+                        <input
+                          type="range"
+                          min={1}
+                          max={365}
+                          value={patternLookbackDays}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10)
+                            setPatternLookbackDays(val)
+                            setPatternLookbackInput(String(val))
+                          }}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                        />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>1 day</span>
+                          <span>365 days</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          onClick={() => setShowPatternLookbackModal(false)}
+                          className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => detectTradingPatterns()}
+                          className="flex-1 px-4 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 font-medium"
+                        >
+                          Detect Patterns
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Trading Patterns */}
               {showPatterns && (
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <h3 className="text-xl font-semibold mb-4 flex items-center">
                     <BarChart3 className="h-5 w-5 mr-2" />
-                    Day Trading Pattern Analysis (Last 24 Hours)
+                    Day Trading Pattern Analysis (Last{' '}
+                    {patternLookbackDaysUsed ?? patternLookbackDays} day
+                    {(patternLookbackDaysUsed ?? patternLookbackDays) === 1 ? '' : 's'})
                   </h3>
                   <p className="text-sm text-gray-600 mb-4">
                     Analysis based on consolidation patterns, structural patterns, and candlestick
-                    formations from the last trading day.
+                    formations from the last {patternLookbackDaysUsed ?? patternLookbackDays} trading
+                    day{(patternLookbackDaysUsed ?? patternLookbackDays) === 1 ? '' : 's'}.
                   </p>
 
                   {/* Data Warning */}

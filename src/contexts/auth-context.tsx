@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 
@@ -18,8 +18,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Only create Supabase client in browser environment
-  const supabase = typeof window !== 'undefined' ? createClient() : null
+  // Memoize Supabase client - creating it on every render caused infinite re-renders
+  const supabase = useMemo(
+    () => (typeof window !== 'undefined' ? createClient() : null),
+    []
+  )
 
   useEffect(() => {
     if (!supabase) {

@@ -28,7 +28,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { stockSymbol, buyingPower, investorType, informationSources, eventMonitoring } = body
+    const {
+      stockSymbol,
+      buyingPower,
+      investorType,
+      informationSources,
+      eventMonitoring,
+      patterns,
+      patternLookbackDays,
+    } = body
 
     // Get real-time stock data using our new service
     let stockData = null
@@ -72,14 +80,25 @@ INVESTOR PROFILE:
 - Risk Tolerance: ${getRiskTolerance(investorType)}
 
 INFORMATION SOURCES (with weights):
-${informationSources.map((source: any) => `- ${source.name} (${source.type}): ${source.weight}% weight`).join('\n')}
+${(informationSources || []).map((source: any) => `- ${source.name} (${source.type}): ${source.weight}% weight`).join('\n')}
 
 EVENT MONITORING:
-${Object.entries(eventMonitoring)
+${Object.entries(eventMonitoring || {})
   .map(([key, value]) => `- ${key}: ${value}`)
   .join('\n')}
+${
+  patterns && Array.isArray(patterns) && patterns.length > 0
+    ? `
+TRADING PATTERNS DETECTED (from ${patternLookbackDays ? `${patternLookbackDays}-day` : 'pattern'} lookback analysis):
+The following patterns were identified from analyzing the last ${patternLookbackDays || '?'} trading days of market data. Consider these patterns and their time context when making your prediction:
+${JSON.stringify(patterns, null, 2)}
 
-Provide a comprehensive daily prediction based on REAL market data:
+IMPORTANT: Your prediction should incorporate these detected patterns. The patterns reflect ${patternLookbackDays || 'the selected'} days of historical context—use this to inform your direction, confidence, and time-based recommendations.
+`
+    : ''
+}
+
+Provide a comprehensive daily prediction based on REAL market data${patterns?.length ? ' and the trading patterns above' : ''}:
 
 1. DAILY DIRECTION: Up/Down/Sideways with confidence percentage based on current price action
 2. TIME-BASED ANALYSIS: Specific predictions for different times of day based on current momentum

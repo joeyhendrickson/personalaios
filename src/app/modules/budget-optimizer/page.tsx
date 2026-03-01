@@ -1297,7 +1297,10 @@ export default function BudgetOptimizerModule() {
         setEditingRuleId(null)
       } else {
         const error = await response.json()
-        alert(error.error || 'Failed to save rule')
+        const errorMessage = error.details 
+          ? `${error.error}\n\n${error.details}`
+          : error.error || 'Failed to save rule'
+        alert(errorMessage)
       }
     } catch (error) {
       console.error('Error saving transaction rule:', error)
@@ -3009,7 +3012,8 @@ export default function BudgetOptimizerModule() {
 
         {/* Transactions Tab */}
         {activeTab === 'transactions' && (
-          <div className="space-y-6">
+          <div className={showTransactionRulesModal ? 'grid grid-cols-1 lg:grid-cols-3 gap-6' : 'space-y-6'}>
+            <div className={showTransactionRulesModal ? 'lg:col-span-2' : ''}>
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold flex items-center">
@@ -4707,239 +4711,6 @@ export default function BudgetOptimizerModule() {
         </div>
       )}
 
-      {/* Transaction Rules Modal */}
-      {showTransactionRulesModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Transaction Categorization Rules
-              </h3>
-              <button
-                onClick={() => {
-                  setShowTransactionRulesModal(false)
-                  setTransactionRuleForm({
-                    keyword: '',
-                    transaction_type: 'expense',
-                    category_type: 'personal',
-                  })
-                  setEditingRuleId(null)
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-6">
-              {/* Add/Edit Rule Form */}
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <h4 className="font-semibold text-gray-900 mb-4">
-                  {editingRuleId ? 'Edit Rule' : 'Add New Rule'}
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Keyword/Transaction Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={transactionRuleForm.keyword}
-                      onChange={(e) =>
-                        setTransactionRuleForm({ ...transactionRuleForm, keyword: e.target.value })
-                      }
-                      placeholder="e.g., payment from airbnb"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Matches if transaction name contains this keyword
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Transaction Type <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={transactionRuleForm.transaction_type}
-                      onChange={(e) =>
-                        setTransactionRuleForm({
-                          ...transactionRuleForm,
-                          transaction_type: e.target.value as 'income' | 'expense' | 'transfer',
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                    >
-                      <option value="income">Income (Green, Up Arrow)</option>
-                      <option value="expense">Expense (Red, Down Arrow)</option>
-                      <option value="transfer">Transfer (Grey, Neutral)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Category Type <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={transactionRuleForm.category_type}
-                      onChange={(e) =>
-                        setTransactionRuleForm({
-                          ...transactionRuleForm,
-                          category_type: e.target.value as 'personal' | 'business',
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                    >
-                      <option value="personal">Personal</option>
-                      <option value="business">Business</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2 mt-4">
-                  {editingRuleId && (
-                    <button
-                      onClick={() => {
-                        setTransactionRuleForm({
-                          keyword: '',
-                          transaction_type: 'expense',
-                          category_type: 'personal',
-                        })
-                        setEditingRuleId(null)
-                      }}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                    >
-                      Cancel Edit
-                    </button>
-                  )}
-                  <button
-                    onClick={saveTransactionRule}
-                    disabled={isSavingRule || !transactionRuleForm.keyword.trim()}
-                    className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {isSavingRule ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4" />
-                        {editingRuleId ? 'Update Rule' : 'Add Rule'}
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Rules List */}
-              <div>
-                <h4 className="font-semibold text-gray-900 mb-3">
-                  Your Rules ({transactionRules.filter((r) => r.is_active).length} active)
-                </h4>
-                {isLoadingRules ? (
-                  <div className="text-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-gray-400" />
-                    <p className="text-sm text-gray-500 mt-2">Loading rules...</p>
-                  </div>
-                ) : transactionRules.length === 0 ? (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-                    <Settings className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600">
-                      No rules yet. Add a rule above to customize how transactions are displayed.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {transactionRules.map((rule) => {
-                      const typeColors = {
-                        income: 'bg-green-100 text-green-800 border-green-200',
-                        expense: 'bg-red-100 text-red-800 border-red-200',
-                        transfer: 'bg-gray-100 text-gray-800 border-gray-200',
-                      }
-                      const categoryColors = {
-                        personal: 'bg-blue-100 text-blue-800',
-                        business: 'bg-purple-100 text-purple-800',
-                      }
-                      return (
-                        <div
-                          key={rule.id}
-                          className={`flex items-center justify-between p-3 border rounded-lg ${
-                            rule.is_active ? 'bg-white' : 'bg-gray-50 opacity-60'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="font-medium text-gray-900">{rule.keyword}</span>
-                                <span
-                                  className={`px-2 py-0.5 text-xs font-medium rounded border ${typeColors[rule.transaction_type]}`}
-                                >
-                                  {rule.transaction_type}
-                                </span>
-                                <span
-                                  className={`px-2 py-0.5 text-xs font-medium rounded ${categoryColors[rule.category_type]}`}
-                                >
-                                  {rule.category_type}
-                                </span>
-                              </div>
-                              <p className="text-xs text-gray-500">
-                                Created {new Date(rule.created_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => editTransactionRule(rule)}
-                              className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
-                              title="Edit rule"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => deleteTransactionRule(rule.id)}
-                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded"
-                              title="Delete rule"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Footer Actions */}
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button
-                  onClick={async () => {
-                    await loadTransactionRules()
-                    await loadTransactions()
-                  }}
-                  className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Refresh Transactions
-                </button>
-                <button
-                  onClick={() => {
-                    setShowTransactionRulesModal(false)
-                    setTransactionRuleForm({
-                      keyword: '',
-                      transaction_type: 'expense',
-                      category_type: 'personal',
-                    })
-                    setEditingRuleId(null)
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
