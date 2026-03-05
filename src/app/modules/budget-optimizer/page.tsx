@@ -3011,10 +3011,10 @@ export default function BudgetOptimizerModule() {
         )}
 
         {/* Transactions Tab */}
-        {activeTab === 'transactions' && (
+        {activeTab === 'transactions' ? (
           <div className={showTransactionRulesModal ? 'grid grid-cols-1 lg:grid-cols-3 gap-6' : 'space-y-6'}>
             <div className={showTransactionRulesModal ? 'lg:col-span-2' : ''}>
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold flex items-center">
                   <CreditCard className="h-5 w-5 mr-2" />
@@ -3255,9 +3255,10 @@ export default function BudgetOptimizerModule() {
                   })}
                 </div>
               )}
+              </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Analysis Tab */}
         {activeTab === 'analysis' && (
