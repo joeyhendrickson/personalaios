@@ -154,11 +154,30 @@ export async function GET(request: NextRequest) {
 
     console.log(`Total count for date range ${startDate} to ${endDate}: ${count || 0}`)
 
-    // Enrich transactions with bank account info
+    // Fetch type overrides for these transactions
+    const transactionIds = (transactions || []).map((t) => t.id)
+    let overridesMap: Record<string, 'income' | 'expense'> = {}
+    if (transactionIds.length > 0) {
+      const { data: overrides } = await supabase
+        .from('transaction_type_overrides')
+        .select('transaction_id, type_override')
+        .eq('user_id', user.id)
+        .in('transaction_id', transactionIds)
+      overridesMap = (overrides || []).reduce(
+        (acc, row) => {
+          acc[row.transaction_id] = row.type_override as 'income' | 'expense'
+          return acc
+        },
+        {} as Record<string, 'income' | 'expense'>
+      )
+    }
+
+    // Enrich transactions with bank account info and type override
     const enrichedTransactions = (transactions || []).map((transaction) => {
       const account = bankAccounts.find((a) => a.id === transaction.bank_account_id)
       return {
         ...transaction,
+        type_override: overridesMap[transaction.id] ?? null,
         bank_accounts: account
           ? {
               id: account.id,

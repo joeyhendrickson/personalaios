@@ -102,6 +102,7 @@ interface Transaction {
   merchant_name: string
   category: string[]
   pending: boolean
+  type_override?: 'income' | 'expense' | null
   bank_accounts: {
     name: string
     type: string
@@ -718,6 +719,7 @@ export default function BudgetOptimizerModule() {
   const [showIncomeGoalModal, setShowIncomeGoalModal] = useState(false)
   const [showBudgetReductionGoalModal, setShowBudgetReductionGoalModal] = useState(false)
   const [showTransactionRulesModal, setShowTransactionRulesModal] = useState(false)
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null)
   const [transactionRules, setTransactionRules] = useState<TransactionRule[]>([])
   const [transactionRuleForm, setTransactionRuleForm] = useState<{
     keyword: string
@@ -1297,7 +1299,7 @@ export default function BudgetOptimizerModule() {
         setEditingRuleId(null)
       } else {
         const error = await response.json()
-        const errorMessage = error.details 
+        const errorMessage = error.details
           ? `${error.error}\n\n${error.details}`
           : error.error || 'Failed to save rule'
         alert(errorMessage)
@@ -1372,11 +1374,43 @@ export default function BudgetOptimizerModule() {
           hasMore = false
         }
       }
-      setTransactions(allTransactions)
+      // Deduplicate by id to avoid React key warnings (can occur with overlapping syncs or API edge cases)
+      const seen = new Set<string>()
+      const uniqueTransactions = allTransactions.filter((t) => {
+        if (seen.has(t.id)) return false
+        seen.add(t.id)
+        return true
+      })
+      setTransactions(uniqueTransactions)
     } catch (error) {
       console.error('Error loading transactions:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const setTransactionTypeOverride = async (
+    transactionId: string,
+    typeOverride: 'income' | 'expense'
+  ) => {
+    try {
+      const response = await fetch(`/api/budget/transactions/${transactionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type_override: typeOverride }),
+      })
+      if (response.ok) {
+        setTransactions((prev) =>
+          prev.map((t) => (t.id === transactionId ? { ...t, type_override: typeOverride } : t))
+        )
+        setSelectedTransactionId(null)
+      } else {
+        const err = await response.json()
+        alert(err.error || 'Failed to update transaction type')
+      }
+    } catch (error) {
+      console.error('Error setting transaction type override:', error)
+      alert('Failed to update transaction type')
     }
   }
 
@@ -3012,15 +3046,51 @@ export default function BudgetOptimizerModule() {
 
         {/* Transactions Tab */}
         {activeTab === 'transactions' ? (
-          <div className={showTransactionRulesModal ? 'grid grid-cols-1 lg:grid-cols-3 gap-6' : 'space-y-6'}>
+          <div
+            className={
+              showTransactionRulesModal ? 'grid grid-cols-1 lg:grid-cols-3 gap-6' : 'space-y-6'
+            }
+          >
             <div className={showTransactionRulesModal ? 'lg:col-span-2' : ''}>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button
+                  onClick={loadTransactions}
+                  disabled={isLoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  {isLoading ? 'Loading...' : 'Refresh'}
+                </button>
+                {connections.length > 0 && (
+                  <button
+                    onClick={syncAllConnections}
+                    disabled={isLoading}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                    title="Sync transactions from all bank connections for the selected date range"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    {isLoading ? 'Syncing...' : 'Sync All'}
+                  </button>
+                )}
+                <button
+                  onClick={async () => {
+                    setShowTransactionRulesModal(true)
+                    await loadTransactionRules()
+                  }}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+                  title="Manage transaction categorization rules and colors"
+                >
+                  <Settings className="h-4 w-4" />
+                  Rules
+                </button>
+              </div>
+
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold flex items-center">
-                  <CreditCard className="h-5 w-5 mr-2" />
-                  Transactions
-                </h2>
-                <div className="flex items-center space-x-4">
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                  <h2 className="text-xl font-semibold flex items-center">
+                    <CreditCard className="h-5 w-5 mr-2" />
+                    Transactions
+                  </h2>
                   <div className="flex items-center space-x-2">
                     <label className="text-sm font-medium">From:</label>
                     <input
@@ -3039,222 +3109,242 @@ export default function BudgetOptimizerModule() {
                       className="px-3 py-1 border border-gray-300 rounded text-sm"
                     />
                   </div>
-                  <button
-                    onClick={loadTransactions}
-                    disabled={isLoading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    {isLoading ? 'Loading...' : 'Refresh'}
-                  </button>
-                  {connections.length > 0 && (
-                    <button
-                      onClick={syncAllConnections}
-                      disabled={isLoading}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
-                      title="Sync transactions from all bank connections for the selected date range"
-                    >
-                      <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                      {isLoading ? 'Syncing...' : 'Sync All'}
-                    </button>
-                  )}
-                  <button
-                    onClick={async () => {
-                      setShowTransactionRulesModal(true)
-                      await loadTransactionRules()
-                    }}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
-                    title="Manage transaction categorization rules and colors"
-                  >
-                    <Settings className="h-4 w-4" />
-                    Rules
-                  </button>
                 </div>
-              </div>
 
-              {transactions.length === 0 ? (
-                <div className="text-center py-8">
-                  <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Transactions Found</h3>
-                  <p className="text-gray-600 mb-4">
-                    {connections.length === 0
-                      ? 'Connect a bank account first to see your transactions.'
-                      : 'Load transactions for the selected date range.'}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="mb-4 text-sm text-gray-600">
-                    Showing {transactions.length.toLocaleString()} transaction
-                    {transactions.length !== 1 ? 's' : ''}
-                    {dateRange.start && dateRange.end && (
-                      <span>
-                        {' '}
-                        from {new Date(dateRange.start).toLocaleDateString()} to{' '}
-                        {new Date(dateRange.end).toLocaleDateString()}
-                      </span>
-                    )}
+                {transactions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      No Transactions Found
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      {connections.length === 0
+                        ? 'Connect a bank account first to see your transactions.'
+                        : 'Load transactions for the selected date range.'}
+                    </p>
                   </div>
-                  {transactions.map((transaction) => {
-                    // Check user-defined rules first
-                    const transactionName = (transaction.name || '').toLowerCase()
-                    const transactionMerchant = (transaction.merchant_name || '').toLowerCase()
-                    const transactionText =
-                      `${transactionName} ${transactionMerchant}`.toLowerCase()
+                ) : (
+                  <div className="space-y-2">
+                    <div className="mb-4 text-sm text-gray-600">
+                      Showing {transactions.length.toLocaleString()} transaction
+                      {transactions.length !== 1 ? 's' : ''}
+                      {dateRange.start && dateRange.end && (
+                        <span>
+                          {' '}
+                          from {new Date(dateRange.start).toLocaleDateString()} to{' '}
+                          {new Date(dateRange.end).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                    {transactions.map((transaction) => {
+                      // Check user-defined rules first
+                      const transactionName = (transaction.name || '').toLowerCase()
+                      const transactionMerchant = (transaction.merchant_name || '').toLowerCase()
+                      const transactionText =
+                        `${transactionName} ${transactionMerchant}`.toLowerCase()
 
-                    // Find matching rule (case-insensitive keyword match)
-                    const matchingRule = transactionRules.find(
-                      (rule) =>
-                        rule.is_active &&
-                        (transactionText.includes(rule.keyword.toLowerCase()) ||
-                          transactionName.includes(rule.keyword.toLowerCase()) ||
-                          transactionMerchant.includes(rule.keyword.toLowerCase()))
-                    )
+                      // Find matching rule (case-insensitive keyword match)
+                      const matchingRule = transactionRules.find(
+                        (rule) =>
+                          rule.is_active &&
+                          (transactionText.includes(rule.keyword.toLowerCase()) ||
+                            transactionName.includes(rule.keyword.toLowerCase()) ||
+                            transactionMerchant.includes(rule.keyword.toLowerCase()))
+                      )
 
-                    let isMoneyTransfer = false
-                    let isExpense = false
-                    let isIncome = false
+                      let isMoneyTransfer = false
+                      let isExpense = false
+                      let isIncome = false
 
-                    // If a rule matches, use it
-                    if (matchingRule) {
-                      if (matchingRule.transaction_type === 'transfer') {
-                        isMoneyTransfer = true
-                      } else if (matchingRule.transaction_type === 'expense') {
-                        isExpense = true
-                        isIncome = false
-                      } else if (matchingRule.transaction_type === 'income') {
+                      // User override takes highest priority
+                      if (transaction.type_override === 'income') {
                         isIncome = true
                         isExpense = false
-                      }
-                    } else {
-                      // Fall back to default logic if no rule matches
-                      // Helper function to detect if this is a money transfer (neutral transaction)
-                      // BUT exclude "Payment from" transactions as those are income, not transfers
-                      const isTransfer = () => {
-                        const name = (transaction.name || '').toLowerCase()
-                        const merchant = (transaction.merchant_name || '').toLowerCase()
-                        const transactionText = `${name} ${merchant}`.toLowerCase()
-                        const categories = (transaction.category || []).map((c: string) =>
-                          c.toLowerCase()
-                        )
+                        isMoneyTransfer = false
+                      } else if (transaction.type_override === 'expense') {
+                        isExpense = true
+                        isIncome = false
+                        isMoneyTransfer = false
+                      } else if (matchingRule) {
+                        if (matchingRule.transaction_type === 'transfer') {
+                          isMoneyTransfer = true
+                        } else if (matchingRule.transaction_type === 'expense') {
+                          isExpense = true
+                          isIncome = false
+                        } else if (matchingRule.transaction_type === 'income') {
+                          isIncome = true
+                          isExpense = false
+                        }
+                      } else {
+                        // Fall back to default logic if no rule matches
+                        // Helper function to detect if this is a money transfer (neutral transaction)
+                        // BUT exclude "Payment from" transactions as those are income, not transfers
+                        const isTransfer = () => {
+                          const name = (transaction.name || '').toLowerCase()
+                          const merchant = (transaction.merchant_name || '').toLowerCase()
+                          const transactionText = `${name} ${merchant}`.toLowerCase()
+                          const categories = (transaction.category || []).map((c: string) =>
+                            c.toLowerCase()
+                          )
 
-                        // EXCLUDE "Payment from" transactions - these are income, not transfers
-                        if (transactionText.includes('payment from')) {
-                          return false
+                          // EXCLUDE "Payment from" transactions - these are income, not transfers
+                          if (transactionText.includes('payment from')) {
+                            return false
+                          }
+
+                          // Check Plaid categories for transfer indicators (but not "payment" category alone)
+                          const transferCategories = [
+                            'bank transfer',
+                            'ach',
+                            'wire',
+                            'internal transfer',
+                            'external transfer',
+                          ]
+                          const hasTransferCategory = categories.some((cat: string) =>
+                            transferCategories.some((keyword) => cat.includes(keyword))
+                          )
+                          if (hasTransferCategory) return true
+
+                          // Check transaction name/merchant for transfer keywords
+                          // Exclude "payment from" - only look for outgoing transfers
+                          const transferKeywords = [
+                            'transfer',
+                            'ach',
+                            'wire',
+                            'zelle',
+                            'move money',
+                            'send money',
+                            'payment to',
+                            'internal transfer',
+                            'external transfer',
+                            'p2p',
+                          ]
+                          const hasTransferKeyword = transferKeywords.some((keyword) =>
+                            transactionText.includes(keyword)
+                          )
+                          return hasTransferKeyword
                         }
 
-                        // Check Plaid categories for transfer indicators (but not "payment" category alone)
-                        const transferCategories = [
-                          'bank transfer',
-                          'ach',
-                          'wire',
-                          'internal transfer',
-                          'external transfer',
-                        ]
-                        const hasTransferCategory = categories.some((cat: string) =>
-                          transferCategories.some((keyword) => cat.includes(keyword))
-                        )
-                        if (hasTransferCategory) return true
+                        isMoneyTransfer = isTransfer()
 
-                        // Check transaction name/merchant for transfer keywords
-                        // Exclude "payment from" - only look for outgoing transfers
-                        const transferKeywords = [
-                          'transfer',
-                          'ach',
-                          'wire',
-                          'zelle',
-                          'move money',
-                          'send money',
-                          'payment to',
-                          'internal transfer',
-                          'external transfer',
-                          'p2p',
-                        ]
-                        const hasTransferKeyword = transferKeywords.some((keyword) =>
-                          transactionText.includes(keyword)
-                        )
-                        return hasTransferKeyword
-                      }
+                        // Account type determines how to interpret the amount sign
+                        // Credit cards: Positive = payment/expense (RED), Negative = credit/income (GREEN)
+                        // Debit/Checking/PayPal: Positive = deposit/income (GREEN), Negative = payment/expense (RED)
+                        const accountType = (transaction.bank_accounts?.type || '').toLowerCase()
+                        const isCreditCard =
+                          accountType.includes('credit') || accountType === 'credit'
 
-                      isMoneyTransfer = isTransfer()
-
-                      // Account type determines how to interpret the amount sign
-                      // Credit cards: Positive = payment/expense (RED), Negative = credit/income (GREEN)
-                      // Debit/Checking/PayPal: Positive = deposit/income (GREEN), Negative = payment/expense (RED)
-                      const accountType = (transaction.bank_accounts?.type || '').toLowerCase()
-                      const isCreditCard =
-                        accountType.includes('credit') || accountType === 'credit'
-
-                      if (!isMoneyTransfer) {
-                        if (isCreditCard) {
-                          // Credit cards: positive = expense (payment), negative = income (credit/refund)
-                          isExpense = transaction.amount > 0
-                          isIncome = transaction.amount < 0
-                        } else {
-                          // Debit/Checking/PayPal: positive = income (deposit), negative = expense (payment)
-                          isExpense = transaction.amount < 0
-                          isIncome = transaction.amount > 0
+                        if (!isMoneyTransfer) {
+                          if (isCreditCard) {
+                            // Credit cards: positive = expense (payment), negative = income (credit/refund)
+                            isExpense = transaction.amount > 0
+                            isIncome = transaction.amount < 0
+                          } else {
+                            // Debit/Checking/PayPal: positive = income (deposit), negative = expense (payment)
+                            isExpense = transaction.amount < 0
+                            isIncome = transaction.amount > 0
+                          }
                         }
                       }
-                    }
 
-                    return (
-                      <div
-                        key={transaction.id}
-                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div
-                            className={`p-2 rounded-full ${
-                              isMoneyTransfer
-                                ? 'bg-gray-100 text-gray-600'
-                                : isExpense
-                                  ? 'bg-red-100 text-red-600'
-                                  : 'bg-green-100 text-green-600'
-                            }`}
-                          >
-                            {isMoneyTransfer ? (
-                              <RefreshCw className="h-4 w-4" />
-                            ) : isExpense ? (
-                              <TrendingDown className="h-4 w-4" />
-                            ) : (
-                              <TrendingUp className="h-4 w-4" />
-                            )}
-                          </div>
-                          <div>
-                            <h4 className="font-medium">{transaction.name}</h4>
-                            <p className="text-sm text-gray-600">
-                              {transaction.bank_accounts.name} •{' '}
-                              {new Date(transaction.date).toLocaleDateString()}
-                              {transaction.pending && (
-                                <span className="text-yellow-600 ml-2">• Pending</span>
+                      const isSelected = selectedTransactionId === transaction.id
+
+                      return (
+                        <div
+                          key={transaction.id}
+                          onClick={() =>
+                            setSelectedTransactionId((prev) =>
+                              prev === transaction.id ? null : transaction.id
+                            )
+                          }
+                          className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50/50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            <div
+                              className={`p-2 rounded-full flex-shrink-0 ${
+                                isMoneyTransfer
+                                  ? 'bg-gray-100 text-gray-600'
+                                  : isExpense
+                                    ? 'bg-red-100 text-red-600'
+                                    : 'bg-green-100 text-green-600'
+                              }`}
+                            >
+                              {isMoneyTransfer ? (
+                                <RefreshCw className="h-4 w-4" />
+                              ) : isExpense ? (
+                                <TrendingDown className="h-4 w-4" />
+                              ) : (
+                                <TrendingUp className="h-4 w-4" />
                               )}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div
-                            className={`font-semibold ${
-                              isMoneyTransfer
-                                ? 'text-gray-600'
-                                : isExpense
-                                  ? 'text-red-600'
-                                  : 'text-green-600'
-                            }`}
-                          >
-                            {formatCurrency(transaction.amount)}
-                          </div>
-                          {transaction.transaction_categorizations?.[0]?.budget_categories && (
-                            <div className="text-xs text-gray-500">
-                              {transaction.transaction_categorizations[0].budget_categories.name}
                             </div>
-                          )}
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-medium truncate">{transaction.name}</h4>
+                              <p className="text-sm text-gray-600">
+                                {transaction.bank_accounts?.name} •{' '}
+                                {new Date(transaction.date).toLocaleDateString()}
+                                {transaction.pending && (
+                                  <span className="text-yellow-600 ml-2">• Pending</span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {isSelected && (
+                              <div
+                                className="flex items-center gap-1"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  onClick={() =>
+                                    setTransactionTypeOverride(transaction.id, 'income')
+                                  }
+                                  className="p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                                  title="Mark as income"
+                                >
+                                  <TrendingUp className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    setTransactionTypeOverride(transaction.id, 'expense')
+                                  }
+                                  className="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                                  title="Mark as expense"
+                                >
+                                  <TrendingDown className="h-4 w-4" />
+                                </button>
+                              </div>
+                            )}
+                            <div className="text-right">
+                              <div
+                                className={`font-semibold ${
+                                  isMoneyTransfer
+                                    ? 'text-gray-600'
+                                    : isExpense
+                                      ? 'text-red-600'
+                                      : 'text-green-600'
+                                }`}
+                              >
+                                {formatCurrency(transaction.amount)}
+                              </div>
+                              {transaction.transaction_categorizations?.[0]?.budget_categories && (
+                                <div className="text-xs text-gray-500">
+                                  {
+                                    transaction.transaction_categorizations[0].budget_categories
+                                      .name
+                                  }
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -4711,7 +4801,6 @@ export default function BudgetOptimizerModule() {
           </div>
         </div>
       )}
-
     </div>
   )
 }

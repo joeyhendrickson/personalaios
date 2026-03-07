@@ -206,11 +206,9 @@ export default function HabitsSection() {
   return (
     <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
       <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-sm text-gray-600">{t('habits.title')}</p>
-          </div>
-          <div className="flex space-x-2">
+        <div className="mb-4">
+          <p className="text-sm text-gray-600 mb-3 block">{t('habits.title')}</p>
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => {
                 setEditingHabit(null)

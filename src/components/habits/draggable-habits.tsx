@@ -65,7 +65,7 @@ function SortableHabitItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center space-x-3 p-3 rounded-lg border transition-all ${
+      className={`flex items-start space-x-3 p-3 rounded-lg border transition-all ${
         completedToday
           ? 'bg-green-50 border-green-200'
           : 'bg-white border-gray-200 hover:border-green-200'
@@ -96,8 +96,8 @@ function SortableHabitItem({
         {completedToday && <CheckCircle className="h-4 w-4 text-white" />}
       </button>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center space-x-2 mb-1">
+      <div className="flex-1 min-w-0 w-full text-left">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
           <h4
             className={`font-medium ${completedToday ? 'line-through text-gray-500' : 'text-gray-900'}`}
           >
@@ -105,8 +105,12 @@ function SortableHabitItem({
           </h4>
           <span className="text-sm text-gray-500">+{habit.points_per_completion} pts</span>
         </div>
-        {habit.description && <p className="text-sm text-gray-600 mb-1">{habit.description}</p>}
-        <div className="flex items-center space-x-4 text-xs text-gray-500">
+        {habit.description && (
+          <p className="text-sm text-gray-600 mb-1 text-left leading-relaxed w-full">
+            {habit.description}
+          </p>
+        )}
+        <div className="flex items-center space-x-4 text-xs text-gray-500 text-left">
           <div className="flex items-center space-x-1">
             <Calendar className="h-3 w-3" />
             <span>{habit.weekly_completion_count} this week</span>
