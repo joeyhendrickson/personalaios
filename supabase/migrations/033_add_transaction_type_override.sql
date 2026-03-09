@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS transaction_type_overrides (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     transaction_id UUID NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
-    type_override TEXT NOT NULL CHECK (type_override IN ('income', 'expense')),
+    type_override TEXT NOT NULL CHECK (type_override IN ('income', 'expense', 'transfer')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(transaction_id)
 );

@@ -37,6 +37,8 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Minus,
+  Flag,
 } from 'lucide-react'
 
 interface BankConnection {
@@ -102,7 +104,8 @@ interface Transaction {
   merchant_name: string
   category: string[]
   pending: boolean
-  type_override?: 'income' | 'expense' | null
+  type_override?: 'income' | 'expense' | 'transfer' | null
+  is_flagged?: boolean
   bank_accounts: {
     name: string
     type: string
@@ -720,6 +723,8 @@ export default function BudgetOptimizerModule() {
   const [showBudgetReductionGoalModal, setShowBudgetReductionGoalModal] = useState(false)
   const [showTransactionRulesModal, setShowTransactionRulesModal] = useState(false)
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null)
+  const [flaggedTransactions, setFlaggedTransactions] = useState<Transaction[]>([])
+  const [showFlaggedSection, setShowFlaggedSection] = useState(false)
   const [transactionRules, setTransactionRules] = useState<TransactionRule[]>([])
   const [transactionRuleForm, setTransactionRuleForm] = useState<{
     keyword: string
@@ -851,10 +856,11 @@ export default function BudgetOptimizerModule() {
     loadTransactionRules()
   }, [])
 
-  // Load transaction rules when transactions tab is opened
+  // Load transaction rules and flagged transactions when transactions tab is opened
   useEffect(() => {
     if (activeTab === 'transactions') {
       loadTransactionRules()
+      loadFlaggedTransactions()
     }
   }, [activeTab])
 
@@ -1389,9 +1395,91 @@ export default function BudgetOptimizerModule() {
     }
   }
 
+  const excludeTransaction = async (transactionId: string) => {
+    if (
+      !confirm('Remove this duplicate transaction from the list? It will be hidden from your view.')
+    ) {
+      return
+    }
+    try {
+      const response = await fetch(`/api/budget/transactions/${transactionId}/exclude`, {
+        method: 'POST',
+      })
+      if (response.ok) {
+        setTransactions((prev) => prev.filter((t) => t.id !== transactionId))
+        setSelectedTransactionId(null)
+      } else {
+        const err = await response.json()
+        const msg = err.hint
+          ? `${err.error || 'Failed to remove transaction'}\n\n${err.hint}`
+          : err.error || 'Failed to remove transaction'
+        alert(msg)
+      }
+    } catch (error) {
+      console.error('Error excluding transaction:', error)
+      alert('Failed to remove transaction')
+    }
+  }
+
+  const loadFlaggedTransactions = async () => {
+    try {
+      const res = await fetch('/api/budget/flagged-transactions')
+      if (res.ok) {
+        const data = await res.json()
+        const list = data.transactions || []
+        setFlaggedTransactions(list)
+        if (list.length > 0) setShowFlaggedSection(true)
+      }
+    } catch (error) {
+      console.error('Error loading flagged transactions:', error)
+    }
+  }
+
+  const flagTransaction = async (transactionId: string) => {
+    try {
+      const response = await fetch(`/api/budget/transactions/${transactionId}/flag`, {
+        method: 'POST',
+      })
+      if (response.ok) {
+        setTransactions((prev) =>
+          prev.map((t) => (t.id === transactionId ? { ...t, is_flagged: true } : t))
+        )
+        await loadFlaggedTransactions()
+      } else {
+        const err = await response.json()
+        alert(err.hint ? `${err.error}\n\n${err.hint}` : err.error || 'Failed to flag transaction')
+      }
+    } catch (error) {
+      console.error('Error flagging transaction:', error)
+      alert('Failed to flag transaction')
+    }
+  }
+
+  const resolveFlaggedTransaction = async (transactionId: string) => {
+    try {
+      const response = await fetch(`/api/budget/transactions/${transactionId}/flag`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolved: true }),
+      })
+      if (response.ok) {
+        setFlaggedTransactions((prev) => prev.filter((t) => t.id !== transactionId))
+        setTransactions((prev) =>
+          prev.map((t) => (t.id === transactionId ? { ...t, is_flagged: false } : t))
+        )
+      } else {
+        const err = await response.json()
+        alert(err.error || 'Failed to mark as managed')
+      }
+    } catch (error) {
+      console.error('Error resolving flag:', error)
+      alert('Failed to mark as managed')
+    }
+  }
+
   const setTransactionTypeOverride = async (
     transactionId: string,
-    typeOverride: 'income' | 'expense'
+    typeOverride: 'income' | 'expense' | 'transfer'
   ) => {
     try {
       const response = await fetch(`/api/budget/transactions/${transactionId}`, {
@@ -1406,7 +1494,10 @@ export default function BudgetOptimizerModule() {
         setSelectedTransactionId(null)
       } else {
         const err = await response.json()
-        alert(err.error || 'Failed to update transaction type')
+        const msg = err.hint
+          ? `${err.error || 'Failed to update transaction type'}\n\n${err.hint}`
+          : err.error || 'Failed to update transaction type'
+        alert(msg)
       }
     } catch (error) {
       console.error('Error setting transaction type override:', error)
@@ -3111,6 +3202,61 @@ export default function BudgetOptimizerModule() {
                   </div>
                 </div>
 
+                {flaggedTransactions.length > 0 && (
+                  <div className="mb-6 border border-amber-200 rounded-lg bg-amber-50/50">
+                    <button
+                      onClick={() => setShowFlaggedSection(!showFlaggedSection)}
+                      className="w-full flex items-center justify-between p-4 text-left hover:bg-amber-50/50 transition-colors rounded-lg"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Flag className="h-5 w-5 text-red-600 fill-red-100" />
+                        <h3 className="font-semibold text-gray-900">
+                          Flagged for Review ({flaggedTransactions.length})
+                        </h3>
+                      </div>
+                      {showFlaggedSection ? (
+                        <ChevronUp className="h-4 w-4 text-gray-500" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-gray-500" />
+                      )}
+                    </button>
+                    {showFlaggedSection && (
+                      <div className="px-4 pb-4 space-y-2">
+                        <p className="text-sm text-gray-600 mb-3">
+                          Review these transactions to verify fraud or clarify charges. Check the
+                          box when managed.
+                        </p>
+                        {flaggedTransactions.map((tx) => (
+                          <div
+                            key={tx.id}
+                            className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg"
+                          >
+                            <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                onChange={() => resolveFlaggedTransaction(tx.id)}
+                                className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                aria-label="Mark as managed"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <h4 className="font-medium truncate">{tx.name}</h4>
+                                <p className="text-sm text-gray-600">
+                                  {tx.bank_accounts?.name} •{' '}
+                                  {new Date(tx.date).toLocaleDateString()} •{' '}
+                                  {formatCurrency(tx.amount)}
+                                </p>
+                              </div>
+                            </label>
+                            <span className="text-xs text-amber-700 font-medium flex-shrink-0">
+                              Managed
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {transactions.length === 0 ? (
                   <div className="text-center py-8">
                     <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -3165,6 +3311,10 @@ export default function BudgetOptimizerModule() {
                         isExpense = true
                         isIncome = false
                         isMoneyTransfer = false
+                      } else if (transaction.type_override === 'transfer') {
+                        isMoneyTransfer = true
+                        isIncome = false
+                        isExpense = false
                       } else if (matchingRule) {
                         if (matchingRule.transaction_type === 'transfer') {
                           isMoneyTransfer = true
@@ -3264,6 +3414,24 @@ export default function BudgetOptimizerModule() {
                           }`}
                         >
                           <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (!transaction.is_flagged) flagTransaction(transaction.id)
+                              }}
+                              className="flex-shrink-0 p-1 rounded hover:bg-gray-100 transition-colors"
+                              title={
+                                transaction.is_flagged ? 'Flagged for review' : 'Flag for review'
+                              }
+                            >
+                              <Flag
+                                className={`h-4 w-4 ${
+                                  transaction.is_flagged
+                                    ? 'text-red-600 fill-red-100'
+                                    : 'text-gray-400'
+                                }`}
+                              />
+                            </button>
                             <div
                               className={`p-2 rounded-full flex-shrink-0 ${
                                 isMoneyTransfer
@@ -3274,7 +3442,7 @@ export default function BudgetOptimizerModule() {
                               }`}
                             >
                               {isMoneyTransfer ? (
-                                <RefreshCw className="h-4 w-4" />
+                                <Minus className="h-4 w-4" />
                               ) : isExpense ? (
                                 <TrendingDown className="h-4 w-4" />
                               ) : (
@@ -3309,12 +3477,48 @@ export default function BudgetOptimizerModule() {
                                 </button>
                                 <button
                                   onClick={() =>
+                                    setTransactionTypeOverride(transaction.id, 'transfer')
+                                  }
+                                  className="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                                  title="Mark as transfer"
+                                >
+                                  <Minus className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() =>
                                     setTransactionTypeOverride(transaction.id, 'expense')
                                   }
                                   className="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
                                   title="Mark as expense"
                                 >
                                   <TrendingDown className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => excludeTransaction(transaction.id)}
+                                  className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                                  title="Remove duplicate"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    !transaction.is_flagged && flagTransaction(transaction.id)
+                                  }
+                                  className={`p-2 rounded-lg transition-colors ${
+                                    transaction.is_flagged
+                                      ? 'bg-red-100 text-red-600 cursor-default'
+                                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                  }`}
+                                  title={
+                                    transaction.is_flagged
+                                      ? 'Flagged for review'
+                                      : 'Flag for review'
+                                  }
+                                  disabled={transaction.is_flagged}
+                                >
+                                  <Flag
+                                    className={`h-4 w-4 ${transaction.is_flagged ? 'fill-red-200' : ''}`}
+                                  />
                                 </button>
                               </div>
                             )}

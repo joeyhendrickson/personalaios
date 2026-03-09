@@ -3,9 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 
 /**
  * PATCH - Set or clear the type override for a transaction (income vs expense)
- * Body: { type_override: 'income' | 'expense' | null }
+ * Body: { type_override: 'income' | 'expense' | 'transfer' | null }
  * - 'income' = display as green/up (income)
  * - 'expense' = display as red/down (expense)
+ * - 'transfer' = display as grey/neutral (transfer)
  * - null = clear override, use default logic
  */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -25,9 +26,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { type_override } = body
 
     if (type_override !== null && type_override !== undefined) {
-      if (!['income', 'expense'].includes(type_override)) {
+      if (!['income', 'expense', 'transfer'].includes(type_override)) {
         return NextResponse.json(
-          { error: 'type_override must be "income" or "expense"' },
+          { error: 'type_override must be "income", "expense", or "transfer"' },
           { status: 400 }
         )
       }
@@ -87,8 +88,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       )
       if (upsertError) {
         console.error('Error upserting transaction type override:', upsertError)
+        const hint =
+          upsertError.message?.includes('check') || upsertError.code === '23514'
+            ? 'Run migration 034 to add "transfer" support: supabase/migrations/034_add_transfer_to_type_override.sql'
+            : undefined
         return NextResponse.json(
-          { error: 'Failed to save override', details: upsertError.message },
+          {
+            error: 'Failed to save override',
+            details: upsertError.message,
+            code: upsertError.code,
+            hint,
+          },
           { status: 500 }
         )
       }

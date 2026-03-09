@@ -154,30 +154,57 @@ export async function GET(request: NextRequest) {
 
     console.log(`Total count for date range ${startDate} to ${endDate}: ${count || 0}`)
 
-    // Fetch type overrides for these transactions
     const transactionIds = (transactions || []).map((t) => t.id)
-    let overridesMap: Record<string, 'income' | 'expense'> = {}
+
+    // Fetch excluded transaction IDs (user has chosen to hide these, e.g. duplicates)
+    let excludedIds = new Set<string>()
     if (transactionIds.length > 0) {
-      const { data: overrides } = await supabase
+      const { data: exclusions } = await supabase
+        .from('transaction_exclusions')
+        .select('transaction_id')
+        .eq('user_id', user.id)
+        .in('transaction_id', transactionIds)
+      excludedIds = new Set((exclusions || []).map((e) => e.transaction_id))
+    }
+
+    // Filter out excluded transactions
+    const visibleTransactions = (transactions || []).filter((t) => !excludedIds.has(t.id))
+
+    // Fetch type overrides and flags for visible transactions
+    const visibleIds = visibleTransactions.map((t) => t.id)
+    let overridesMap: Record<string, 'income' | 'expense' | 'transfer'> = {}
+    let flaggedIds = new Set<string>()
+    if (visibleIds.length > 0) {
+      const overridesRes = await supabase
         .from('transaction_type_overrides')
         .select('transaction_id, type_override')
         .eq('user_id', user.id)
-        .in('transaction_id', transactionIds)
-      overridesMap = (overrides || []).reduce(
+        .in('transaction_id', visibleIds)
+      overridesMap = (overridesRes.data || []).reduce(
         (acc, row) => {
-          acc[row.transaction_id] = row.type_override as 'income' | 'expense'
+          acc[row.transaction_id] = row.type_override as 'income' | 'expense' | 'transfer'
           return acc
         },
-        {} as Record<string, 'income' | 'expense'>
+        {} as Record<string, 'income' | 'expense' | 'transfer'>
       )
+      const flagsRes = await supabase
+        .from('transaction_flags')
+        .select('transaction_id')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .in('transaction_id', visibleIds)
+      if (!flagsRes.error) {
+        flaggedIds = new Set((flagsRes.data || []).map((f) => f.transaction_id))
+      }
     }
 
-    // Enrich transactions with bank account info and type override
-    const enrichedTransactions = (transactions || []).map((transaction) => {
+    // Enrich visible transactions with bank account info, type override, and flag status
+    const enrichedTransactions = visibleTransactions.map((transaction) => {
       const account = bankAccounts.find((a) => a.id === transaction.bank_account_id)
       return {
         ...transaction,
         type_override: overridesMap[transaction.id] ?? null,
+        is_flagged: flaggedIds.has(transaction.id),
         bank_accounts: account
           ? {
               id: account.id,
