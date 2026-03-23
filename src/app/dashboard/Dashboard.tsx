@@ -376,6 +376,7 @@ export default function Dashboard() {
     timestamp: string
   } | null>(null)
   const [strategicLoading, setStrategicLoading] = useState(false)
+  const [refreshingAiContext, setRefreshingAiContext] = useState(false)
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({})
   const [currentDayName, setCurrentDayName] = useState<string>('')
   const [isClient, setIsClient] = useState(false)
@@ -1578,6 +1579,35 @@ export default function Dashboard() {
                         </span>
                       </Link>
                     )}
+                    <button
+                      onClick={async () => {
+                        setNavMenuOpen(false)
+                        setRefreshingAiContext(true)
+                        try {
+                          const res = await fetch('/api/ai/context-cache/refresh', {
+                            method: 'POST',
+                          })
+                          const data = await res.json()
+                          if (data.success) {
+                            await fetchStrategicRecommendations()
+                            alert(`AI context refreshed in ${Math.round(data.durationMs / 1000)}s`)
+                          } else {
+                            alert(data.error || 'Refresh failed')
+                          }
+                        } catch {
+                          alert('Failed to refresh AI context')
+                        } finally {
+                          setRefreshingAiContext(false)
+                        }
+                      }}
+                      disabled={refreshingAiContext}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <RefreshCw
+                        className={`h-4 w-4 ${refreshingAiContext ? 'animate-spin' : ''}`}
+                      />
+                      {refreshingAiContext ? 'Refreshing...' : 'Refresh AI Context'}
+                    </button>
                     <button
                       onClick={async () => {
                         setNavMenuOpen(false)
