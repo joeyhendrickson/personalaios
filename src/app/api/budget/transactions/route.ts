@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
           total: 0,
           limit,
           offset,
+          next_offset: offset,
           has_more: false,
         },
       })
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest) {
           total: 0,
           limit,
           offset,
+          next_offset: offset,
           has_more: false,
         },
       })
@@ -154,9 +156,18 @@ export async function GET(request: NextRequest) {
 
     console.log(`Total count for date range ${startDate} to ${endDate}: ${count ?? 'null'}`)
 
-    // When count fails (null), assume there may be more if we got a full page
-    const receivedFullPage = (transactions?.length ?? 0) >= limit
-    const hasMore = count != null ? (count as number) > offset + limit : receivedFullPage
+    // Pagination must advance by RAW rows fetched from DB, not visible rows after exclusions.
+    // Otherwise the client skips pages (e.g. 1000 DB rows → 400 visible → wrong offset).
+    const dbRowCount = transactions?.length ?? 0
+    const next_offset = offset + dbRowCount
+    let has_more = false
+    if (dbRowCount === 0) {
+      has_more = false
+    } else if (count != null) {
+      has_more = (count as number) > next_offset
+    } else {
+      has_more = dbRowCount >= limit
+    }
 
     const transactionIds = (transactions || []).map((t) => t.id)
 
@@ -226,7 +237,8 @@ export async function GET(request: NextRequest) {
         total: count ?? null,
         limit,
         offset,
-        has_more: hasMore,
+        next_offset,
+        has_more,
       },
     })
   } catch (error) {

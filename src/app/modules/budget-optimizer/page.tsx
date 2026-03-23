@@ -1379,14 +1379,16 @@ export default function BudgetOptimizerModule() {
         const page = data.transactions || []
         const pagination = data.pagination || {}
 
-        if (page.length > 0) {
-          allTransactions.push(...page)
-          offset += page.length
-        }
+        allTransactions.push(...page)
+        lastTotal = pagination.total ?? lastTotal
 
-        lastTotal = pagination.total ?? null
-        hasMore = pagination.has_more === true || (page.length >= pageSize && page.length > 0)
-        if (page.length === 0 || page.length < pageSize) hasMore = false
+        // Use server next_offset (DB row advance), not len(page)—exclusions shrink visible rows per page.
+        hasMore = pagination.has_more === true
+        if (!hasMore) break
+        const next =
+          typeof pagination.next_offset === 'number' ? pagination.next_offset : offset + pageSize
+        if (next <= offset) break
+        offset = next
       }
 
       const seen = new Set<string>()
@@ -1436,7 +1438,8 @@ export default function BudgetOptimizerModule() {
       setTransactionsPagination((prev) => ({
         hasMore: pagination.has_more === true,
         total: pagination.total ?? prev.total,
-        nextOffset: offset + limit,
+        nextOffset:
+          typeof pagination.next_offset === 'number' ? pagination.next_offset : offset + limit,
       }))
     } catch (error) {
       console.error('Error loading more transactions:', error)
