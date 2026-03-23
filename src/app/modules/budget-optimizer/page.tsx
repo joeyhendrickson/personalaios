@@ -673,6 +673,11 @@ function AccountabilityQuestionCard({
 export default function BudgetOptimizerModule() {
   const [connections, setConnections] = useState<BankConnection[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [transactionsPagination, setTransactionsPagination] = useState<{
+    hasMore: boolean
+    total: number | null
+    nextOffset: number
+  }>({ hasMore: false, total: null, nextOffset: 0 })
   const [analysis, setAnalysis] = useState<BudgetAnalysis | null>(null)
   const [manualAccounts, setManualAccounts] = useState<ManualAccount[]>([])
   const [expectedIncome, setExpectedIncome] = useState<ExpectedIncome[]>([])
@@ -1356,40 +1361,85 @@ export default function BudgetOptimizerModule() {
     }
 
     setIsLoading(true)
+    setTransactionsPagination({ hasMore: false, total: null, nextOffset: 0 })
     try {
-      // Fetch all transactions by paginating through results
       const allTransactions: Transaction[] = []
       const pageSize = 1000
       let offset = 0
       let hasMore = true
+      let lastTotal: number | null = null
 
       while (hasMore) {
         const response = await fetch(
           `/api/budget/transactions?start_date=${dateRange.start}&end_date=${dateRange.end}&limit=${pageSize}&offset=${offset}`
         )
-        if (response.ok) {
-          const data = await response.json()
-          if (data.transactions && data.transactions.length > 0) {
-            allTransactions.push(...data.transactions)
-            hasMore = data.pagination?.has_more || false
-            offset += pageSize
-          } else {
-            hasMore = false
-          }
-        } else {
-          hasMore = false
+        if (!response.ok) break
+
+        const data = await response.json()
+        const page = data.transactions || []
+        const pagination = data.pagination || {}
+
+        if (page.length > 0) {
+          allTransactions.push(...page)
+          offset += page.length
         }
+
+        lastTotal = pagination.total ?? null
+        hasMore = pagination.has_more === true || (page.length >= pageSize && page.length > 0)
+        if (page.length === 0 || page.length < pageSize) hasMore = false
       }
-      // Deduplicate by id to avoid React key warnings (can occur with overlapping syncs or API edge cases)
+
       const seen = new Set<string>()
-      const uniqueTransactions = allTransactions.filter((t) => {
+      const uniqueTransactions = allTransactions.filter((t: Transaction) => {
         if (seen.has(t.id)) return false
         seen.add(t.id)
         return true
       })
+
       setTransactions(uniqueTransactions)
+      setTransactionsPagination({
+        hasMore: false,
+        total: lastTotal ?? uniqueTransactions.length,
+        nextOffset: 0,
+      })
     } catch (error) {
       console.error('Error loading transactions:', error)
+      setTransactions([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadMoreTransactions = async () => {
+    if (!dateRange.start || !dateRange.end || transactionsPagination.hasMore === false) return
+
+    setIsLoading(true)
+    try {
+      const limit = 1000
+      const offset = transactionsPagination.nextOffset
+
+      const response = await fetch(
+        `/api/budget/transactions?start_date=${dateRange.start}&end_date=${dateRange.end}&limit=${limit}&offset=${offset}`
+      )
+      if (!response.ok) return
+
+      const data = await response.json()
+      const page = data.transactions || []
+      const pagination = data.pagination || {}
+
+      if (page.length > 0) {
+        const seen = new Set(transactions.map((t) => t.id))
+        const newOnes = page.filter((t: Transaction) => !seen.has(t.id))
+        setTransactions((prev) => [...prev, ...newOnes])
+      }
+
+      setTransactionsPagination((prev) => ({
+        hasMore: pagination.has_more === true,
+        total: pagination.total ?? prev.total,
+        nextOffset: offset + limit,
+      }))
+    } catch (error) {
+      console.error('Error loading more transactions:', error)
     } finally {
       setIsLoading(false)
     }
@@ -3266,287 +3316,357 @@ export default function BudgetOptimizerModule() {
                     <p className="text-gray-600 mb-4">
                       {connections.length === 0
                         ? 'Connect a bank account first to see your transactions.'
-                        : 'Load transactions for the selected date range.'}
+                        : 'No transactions in this date range. Try syncing from your bank or adjusting the date range.'}
                     </p>
+                    {connections.length > 0 && (
+                      <button
+                        onClick={syncAllConnections}
+                        disabled={isLoading}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {isLoading ? 'Syncing...' : 'Sync All'}
+                      </button>
+                    )}
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <div className="mb-4 text-sm text-gray-600">
-                      Showing {transactions.length.toLocaleString()} transaction
-                      {transactions.length !== 1 ? 's' : ''}
-                      {dateRange.start && dateRange.end && (
-                        <span>
-                          {' '}
-                          from {new Date(dateRange.start).toLocaleDateString()} to{' '}
-                          {new Date(dateRange.end).toLocaleDateString()}
-                        </span>
+                  <div>
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+                      <span className="text-sm text-gray-600">
+                        Showing {transactions.length.toLocaleString()} transaction
+                        {transactions.length !== 1 ? 's' : ''}
+                        {transactionsPagination.total != null &&
+                          transactions.length < transactionsPagination.total && (
+                            <span className="text-amber-700">
+                              {' '}
+                              of {transactionsPagination.total.toLocaleString()}
+                            </span>
+                          )}
+                        {dateRange.start && dateRange.end && (
+                          <span>
+                            {' '}
+                            from {new Date(dateRange.start).toLocaleDateString()} to{' '}
+                            {new Date(dateRange.end).toLocaleDateString()}
+                          </span>
+                        )}
+                      </span>
+                      {transactionsPagination.hasMore && (
+                        <button
+                          onClick={loadMoreTransactions}
+                          disabled={isLoading}
+                          className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg border border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {isLoading ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              Load more transactions
+                              <ChevronDown className="h-4 w-4" />
+                            </>
+                          )}
+                        </button>
                       )}
                     </div>
-                    {transactions.map((transaction) => {
-                      // Check user-defined rules first
-                      const transactionName = (transaction.name || '').toLowerCase()
-                      const transactionMerchant = (transaction.merchant_name || '').toLowerCase()
-                      const transactionText =
-                        `${transactionName} ${transactionMerchant}`.toLowerCase()
+                    <div
+                      className="overflow-y-auto pr-2 space-y-2"
+                      style={{
+                        height: '70vh',
+                        minHeight: '300px',
+                        overscrollBehavior: 'contain',
+                        WebkitOverflowScrolling: 'touch',
+                      }}
+                    >
+                      {transactions.map((transaction) => {
+                        if (!transaction?.id) return null
+                        // Check user-defined rules first
+                        const transactionName = (transaction.name || '').toLowerCase()
+                        const transactionMerchant = (transaction.merchant_name || '').toLowerCase()
+                        const transactionText =
+                          `${transactionName} ${transactionMerchant}`.toLowerCase()
 
-                      // Find matching rule (case-insensitive keyword match)
-                      const matchingRule = transactionRules.find(
-                        (rule) =>
-                          rule.is_active &&
-                          (transactionText.includes(rule.keyword.toLowerCase()) ||
-                            transactionName.includes(rule.keyword.toLowerCase()) ||
-                            transactionMerchant.includes(rule.keyword.toLowerCase()))
-                      )
+                        // Find matching rule (case-insensitive keyword match)
+                        const matchingRule = transactionRules.find(
+                          (rule) =>
+                            rule.is_active &&
+                            (transactionText.includes(rule.keyword.toLowerCase()) ||
+                              transactionName.includes(rule.keyword.toLowerCase()) ||
+                              transactionMerchant.includes(rule.keyword.toLowerCase()))
+                        )
 
-                      let isMoneyTransfer = false
-                      let isExpense = false
-                      let isIncome = false
+                        let isMoneyTransfer = false
+                        let isExpense = false
+                        let isIncome = false
 
-                      // User override takes highest priority
-                      if (transaction.type_override === 'income') {
-                        isIncome = true
-                        isExpense = false
-                        isMoneyTransfer = false
-                      } else if (transaction.type_override === 'expense') {
-                        isExpense = true
-                        isIncome = false
-                        isMoneyTransfer = false
-                      } else if (transaction.type_override === 'transfer') {
-                        isMoneyTransfer = true
-                        isIncome = false
-                        isExpense = false
-                      } else if (matchingRule) {
-                        if (matchingRule.transaction_type === 'transfer') {
-                          isMoneyTransfer = true
-                        } else if (matchingRule.transaction_type === 'expense') {
-                          isExpense = true
-                          isIncome = false
-                        } else if (matchingRule.transaction_type === 'income') {
+                        // User override takes highest priority
+                        if (transaction.type_override === 'income') {
                           isIncome = true
                           isExpense = false
-                        }
-                      } else {
-                        // Fall back to default logic if no rule matches
-                        // Helper function to detect if this is a money transfer (neutral transaction)
-                        // BUT exclude "Payment from" transactions as those are income, not transfers
-                        const isTransfer = () => {
-                          const name = (transaction.name || '').toLowerCase()
-                          const merchant = (transaction.merchant_name || '').toLowerCase()
-                          const transactionText = `${name} ${merchant}`.toLowerCase()
-                          const categories = (transaction.category || []).map((c: string) =>
-                            c.toLowerCase()
-                          )
-
-                          // EXCLUDE "Payment from" transactions - these are income, not transfers
-                          if (transactionText.includes('payment from')) {
-                            return false
+                          isMoneyTransfer = false
+                        } else if (transaction.type_override === 'expense') {
+                          isExpense = true
+                          isIncome = false
+                          isMoneyTransfer = false
+                        } else if (transaction.type_override === 'transfer') {
+                          isMoneyTransfer = true
+                          isIncome = false
+                          isExpense = false
+                        } else if (matchingRule) {
+                          if (matchingRule.transaction_type === 'transfer') {
+                            isMoneyTransfer = true
+                          } else if (matchingRule.transaction_type === 'expense') {
+                            isExpense = true
+                            isIncome = false
+                          } else if (matchingRule.transaction_type === 'income') {
+                            isIncome = true
+                            isExpense = false
                           }
+                        } else {
+                          // Fall back to default logic if no rule matches
+                          // Helper function to detect if this is a money transfer (neutral transaction)
+                          // BUT exclude "Payment from" transactions as those are income, not transfers
+                          const isTransfer = () => {
+                            const name = (transaction.name || '').toLowerCase()
+                            const merchant = (transaction.merchant_name || '').toLowerCase()
+                            const transactionText = `${name} ${merchant}`.toLowerCase()
+                            const categories = (
+                              Array.isArray(transaction.category) ? transaction.category : []
+                            ).map((c: string) => String(c).toLowerCase())
 
-                          // Check Plaid categories for transfer indicators (but not "payment" category alone)
-                          const transferCategories = [
-                            'bank transfer',
-                            'ach',
-                            'wire',
-                            'internal transfer',
-                            'external transfer',
-                          ]
-                          const hasTransferCategory = categories.some((cat: string) =>
-                            transferCategories.some((keyword) => cat.includes(keyword))
-                          )
-                          if (hasTransferCategory) return true
+                            // EXCLUDE "Payment from" transactions - these are income, not transfers
+                            if (transactionText.includes('payment from')) {
+                              return false
+                            }
 
-                          // Check transaction name/merchant for transfer keywords
-                          // Exclude "payment from" - only look for outgoing transfers
-                          const transferKeywords = [
-                            'transfer',
-                            'ach',
-                            'wire',
-                            'zelle',
-                            'move money',
-                            'send money',
-                            'payment to',
-                            'internal transfer',
-                            'external transfer',
-                            'p2p',
-                          ]
-                          const hasTransferKeyword = transferKeywords.some((keyword) =>
-                            transactionText.includes(keyword)
-                          )
-                          return hasTransferKeyword
-                        }
-
-                        isMoneyTransfer = isTransfer()
-
-                        // Account type determines how to interpret the amount sign
-                        // Credit cards: Positive = payment/expense (RED), Negative = credit/income (GREEN)
-                        // Debit/Checking/PayPal: Positive = deposit/income (GREEN), Negative = payment/expense (RED)
-                        const accountType = (transaction.bank_accounts?.type || '').toLowerCase()
-                        const isCreditCard =
-                          accountType.includes('credit') || accountType === 'credit'
-
-                        if (!isMoneyTransfer) {
-                          if (isCreditCard) {
-                            // Credit cards: positive = expense (payment), negative = income (credit/refund)
-                            isExpense = transaction.amount > 0
-                            isIncome = transaction.amount < 0
-                          } else {
-                            // Debit/Checking/PayPal: positive = income (deposit), negative = expense (payment)
-                            isExpense = transaction.amount < 0
-                            isIncome = transaction.amount > 0
-                          }
-                        }
-                      }
-
-                      const isSelected = selectedTransactionId === transaction.id
-
-                      return (
-                        <div
-                          key={transaction.id}
-                          onClick={() =>
-                            setSelectedTransactionId((prev) =>
-                              prev === transaction.id ? null : transaction.id
+                            // Check Plaid categories for transfer indicators (but not "payment" category alone)
+                            const transferCategories = [
+                              'bank transfer',
+                              'ach',
+                              'wire',
+                              'internal transfer',
+                              'external transfer',
+                            ]
+                            const hasTransferCategory = categories.some((cat: string) =>
+                              transferCategories.some((keyword) => cat.includes(keyword))
                             )
+                            if (hasTransferCategory) return true
+
+                            // Check transaction name/merchant for transfer keywords
+                            // Exclude "payment from" - only look for outgoing transfers
+                            const transferKeywords = [
+                              'transfer',
+                              'ach',
+                              'wire',
+                              'zelle',
+                              'move money',
+                              'send money',
+                              'payment to',
+                              'internal transfer',
+                              'external transfer',
+                              'p2p',
+                            ]
+                            const hasTransferKeyword = transferKeywords.some((keyword) =>
+                              transactionText.includes(keyword)
+                            )
+                            return hasTransferKeyword
                           }
-                          className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
-                            isSelected
-                              ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50/50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-3 flex-1 min-w-0">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (!transaction.is_flagged) flagTransaction(transaction.id)
-                              }}
-                              className="flex-shrink-0 p-1 rounded hover:bg-gray-100 transition-colors"
-                              title={
-                                transaction.is_flagged ? 'Flagged for review' : 'Flag for review'
-                              }
-                            >
-                              <Flag
-                                className={`h-4 w-4 ${
-                                  transaction.is_flagged
-                                    ? 'text-red-600 fill-red-100'
-                                    : 'text-gray-400'
-                                }`}
-                              />
-                            </button>
-                            <div
-                              className={`p-2 rounded-full flex-shrink-0 ${
-                                isMoneyTransfer
-                                  ? 'bg-gray-100 text-gray-600'
-                                  : isExpense
-                                    ? 'bg-red-100 text-red-600'
-                                    : 'bg-green-100 text-green-600'
-                              }`}
-                            >
-                              {isMoneyTransfer ? (
-                                <Minus className="h-4 w-4" />
-                              ) : isExpense ? (
-                                <TrendingDown className="h-4 w-4" />
-                              ) : (
-                                <TrendingUp className="h-4 w-4" />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <h4 className="font-medium truncate">{transaction.name}</h4>
-                              <p className="text-sm text-gray-600">
-                                {transaction.bank_accounts?.name} •{' '}
-                                {new Date(transaction.date).toLocaleDateString()}
-                                {transaction.pending && (
-                                  <span className="text-yellow-600 ml-2">• Pending</span>
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {isSelected && (
-                              <div
-                                className="flex items-center gap-1"
-                                onClick={(e) => e.stopPropagation()}
+
+                          isMoneyTransfer = isTransfer()
+
+                          // Account type determines how to interpret the amount sign
+                          // Credit cards: Positive = payment/expense (RED), Negative = credit/income (GREEN)
+                          // Debit/Checking/PayPal: Positive = deposit/income (GREEN), Negative = payment/expense (RED)
+                          const accountType = (transaction.bank_accounts?.type || '').toLowerCase()
+                          const isCreditCard =
+                            accountType.includes('credit') || accountType === 'credit'
+
+                          if (!isMoneyTransfer) {
+                            if (isCreditCard) {
+                              // Credit cards: positive = expense (payment), negative = income (credit/refund)
+                              isExpense = transaction.amount > 0
+                              isIncome = transaction.amount < 0
+                            } else {
+                              // Debit/Checking/PayPal: positive = income (deposit), negative = expense (payment)
+                              isExpense = transaction.amount < 0
+                              isIncome = transaction.amount > 0
+                            }
+                          }
+                        }
+
+                        const isSelected = selectedTransactionId === transaction.id
+
+                        return (
+                          <div
+                            key={transaction.id}
+                            onClick={() =>
+                              setSelectedTransactionId((prev) =>
+                                prev === transaction.id ? null : transaction.id
+                              )
+                            }
+                            className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50/50'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <div className="flex items-center space-x-3 flex-1 min-w-0">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (!transaction.is_flagged) flagTransaction(transaction.id)
+                                }}
+                                className="flex-shrink-0 p-1 rounded hover:bg-gray-100 transition-colors"
+                                title={
+                                  transaction.is_flagged ? 'Flagged for review' : 'Flag for review'
+                                }
                               >
-                                <button
-                                  onClick={() =>
-                                    setTransactionTypeOverride(transaction.id, 'income')
-                                  }
-                                  className="p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
-                                  title="Mark as income"
-                                >
-                                  <TrendingUp className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    setTransactionTypeOverride(transaction.id, 'transfer')
-                                  }
-                                  className="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
-                                  title="Mark as transfer"
-                                >
-                                  <Minus className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    setTransactionTypeOverride(transaction.id, 'expense')
-                                  }
-                                  className="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
-                                  title="Mark as expense"
-                                >
-                                  <TrendingDown className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => excludeTransaction(transaction.id)}
-                                  className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-                                  title="Remove duplicate"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    !transaction.is_flagged && flagTransaction(transaction.id)
-                                  }
-                                  className={`p-2 rounded-lg transition-colors ${
+                                <Flag
+                                  className={`h-4 w-4 ${
                                     transaction.is_flagged
-                                      ? 'bg-red-100 text-red-600 cursor-default'
-                                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                      ? 'text-red-600 fill-red-100'
+                                      : 'text-gray-400'
                                   }`}
-                                  title={
-                                    transaction.is_flagged
-                                      ? 'Flagged for review'
-                                      : 'Flag for review'
-                                  }
-                                  disabled={transaction.is_flagged}
-                                >
-                                  <Flag
-                                    className={`h-4 w-4 ${transaction.is_flagged ? 'fill-red-200' : ''}`}
-                                  />
-                                </button>
-                              </div>
-                            )}
-                            <div className="text-right">
+                                />
+                              </button>
                               <div
-                                className={`font-semibold ${
+                                className={`p-2 rounded-full flex-shrink-0 ${
                                   isMoneyTransfer
-                                    ? 'text-gray-600'
+                                    ? 'bg-gray-100 text-gray-600'
                                     : isExpense
-                                      ? 'text-red-600'
-                                      : 'text-green-600'
+                                      ? 'bg-red-100 text-red-600'
+                                      : 'bg-green-100 text-green-600'
                                 }`}
                               >
-                                {formatCurrency(transaction.amount)}
+                                {isMoneyTransfer ? (
+                                  <Minus className="h-4 w-4" />
+                                ) : isExpense ? (
+                                  <TrendingDown className="h-4 w-4" />
+                                ) : (
+                                  <TrendingUp className="h-4 w-4" />
+                                )}
                               </div>
-                              {transaction.transaction_categorizations?.[0]?.budget_categories && (
-                                <div className="text-xs text-gray-500">
-                                  {
-                                    transaction.transaction_categorizations[0].budget_categories
-                                      .name
-                                  }
+                              <div className="min-w-0 flex-1">
+                                <h4 className="font-medium truncate">{transaction.name}</h4>
+                                <p className="text-sm text-gray-600">
+                                  {transaction.bank_accounts?.name} •{' '}
+                                  {new Date(transaction.date).toLocaleDateString()}
+                                  {transaction.pending && (
+                                    <span className="text-yellow-600 ml-2">• Pending</span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {isSelected && (
+                                <div
+                                  className="flex items-center gap-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <button
+                                    onClick={() =>
+                                      setTransactionTypeOverride(transaction.id, 'income')
+                                    }
+                                    className="p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                                    title="Mark as income"
+                                  >
+                                    <TrendingUp className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      setTransactionTypeOverride(transaction.id, 'transfer')
+                                    }
+                                    className="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                                    title="Mark as transfer"
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      setTransactionTypeOverride(transaction.id, 'expense')
+                                    }
+                                    className="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                                    title="Mark as expense"
+                                  >
+                                    <TrendingDown className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => excludeTransaction(transaction.id)}
+                                    className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                                    title="Remove duplicate"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      !transaction.is_flagged && flagTransaction(transaction.id)
+                                    }
+                                    className={`p-2 rounded-lg transition-colors ${
+                                      transaction.is_flagged
+                                        ? 'bg-red-100 text-red-600 cursor-default'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                    title={
+                                      transaction.is_flagged
+                                        ? 'Flagged for review'
+                                        : 'Flag for review'
+                                    }
+                                    disabled={transaction.is_flagged}
+                                  >
+                                    <Flag
+                                      className={`h-4 w-4 ${transaction.is_flagged ? 'fill-red-200' : ''}`}
+                                    />
+                                  </button>
                                 </div>
                               )}
+                              <div className="text-right">
+                                <div
+                                  className={`font-semibold ${
+                                    isMoneyTransfer
+                                      ? 'text-gray-600'
+                                      : isExpense
+                                        ? 'text-red-600'
+                                        : 'text-green-600'
+                                  }`}
+                                >
+                                  {formatCurrency(transaction.amount)}
+                                </div>
+                                {transaction.transaction_categorizations?.[0]
+                                  ?.budget_categories && (
+                                  <div className="text-xs text-gray-500">
+                                    {
+                                      transaction.transaction_categorizations[0].budget_categories
+                                        .name
+                                    }
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
+                    {transactionsPagination.hasMore && (
+                      <div className="mt-4 flex justify-center">
+                        <button
+                          onClick={loadMoreTransactions}
+                          disabled={isLoading}
+                          className="px-6 py-3 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg border border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {isLoading ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                              Loading more...
+                            </>
+                          ) : (
+                            <>
+                              Load more transactions
+                              <ChevronDown className="h-4 w-4" />
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

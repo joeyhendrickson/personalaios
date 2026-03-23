@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Target, TrendingUp, CheckCircle, Lightbulb, RotateCcw } from 'lucide-react'
 import { useLanguage } from '@/contexts/language-context'
 
@@ -25,12 +25,8 @@ interface TaskAdvisorProps {
 
 export default function TaskAdvisor({ goals }: TaskAdvisorProps) {
   const [projectData, setProjectData] = useState<ProjectData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const { t } = useLanguage()
-
-  useEffect(() => {
-    fetchProjectRecommendations()
-  }, [goals])
 
   const fetchProjectRecommendations = async () => {
     try {
@@ -132,7 +128,7 @@ export default function TaskAdvisor({ goals }: TaskAdvisorProps) {
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-600 mx-auto"></div>
           <p className="text-sm text-gray-500 mt-2">{t('taskAdvisor.loading')}</p>
         </div>
-      ) : projectData?.recommendations ? (
+      ) : projectData?.recommendations?.length ? (
         <>
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-semibold text-gray-800">{t('taskAdvisor.title')}</h4>
@@ -186,10 +182,22 @@ export default function TaskAdvisor({ goals }: TaskAdvisorProps) {
             </div>
           ))}
         </>
-      ) : (
+      ) : projectData?.recommendations?.length === 0 ? (
         <div className="text-center py-4">
           <Lightbulb className="h-6 w-6 text-gray-400 mx-auto mb-2" />
           <p className="text-sm text-gray-500">{t('taskAdvisor.noRecommendations')}</p>
+        </div>
+      ) : (
+        <div className="text-center py-4">
+          <Lightbulb className="h-6 w-6 text-gray-400 mx-auto mb-3" />
+          <p className="text-sm text-gray-500 mb-3">{t('taskAdvisor.recommendPrompt')}</p>
+          <button
+            onClick={handleRefreshRecommendations}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Lightbulb className="h-4 w-4" />
+            {t('taskAdvisor.recommend')}
+          </button>
         </div>
       )}
     </div>

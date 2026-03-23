@@ -152,7 +152,11 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    console.log(`Total count for date range ${startDate} to ${endDate}: ${count || 0}`)
+    console.log(`Total count for date range ${startDate} to ${endDate}: ${count ?? 'null'}`)
+
+    // When count fails (null), assume there may be more if we got a full page
+    const receivedFullPage = (transactions?.length ?? 0) >= limit
+    const hasMore = count != null ? (count as number) > offset + limit : receivedFullPage
 
     const transactionIds = (transactions || []).map((t) => t.id)
 
@@ -219,10 +223,10 @@ export async function GET(request: NextRequest) {
       success: true,
       transactions: enrichedTransactions,
       pagination: {
-        total: count || 0,
+        total: count ?? null,
         limit,
         offset,
-        has_more: (count || 0) > offset + limit,
+        has_more: hasMore,
       },
     })
   } catch (error) {

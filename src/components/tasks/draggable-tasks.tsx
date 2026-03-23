@@ -1,16 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import {
-  CheckCircle,
-  Star,
-  Settings,
-  Target,
-  Trash2,
-  ChevronUp,
-  ChevronDown,
-  GripVertical,
-} from 'lucide-react'
+import { useState } from 'react'
+import { CheckCircle, Star, Settings, Target, Trash2, ArrowUpToLine } from 'lucide-react'
 import { Task } from '@/types'
 
 interface DraggableTasksProps {
@@ -25,39 +16,23 @@ interface DraggableTasksProps {
 interface TaskItemProps {
   task: Task
   index: number
-  totalTasks: number
   onToggleTask: (taskId: string) => void
   onEditTask: (task: Task) => void
   onConvertToGoal: (task: Task) => void
   onDeleteTask: (taskId: string) => void
-  onMoveUp: (index: number) => void
-  onMoveDown: (index: number) => void
+  onMoveToTop: (index: number) => void
   isReordering: boolean
-  isDragging?: boolean
-  isDragOver?: boolean
-  onDragStart?: (e: React.DragEvent, index: number) => void
-  onDragOver?: (e: React.DragEvent) => void
-  onDragLeave?: (e: React.DragEvent) => void
-  onDrop?: (e: React.DragEvent, index: number) => void
 }
 
 function TaskItem({
   task,
   index,
-  totalTasks,
   onToggleTask,
   onEditTask,
   onConvertToGoal,
   onDeleteTask,
-  onMoveUp,
-  onMoveDown,
+  onMoveToTop,
   isReordering,
-  isDragging = false,
-  isDragOver = false,
-  onDragStart,
-  onDragOver: handleDragOver,
-  onDragLeave: handleDragLeave,
-  onDrop,
 }: TaskItemProps) {
   return (
     <div
@@ -65,14 +40,7 @@ function TaskItem({
         task.status === 'completed'
           ? 'border-green-200 bg-green-50/50'
           : 'border-gray-200 hover:border-blue-200'
-      } ${isReordering ? 'opacity-50' : ''} ${isDragging ? 'opacity-50 scale-105 shadow-lg' : ''} ${
-        isDragOver ? 'border-blue-400 bg-blue-50/50' : ''
-      }`}
-      draggable
-      onDragStart={(e) => onDragStart?.(e, index)}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={(e) => onDrop?.(e, index)}
+      } ${isReordering ? 'opacity-50' : ''}`}
     >
       <div className="flex items-start space-x-3">
         <button
@@ -135,70 +103,20 @@ function TaskItem({
           </div>
         </div>
 
-        {/* Mobile-only drag and reorder controls */}
-        <div className="flex flex-col items-center space-y-1 flex-shrink-0 sm:hidden">
-          <div className="cursor-move" title="Drag to reorder">
-            <GripVertical className="h-4 w-4 text-gray-400 hover:text-gray-600" />
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <button
-              onClick={() => onMoveUp(index)}
-              disabled={index === 0 || isReordering}
-              className={`p-0.5 rounded transition-colors ${
-                index === 0 || isReordering
-                  ? 'text-gray-300 cursor-not-allowed'
-                  : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
-              }`}
-              title="Move up"
-            >
-              <ChevronUp className="h-3 w-3" />
-            </button>
-            <button
-              onClick={() => onMoveDown(index)}
-              disabled={index === totalTasks - 1 || isReordering}
-              className={`p-0.5 rounded transition-colors ${
-                index === totalTasks - 1 || isReordering
-                  ? 'text-gray-300 cursor-not-allowed'
-                  : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
-              }`}
-              title="Move down"
-            >
-              <ChevronDown className="h-3 w-3" />
-            </button>
-          </div>
-        </div>
-
-        {/* Desktop-only drag and reorder controls */}
-        <div className="hidden sm:flex flex-col items-center space-y-1 flex-shrink-0">
-          <div className="cursor-move" title="Drag to reorder">
-            <GripVertical className="h-4 w-4 text-gray-400 hover:text-gray-600" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <button
-              onClick={() => onMoveUp(index)}
-              disabled={index === 0 || isReordering}
-              className={`p-0.5 rounded transition-colors ${
-                index === 0 || isReordering
-                  ? 'text-gray-300 cursor-not-allowed'
-                  : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
-              }`}
-              title="Move up"
-            >
-              <ChevronUp className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => onMoveDown(index)}
-              disabled={index === totalTasks - 1 || isReordering}
-              className={`p-0.5 rounded transition-colors ${
-                index === totalTasks - 1 || isReordering
-                  ? 'text-gray-300 cursor-not-allowed'
-                  : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
-              }`}
-              title="Move down"
-            >
-              <ChevronDown className="h-4 w-4" />
-            </button>
-          </div>
+        {/* Move to top button */}
+        <div className="flex-shrink-0">
+          <button
+            onClick={() => onMoveToTop(index)}
+            disabled={index === 0 || isReordering}
+            className={`p-1 rounded transition-colors ${
+              index === 0 || isReordering
+                ? 'text-gray-300 cursor-not-allowed'
+                : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+            }`}
+            title="Move to top"
+          >
+            <ArrowUpToLine className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </div>
@@ -214,21 +132,16 @@ export function DraggableTasks({
   onDeleteTask,
 }: DraggableTasksProps) {
   const [isReordering, setIsReordering] = useState(false)
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
-  const handleMoveUp = async (index: number) => {
+  const handleMoveToTop = async (index: number) => {
     if (index === 0 || isReordering) return
 
     setIsReordering(true)
     try {
-      // Swap with the item above
       const newTasks = [...tasks]
-      const temp = newTasks[index]
-      newTasks[index] = newTasks[index - 1]
-      newTasks[index - 1] = temp
+      const [taskToMove] = newTasks.splice(index, 1)
+      newTasks.unshift(taskToMove)
 
-      // Create new sort orders
       const taskOrders = newTasks.map((task, idx) => ({
         id: task.id,
         sort_order: idx + 1,
@@ -236,103 +149,10 @@ export function DraggableTasks({
 
       await onReorder(taskOrders)
     } catch (error) {
-      console.error('Error moving task up:', error)
+      console.error('Error moving task to top:', error)
     } finally {
       setIsReordering(false)
     }
-  }
-
-  const handleMoveDown = async (index: number) => {
-    if (index === tasks.length - 1 || isReordering) return
-
-    setIsReordering(true)
-    try {
-      // Swap with the item below
-      const newTasks = [...tasks]
-      const temp = newTasks[index]
-      newTasks[index] = newTasks[index + 1]
-      newTasks[index + 1] = temp
-
-      // Create new sort orders
-      const taskOrders = newTasks.map((task, idx) => ({
-        id: task.id,
-        sort_order: idx + 1,
-      }))
-
-      await onReorder(taskOrders)
-    } catch (error) {
-      console.error('Error moving task down:', error)
-    } finally {
-      setIsReordering(false)
-    }
-  }
-
-  // Drag and Drop Handlers
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index)
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/html', e.currentTarget.outerHTML)
-  }
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    // Only clear dragOverIndex if we're leaving the container entirely
-    const rect = e.currentTarget.getBoundingClientRect()
-    const { clientX, clientY } = e
-    if (
-      clientX < rect.left ||
-      clientX > rect.right ||
-      clientY < rect.top ||
-      clientY > rect.bottom
-    ) {
-      setDragOverIndex(null)
-    }
-  }
-
-  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault()
-
-    if (draggedIndex === null || draggedIndex === dropIndex) {
-      setDraggedIndex(null)
-      setDragOverIndex(null)
-      return
-    }
-
-    setIsReordering(true)
-    setDraggedIndex(null)
-    setDragOverIndex(null)
-
-    try {
-      // Create new array with items swapped
-      const newTasks = [...tasks]
-      const draggedTask = newTasks[draggedIndex]
-
-      // Remove the dragged item
-      newTasks.splice(draggedIndex, 1)
-      // Insert it at the new position
-      newTasks.splice(dropIndex, 0, draggedTask)
-
-      // Create new sort orders
-      const taskOrders = newTasks.map((task, idx) => ({
-        id: task.id,
-        sort_order: idx + 1,
-      }))
-
-      await onReorder(taskOrders)
-    } catch (error) {
-      console.error('Error reordering tasks via drag and drop:', error)
-    } finally {
-      setIsReordering(false)
-    }
-  }
-
-  const handleDragEnter = (e: React.DragEvent, index: number) => {
-    e.preventDefault()
-    setDragOverIndex(index)
   }
 
   if (tasks.length === 0) {
@@ -351,20 +171,12 @@ export function DraggableTasks({
           key={task.id}
           task={task}
           index={index}
-          totalTasks={tasks.length}
           onToggleTask={onToggleTask}
           onEditTask={onEditTask}
           onConvertToGoal={onConvertToGoal}
           onDeleteTask={onDeleteTask}
-          onMoveUp={handleMoveUp}
-          onMoveDown={handleMoveDown}
+          onMoveToTop={handleMoveToTop}
           isReordering={isReordering}
-          isDragging={draggedIndex === index}
-          isDragOver={dragOverIndex === index}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
         />
       ))}
     </div>

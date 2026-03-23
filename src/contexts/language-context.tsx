@@ -84,6 +84,9 @@ const translations = {
     'taskAdvisor.loading': 'Loading recommendations...',
     'taskAdvisor.basedOn': 'Based on highest priority projects',
     'taskAdvisor.refresh': 'Refresh recommendations',
+    'taskAdvisor.recommend': 'Get recommendations',
+    'taskAdvisor.recommendPrompt':
+      'Click to generate AI task recommendations based on your projects.',
     'taskAdvisor.quickWin': 'Quick Win',
     'taskAdvisor.highImpact': 'High Impact',
     'taskAdvisor.strategic': 'Strategic',
@@ -341,6 +344,9 @@ const translations = {
     'taskAdvisor.loading': 'Cargando recomendaciones...',
     'taskAdvisor.basedOn': 'Basado en proyectos de mayor prioridad',
     'taskAdvisor.refresh': 'Actualizar recomendaciones',
+    'taskAdvisor.recommend': 'Obtener recomendaciones',
+    'taskAdvisor.recommendPrompt':
+      'Haz clic para generar recomendaciones de tareas con IA según tus proyectos.',
     'taskAdvisor.quickWin': 'Victoria Rápida',
     'taskAdvisor.highImpact': 'Alto Impacto',
     'taskAdvisor.strategic': 'Estratégico',
