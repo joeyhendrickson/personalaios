@@ -137,7 +137,7 @@ async function fetchDataCatalog(supabase: any) {
         count: standardSubs.length,
         columns: Object.keys(standardSubs[0] || {}),
         sample_data: standardSubs,
-        description: 'Standard plan subscribers ($19.99/month)',
+        description: 'Standard plan subscribers ($50.00/month)',
       }
     }
   } catch (error) {

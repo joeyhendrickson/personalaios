@@ -83,9 +83,22 @@ export async function POST(request: Request) {
 
     // Find the most recent payment
     const latestPayment = paypalSubscription.billing_info?.last_payment
-    if (!latestPayment) {
+    if (!latestPayment?.transaction_id) {
       return NextResponse.json({ error: 'No payment found to refund' }, { status: 400 })
     }
+
+    const refundValue =
+      latestPayment.amount?.value ||
+      (subscription.amount != null && subscription.amount !== ''
+        ? Number(subscription.amount).toFixed(2)
+        : null)
+    if (!refundValue) {
+      return NextResponse.json(
+        { error: 'Could not determine payment amount for refund' },
+        { status: 400 }
+      )
+    }
+    const refundCurrency = latestPayment.amount?.currency_code || 'USD'
 
     // Process refund through PayPal
     const refundResponse = await fetch(
@@ -98,8 +111,8 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           amount: {
-            value: '20.00',
-            currency_code: 'USD',
+            value: refundValue,
+            currency_code: refundCurrency,
           },
           note_to_payer: reason || 'Cancellation within 24-hour refund window',
         }),
@@ -133,7 +146,7 @@ export async function POST(request: Request) {
       activity_data: {
         subscription_id: subscriptionId,
         refund_id: refundResult.id,
-        refund_amount: '20.00',
+        refund_amount: refundValue,
         refund_reason: reason || '24-hour cancellation',
         hours_since_creation: Math.round(hoursSinceCreation * 100) / 100,
       },
@@ -145,7 +158,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       refundId: refundResult.id,
-      refundAmount: '20.00',
+      refundAmount: refundValue,
       hoursSinceCreation: Math.round(hoursSinceCreation * 100) / 100,
       message: 'Refund processed successfully',
     })

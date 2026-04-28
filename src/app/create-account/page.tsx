@@ -9,6 +9,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Check, Star, Mail, CreditCard, Zap, ChevronDown, ChevronUp, Gift } from 'lucide-react'
 import Link from 'next/link'
+import {
+  monthlyPremiumCoachingDisplay,
+  monthlyStandardDisplay,
+  monthlyStandardPayPalValue,
+} from '@/lib/pricing'
 
 export default function CreateAccountPage() {
   const [selectedPlan, setSelectedPlan] = useState<'trial' | 'basic' | 'premium'>('trial')
@@ -247,14 +252,14 @@ export default function CreateAccountPage() {
           email: formData.email,
           name: formData.name,
           plan: 'basic',
-          amount: '20.00',
+          amount: monthlyStandardPayPalValue,
         })
         window.location.href = `/paypal-checkout?${params.toString()}`
       } else if (showForm === 'premium') {
         // Send email to Joseph
         const emailBody = `Hi Joseph,
 
-${formData.message || 'I am interested in the Life Stacks Premium Coaching plan at $250/month.'}
+${formData.message || `I am interested in the Life Stacks Premium Coaching plan at ${monthlyPremiumCoachingDisplay}/month.`}
 
 Please provide me with more information about the coaching services and how to get started.
 
@@ -384,7 +389,7 @@ Thank you!`
               <CardTitle className="text-2xl">Standard</CardTitle>
               <CardDescription className="text-lg">Ongoing Access</CardDescription>
               <div className="text-3xl font-bold text-black mt-4">
-                $20.00
+                {monthlyStandardDisplay}
                 <span className="text-sm font-normal text-gray-500">/month</span>
               </div>
             </CardHeader>
@@ -434,7 +439,7 @@ Thank you!`
               <CardTitle className="text-2xl">Coaching</CardTitle>
               <CardDescription className="text-lg">Personalized Growth</CardDescription>
               <div className="text-3xl font-bold text-yellow-600 mt-4">
-                $250
+                {monthlyPremiumCoachingDisplay}
                 <span className="text-sm font-normal text-gray-500">/month</span>
               </div>
             </CardHeader>
@@ -485,7 +490,8 @@ Thank you!`
                 </CardTitle>
                 <CardDescription className="text-center text-gray-600">
                   {showForm === 'trial' && 'Get 7 days of full access to Life Stacks'}
-                  {showForm === 'basic' && 'Monthly subscription at $20.00/month'}
+                  {showForm === 'basic' &&
+                    `Monthly subscription at ${monthlyStandardDisplay}/month`}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -616,8 +622,9 @@ Thank you!`
                     What happens after my free trial?
                   </h3>
                   <p className="text-gray-600">
-                    During your final days, you'll be asked to buy the Standard Plan ($20.00/month).
-                    You'll receive email notifications 48 hours prior.
+                    During your final days, you&apos;ll be asked to buy the Standard Plan (
+                    {monthlyStandardDisplay}/month). You&apos;ll receive email notifications 48
+                    hours prior.
                   </p>
                 </div>
                 <div>
@@ -632,18 +639,18 @@ Thank you!`
                     What's included in Premium Coaching?
                   </h3>
                   <p className="text-gray-600">
-                    Premium Coaching includes everything in the Standard Plan plus 1-on-1 coaching
-                    sessions, group coaching, personalized strategies, and Founder access and your
-                    feedback to improve LifeStacks.ai
+                    Premium Coaching at {monthlyPremiumCoachingDisplay}/month includes everything in
+                    the Standard Plan plus 1-on-1 coaching sessions, group coaching, personalized
+                    strategies, and Founder access and your feedback to improve LifeStacks.ai
                   </p>
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg mb-2 text-black">How does billing work?</h3>
                   <p className="text-gray-600">
-                    Standard Plan is billed monthly through PayPal. Premium Coaching is managed
-                    directly by the founder with custom invoicing and access codes. You can manage
-                    your Standard subscription and payment methods directly through your PayPal
-                    account.
+                    Standard Plan ({monthlyStandardDisplay}/month) is billed monthly through PayPal.
+                    Premium Coaching ({monthlyPremiumCoachingDisplay}/month) is managed directly by
+                    the founder with custom invoicing and access codes. You can manage your Standard
+                    subscription and payment methods directly through your PayPal account.
                   </p>
                 </div>
               </div>

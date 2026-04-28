@@ -5,13 +5,14 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import PayPalSubscriptionButton from '@/components/paypal/paypal-subscription-button'
+import { monthlyStandardPayPalValue } from '@/lib/pricing'
 
 export default function PayPalCheckout() {
   const searchParams = useSearchParams()
   const email = searchParams.get('email')
   const name = searchParams.get('name')
   const plan = searchParams.get('plan') || 'standard'
-  const amount = searchParams.get('amount') || '20.00'
+  const amount = searchParams.get('amount') || monthlyStandardPayPalValue
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">

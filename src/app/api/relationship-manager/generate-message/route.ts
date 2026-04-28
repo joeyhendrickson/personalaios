@@ -3,10 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
+import { buildRelationshipContextBundle } from '@/lib/relationship-manager/context-bundle'
 
-const generateMessageSchema = z.object({
+const legacyContext = z.enum(['casual_check_in', 'birthday', 'holiday', 'follow_up', 'thank_you'])
+
+const bodySchema = z.object({
   relationshipId: z.string().uuid(),
-  context: z.enum(['casual_check_in', 'birthday', 'holiday', 'follow_up', 'thank_you']).optional(),
+  context: legacyContext.optional(),
+  mode: z.enum(['single', 'framework']).optional().default('single'),
 })
 
 export async function POST(request: NextRequest) {
@@ -22,9 +26,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { relationshipId, context = 'casual_check_in' } = generateMessageSchema.parse(body)
+    const { relationshipId, context = 'casual_check_in', mode } = bodySchema.parse(body)
 
-    // Get relationship details
     const { data: relationship, error: relationshipError } = await supabase
       .from('relationships')
       .select('*')
@@ -36,46 +39,64 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Relationship not found' }, { status: 404 })
     }
 
-    // Get recent photos with this person for context
-    const { data: photos } = await supabase
-      .from('relationship_photos')
-      .select('description, ai_tags, photo_date, location')
-      .eq('relationship_id', relationshipId)
-      .eq('user_id', user.id)
-      .order('photo_date', { ascending: false })
-      .limit(5)
+    const bundle = await buildRelationshipContextBundle(supabase, user.id, relationshipId)
 
-    // Get recent contact history
-    const { data: contactHistory } = await supabase
-      .from('contact_history')
-      .select('contact_type, outcome, created_at')
-      .eq('relationship_id', relationshipId)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(3)
+    if (mode === 'framework') {
+      const { text } = await generateText({
+        model: openai('gpt-4o-mini'),
+        prompt: `You draft outbound messages for ${relationship.name} (${relationship.relationship_type}).
 
-    // Build context for AI
-    const photoContext =
-      photos && photos.length > 0
-        ? `Recent photos together: ${photos
-            .map(
-              (p: any) =>
-                `${p.description || 'Photo'} from ${p.photo_date} at ${p.location || 'unknown location'}. Activities: ${p.ai_tags?.join(', ') || 'general'}`
-            )
-            .join('; ')}`
-        : 'No recent photos available'
+FULL CONTEXT:
+${bundle.profileText}
 
-    const contactContext =
-      contactHistory && contactHistory.length > 0
-        ? `Recent contacts: ${contactHistory
-            .map(
-              (c: any) =>
-                `${c.contact_type} on ${new Date(c.created_at).toLocaleDateString()}: ${c.outcome || 'no specific outcome'}`
-            )
-            .join('; ')}`
-        : 'No recent contact history'
+PHOTOS / MEMORIES (tags & descriptions):
+${bundle.photoContext}
 
-    const contextPrompts = {
+DOCUMENTS:
+${bundle.documentContext}
+
+TEXT THREADS (summaries):
+${bundle.screenshotContext}
+
+TIMELINE NOTES:
+${bundle.notesContext}
+
+RECENT LOGGED CONTACTS:
+${bundle.contactContext}
+
+Return ONLY valid JSON:
+{
+  "social_invites": [{"label": "short label", "message": "2-5 sentences, warm, specific"}],
+  "check_ins": [{"label": "", "message": ""}],
+  "share_article_or_news": [{"label": "", "message": "", "suggested_topic": "what to look up or share"}],
+  "strategy_questions": [{"label": "", "message": ""}]
+}
+
+Rules:
+- social_invites: 2 options — concrete plans (coffee, walk, event) using their interests when known.
+- check_ins: 2 options — funny or distinctive, not generic "hope you're well".
+- share_article_or_news: 2 options — tie to their interests or joint work; message proposes sharing without inventing a specific fake article title.
+- strategy_questions: 2 options — genuine asks related to user's goals and their expertise/role; mutual value.
+- Tone fits relationship_type; keep each message under 120 words.`,
+        temperature: 0.85,
+      })
+
+      let framework: Record<string, unknown> = {}
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/)
+        if (jsonMatch) framework = JSON.parse(jsonMatch[0]) as Record<string, unknown>
+      } catch {
+        framework = { parse_error: true, raw: text }
+      }
+
+      return NextResponse.json({
+        mode: 'framework',
+        framework,
+        relationshipName: relationship.name,
+      })
+    }
+
+    const contextPrompts: Record<string, string> = {
       casual_check_in: `Write a warm, casual message to check in and see how they're doing`,
       birthday: `Write a heartfelt birthday message with personal touches`,
       holiday: `Write a warm holiday greeting message`,
@@ -86,42 +107,47 @@ export async function POST(request: NextRequest) {
     const prompt = `You are helping me write a personal message to ${relationship.name}, who is a ${relationship.relationship_type}.
 
 RELATIONSHIP CONTEXT:
-- Name: ${relationship.name}
-- Relationship Type: ${relationship.relationship_type}
-- Priority Level: ${relationship.priority_level}/5
-- Last Contact: ${relationship.last_contact_date || 'Never'}
-- Contact Frequency: Every ${relationship.contact_frequency_days} days
-- Notes: ${relationship.notes || 'No additional notes'}
+${bundle.profileText}
 
-${photoContext}
+PHOTOS / TAGS:
+${bundle.photoContext}
 
-${contactContext}
+DOCUMENTS (summaries):
+${bundle.documentContext}
+
+MESSAGE THREAD CONTEXT:
+${bundle.screenshotContext}
+
+NOTES:
+${bundle.notesContext}
+
+RECENT CONTACTS LOGGED:
+${bundle.contactContext}
 
 TASK: ${contextPrompts[context]}
 
 REQUIREMENTS:
 1. Keep it personal and authentic - sound like a real person, not a bot
-2. Reference shared memories or experiences if available from the photo context
-3. Match the relationship type and priority level in tone (family/friends = warm, business = professional)
-4. Keep it concise but meaningful (2-4 sentences)
+2. Reference shared memories, documents, or thread themes only when supported above — do not invent facts
+3. Match the relationship type in tone
+4. Keep it concise but meaningful (2-5 sentences)
 5. Include a question or call-to-action to encourage response
 6. Don't be overly formal or generic
 
 Generate a natural, personalized message:`
 
     const { text: message } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: openai('gpt-4o-mini'),
       prompt,
       temperature: 0.8,
     })
 
     return NextResponse.json({
+      mode: 'single',
       message: message.trim(),
       context: {
         relationshipName: relationship.name,
         relationshipType: relationship.relationship_type,
-        photosUsed: photos?.length || 0,
-        contactHistoryUsed: contactHistory?.length || 0,
       },
     })
   } catch (error) {

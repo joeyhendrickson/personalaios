@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS relationships (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create photos table for storing Google Photos metadata
+-- Photos linked to a relationship (manual uploads; optional legacy external ids)
 CREATE TABLE IF NOT EXISTS relationship_photos (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,

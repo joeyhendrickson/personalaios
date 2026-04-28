@@ -21,7 +21,6 @@ import {
   Send,
   Edit,
   Trash2,
-  RefreshCw,
   AlertCircle,
   CheckCircle,
   ExternalLink,
@@ -62,15 +61,19 @@ interface Relationship {
 
 interface Photo {
   id: string
-  google_photo_id: string
-  photo_url: string
+  google_photo_id?: string | null
+  photo_url?: string | null
   thumbnail_url?: string
   photo_date?: string
   location?: string
   description?: string
-  people_in_photo: string[]
-  ai_tags: string[]
+  people_in_photo?: string[]
+  ai_tags?: string[]
   relevance_score: number
+  source?: string
+  storage_path?: string | null
+  signed_url?: string | null
+  display_url?: string | null
 }
 
 interface ContactHistory {
@@ -143,13 +146,13 @@ export default function RelationshipManagerPage() {
   const [filterType, setFilterType] = useState('all')
   const [filterPriority, setFilterPriority] = useState('all')
   const [showNeedsContactOnly, setShowNeedsContactOnly] = useState(false)
-  const [googlePhotosConnected, setGooglePhotosConnected] = useState(false)
   const [messageContent, setMessageContent] = useState('')
+  const [messageContext, setMessageContext] = useState<
+    'casual_check_in' | 'birthday' | 'holiday' | 'follow_up' | 'thank_you'
+  >('casual_check_in')
   const [generatingMessage, setGeneratingMessage] = useState(false)
-  const [syncingPhotos, setSyncingPhotos] = useState(false)
   const [relationshipPhotos, setRelationshipPhotos] = useState<Photo[]>([])
-  const [showSetupModal, setShowSetupModal] = useState(false)
-  const [setupInstructions, setSetupInstructions] = useState<any>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
   // Form state for new relationship
   const [newRelationship, setNewRelationship] = useState({
@@ -164,7 +167,6 @@ export default function RelationshipManagerPage() {
 
   useEffect(() => {
     fetchRelationships()
-    checkGooglePhotosConnection()
   }, [])
 
   const fetchRelationships = async () => {
@@ -178,18 +180,6 @@ export default function RelationshipManagerPage() {
       console.error('Error fetching relationships:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const checkGooglePhotosConnection = async () => {
-    try {
-      const response = await fetch('/api/relationship-manager/google-photos/status')
-      if (response.ok) {
-        const data = await response.json()
-        setGooglePhotosConnected(data.connected || false)
-      }
-    } catch (error) {
-      console.error('Error checking Google Photos connection:', error)
     }
   }
 
@@ -230,13 +220,14 @@ export default function RelationshipManagerPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           relationshipId: selectedRelationship.id,
-          context: 'casual_check_in',
+          context: messageContext,
+          mode: 'single',
         }),
       })
 
       if (response.ok) {
         const data = await response.json()
-        setMessageContent(data.message)
+        setMessageContent(data.message ?? '')
       }
     } catch (error) {
       console.error('Error generating message:', error)
@@ -245,36 +236,26 @@ export default function RelationshipManagerPage() {
     }
   }
 
-  const connectGooglePhotos = async () => {
+  const generateMessageFramework = async () => {
+    if (!selectedRelationship) return
+    setGeneratingMessage(true)
     try {
-      // Direct redirect to OAuth endpoint
-      window.location.href = '/api/relationship-manager/google-photos/connect'
-    } catch (error) {
-      console.error('Error connecting to Google Photos:', error)
-      alert('Failed to connect to Google Photos. Please try again.')
-    }
-  }
-
-  const syncGooglePhotos = async () => {
-    setSyncingPhotos(true)
-    try {
-      const response = await fetch('/api/relationship-manager/google-photos/sync', {
+      const response = await fetch('/api/relationship-manager/generate-message', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          relationshipId: selectedRelationship.id,
+          mode: 'framework',
+        }),
       })
-
       if (response.ok) {
         const data = await response.json()
-        alert(`Successfully synced ${data.synced} new photos from Google Photos!`)
-        await checkGooglePhotosConnection()
-      } else {
-        const error = await response.json()
-        alert(`Error: ${error.message || 'Failed to sync photos'}`)
+        setMessageContent(JSON.stringify(data.framework ?? data, null, 2))
       }
-    } catch (error) {
-      console.error('Error syncing photos:', error)
-      alert('Failed to sync photos. Please try again.')
+    } catch (e) {
+      console.error(e)
     } finally {
-      setSyncingPhotos(false)
+      setGeneratingMessage(false)
     }
   }
 
@@ -289,6 +270,31 @@ export default function RelationshipManagerPage() {
       }
     } catch (error) {
       console.error('Error fetching relationship photos:', error)
+    }
+  }
+
+  const uploadRelationshipPhoto = async (file: File) => {
+    if (!selectedRelationship) return
+    setUploadingPhoto(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch(
+        `/api/relationship-manager/relationships/${selectedRelationship.id}/photos`,
+        { method: 'POST', body: fd }
+      )
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert(err.error || 'Upload failed')
+        return
+      }
+      await fetchRelationshipPhotos(selectedRelationship.id)
+      await fetchRelationships()
+    } catch (e) {
+      console.error(e)
+      alert('Upload failed')
+    } finally {
+      setUploadingPhoto(false)
     }
   }
 
@@ -356,28 +362,6 @@ export default function RelationshipManagerPage() {
               </div>
             </div>
             <div className="flex space-x-3">
-              {googlePhotosConnected ? (
-                <button
-                  onClick={syncGooglePhotos}
-                  disabled={syncingPhotos}
-                  className="flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors text-sm font-medium disabled:opacity-50"
-                >
-                  {syncingPhotos ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                  )}
-                  {syncingPhotos ? 'Syncing...' : 'Sync Photos'}
-                </button>
-              ) : (
-                <button
-                  onClick={connectGooglePhotos}
-                  className="flex items-center px-4 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors text-sm font-medium"
-                >
-                  <Camera className="h-4 w-4 mr-2" />
-                  Connect Google Photos
-                </button>
-              )}
               <button
                 onClick={() => setShowAddModal(true)}
                 className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
@@ -485,9 +469,9 @@ export default function RelationshipManagerPage() {
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Google Photos</p>
+                <p className="text-sm font-medium text-gray-600">Context photos</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {googlePhotosConnected ? 'Connected' : 'Not Connected'}
+                  {relationships.reduce((n, r) => n + (r.photos_count || 0), 0)}
                 </p>
               </div>
               <Camera className="h-8 w-8 text-green-600" />
@@ -578,14 +562,21 @@ export default function RelationshipManagerPage() {
                   )}
                 </div>
 
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/modules/relationship-manager/${relationship.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex-1 min-w-[100px] text-center bg-slate-700 text-white px-3 py-2 rounded-md hover:bg-slate-800 transition-colors text-sm font-medium"
+                  >
+                    Profile
+                  </Link>
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
                       setSelectedRelationship(relationship)
                       setShowMessageModal(true)
                     }}
-                    className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                    className="flex-1 min-w-[100px] bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
                   >
                     <MessageSquare className="h-4 w-4 inline mr-1" />
                     Message
@@ -774,16 +765,28 @@ export default function RelationshipManagerPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="flex space-x-3">
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={generateMessage}
                   disabled={generatingMessage}
                   className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50"
                 >
                   <Brain className="h-4 w-4 mr-2" />
-                  {generatingMessage ? 'Generating...' : 'Generate AI Message'}
+                  {generatingMessage ? 'Generating...' : 'One message'}
                 </button>
-                <select className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <button
+                  onClick={generateMessageFramework}
+                  disabled={generatingMessage}
+                  type="button"
+                  className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                >
+                  Framework pack
+                </button>
+                <select
+                  value={messageContext}
+                  onChange={(e) => setMessageContext(e.target.value as typeof messageContext)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
                   <option value="casual_check_in">Casual Check-in</option>
                   <option value="birthday">Birthday Wishes</option>
                   <option value="holiday">Holiday Greeting</option>
@@ -836,15 +839,46 @@ export default function RelationshipManagerPage() {
               </button>
             </div>
 
+            <div className="mb-6 flex flex-wrap items-center gap-3">
+              <label className="inline-flex cursor-pointer items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  disabled={uploadingPhoto}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) uploadRelationshipPhoto(f)
+                    e.target.value = ''
+                  }}
+                />
+                {uploadingPhoto ? 'Uploading…' : 'Upload photo'}
+              </label>
+              <p className="text-sm text-gray-500">
+                Photos are stored privately and summarized for relationship context.
+              </p>
+            </div>
+
             {relationshipPhotos.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {relationshipPhotos.map((photo) => (
                   <div key={photo.id} className="relative group">
                     <img
-                      src={photo.thumbnail_url || photo.photo_url}
+                      src={
+                        photo.display_url ||
+                        photo.signed_url ||
+                        photo.thumbnail_url ||
+                        photo.photo_url ||
+                        ''
+                      }
                       alt={photo.description || 'Photo'}
                       className="w-full h-32 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => window.open(photo.photo_url, '_blank')}
+                      onClick={() =>
+                        window.open(
+                          photo.display_url || photo.signed_url || photo.photo_url || undefined,
+                          '_blank'
+                        )
+                      }
                     />
                     {photo.ai_tags && photo.ai_tags.length > 0 && (
                       <div className="absolute bottom-1 left-1 right-1">
@@ -861,174 +895,11 @@ export default function RelationshipManagerPage() {
                 <Camera className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No photos yet</h3>
                 <p className="text-gray-500 mb-4">
-                  {googlePhotosConnected
-                    ? `No photos found with ${selectedRelationship.name}. Try syncing your Google Photos or check if photos are properly matched.`
-                    : `Connect Google Photos to see photos with ${selectedRelationship.name}`}
+                  Upload images from time together. They are stored privately and summarized to help
+                  remember shared context.
                 </p>
-                {googlePhotosConnected ? (
-                  <div className="space-x-3">
-                    <button
-                      onClick={syncGooglePhotos}
-                      disabled={syncingPhotos}
-                      className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
-                    >
-                      {syncingPhotos ? 'Syncing...' : 'Sync Photos'}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={connectGooglePhotos}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-                  >
-                    Connect Google Photos
-                  </button>
-                )}
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Google Photos Setup Modal */}
-      {showSetupModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">Google Photos Integration Setup</h2>
-              <button
-                onClick={() => setShowSetupModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="font-semibold text-blue-900 mb-2">
-                  One-Time Application Setup Required
-                </h3>
-                <p className="text-blue-800 text-sm">
-                  Google Photos integration requires OAuth client credentials. This is a one-time
-                  setup for the application that allows each user to connect their own Google Photos
-                  account.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="font-semibold text-gray-900">Setup Steps:</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-start space-x-3">
-                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">
-                      1
-                    </span>
-                    <span className="text-gray-700">
-                      Go to{' '}
-                      <a
-                        href="https://console.cloud.google.com/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        Google Cloud Console
-                      </a>
-                    </span>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">
-                      2
-                    </span>
-                    <span className="text-gray-700">
-                      Create a new project or select existing one
-                    </span>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">
-                      3
-                    </span>
-                    <span className="text-gray-700">Enable Google Photos Library API</span>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">
-                      4
-                    </span>
-                    <span className="text-gray-700">
-                      Create OAuth 2.0 credentials (Web application type)
-                    </span>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">
-                      5
-                    </span>
-                    <span className="text-gray-700">
-                      Add redirect URIs: <br />
-                      <code className="bg-gray-100 px-1 rounded">
-                        http://localhost:3000/api/relationship-manager/google-photos/callback
-                      </code>{' '}
-                      (development)
-                      <br />
-                      <code className="bg-gray-100 px-1 rounded">
-                        https://lifestacks.ai/api/relationship-manager/google-photos/callback
-                      </code>{' '}
-                      (production)
-                    </span>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-semibold">
-                      6
-                    </span>
-                    <span className="text-gray-700">
-                      Add <code className="bg-gray-100 px-1 rounded">GOOGLE_PHOTOS_CLIENT_ID</code>{' '}
-                      and{' '}
-                      <code className="bg-gray-100 px-1 rounded">GOOGLE_PHOTOS_CLIENT_SECRET</code>{' '}
-                      to your <code className="bg-gray-100 px-1 rounded">.env.local</code> file
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 mb-2">Example .env.local:</h4>
-                <pre className="text-xs bg-gray-800 text-green-400 p-3 rounded overflow-x-auto">
-                  {`# Development (.env.local)
-GOOGLE_PHOTOS_CLIENT_ID=your_client_id_here
-GOOGLE_PHOTOS_CLIENT_SECRET=your_client_secret_here
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-# Production (Vercel Environment Variables)
-NEXT_PUBLIC_APP_URL=https://lifestacks.ai`}
-                </pre>
-              </div>
-
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <h4 className="font-semibold text-yellow-900 mb-2">Important:</h4>
-                <ul className="text-sm text-yellow-800 space-y-1">
-                  <li>• This is application-level configuration, not user-specific</li>
-                  <li>• Each user will still connect their own Google Photos account</li>
-                  <li>• Restart your development server after adding environment variables</li>
-                  <li>• For production, update redirect URIs to your production domain</li>
-                </ul>
-              </div>
-
-              <div className="flex space-x-3 pt-4">
-                <button
-                  onClick={() => setShowSetupModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => {
-                    setShowSetupModal(false)
-                    // Open Google Cloud Console in new tab
-                    window.open('https://console.cloud.google.com/', '_blank')
-                  }}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Open Google Cloud Console
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}

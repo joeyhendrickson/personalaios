@@ -160,13 +160,16 @@ export async function GET(request: NextRequest) {
     // Otherwise the client skips pages (e.g. 1000 DB rows → 400 visible → wrong offset).
     const dbRowCount = transactions?.length ?? 0
     const next_offset = offset + dbRowCount
+    // Do not use Supabase `count` to set has_more: it can be wrong/capped, which stops after e.g.
+    // two full pages (1000 + 401) while thousands of rows remain — users see a false ~1401 cap.
+    // Same pattern as Plaid: continue until a short page (or zero).
     let has_more = false
     if (dbRowCount === 0) {
       has_more = false
-    } else if (count != null) {
-      has_more = (count as number) > next_offset
+    } else if (dbRowCount < limit) {
+      has_more = false
     } else {
-      has_more = dbRowCount >= limit
+      has_more = true
     }
 
     const transactionIds = (transactions || []).map((t) => t.id)

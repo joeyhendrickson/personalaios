@@ -29,20 +29,20 @@ This adds:
 1. Go to: https://www.paypal.com/billing/plans (or sandbox equivalent)
 2. Click **Create Plan**
 
-### Basic Plan ($49.99/month):
+### Basic Plan ($50.00/month):
 
 - **Plan Name**: Life Stacks Basic Monthly
 - **Plan ID**: Copy this - you'll need it! (e.g., `P-1AB23456CD789012E`)
 - **Billing Cycle**: Monthly
-- **Price**: $49.99 USD
+- **Price**: $50.00 USD
 - **Description**: Full access to all Life Stacks features
 
-### Premium Plan ($249.99/month):
+### Premium Plan ($500.00/month):
 
 - **Plan Name**: Life Stacks Premium Monthly
 - **Plan ID**: Copy this - you'll need it! (e.g., `P-2XY34567EF890123G`)
 - **Billing Cycle**: Monthly
-- **Price**: $249.99 USD
+- **Price**: $500.00 USD
 - **Description**: Everything in Basic plus personal AI coaching
 
 ---

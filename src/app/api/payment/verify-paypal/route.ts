@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { isPremiumChargeAmount } from '@/lib/pricing'
 
 // PayPal SDK for server-side verification
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
 
     // Determine plan type from amount
     const amount = verificationResult.amount ? parseFloat(verificationResult.amount) : 0
-    const detectedPlanType = amount === 49.99 ? 'basic' : amount === 249.99 ? 'premium' : 'basic'
+    const detectedPlanType = isPremiumChargeAmount(amount) ? 'premium' : 'basic'
 
     const { data: paymentRecord, error: paymentError } = await supabase
       .from('payments')

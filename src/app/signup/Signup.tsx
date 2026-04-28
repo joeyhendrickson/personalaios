@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, ArrowLeft, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
+import { monthlyStandardDisplay } from '@/lib/pricing'
 
 export default function Signup() {
   const router = useRouter()
@@ -158,8 +159,8 @@ export default function Signup() {
       case 'basic':
         return {
           title: 'Standard Plan',
-          description: 'Monthly subscription at $19.99/month',
-          price: '$19.99/month',
+          description: `Monthly subscription at ${monthlyStandardDisplay}/month`,
+          price: `${monthlyStandardDisplay}/month`,
           color: 'text-blue-600',
         }
       default:

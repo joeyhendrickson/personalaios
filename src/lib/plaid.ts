@@ -338,6 +338,7 @@ Current environment: ${envType}`
           options: {
             count,
             offset,
+            ...(accountIds && accountIds.length > 0 ? { account_ids: accountIds } : {}),
           },
         })
 
@@ -361,14 +362,16 @@ Current environment: ${envType}`
         allTransactions.push(...transactions)
 
         console.log(
-          `Fetched page: ${transactions.length} transactions, total so far: ${allTransactions.length}, expected total: ${totalTransactions}`
+          `Fetched page: ${transactions.length} transactions, total so far: ${allTransactions.length}, Plaid total_transactions hint: ${totalTransactions}`
         )
 
-        // Check if we need to fetch more
-        // If we got fewer transactions than requested, or we've fetched all available, we're done
-        if (transactions.length < count || allTransactions.length >= totalTransactions) {
+        // Plaid returns newest transactions first. Do NOT stop when allTransactions >= total_transactions:
+        // total_transactions is often stale/too low, which stops pagination early and drops older rows
+        // (users see a false "earliest date" like everything starts mid-October).
+        // Official pattern: keep requesting until a page returns fewer than `count` rows (or zero).
+        if (transactions.length === 0 || transactions.length < count) {
           console.log(
-            `Pagination complete: fetched ${allTransactions.length} transactions (expected ${totalTransactions})`
+            `Pagination complete: fetched ${allTransactions.length} transactions (Plaid reported total_transactions=${totalTransactions} on first page — hint only)`
           )
           break
         }

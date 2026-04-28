@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
       .from('weekly_goals')
       .select('*')
       .eq('user_id', user.id)
+      .order('project_sort_order', { ascending: true })
       .order('created_at', { ascending: false })
 
     if (projectsError) {
@@ -138,12 +139,26 @@ export async function POST(request: NextRequest) {
       currentWeek = newWeek
     }
 
+    const { data: minSortRow } = await supabase
+      .from('weekly_goals')
+      .select('project_sort_order')
+      .eq('user_id', user.id)
+      .order('project_sort_order', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    const nextProjectSort =
+      minSortRow?.project_sort_order !== undefined && minSortRow.project_sort_order !== null
+        ? (minSortRow.project_sort_order as number) - 1
+        : 0
+
     // Create project with current week
     const { data: project, error: projectError } = await supabase
       .from('weekly_goals')
       .insert({
         user_id: user.id,
         week_id: currentWeek.id,
+        project_sort_order: nextProjectSort,
         ...validatedData,
       })
       .select()

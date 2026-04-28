@@ -15,6 +15,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import PayPalSubscriptionButton from '@/components/paypal/paypal-subscription-button'
 import { Gift, CreditCard, X } from 'lucide-react'
 import { useLanguage } from '@/contexts/language-context'
+import {
+  MONTHLY_STANDARD_USD,
+  monthlyPremiumCoachingDisplay,
+  monthlyStandardDisplay,
+} from '@/lib/pricing'
 
 interface PaywallModalProps {
   isOpen: boolean
@@ -77,14 +82,9 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
     onClose()
   }
 
-  const getPlanPrice = () => {
-    if (selectedPlan === 'trial') return 0
-    return selectedPlan === 'basic' ? 49.99 : 249.99
-  }
-
   const getPlanDescription = () => {
     if (selectedPlan === 'trial') {
-      return '7 days free trial, then $49.99/month. Cancel anytime during trial.'
+      return `7 days free trial, then ${monthlyStandardDisplay}/month. Cancel anytime during trial.`
     }
     return selectedPlan === 'basic'
       ? 'Full access to all Life Stacks features and AI-powered tools'
@@ -160,7 +160,9 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-semibold text-lg text-gray-900">Free Trial</h3>
-                      <p className="text-sm text-gray-600">7 days free, then $49.99/month</p>
+                      <p className="text-sm text-gray-600">
+                        7 days free, then ${MONTHLY_STANDARD_USD}/month
+                      </p>
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-green-600">FREE</div>
@@ -186,7 +188,9 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-gray-900">$49.99</div>
+                      <div className="text-2xl font-bold text-gray-900">
+                        {monthlyStandardDisplay}
+                      </div>
                       <div className="text-sm text-gray-500">/month</div>
                     </div>
                   </div>
@@ -209,7 +213,9 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-gray-900">$249.99</div>
+                      <div className="text-2xl font-bold text-gray-900">
+                        {monthlyPremiumCoachingDisplay}
+                      </div>
                       <div className="text-sm text-gray-500">/month</div>
                     </div>
                   </div>
@@ -236,7 +242,9 @@ export function PaywallModal({ isOpen, onClose, onCodeSuccess }: PaywallModalPro
                     </>
                   ) : (
                     <>
-                      ${getPlanPrice()}
+                      {selectedPlan === 'basic'
+                        ? monthlyStandardDisplay
+                        : monthlyPremiumCoachingDisplay}
                       <span className="text-sm font-normal text-gray-600">/month</span>
                     </>
                   )}

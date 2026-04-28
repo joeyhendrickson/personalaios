@@ -102,7 +102,7 @@ The admin dashboard now shows **4 user categories**:
 | ------------ | ------------------------------ | ------------- | -------------- | ----------------------------- |
 | **Admin**    | In `admin_users` table         | N/A           | ❌ NOT tracked | ✅ Has admin access           |
 | **Trial**    | In `trial_subscriptions` table | Free 7 days   | ✅ Tracked     | ✅ Visible in Trial module    |
-| **Standard** | In `subscriptions` table       | $20/mo PayPal | ✅ Tracked     | ✅ Visible in Standard module |
+| **Standard** | In `subscriptions` table       | $50/mo PayPal | ✅ Tracked     | ✅ Visible in Standard module |
 | **Premium**  | All other users                | Admin-managed | ✅ Tracked     | ✅ Visible in Premium module  |
 
 ---

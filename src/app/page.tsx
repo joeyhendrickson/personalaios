@@ -21,6 +21,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { useLanguage } from '@/contexts/language-context'
 import { LanguageToggle } from '@/components/ui/language-toggle'
 import { Button } from '@/components/ui/button'
+import { monthlyStandardPayPalValue } from '@/lib/pricing'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -56,7 +57,7 @@ export default function HomePage() {
         email: signInData.email,
         name: signInData.name,
         plan: 'standard',
-        amount: '19.99',
+        amount: monthlyStandardPayPalValue,
       })
       window.location.href = `/paypal-checkout?${params.toString()}`
     } catch (error: any) {

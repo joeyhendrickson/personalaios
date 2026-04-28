@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { monthlyStandardDisplay } from '@/lib/pricing'
 
 function getResendClient() {
   if (!process.env.RESEND_API_KEY) {
@@ -69,7 +70,7 @@ export async function sendTrialExpiryWarning(email: string, name: string, daysRe
             <div style="text-align: center; margin: 30px 0;">
               <a href="${process.env.NEXT_PUBLIC_APP_URL}/create-account" 
                  style="background: #3b82f6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-                Upgrade to Standard Plan - $20.00/month
+                Upgrade to Standard Plan - ${monthlyStandardDisplay}/month
               </a>
             </div>
             
@@ -156,7 +157,7 @@ export async function sendTrialExpiredNotification(email: string, name: string) 
             <div style="text-align: center; margin: 30px 0;">
               <a href="${process.env.NEXT_PUBLIC_APP_URL}/create-account" 
                  style="background: #3b82f6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-                Upgrade to Standard Plan - $20.00/month
+                Upgrade to Standard Plan - ${monthlyStandardDisplay}/month
               </a>
             </div>
             

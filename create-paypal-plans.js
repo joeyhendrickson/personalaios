@@ -41,7 +41,7 @@ async function createPayPalPlans() {
           total_cycles: 0, // 0 = infinite
           pricing_scheme: {
             fixed_price: {
-              value: '19.99',
+              value: '50.00',
               currency_code: 'USD',
             },
           },
@@ -75,7 +75,7 @@ async function createPayPalPlans() {
           total_cycles: 0, // 0 = infinite
           pricing_scheme: {
             fixed_price: {
-              value: '249.99',
+              value: '500.00',
               currency_code: 'USD',
             },
           },

@@ -60,10 +60,10 @@ psql -f create-access-codes-system.sql
 
 ### User Experience
 
-- **Free Trial Option**: 7-day free trial that converts to Basic Plan ($49.99/month)
+- **Free Trial Option**: 7-day free trial that converts to Basic Plan ($50.00/month)
 - PayPal payment option with two plan tiers:
-  - **Basic Plan**: $49.99/month - Full access to all Life Stacks features
-  - **Premium Plan**: $249.99/month - Everything in Basic plus personal AI coaching
+  - **Basic Plan**: $50.00/month - Full access to all Life Stacks features
+  - **Premium Plan**: $500.00/month - Everything in Basic plus personal AI coaching
 - Free access code redemption option
 - Secure payment processing
 - Automatic account creation after successful payment

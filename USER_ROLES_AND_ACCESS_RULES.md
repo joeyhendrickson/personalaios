@@ -43,7 +43,7 @@ This document defines all user roles, access levels, subscription types, and bus
 
 - **Database Table**: `subscriptions` (plan_type = 'standard')
 - **Access Level**: Full platform access
-- **Payment**: $20.00/month via PayPal
+- **Payment**: $50.00/month via PayPal
 - **Grace Period**: 7 days when payment fails
 - **UI Indicators**: No trial banners (unless in grace period)
 
@@ -78,7 +78,7 @@ This document defines all user roles, access levels, subscription types, and bus
 
 ```
 1. User visits /create-account
-2. Chooses: Free Trial | Standard ($20/mo) | Premium (Contact Admin)
+2. Chooses: Free Trial | Standard ($50/mo) | Premium (Contact Admin)
 3. Creates account with email/password
 4. Trial users: Get 7 days free access
 5. Standard users: Redirected to PayPal checkout

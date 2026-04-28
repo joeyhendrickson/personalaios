@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { MONTHLY_PREMIUM_COACHING_USD, MONTHLY_STANDARD_USD } from '@/lib/pricing'
 
 export async function POST(request: Request) {
   try {
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
         plan_type: planType,
         status: 'active',
         billing_cycle: 'monthly',
-        amount: planType === 'basic' ? 49.99 : 249.99,
+        amount: planType === 'premium' ? MONTHLY_PREMIUM_COACHING_USD : MONTHLY_STANDARD_USD,
         currency: 'USD',
         started_at: new Date().toISOString(),
         next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now

@@ -8,6 +8,16 @@ const serverEnvSchema = z.object({
   // Token Encryption
   TOKEN_ENCRYPTION_KEY: z.string().optional(),
   ENCRYPTION_KEY: z.string().optional(), // Legacy alias for TOKEN_ENCRYPTION_KEY
+
+  // Relationship Manager / messaging (server-only)
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_PHONE_NUMBER: z.string().optional(),
+  TWILIO_FROM_NUMBER: z.string().optional(),
+  GOOGLE_PLACES_API_KEY: z.string().optional(),
+  EVENTBRITE_PRIVATE_TOKEN: z.string().optional(),
+  RESEND_FROM_EMAIL: z.string().optional(),
+  CRON_SECRET: z.string().optional(),
 })
 
 // Client-safe environment variables (can be exposed via NEXT_PUBLIC_*)
@@ -84,6 +94,14 @@ const parseEnv = () => {
     SUPABASE_SERVICE_ROLE_KEY: getEnv('SUPABASE_SERVICE_ROLE_KEY'),
     TOKEN_ENCRYPTION_KEY: getEnv('TOKEN_ENCRYPTION_KEY') || getEnv('ENCRYPTION_KEY'),
     ENCRYPTION_KEY: getEnv('ENCRYPTION_KEY') || getEnv('TOKEN_ENCRYPTION_KEY'),
+    TWILIO_ACCOUNT_SID: getEnv('TWILIO_ACCOUNT_SID'),
+    TWILIO_AUTH_TOKEN: getEnv('TWILIO_AUTH_TOKEN'),
+    TWILIO_PHONE_NUMBER: getEnv('TWILIO_PHONE_NUMBER'),
+    TWILIO_FROM_NUMBER: getEnv('TWILIO_FROM_NUMBER'),
+    GOOGLE_PLACES_API_KEY: getEnv('GOOGLE_PLACES_API_KEY'),
+    EVENTBRITE_PRIVATE_TOKEN: getEnv('EVENTBRITE_PRIVATE_TOKEN'),
+    RESEND_FROM_EMAIL: getEnv('RESEND_FROM_EMAIL'),
+    CRON_SECRET: getEnv('CRON_SECRET'),
 
     // Client-safe (can be exposed)
     NEXT_PUBLIC_SUPABASE_URL: getEnv('NEXT_PUBLIC_SUPABASE_URL'),

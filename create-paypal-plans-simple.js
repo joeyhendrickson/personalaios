@@ -135,13 +135,13 @@ async function main() {
     const basicPlan = await createPlan(
       basicProduct.id,
       'Life Stacks Basic Monthly',
-      '19.99',
+      '50.00',
       accessToken
     )
     const premiumPlan = await createPlan(
       premiumProduct.id,
       'Life Stacks Premium Monthly',
-      '249.99',
+      '500.00',
       accessToken
     )
 

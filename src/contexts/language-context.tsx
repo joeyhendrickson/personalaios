@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
+import { monthlyStandardDisplay } from '@/lib/pricing'
 
 export type Language = 'en' | 'es'
 
@@ -147,7 +148,7 @@ const translations = {
     'trial.expiresTomorrow': 'Trial Expires Tomorrow!',
     'trial.expiresInDays': 'Trial Expires in {days} Days',
     'trial.upgradeMessage': 'Upgrade to Standard Plan to keep your access and data.',
-    'trial.upgradePrice': 'Upgrade - $20.00/month',
+    'trial.upgradePrice': `Upgrade - ${monthlyStandardDisplay}/month`,
     'trial.active': 'Free Trial Active',
     'trial.daysRemaining': '{days} days remaining in your free trial.',
 
@@ -246,7 +247,7 @@ const translations = {
     'form.enterPassword': 'Enter your password',
     'form.enterName': 'Enter your full name',
     'form.signIn': 'Sign In',
-    'form.subscribe': 'Subscribe - $19.99/month',
+    'form.subscribe': `Subscribe - ${monthlyStandardDisplay}/month`,
     'form.signingIn': 'Signing In...',
     'form.processing': 'Processing...',
     'form.explorePlans': 'Or explore other plans →',
@@ -409,7 +410,7 @@ const translations = {
     'trial.expiresTomorrow': '¡La Prueba Expira Mañana!',
     'trial.expiresInDays': 'La Prueba Expira en {days} Días',
     'trial.upgradeMessage': 'Actualiza al Plan Estándar para mantener tu acceso y datos.',
-    'trial.upgradePrice': 'Actualizar - $20.00/mes',
+    'trial.upgradePrice': `Actualizar - ${monthlyStandardDisplay}/mes`,
     'trial.active': 'Prueba Gratuita Activa',
     'trial.daysRemaining': 'Te quedan {days} días en tu prueba gratuita.',
 
@@ -510,7 +511,7 @@ const translations = {
     'form.enterPassword': 'Ingresa tu contraseña',
     'form.enterName': 'Ingresa tu nombre completo',
     'form.signIn': 'Iniciar Sesión',
-    'form.subscribe': 'Suscribirse - $19.99/mes',
+    'form.subscribe': `Suscribirse - ${monthlyStandardDisplay}/mes`,
     'form.signingIn': 'Iniciando Sesión...',
     'form.processing': 'Procesando...',
     'form.explorePlans': 'O explorar otros planes →',

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { monthlyPremiumCoachingDisplay, monthlyStandardDisplay } from '@/lib/pricing'
 
 interface PayPalSubscriptionButtonProps {
   planType: 'basic' | 'premium'
@@ -79,7 +80,7 @@ export default function PayPalSubscriptionButton({
   }
 
   const planName = planType === 'premium' ? 'Life Stacks Premium' : 'Life Stacks Basic'
-  const price = planType === 'premium' ? '$249.99' : '$19.99'
+  const price = planType === 'premium' ? monthlyPremiumCoachingDisplay : monthlyStandardDisplay
 
   return (
     <Button onClick={handleSubscribe} disabled={isLoading} className="w-full">

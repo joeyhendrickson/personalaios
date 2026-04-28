@@ -152,6 +152,16 @@ const modules: Module[] = [
     complexity: 'beginner',
   },
   {
+    id: 'relationship-intel',
+    title: 'Relationship Intel',
+    description: 'One grounded next move per person from your messages, notes, and goals.',
+    category: 'Social',
+    icon: <Sparkles className="h-8 w-8" />,
+    status: 'available',
+    features: ['Suggested next move', 'Explainable scores', 'Weekly review', 'Goal links'],
+    complexity: 'beginner',
+  },
+  {
     id: 'calendar-ai',
     title: 'Calendar AI',
     description: 'AI-powered calendar management with smart scheduling and optimization.',

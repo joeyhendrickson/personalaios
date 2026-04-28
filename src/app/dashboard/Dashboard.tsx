@@ -50,6 +50,7 @@ import EducationSection from '@/components/education/education-section'
 import ActiveProjectsWidget from '@/components/dashboard/active-projects-widget'
 import TaskAdvisor from '@/components/dashboard/task-advisor'
 import { DraggableTasks } from '@/components/tasks/draggable-tasks'
+import { DraggableProjectsGrid } from '@/components/projects/draggable-projects-grid'
 import { Task, Goal, Habit, Priority } from '@/types'
 import { DeletedPriorities } from '@/components/priorities/deleted-priorities'
 import TrialStatusBanner from '@/components/trial/trial-status-banner'
@@ -1503,6 +1504,26 @@ export default function Dashboard() {
     }
   }
 
+  const reorderProjects = async (projectOrders: { id: string; project_sort_order: number }[]) => {
+    try {
+      const response = await fetch('/api/projects/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectOrders }),
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to reorder projects')
+      }
+      await fetchDashboardData()
+    } catch (error) {
+      console.error('Error reordering projects:', error)
+      alert(
+        `Error reordering projects: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       {/* Header */}
@@ -2600,199 +2621,205 @@ export default function Dashboard() {
                         </p>
                       </div>
                     ) : (
-                      goals.map((goal) => {
-                        const baseProgress =
-                          (goal as any).target_points && (goal as any).target_points > 0
-                            ? Math.round(
-                                (((goal as any).current_points || 0) /
-                                  (goal as any).target_points) *
-                                  100
-                              )
-                            : 0
-                        const goalProgress =
-                          localProgress[goal.id] !== undefined
-                            ? localProgress[goal.id]
-                            : baseProgress
-                        const categoryColors = {
-                          quick_money: '#DC2626',
-                          save_money: '#059669',
-                          health: '#F59E0B',
-                          network_expansion: '#8B5CF6',
-                          business_growth: '#10B981',
-                          fires: '#EF4444',
-                          good_living: '#EC4899',
-                          big_vision: '#7C3AED',
-                          job: '#3B82F6',
-                          organization: '#6B7280',
-                          tech_issues: '#F97316',
-                          business_launch: '#059669',
-                          future_planning: '#0EA5E9',
-                          innovation: '#8B5CF6',
-                          other: '#6B7280',
-                        }
-                        return (
-                          <div
-                            key={goal.id}
-                            className="bg-white/50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-all duration-200"
-                          >
-                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-                              <div className="flex-1 w-full min-w-0">
-                                <span className="text-2xl block mb-2">
-                                  {(goal as any).category === 'quick_money'
-                                    ? '⚡'
-                                    : (goal as any).category === 'save_money'
-                                      ? '💳'
-                                      : (goal as any).category === 'health'
-                                        ? '💪'
-                                        : (goal as any).category === 'network_expansion'
-                                          ? '🤝'
-                                          : (goal as any).category === 'business_growth'
-                                            ? '📈'
-                                            : (goal as any).category === 'fires'
-                                              ? '🔥'
-                                              : (goal as any).category === 'good_living'
-                                                ? '🌟'
-                                                : (goal as any).category === 'big_vision'
-                                                  ? '🎯'
-                                                  : (goal as any).category === 'job'
-                                                    ? '💼'
-                                                    : (goal as any).category === 'organization'
-                                                      ? '📁'
-                                                      : (goal as any).category === 'tech_issues'
-                                                        ? '🔧'
-                                                        : (goal as any).category ===
-                                                            'business_launch'
-                                                          ? '🚀'
-                                                          : (goal as any).category ===
-                                                              'future_planning'
-                                                            ? '🗺️'
+                      <div className="col-span-1 w-full min-w-0 lg:col-span-2">
+                        <DraggableProjectsGrid
+                          projects={goals}
+                          onReorder={reorderProjects}
+                          renderProject={(goal, { dragHandle }) => {
+                            const baseProgress =
+                              (goal as any).target_points && (goal as any).target_points > 0
+                                ? Math.round(
+                                    (((goal as any).current_points || 0) /
+                                      (goal as any).target_points) *
+                                      100
+                                  )
+                                : 0
+                            const goalProgress =
+                              localProgress[goal.id] !== undefined
+                                ? localProgress[goal.id]
+                                : baseProgress
+                            const categoryColors = {
+                              quick_money: '#DC2626',
+                              save_money: '#059669',
+                              health: '#F59E0B',
+                              network_expansion: '#8B5CF6',
+                              business_growth: '#10B981',
+                              fires: '#EF4444',
+                              good_living: '#EC4899',
+                              big_vision: '#7C3AED',
+                              job: '#3B82F6',
+                              organization: '#6B7280',
+                              tech_issues: '#F97316',
+                              business_launch: '#059669',
+                              future_planning: '#0EA5E9',
+                              innovation: '#8B5CF6',
+                              other: '#6B7280',
+                            }
+                            return (
+                              <div className="bg-white/50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-all duration-200">
+                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                                  <div className="flex shrink-0 items-start pt-1">{dragHandle}</div>
+                                  <div className="flex-1 w-full min-w-0">
+                                    <span className="text-2xl block mb-2">
+                                      {(goal as any).category === 'quick_money'
+                                        ? '⚡'
+                                        : (goal as any).category === 'save_money'
+                                          ? '💳'
+                                          : (goal as any).category === 'health'
+                                            ? '💪'
+                                            : (goal as any).category === 'network_expansion'
+                                              ? '🤝'
+                                              : (goal as any).category === 'business_growth'
+                                                ? '📈'
+                                                : (goal as any).category === 'fires'
+                                                  ? '🔥'
+                                                  : (goal as any).category === 'good_living'
+                                                    ? '🌟'
+                                                    : (goal as any).category === 'big_vision'
+                                                      ? '🎯'
+                                                      : (goal as any).category === 'job'
+                                                        ? '💼'
+                                                        : (goal as any).category === 'organization'
+                                                          ? '📁'
+                                                          : (goal as any).category === 'tech_issues'
+                                                            ? '🔧'
                                                             : (goal as any).category ===
-                                                                'innovation'
-                                                              ? '💡'
-                                                              : '📋'}
-                                </span>
-                                <h3 className="font-semibold text-gray-900 mb-1">
-                                  {(goal as any).title}
-                                </h3>
-                                <div className="space-y-2">
-                                  <p className="text-sm text-gray-600 leading-relaxed">
-                                    {(() => {
-                                      const description =
-                                        (goal as any).description || 'No description'
-                                      const shouldTruncate = description.length > 120
-                                      const displayDescription =
-                                        shouldTruncate && !expandedDescriptions[goal.id]
-                                          ? description.substring(0, 120).trim() + '...'
-                                          : description
-                                      return displayDescription
-                                    })()}
-                                  </p>
-                                  {((goal as any).description || '').length > 120 && (
-                                    <button
-                                      onClick={() =>
-                                        setExpandedDescriptions((prev) => ({
-                                          ...prev,
-                                          [goal.id]: !prev[goal.id],
-                                        }))
-                                      }
-                                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                                    >
-                                      {expandedDescriptions[goal.id] ? (
-                                        <>
-                                          <ChevronUp className="w-3 h-3" />
-                                          Show Less
-                                        </>
-                                      ) : (
-                                        <>
-                                          <ChevronDown className="w-3 h-3" />
-                                          {t('projects.viewDetails')}
-                                        </>
+                                                                'business_launch'
+                                                              ? '🚀'
+                                                              : (goal as any).category ===
+                                                                  'future_planning'
+                                                                ? '🗺️'
+                                                                : (goal as any).category ===
+                                                                    'innovation'
+                                                                  ? '💡'
+                                                                  : '📋'}
+                                    </span>
+                                    <h3 className="font-semibold text-gray-900 mb-1">
+                                      {(goal as any).title}
+                                    </h3>
+                                    <div className="space-y-2">
+                                      <p className="text-sm text-gray-600 leading-relaxed">
+                                        {(() => {
+                                          const description =
+                                            (goal as any).description || 'No description'
+                                          const shouldTruncate = description.length > 120
+                                          const displayDescription =
+                                            shouldTruncate && !expandedDescriptions[goal.id]
+                                              ? description.substring(0, 120).trim() + '...'
+                                              : description
+                                          return displayDescription
+                                        })()}
+                                      </p>
+                                      {((goal as any).description || '').length > 120 && (
+                                        <button
+                                          onClick={() =>
+                                            setExpandedDescriptions((prev) => ({
+                                              ...prev,
+                                              [goal.id]: !prev[goal.id],
+                                            }))
+                                          }
+                                          className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                        >
+                                          {expandedDescriptions[goal.id] ? (
+                                            <>
+                                              <ChevronUp className="w-3 h-3" />
+                                              Show Less
+                                            </>
+                                          ) : (
+                                            <>
+                                              <ChevronDown className="w-3 h-3" />
+                                              {t('projects.viewDetails')}
+                                            </>
+                                          )}
+                                        </button>
                                       )}
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2 flex-shrink-0 sm:flex-nowrap">
+                                    <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-blue-200 text-blue-700">
+                                      {(goal as any).category}
+                                    </span>
+                                    <button
+                                      onClick={() => convertGoalToTask(goal)}
+                                      className="text-green-500 hover:text-green-700"
+                                      title="Convert to Task"
+                                    >
+                                      <CheckCircle className="h-4 w-4" />
                                     </button>
-                                  )}
+                                    <button
+                                      onClick={() => deleteGoal(goal.id)}
+                                      className="text-red-500 hover:text-red-700"
+                                      title="Delete Goal"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2 flex-shrink-0 sm:flex-nowrap">
-                                <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-blue-200 text-blue-700">
-                                  {(goal as any).category}
-                                </span>
-                                <button
-                                  onClick={() => convertGoalToTask(goal)}
-                                  className="text-green-500 hover:text-green-700"
-                                  title="Convert to Task"
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => deleteGoal(goal.id)}
-                                  className="text-red-500 hover:text-red-700"
-                                  title="Delete Goal"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </div>
 
-                            <div className="space-y-4">
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-600">
-                                  {(goal as any).current_points || 0}/
-                                  {(goal as any).target_points || 0} points
-                                </span>
-                                <div className="flex items-center space-x-2">
-                                  <span className="font-medium text-gray-900">{goalProgress}%</span>
-                                  {updatingProgress === goal.id && (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                                  )}
-                                </div>
-                              </div>
+                                <div className="space-y-4">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-600">
+                                      {(goal as any).current_points || 0}/
+                                      {(goal as any).target_points || 0} points
+                                    </span>
+                                    <div className="flex items-center space-x-2">
+                                      <span className="font-medium text-gray-900">
+                                        {goalProgress}%
+                                      </span>
+                                      {updatingProgress === goal.id && (
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                                      )}
+                                    </div>
+                                  </div>
 
-                              {/* Interactive Progress Slider */}
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                  <span>Progress</span>
-                                  <span>{goalProgress}%</span>
-                                </div>
-                                <Slider
-                                  value={goalProgress}
-                                  onChange={(value) => handleProgressChange(goal.id, value)}
-                                  onValueCommit={(value) =>
-                                    handleProgressCommit(goal.id, value, true)
-                                  }
-                                  min={0}
-                                  max={100}
-                                  step={1}
-                                  className="w-full"
-                                  disabled={updatingProgress === goal.id}
-                                />
-                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                  <span>
-                                    {localProgress[goal.id] !== undefined
-                                      ? `${localProgress[goal.id]}%`
-                                      : `${goalProgress}%`}
-                                  </span>
-                                  <span>100%</span>
-                                </div>
-                              </div>
+                                  {/* Interactive Progress Slider */}
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-xs text-gray-500">
+                                      <span>Progress</span>
+                                      <span>{goalProgress}%</span>
+                                    </div>
+                                    <Slider
+                                      value={goalProgress}
+                                      onChange={(value) => handleProgressChange(goal.id, value)}
+                                      onValueCommit={(value) =>
+                                        handleProgressCommit(goal.id, value, true)
+                                      }
+                                      min={0}
+                                      max={100}
+                                      step={1}
+                                      className="w-full"
+                                      disabled={updatingProgress === goal.id}
+                                    />
+                                    <div className="flex items-center justify-between text-xs text-gray-500">
+                                      <span>
+                                        {localProgress[goal.id] !== undefined
+                                          ? `${localProgress[goal.id]}%`
+                                          : `${goalProgress}%`}
+                                      </span>
+                                      <span>100%</span>
+                                    </div>
+                                  </div>
 
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs text-gray-500">
-                                  {((goal as any).target_points || 0) -
-                                    ((goal as any).current_points || 0)}{' '}
-                                  {t('projects.pointsRemaining')}
-                                </span>
-                                <button
-                                  onClick={() => openEditGoal(goal)}
-                                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 rounded-md px-3 text-xs"
-                                >
-                                  {t('projects.viewDetails')}{' '}
-                                  <ChevronRight className="h-3 w-3 ml-1" />
-                                </button>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">
+                                      {((goal as any).target_points || 0) -
+                                        ((goal as any).current_points || 0)}{' '}
+                                      {t('projects.pointsRemaining')}
+                                    </span>
+                                    <button
+                                      onClick={() => openEditGoal(goal)}
+                                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 rounded-md px-3 text-xs"
+                                    >
+                                      {t('projects.viewDetails')}{' '}
+                                      <ChevronRight className="h-3 w-3 ml-1" />
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          </div>
-                        )
-                      })
+                            )
+                          }}
+                        />
+                      </div>
                     )}
                   </div>
                 </div>

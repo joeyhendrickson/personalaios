@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Check, CreditCard, Shield, Zap, ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import PayPalSubscriptionButton from '@/components/paypal/paypal-subscription-button'
+import { monthlyPremiumCoachingDisplay, monthlyStandardDisplay } from '@/lib/pricing'
 
 export default function Subscribe() {
   const router = useRouter()
@@ -54,7 +55,7 @@ export default function Subscribe() {
   const plans = {
     standard: {
       name: 'Life Stacks Standard',
-      price: '$19.99',
+      price: monthlyStandardDisplay,
       description: 'Perfect for individuals getting started',
       features: [
         'AI-powered task prioritization',
@@ -68,8 +69,8 @@ export default function Subscribe() {
     },
     premium: {
       name: 'Life Stacks Premium',
-      price: '$249.99',
-      description: 'For power users who want it all',
+      price: monthlyPremiumCoachingDisplay,
+      description: 'Premium coaching and the full platform',
       features: [
         'Everything in Standard',
         'AI Life Coach with unlimited sessions',

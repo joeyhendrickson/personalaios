@@ -27,6 +27,8 @@ export interface Goal {
   user_id: string
   created_at: string
   updated_at: string
+  /** Dashboard project list order (lower = higher in list). */
+  project_sort_order?: number
   tasks?: Task[]
 }
 

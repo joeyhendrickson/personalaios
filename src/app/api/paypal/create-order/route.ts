@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { monthlyPremiumCoachingPayPalValue, monthlyStandardPayPalValue } from '@/lib/pricing'
 
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET
@@ -28,7 +29,9 @@ export async function POST(request: NextRequest) {
   try {
     const { planType, userEmail, amount } = await request.json()
 
-    const price = amount || (planType === 'premium' ? '249.99' : '20.00')
+    const price =
+      amount ||
+      (planType === 'premium' ? monthlyPremiumCoachingPayPalValue : monthlyStandardPayPalValue)
     const planName = planType === 'premium' ? 'Life Stacks Premium' : 'Life Stacks Basic'
 
     // Get access token
