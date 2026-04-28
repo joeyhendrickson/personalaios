@@ -1,7 +1,9 @@
 import { generateObject } from 'ai'
-import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 import type { InteractionExtraction } from './types'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
 
 const extractionSchema = z.object({
   topics_discussed: z.array(z.string()).max(25),
@@ -24,7 +26,8 @@ const extractionSchema = z.object({
  */
 export async function extractInteractionMetadata(
   content: string,
-  interactionType: string
+  interactionType: string,
+  logCtx?: { userId: string; route: string }
 ): Promise<InteractionExtraction | null> {
   if (!process.env.OPENAI_API_KEY) return null
   const trimmed = content.trim()
@@ -51,16 +54,31 @@ Absolute rules:
 7) interaction_type hint: ${interactionType}
 8) If text is too thin to support a field, return empty arrays — never invent events.`
 
+  const startMs = Date.now()
+  const modelId = resolveOpenAIModelId()
   try {
-    const { object } = await generateObject({
-      model: openai('gpt-4.1-mini'),
+    const result = await generateObject({
+      model: defaultOpenaiModel(),
       schema: extractionSchema,
       system,
       prompt: `TEXT:\n"""${trimmed}"""`,
       temperature: 0.1,
     })
 
-    const o = object as z.infer<typeof extractionSchema>
+    if (logCtx) {
+      await logAfterVercelSdkCall({
+        startMs,
+        userId: logCtx.userId,
+        module: 'relationship_intel',
+        action: 'extract_interaction_metadata',
+        route: logCtx.route,
+        model: modelId,
+        description: 'Structured interaction notes from text you saved.',
+        result,
+      })
+    }
+
+    const o = result.object as z.infer<typeof extractionSchema>
     const sanitize = (arr: string[]) =>
       arr.filter((s) => {
         const q = s.trim()
@@ -77,9 +95,22 @@ Absolute rules:
       alignment_signals: sanitize(o.alignment_signals),
       commitments,
       shared_experience_snippets: sanitize(o.shared_experience_snippets),
-      model_version: 'gpt-4.1-mini',
+      model_version: resolveOpenAIModelId(),
     }
-  } catch {
+  } catch (e) {
+    if (logCtx) {
+      await logAfterVercelSdkCall({
+        startMs,
+        userId: logCtx.userId,
+        module: 'relationship_intel',
+        action: 'extract_interaction_metadata',
+        route: logCtx.route,
+        model: modelId,
+        description: 'Structured interaction notes from text you saved.',
+        status: 'failed',
+        error: e instanceof Error ? e.message : 'Unknown error',
+      })
+    }
     return {
       topics_discussed: [],
       emotional_tone: 'neutral',

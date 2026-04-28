@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
-import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { buildRelationshipContextBundle } from '@/lib/relationship-manager/context-bundle'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
 
 const legacyContext = z.enum(['casual_check_in', 'birthday', 'holiday', 'follow_up', 'thank_you'])
 
@@ -14,6 +16,8 @@ const bodySchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
+  const requestStart = Date.now()
+  let logUserId: string | null = null
   try {
     const supabase = await createClient()
     const {
@@ -24,6 +28,8 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    logUserId = user.id
 
     const body = await request.json()
     const { relationshipId, context = 'casual_check_in', mode } = bodySchema.parse(body)
@@ -42,8 +48,10 @@ export async function POST(request: NextRequest) {
     const bundle = await buildRelationshipContextBundle(supabase, user.id, relationshipId)
 
     if (mode === 'framework') {
-      const { text } = await generateText({
-        model: openai('gpt-4o-mini'),
+      const modelId = resolveOpenAIModelId()
+      const startMs = Date.now()
+      const fwResult = await generateText({
+        model: defaultOpenaiModel(),
         prompt: `You draft outbound messages for ${relationship.name} (${relationship.relationship_type}).
 
 FULL CONTEXT:
@@ -81,12 +89,23 @@ Rules:
         temperature: 0.85,
       })
 
+      await logAfterVercelSdkCall({
+        startMs,
+        userId: user.id,
+        module: 'relationship_manager',
+        action: 'generate_message_framework',
+        route: '/api/relationship-manager/generate-message',
+        model: modelId,
+        description: 'Generated message ideas from saved relationship context.',
+        result: fwResult,
+      })
+
       let framework: Record<string, unknown> = {}
       try {
-        const jsonMatch = text.match(/\{[\s\S]*\}/)
+        const jsonMatch = fwResult.text.match(/\{[\s\S]*\}/)
         if (jsonMatch) framework = JSON.parse(jsonMatch[0]) as Record<string, unknown>
       } catch {
-        framework = { parse_error: true, raw: text }
+        framework = { parse_error: true, raw: fwResult.text }
       }
 
       return NextResponse.json({
@@ -136,15 +155,28 @@ REQUIREMENTS:
 
 Generate a natural, personalized message:`
 
-    const { text: message } = await generateText({
-      model: openai('gpt-4o-mini'),
+    const modelId = resolveOpenAIModelId()
+    const startMs = Date.now()
+    const singleResult = await generateText({
+      model: defaultOpenaiModel(),
       prompt,
       temperature: 0.8,
     })
 
+    await logAfterVercelSdkCall({
+      startMs,
+      userId: user.id,
+      module: 'relationship_manager',
+      action: 'generate_single_message',
+      route: '/api/relationship-manager/generate-message',
+      model: modelId,
+      description: 'Drafted a message suggestion from saved relationship context.',
+      result: singleResult,
+    })
+
     return NextResponse.json({
       mode: 'single',
-      message: message.trim(),
+      message: singleResult.text.trim(),
       context: {
         relationshipName: relationship.name,
         relationshipType: relationship.relationship_type,
@@ -159,6 +191,19 @@ Generate a natural, personalized message:`
         },
         { status: 400 }
       )
+    }
+    if (logUserId) {
+      await logAfterVercelSdkCall({
+        startMs: requestStart,
+        userId: logUserId,
+        module: 'relationship_manager',
+        action: 'generate_message',
+        route: '/api/relationship-manager/generate-message',
+        model: resolveOpenAIModelId(),
+        description: 'Drafted a message suggestion from saved relationship context.',
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
     }
 
     console.error('Error generating message:', error)

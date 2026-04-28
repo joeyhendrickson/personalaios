@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterOpenAIRestCall } from '@/lib/ai/usage-logger'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
 export async function POST(request: NextRequest) {
+  let profitAdvisorAiStart: number | null = null
+  let profitAdvisorUserId: string | null = null
   try {
     console.log('[Profit Advisor] Starting request')
 
@@ -34,6 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('[Profit Advisor] User authenticated:', user.id)
+    profitAdvisorUserId = user.id
 
     const body = await request.json()
     console.log('[Profit Advisor] Request body received:', {
@@ -206,8 +211,10 @@ Provide REALISTIC and ACHIEVABLE trade recommendations based on the actual patte
 
     // Use the same model as other endpoints
     console.log('[Profit Advisor] Calling OpenAI API')
+    const model = resolveOpenAIModelId()
+    profitAdvisorAiStart = Date.now()
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+      model,
       messages: [
         {
           role: 'system',
@@ -220,6 +227,17 @@ Provide REALISTIC and ACHIEVABLE trade recommendations based on the actual patte
         },
       ],
       temperature: 0.2,
+    })
+
+    await logAfterOpenAIRestCall({
+      startMs: profitAdvisorAiStart,
+      userId: user.id,
+      module: 'day_trader',
+      action: 'profit_advisor_plan',
+      route: '/api/modules/day-trader/profit-advisor',
+      model,
+      description: 'Generated a trading plan outline from pattern summaries you saved.',
+      response: completion,
     })
 
     const advisorResponse = completion.choices[0]?.message?.content
@@ -327,6 +345,19 @@ Provide REALISTIC and ACHIEVABLE trade recommendations based on the actual patte
     })
   } catch (error) {
     console.error('Error in profit advisor generation:', error)
+    if (profitAdvisorAiStart != null && profitAdvisorUserId) {
+      await logAfterOpenAIRestCall({
+        startMs: profitAdvisorAiStart,
+        userId: profitAdvisorUserId,
+        module: 'day_trader',
+        action: 'profit_advisor_plan',
+        route: '/api/modules/day-trader/profit-advisor',
+        model: resolveOpenAIModelId(),
+        description: 'Generated a trading plan outline from pattern summaries you saved.',
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
 
     // Check if it's an OpenAI API error
     if (error instanceof Error && error.message.includes('API key')) {

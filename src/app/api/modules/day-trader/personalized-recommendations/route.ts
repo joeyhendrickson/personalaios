@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterOpenAIRestCall } from '@/lib/ai/usage-logger'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -47,6 +49,8 @@ interface StockRecommendation {
 }
 
 export async function POST() {
+  let persRecAiStart: number | null = null
+  let persRecUserId: string | null = null
   try {
     console.log('[Personalized Recommendations] Starting request')
 
@@ -69,6 +73,7 @@ export async function POST() {
     }
 
     console.log('[Personalized Recommendations] User authenticated:', user.id)
+    persRecUserId = user.id
 
     // Fetch user's dashboard data
     console.log('[Personalized Recommendations] Fetching dashboard data')
@@ -133,8 +138,10 @@ ${extractThemes(dashboardData)}
 
     // Generate stock recommendations using OpenAI
     console.log('[Personalized Recommendations] Calling OpenAI API')
+    const model = resolveOpenAIModelId()
+    persRecAiStart = Date.now()
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+      model,
       messages: [
         {
           role: 'system',
@@ -180,6 +187,17 @@ Return ONLY a valid JSON array of 5 stock recommendations with this exact struct
       ],
       temperature: 0.7,
       max_tokens: 1500,
+    })
+
+    await logAfterOpenAIRestCall({
+      startMs: persRecAiStart,
+      userId: user.id,
+      module: 'day_trader',
+      action: 'personalized_stock_recommendations',
+      route: '/api/modules/day-trader/personalized-recommendations',
+      model,
+      description: 'Generated example stock ideas aligned with general dashboard themes.',
+      response: completion,
     })
 
     const recommendationsText = completion.choices[0]?.message?.content
@@ -276,6 +294,19 @@ Return ONLY a valid JSON array of 5 stock recommendations with this exact struct
     })
   } catch (error) {
     console.error('Error generating personalized recommendations:', error)
+    if (persRecAiStart != null && persRecUserId) {
+      await logAfterOpenAIRestCall({
+        startMs: persRecAiStart,
+        userId: persRecUserId,
+        module: 'day_trader',
+        action: 'personalized_stock_recommendations',
+        route: '/api/modules/day-trader/personalized-recommendations',
+        model: resolveOpenAIModelId(),
+        description: 'Generated example stock ideas aligned with general dashboard themes.',
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
     return NextResponse.json(
       {
         error: 'Failed to generate recommendations',

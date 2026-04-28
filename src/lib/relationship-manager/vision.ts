@@ -1,7 +1,9 @@
 import 'server-only'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
 
 import { generateText } from 'ai'
-import { openai } from '@ai-sdk/openai'
 
 function toDataUrl(mimeType: string, buffer: Buffer): string {
   return `data:${mimeType};base64,${buffer.toString('base64')}`
@@ -10,11 +12,14 @@ function toDataUrl(mimeType: string, buffer: Buffer): string {
 export async function describeRelationshipPhoto(
   buffer: Buffer,
   mimeType: string,
-  relationshipName: string
+  relationshipName: string,
+  log?: { userId: string; route: string }
 ): Promise<{ description: string; tags: string[] }> {
   const image = toDataUrl(mimeType, buffer)
-  const { text } = await generateText({
-    model: openai('gpt-4o-mini'),
+  const startMs = Date.now()
+  const modelId = resolveOpenAIModelId()
+  const result = await generateText({
+    model: defaultOpenaiModel(),
     messages: [
       {
         role: 'user',
@@ -35,6 +40,20 @@ TAGS: tag1, tag2, tag3`,
     ],
   })
 
+  if (log) {
+    await logAfterVercelSdkCall({
+      startMs,
+      userId: log.userId,
+      module: 'relationship_manager',
+      action: 'describe_relationship_photo',
+      route: log.route,
+      model: modelId,
+      description: 'Analyzed a relationship photo to build neutral CRM-style notes.',
+      result,
+    })
+  }
+
+  const text = result.text
   const descMatch = text.match(/DESCRIPTION:\s*([\s\S]*?)(?=TAGS:|$)/i)
   const tagsMatch = text.match(/TAGS:\s*([\s\S]*?)$/i)
   const description = descMatch?.[1]?.trim() || text.trim()
@@ -51,11 +70,14 @@ TAGS: tag1, tag2, tag3`,
 export async function summarizeMessageScreenshot(
   buffer: Buffer,
   mimeType: string,
-  relationshipName: string
+  relationshipName: string,
+  log?: { userId: string; route: string }
 ): Promise<string> {
   const image = toDataUrl(mimeType, buffer)
-  const { text } = await generateText({
-    model: openai('gpt-4o-mini'),
+  const startMs = Date.now()
+  const modelId = resolveOpenAIModelId()
+  const result = await generateText({
+    model: defaultOpenaiModel(),
     messages: [
       {
         role: 'user',
@@ -74,5 +96,19 @@ Keep under 400 words. If unreadable, say so briefly.`,
       },
     ],
   })
-  return text.trim()
+
+  if (log) {
+    await logAfterVercelSdkCall({
+      startMs,
+      userId: log.userId,
+      module: 'relationship_manager',
+      action: 'summarize_message_screenshot',
+      route: log.route,
+      model: modelId,
+      description: 'Summarized a message screenshot for relationship context.',
+      result,
+    })
+  }
+
+  return result.text.trim()
 }

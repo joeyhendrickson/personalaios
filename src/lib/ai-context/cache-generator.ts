@@ -7,14 +7,18 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { generateText } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { env } from '@/lib/env'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import {
   fetchRawUserData,
   buildStaticProfileSummary,
   buildStructuredStateSummary,
 } from './fetch-user-data'
+import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
 import type { DerivedInsightsSummary } from '@/types/context-cache'
 
-const SUMMARIZATION_MODEL = process.env.OPENAI_SUMMARIZATION_MODEL || 'gpt-4o-mini'
+function summarizationModelId(): string {
+  return process.env.OPENAI_SUMMARIZATION_MODEL?.trim() || resolveOpenAIModelId()
+}
 
 function simpleChecksum(obj: unknown): string {
   return JSON.stringify(obj)
@@ -30,7 +34,10 @@ export interface RefreshResult {
   cacheVersion?: number
 }
 
-export async function refreshUserContextCache(userId: string): Promise<RefreshResult> {
+export async function refreshUserContextCache(
+  userId: string,
+  options?: { route?: string }
+): Promise<RefreshResult> {
   const start = Date.now()
   const supabase = createAdminClient()
 
@@ -90,7 +97,10 @@ export async function refreshUserContextCache(userId: string): Promise<RefreshRe
       raw as Parameters<typeof buildStructuredStateSummary>[0]
     )
 
-    const derived = await generateDerivedInsights(raw, structuredState)
+    const derived = await generateDerivedInsights(raw, structuredState, {
+      userId,
+      route: options?.route ?? '/api/ai/context-cache/refresh',
+    })
 
     const currentVersion = (existing as { cache_version?: number } | null)?.cache_version ?? 0
     const cacheVersion = currentVersion + 1
@@ -162,7 +172,8 @@ export async function refreshUserContextCache(userId: string): Promise<RefreshRe
 
 async function generateDerivedInsights(
   raw: Awaited<ReturnType<typeof fetchRawUserData>>,
-  structured: ReturnType<typeof buildStructuredStateSummary>
+  structured: ReturnType<typeof buildStructuredStateSummary>,
+  ctx: { userId: string; route: string }
 ): Promise<DerivedInsightsSummary> {
   if (!env.OPENAI_API_KEY) {
     return {
@@ -184,9 +195,11 @@ USER DATA:
 - Top goals: ${structured.topGoals.map((g) => g.title).join(', ') || 'None'}
 - Top priorities: ${structured.topPriorities.map((p) => p.title).join(', ') || 'None'}`
 
+  const modelId = summarizationModelId()
+  const startMs = Date.now()
   try {
-    const { text } = await generateText({
-      model: openai(SUMMARIZATION_MODEL),
+    const result = await generateText({
+      model: openai(modelId),
       messages: [
         {
           role: 'system',
@@ -196,7 +209,18 @@ USER DATA:
       ],
     })
 
-    const parsed = JSON.parse(text) as DerivedInsightsSummary
+    await logAfterVercelSdkCall({
+      startMs,
+      userId: ctx.userId,
+      module: 'context_refresh',
+      action: 'refresh_user_context_cache',
+      route: ctx.route,
+      model: modelId || resolveOpenAIModelId(),
+      description: 'Refreshed AI memory summary for dashboard personalization.',
+      result,
+    })
+
+    const parsed = JSON.parse(result.text) as DerivedInsightsSummary
     return {
       overallProgress: parsed.overallProgress ?? '',
       strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
@@ -209,7 +233,18 @@ USER DATA:
         typeof parsed.productivityScore === 'number' ? parsed.productivityScore : undefined,
       nextSteps: Array.isArray(parsed.nextSteps) ? parsed.nextSteps : [],
     }
-  } catch {
+  } catch (e) {
+    await logAfterVercelSdkCall({
+      startMs,
+      userId: ctx.userId,
+      module: 'context_refresh',
+      action: 'refresh_user_context_cache',
+      route: ctx.route,
+      model: modelId || resolveOpenAIModelId(),
+      description: 'Refreshed AI memory summary for dashboard personalization.',
+      status: 'failed',
+      error: e instanceof Error ? e.message : 'Unknown error',
+    })
     return {
       overallProgress: 'Unable to generate AI insights.',
       strengths: [],

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { openai } from '@ai-sdk/openai'
 import { generateText } from 'ai'
 import { z } from 'zod'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 
 // Function to calculate similarity between two strings
 function calculateSimilarity(str1: string, str2: string): number {
@@ -429,9 +429,9 @@ Focus on creating priorities that make the user feel like they're making progres
     console.log('Calling OpenAI with prompt length:', prompt.length)
 
     // Use available model from your API key
-    console.log('Calling OpenAI with available model: gpt-4.1-mini')
+    console.log('Calling OpenAI with default chat model')
     const { text: aiResponse } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: defaultOpenaiModel(),
       messages: [
         {
           role: 'system',

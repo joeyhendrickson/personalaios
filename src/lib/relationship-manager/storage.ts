@@ -11,9 +11,19 @@ export function safeFileSegment(name: string): string {
 export function buildStoragePath(
   userId: string,
   relationshipId: string,
-  folder: 'photos' | 'documents' | 'message-screenshots',
+  folder: 'photos' | 'documents' | 'message-screenshots' | 'mbox-imports',
   fileName: string
 ): string {
   const stamp = Date.now()
   return `${userId}/${relationshipId}/${folder}/${stamp}-${safeFileSegment(fileName)}`
+}
+
+/** Path for uploaded .mbox tied to an import job (relationshipId segment keeps bucket layout consistent). */
+export function buildMboxImportStoragePath(
+  userId: string,
+  relationshipId: string,
+  jobId: string,
+  originalFileName: string
+): string {
+  return `${userId}/${relationshipId}/mbox-imports/${jobId}-${safeFileSegment(originalFileName)}`
 }

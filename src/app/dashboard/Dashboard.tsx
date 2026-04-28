@@ -35,6 +35,7 @@ import {
   Menu,
   LogOut,
   User,
+  Receipt,
 } from 'lucide-react'
 import Link from 'next/link'
 import { ChatInterface } from '@/components/chat/chat-interface'
@@ -1590,6 +1591,12 @@ export default function Dashboard() {
                       <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
                         <User className="h-4 w-4 text-gray-500" />
                         {t('nav.profile')}
+                      </span>
+                    </Link>
+                    <Link href="/dashboard/ai-usage" onClick={() => setNavMenuOpen(false)}>
+                      <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                        <Receipt className="h-4 w-4 text-gray-500" />
+                        AI usage receipt
                       </span>
                     </Link>
                     {isAdmin && (

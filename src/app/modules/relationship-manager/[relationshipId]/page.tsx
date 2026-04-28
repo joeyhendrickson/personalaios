@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, Loader2, Sparkles, CalendarRange, Target } from 'lucide-react'
+import { ArrowLeft, Loader2, Sparkles, CalendarRange, Target, Inbox } from 'lucide-react'
 
 type DetailPayload = {
   relationship: Record<string, unknown> & {
@@ -249,11 +249,18 @@ export default function RelationshipDetailPage() {
       </Link>
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">{name}</h1>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {tabBtn('context', 'Context')}
           {tabBtn('events', 'Local events')}
           {tabBtn('alignment', 'Goals & deals')}
           {tabBtn('messages', 'Message ideas')}
+          <Link
+            href={`/modules/relationship-manager/${id}/mailbox`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted/60"
+          >
+            <Inbox className="h-4 w-4" />
+            Add contact data
+          </Link>
         </div>
       </div>
       {data.partial && (

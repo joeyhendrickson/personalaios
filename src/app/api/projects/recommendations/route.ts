@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { openai } from '@ai-sdk/openai'
 import { generateText } from 'ai'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 
 export async function GET(request: NextRequest) {
   try {
@@ -128,7 +128,7 @@ Example format:
 
     try {
       const result = await generateText({
-        model: openai('gpt-4.1-mini'),
+        model: defaultOpenaiModel(),
         messages: [
           {
             role: 'system',

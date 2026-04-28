@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterOpenAIRestCall } from '@/lib/ai/usage-logger'
 
 const validCategories = [
   'quick_money',
@@ -21,6 +23,7 @@ const validCategories = [
 
 // POST /api/predict-category - Predict category based on title and description
 export async function POST(request: NextRequest) {
+  let categoryAiStart: number | null = null
   try {
     const { title, description } = await request.json()
     console.log('API received:', { title, description })
@@ -73,11 +76,24 @@ PRIORITY RULES:
 
 Respond with ONLY the category name (use underscores, not spaces).`
 
+    const model = resolveOpenAIModelId()
+    categoryAiStart = Date.now()
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+      model,
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 10,
       temperature: 0.1,
+    })
+
+    await logAfterOpenAIRestCall({
+      startMs: categoryAiStart,
+      userId: null,
+      module: 'tasks',
+      action: 'predict_task_category',
+      route: '/api/predict-category',
+      model,
+      description: 'Suggested a task category from the title and description you entered.',
+      response: completion,
     })
 
     const predictedCategory = completion.choices[0]?.message?.content?.toLowerCase().trim()
@@ -97,6 +113,19 @@ Respond with ONLY the category name (use underscores, not spaces).`
     }
   } catch (error) {
     console.error('Error predicting category:', error)
+    if (categoryAiStart != null) {
+      await logAfterOpenAIRestCall({
+        startMs: categoryAiStart,
+        userId: null,
+        module: 'tasks',
+        action: 'predict_task_category',
+        route: '/api/predict-category',
+        model: resolveOpenAIModelId(),
+        description: 'Suggested a task category from the title and description you entered.',
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
 
     // Fallback to rule-based prediction
     const { title, description } = await request

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { openai } from '@ai-sdk/openai'
 import { generateText } from 'ai'
 import { env } from '@/lib/env'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       hasOpenAIKey: !!env.OPENAI_API_KEY,
-      openAIModel: env.OPENAI_MODEL || 'gpt-4.1-mini',
+      openAIModel: resolveOpenAIModelId(),
     })
 
     if (error instanceof Error && error.message.includes('API key')) {
@@ -404,7 +405,7 @@ IMPORTANT:
   let aiResponse: string
   try {
     const result = await generateText({
-      model: openai(env.OPENAI_MODEL || 'gpt-4.1-mini'),
+      model: defaultOpenaiModel(),
       messages: [
         {
           role: 'system',
@@ -424,7 +425,7 @@ IMPORTANT:
       error: generateError instanceof Error ? generateError.message : String(generateError),
       stack: generateError instanceof Error ? generateError.stack : undefined,
       hasOpenAIKey: !!env.OPENAI_API_KEY,
-      model: env.OPENAI_MODEL || 'gpt-4.1-mini',
+      model: resolveOpenAIModelId(),
       promptLength: prompt.length,
     })
     throw new Error(

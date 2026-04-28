@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 
 export interface KnowledgeCard {
   id: string
@@ -129,7 +130,7 @@ Be thorough but precise. Each card should represent a distinct piece of project 
 `
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: resolveOpenAIModelId(),
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
         response_format: { type: 'json_object' },
@@ -202,7 +203,7 @@ Rate coverage from 0-100 based on typical project needs. Critical warnings shoul
 `
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: resolveOpenAIModelId(),
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
         response_format: { type: 'json_object' },
@@ -300,7 +301,7 @@ Make the plan specific to the client's needs based on the extracted information.
 `
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: resolveOpenAIModelId(),
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.2,
         response_format: { type: 'json_object' },

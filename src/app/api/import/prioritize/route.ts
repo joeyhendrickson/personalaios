@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterOpenAIRestCall } from '@/lib/ai/usage-logger'
 
 interface ImportedGoal {
   title: string
@@ -117,11 +119,24 @@ Please respond with a JSON object in this exact format:
 }
 `
 
+        const model = resolveOpenAIModelId()
+        const startMs = Date.now()
         const completion = await openai.completions.create({
-          model: 'gpt-4.1-mini',
+          model,
           prompt: `You are an expert productivity coach and project manager. Always respond with valid JSON format as requested.\n\n${prompt}`,
           temperature: 0.7,
           max_tokens: 4000,
+        })
+
+        await logAfterOpenAIRestCall({
+          startMs,
+          userId: null,
+          module: 'import',
+          action: 'prioritize_imported_goals',
+          route: '/api/import/prioritize',
+          model,
+          description: 'Organized imported goals and tasks into a suggested order.',
+          response: completion,
         })
 
         const aiResponse = completion.choices[0]?.text

@@ -61,7 +61,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     let description: string | null = null
     let ai_tags: string[] = []
     try {
-      const vision = await describeRelationshipPhoto(buf, file.type, rel.name)
+      const vision = await describeRelationshipPhoto(buf, file.type, rel.name, {
+        userId: user.id,
+        route: `/api/relationship-manager/relationships/${relationshipId}/photos`,
+      })
       description = vision.description
       ai_tags = vision.tags
     } catch (e) {

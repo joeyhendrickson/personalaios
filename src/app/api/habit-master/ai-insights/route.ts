@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     // Generate AI insights using psychological frameworks
     const { text: insights } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: defaultOpenaiModel(),
       prompt: `You are a behavioral psychologist and habit formation expert. Analyze the following habit data and provide insights based on psychological frameworks like CBT, Self-Determination Theory, Atomic Habits, and ACT.
 
 Habit Data:

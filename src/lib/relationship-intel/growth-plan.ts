@@ -1,10 +1,12 @@
 import { generateObject } from 'ai'
-import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildPersonIntelligenceProfile } from './profile-aggregate'
 import { RI } from './schema'
 import type { InteractionRow, PersonRow } from './types'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
 
 const planSchema = z.object({
   deepen_connection: z.array(z.string()).max(8),
@@ -16,7 +18,8 @@ export type RelationshipGrowthPlan = z.infer<typeof planSchema>
 export async function generateRelationshipGrowthPlan(
   supabase: SupabaseClient,
   userId: string,
-  personId: string
+  personId: string,
+  options?: { route?: string }
 ): Promise<{ ok: true; data: RelationshipGrowthPlan } | { ok: false; error: string }> {
   if (!process.env.OPENAI_API_KEY) {
     return { ok: false, error: 'OPENAI_API_KEY is not configured' }
@@ -93,16 +96,39 @@ ${goalLines || '(none)'}
 Interactions:
 ${ixBlock || '(none)'}`
 
+  const startMs = Date.now()
+  const modelId = resolveOpenAIModelId()
   try {
-    const { object } = await generateObject({
-      model: openai('gpt-4.1-mini'),
+    const result = await generateObject({
+      model: defaultOpenaiModel(),
       schema: planSchema,
       system,
       prompt: user,
       temperature: 0.35,
     })
-    return { ok: true, data: object }
+    await logAfterVercelSdkCall({
+      startMs,
+      userId,
+      module: 'relationship_intel',
+      action: 'generate_relationship_growth_plan',
+      route: options?.route ?? null,
+      model: modelId,
+      description: 'Generated relationship growth ideas from saved context.',
+      result,
+    })
+    return { ok: true, data: result.object }
   } catch (e) {
+    await logAfterVercelSdkCall({
+      startMs,
+      userId,
+      module: 'relationship_intel',
+      action: 'generate_relationship_growth_plan',
+      route: options?.route ?? null,
+      model: modelId,
+      description: 'Generated relationship growth ideas from saved context.',
+      status: 'failed',
+      error: e instanceof Error ? e.message : 'Model error',
+    })
     return { ok: false, error: e instanceof Error ? e.message : 'Model error' }
   }
 }

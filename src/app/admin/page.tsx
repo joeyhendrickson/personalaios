@@ -24,6 +24,7 @@ import {
   Power,
 } from 'lucide-react'
 import { AccessCodesManager } from '@/components/admin/access-codes-manager'
+import { AiUsageAdminPanel } from '@/components/admin/ai-usage-admin-panel'
 
 interface DashboardData {
   total_users: number
@@ -635,6 +636,8 @@ export default function AdminDashboard() {
         <div className="mb-8">
           <AccessCodesManager />
         </div>
+
+        <AiUsageAdminPanel />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Bug Reports */}

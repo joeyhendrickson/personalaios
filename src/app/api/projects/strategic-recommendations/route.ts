@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 
 // GET /api/projects/strategic-recommendations - Get strategic recommendations based on user's projects and goals
 export async function GET(request: NextRequest) {
@@ -157,7 +157,7 @@ Be bold, strategic, and forward-thinking. Consider opportunities they might not 
     console.log('Calling OpenAI with prompt length:', prompt.length)
 
     const { text } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: defaultOpenaiModel(),
       prompt,
       temperature: 0.9, // High creativity for strategic thinking
     })

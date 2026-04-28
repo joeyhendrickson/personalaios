@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { openai } from '@ai-sdk/openai'
 import { generateText } from 'ai'
 import { env } from '@/lib/env'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 
 export async function POST(request: NextRequest) {
   try {
@@ -76,8 +76,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Get historical price data for the lookback period
-    let historicalData: { data: Array<{ date: string; open: number; high: number; low: number; close: number; volume: number }>; source: string } | null =
-      null
+    let historicalData: {
+      data: Array<{
+        date: string
+        open: number
+        high: number
+        low: number
+        close: number
+        volume: number
+      }>
+      source: string
+    } | null = null
     try {
       const { StockDataService } = await import('@/lib/stock-data')
       historicalData = await StockDataService.getStockHistoricalData(stockSymbol, lookbackDays)
@@ -211,9 +220,9 @@ Format your response as JSON with this structure:
 Provide REAL market analysis based on actual data for ${stockSymbol}.
 `
 
-    // Use the same model as the chatbot (gpt-4.1-mini)
+    // Same default chat model as the rest of the app
     const { text: analysis } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: defaultOpenaiModel(),
       messages: [
         {
           role: 'system',

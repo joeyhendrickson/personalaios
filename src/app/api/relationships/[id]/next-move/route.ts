@@ -14,7 +14,9 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const result = await generateNextMove(supabase, user.id, personId)
+    const result = await generateNextMove(supabase, user.id, personId, {
+      route: `/api/relationships/${personId}/next-move`,
+    })
     if (!result.ok) {
       const status = result.error === 'Person not found' ? 404 : 400
       return NextResponse.json({ error: result.error }, { status })

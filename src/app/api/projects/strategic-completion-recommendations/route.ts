@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 
 // GET /api/projects/strategic-completion-recommendations - Get strategic recommendations for improving project completion
 export async function GET(request: NextRequest) {
@@ -172,7 +172,7 @@ Be strategic, practical, and focused on measurable improvements to project compl
     console.log('Calling OpenAI with prompt length:', prompt.length)
 
     const { text } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: defaultOpenaiModel(),
       prompt,
       temperature: 0.8, // High creativity for strategic thinking
     })

@@ -44,7 +44,9 @@ export async function POST(request: NextRequest) {
     const results: { userId: string; success: boolean; ms: number }[] = []
 
     for (const userId of toProcess) {
-      const r = await refreshUserContextCache(userId)
+      const r = await refreshUserContextCache(userId, {
+        route: '/api/cron/refresh-ai-context',
+      })
       results.push({ userId, success: r.success, ms: r.durationMs })
     }
 

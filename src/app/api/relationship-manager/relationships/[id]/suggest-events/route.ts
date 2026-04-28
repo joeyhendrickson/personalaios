@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
-import { openai } from '@ai-sdk/openai'
 import { searchEventbriteEvents } from '@/lib/integrations/eventbrite'
 import { buildRelationshipContextBundle } from '@/lib/relationship-manager/context-bundle'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       .join('\n')
 
     const { text } = await generateText({
-      model: openai('gpt-4o-mini'),
+      model: defaultOpenaiModel(),
       prompt: `You help pick social or professional outings.
 
 RELATIONSHIP CONTEXT:

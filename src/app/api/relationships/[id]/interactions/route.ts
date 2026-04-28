@@ -47,7 +47,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     let extraction: Record<string, unknown> = {}
     if (body.extract) {
-      const parsed = await extractInteractionMetadata(body.content, body.type)
+      const parsed = await extractInteractionMetadata(body.content, body.type, {
+        userId: user.id,
+        route: `/api/relationships/${personId}/interactions`,
+      })
       if (parsed) extraction = parsed as unknown as Record<string, unknown>
     }
 

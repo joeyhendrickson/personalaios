@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 
 export async function POST() {
   try {
@@ -112,7 +112,7 @@ Return ONLY valid JSON, no markdown.`
 
     console.log('Calling AI for insights...')
     const { text: aiResponse } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: defaultOpenaiModel(),
       messages: [
         {
           role: 'system',

@@ -1,4 +1,6 @@
 import OpenAI from 'openai'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterOpenAIRestCall } from '@/lib/ai/usage-logger'
 
 interface SocialMediaPost {
   content: string
@@ -34,15 +36,18 @@ interface VoiceAnalysisResult {
 export class VoiceAnalyzer {
   private openai: OpenAI
 
-  constructor(apiKey: string) {
+  constructor(
+    apiKey: string,
+    private usageCtx?: { userId: string; route: string }
+  ) {
     this.openai = new OpenAI({ apiKey })
   }
 
   async analyzeVoice(posts: SocialMediaPost[]): Promise<VoiceAnalysisResult> {
+    const combinedContent = posts.map((post) => post.content).join('\n\n')
+    const model = resolveOpenAIModelId()
+    const startMs = Date.now()
     try {
-      // Combine posts for analysis
-      const combinedContent = posts.map((post) => post.content).join('\n\n')
-
       const prompt = `
 Analyze the following social media posts to extract the user's unique voice and writing style. Provide a comprehensive voice profile.
 
@@ -62,7 +67,7 @@ Return the analysis as a structured voice profile.
 `
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model,
         messages: [
           {
             role: 'system',
@@ -78,6 +83,19 @@ Return the analysis as a structured voice profile.
         max_tokens: 1000,
       })
 
+      if (this.usageCtx) {
+        await logAfterOpenAIRestCall({
+          startMs,
+          userId: this.usageCtx.userId,
+          module: 'post_creator',
+          action: 'analyze_voice_profile',
+          route: this.usageCtx.route,
+          model,
+          description: 'Analyzed past posts to build a writing-style voice profile.',
+          response,
+        })
+      }
+
       const analysisText = response.choices[0]?.message?.content || ''
 
       // Parse the response into structured data
@@ -90,6 +108,19 @@ Return the analysis as a structured voice profile.
       }
     } catch (error) {
       console.error('Error analyzing voice:', error)
+      if (this.usageCtx) {
+        await logAfterOpenAIRestCall({
+          startMs,
+          userId: this.usageCtx.userId,
+          module: 'post_creator',
+          action: 'analyze_voice_profile',
+          route: this.usageCtx.route,
+          model,
+          description: 'Analyzed past posts to build a writing-style voice profile.',
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
       throw error
     }
   }

@@ -143,7 +143,10 @@ export async function POST(request: NextRequest) {
           throw new Error('OpenAI API key not found')
         }
 
-        const voiceAnalyzer = new VoiceAnalyzer(openaiKey)
+        const voiceAnalyzer = new VoiceAnalyzer(openaiKey, {
+          userId: user.id,
+          route: '/api/post-creator/analyze',
+        })
         const analysisResult = await voiceAnalyzer.analyzeVoice(allPosts)
 
         // Step 4: Store results

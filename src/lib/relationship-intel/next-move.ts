@@ -1,10 +1,12 @@
 import { generateObject } from 'ai'
-import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { NEXT_MOVE_SYSTEM_PROMPT, buildNextMoveUserPrompt } from './prompt'
 import { buildPersonIntelligenceProfile } from './profile-aggregate'
 import { RI } from './schema'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
 import type {
   GoalRow,
   InteractionRow,
@@ -121,7 +123,8 @@ const FALLBACK: NextMoveResult = {
 export async function generateNextMove(
   supabase: SupabaseClient,
   userId: string,
-  personId: string
+  personId: string,
+  options?: { route?: string }
 ): Promise<{ ok: true; data: NextMoveResult } | { ok: false; error: string }> {
   const ctx = await loadContext(supabase, userId, personId)
   if (!ctx) return { ok: false, error: 'Person not found' }
@@ -148,17 +151,40 @@ export async function generateNextMove(
     profileExtracted: profile.extracted,
   })
 
+  const startMs = Date.now()
+  const modelId = resolveOpenAIModelId()
   try {
-    const { object } = await generateObject({
-      model: openai('gpt-4.1-mini'),
+    const result = await generateObject({
+      model: defaultOpenaiModel(),
       schema: nextMoveSchema,
       system: NEXT_MOVE_SYSTEM_PROMPT,
       prompt: userPrompt,
       temperature: 0.35,
     })
-    return { ok: true, data: object as NextMoveResult }
+    await logAfterVercelSdkCall({
+      startMs,
+      userId,
+      module: 'relationship_intel',
+      action: 'generate_next_move',
+      route: options?.route ?? null,
+      model: modelId,
+      description: 'Generated a suggested next step from saved relationship context.',
+      result,
+    })
+    return { ok: true, data: result.object as NextMoveResult }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Model error'
+    await logAfterVercelSdkCall({
+      startMs,
+      userId,
+      module: 'relationship_intel',
+      action: 'generate_next_move',
+      route: options?.route ?? null,
+      model: modelId,
+      description: 'Generated a suggested next step from saved relationship context.',
+      status: 'failed',
+      error: msg,
+    })
     return { ok: false, error: msg }
   }
 }

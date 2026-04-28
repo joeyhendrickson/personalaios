@@ -1,4 +1,6 @@
 import OpenAI from 'openai'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterOpenAIRestCall } from '@/lib/ai/usage-logger'
 
 interface VoiceProfile {
   tone: string
@@ -37,7 +39,10 @@ interface GeneratedPost {
 export class ContentGenerator {
   private openai: OpenAI
 
-  constructor(apiKey: string) {
+  constructor(
+    apiKey: string,
+    private usageCtx?: { userId: string; route: string }
+  ) {
     this.openai = new OpenAI({ apiKey })
   }
 
@@ -45,11 +50,12 @@ export class ContentGenerator {
     voiceProfile: VoiceProfile,
     params: PostGenerationParams
   ): Promise<GeneratedPost> {
+    const prompt = this.buildPrompt(voiceProfile, params)
+    const model = resolveOpenAIModelId()
+    const startMs = Date.now()
     try {
-      const prompt = this.buildPrompt(voiceProfile, params)
-
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model,
         messages: [
           {
             role: 'system',
@@ -65,11 +71,37 @@ export class ContentGenerator {
         max_tokens: 500,
       })
 
+      if (this.usageCtx) {
+        await logAfterOpenAIRestCall({
+          startMs,
+          userId: this.usageCtx.userId,
+          module: 'post_creator',
+          action: 'generate_social_post',
+          route: this.usageCtx.route,
+          model,
+          description: 'Generated a social post draft from your saved voice profile.',
+          response,
+        })
+      }
+
       const generatedContent = response.choices[0]?.message?.content || ''
 
       return this.parseGeneratedContent(generatedContent, params)
     } catch (error) {
       console.error('Error generating post:', error)
+      if (this.usageCtx) {
+        await logAfterOpenAIRestCall({
+          startMs,
+          userId: this.usageCtx.userId,
+          module: 'post_creator',
+          action: 'generate_social_post',
+          route: this.usageCtx.route,
+          model,
+          description: 'Generated a social post draft from your saved voice profile.',
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
       throw error
     }
   }

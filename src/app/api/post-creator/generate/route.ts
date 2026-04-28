@@ -62,7 +62,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate post using AI
-    const contentGenerator = new ContentGenerator(openaiKey)
+    const contentGenerator = new ContentGenerator(openaiKey, {
+      userId: user.id,
+      route: '/api/post-creator/generate',
+    })
     const generatedPost = await contentGenerator.generatePost(voiceProfile.voice_profile, {
       platform,
       topic,

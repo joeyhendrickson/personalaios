@@ -18,7 +18,9 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const result = await refreshUserContextCache(user.id)
+    const result = await refreshUserContextCache(user.id, {
+      route: '/api/ai/context-cache/refresh',
+    })
 
     if (!result.success) {
       return NextResponse.json(

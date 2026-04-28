@@ -95,7 +95,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
     let ai_thread_summary: string | null = null
     try {
-      ai_thread_summary = await summarizeMessageScreenshot(buf, file.type, rel.name)
+      ai_thread_summary = await summarizeMessageScreenshot(buf, file.type, rel.name, {
+        userId: user.id,
+        route: `/api/relationship-manager/relationships/${relationshipId}/message-screenshots`,
+      })
     } catch (e) {
       console.error('screenshot vision', e)
     }

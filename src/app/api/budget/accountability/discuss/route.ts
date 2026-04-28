@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { openai } from '@ai-sdk/openai'
 import { generateText } from 'ai'
 import { env } from '@/lib/env'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 
 export async function POST(request: NextRequest) {
   try {
@@ -93,7 +93,7 @@ Provide your response:`
 
     // Generate AI response
     const { text: aiResponse } = await generateText({
-      model: openai('gpt-4.1-mini'),
+      model: defaultOpenaiModel(),
       messages: [
         {
           role: 'system',

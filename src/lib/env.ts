@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { OPENAI_DEFAULT_CHAT_MODEL_ID } from '@/lib/ai/openai-model-id'
 
 // Server-only environment variables (never exposed to client)
 const serverEnvSchema = z.object({
@@ -107,7 +108,7 @@ const parseEnv = () => {
     NEXT_PUBLIC_SUPABASE_URL: getEnv('NEXT_PUBLIC_SUPABASE_URL'),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
     OPENAI_API_KEY: getEnv('OPENAI_API_KEY'),
-    OPENAI_MODEL: getEnv('OPENAI_MODEL') || 'gpt-4.1-mini',
+    OPENAI_MODEL: getEnv('OPENAI_MODEL') || OPENAI_DEFAULT_CHAT_MODEL_ID,
     ALPHA_VANTAGE_API_KEY: getEnv('ALPHA_VANTAGE_API_KEY'),
     IEX_CLOUD_API_KEY: getEnv('IEX_CLOUD_API_KEY'),
     FINANCIAL_MODELING_PREP_API_KEY: getEnv('FINANCIAL_MODELING_PREP_API_KEY'),

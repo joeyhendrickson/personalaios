@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterOpenAIRestCall } from '@/lib/ai/usage-logger'
 
 // POST /api/ai/recommend-priorities - Generate AI-recommended priorities based on goals
 export async function POST(request: NextRequest) {
+  let recPriAiStart: number | null = null
+  let recPriUserId: string | null = null
   try {
     const supabase = await createClient()
 
@@ -14,6 +18,8 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    recPriUserId = user.id
 
     // Fetch complete dashboard context for holistic AI recommendations
     const [
@@ -281,8 +287,10 @@ Focus on TODAY's most impactful actions that advance your top goals.
     })
 
     // Call OpenAI
+    const model = resolveOpenAIModelId()
+    recPriAiStart = Date.now()
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+      model,
       messages: [
         {
           role: 'system',
@@ -296,6 +304,17 @@ Focus on TODAY's most impactful actions that advance your top goals.
       ],
       temperature: 0.7,
       max_tokens: 2000,
+    })
+
+    await logAfterOpenAIRestCall({
+      startMs: recPriAiStart,
+      userId: user.id,
+      module: 'priorities',
+      action: 'recommend_priorities',
+      route: '/api/ai/recommend-priorities',
+      model,
+      description: 'Suggested priorities from your goals and open work items.',
+      response: completion,
     })
 
     const aiResponse = completion.choices[0]?.message?.content
@@ -381,6 +400,19 @@ Focus on TODAY's most impactful actions that advance your top goals.
     )
   } catch (error) {
     console.error('Error generating AI priorities:', error)
+    if (recPriAiStart != null && recPriUserId) {
+      await logAfterOpenAIRestCall({
+        startMs: recPriAiStart,
+        userId: recPriUserId,
+        module: 'priorities',
+        action: 'recommend_priorities',
+        route: '/api/ai/recommend-priorities',
+        model: resolveOpenAIModelId(),
+        description: 'Suggested priorities from your goals and open work items.',
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
     return NextResponse.json(
       {
         error: 'Failed to generate AI recommendations',

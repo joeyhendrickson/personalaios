@@ -2,6 +2,8 @@ import 'server-only'
 
 import OpenAI from 'openai'
 import { z } from 'zod'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterOpenAIRestCall } from '@/lib/ai/usage-logger'
 
 const draftSchema = z.object({
   body: z.string().min(1),
@@ -32,7 +34,8 @@ function getClient(): OpenAI | null {
 
 export async function generateOutreachDraft(
   channel: 'sms' | 'email',
-  ctx: RelationshipContextPayload
+  ctx: RelationshipContextPayload,
+  usage?: { userId: string | null; route?: string | null }
 ): Promise<z.infer<typeof draftSchema>> {
   const client = getClient()
   if (!client) {
@@ -54,19 +57,51 @@ export async function generateOutreachDraft(
     ],
   })
 
-  const model = process.env.OPENAI_MODEL?.trim() || 'gpt-4.1-mini'
-  const completion = await client.chat.completions.create({
-    model,
-    temperature: 0.6,
-    response_format: { type: 'json_object' },
-    messages: [
-      {
-        role: 'system',
-        content: `${system} Respond with JSON only: {"body":"...","subject":"optional","tone_notes":"optional"}`,
-      },
-      { role: 'user', content: user },
-    ],
-  })
+  const model = resolveOpenAIModelId()
+  const startMs = Date.now()
+  let completion
+  try {
+    completion = await client.chat.completions.create({
+      model,
+      temperature: 0.6,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: `${system} Respond with JSON only: {"body":"...","subject":"optional","tone_notes":"optional"}`,
+        },
+        { role: 'user', content: user },
+      ],
+    })
+  } catch (e) {
+    if (usage?.userId) {
+      await logAfterOpenAIRestCall({
+        startMs,
+        userId: usage.userId,
+        module: 'relationship_manager',
+        action: 'generate_outreach_draft',
+        route: usage.route ?? null,
+        model,
+        description: 'Drafted outreach text from relationship context you provided.',
+        status: 'failed',
+        error: e instanceof Error ? e.message : 'Unknown error',
+      })
+    }
+    throw e
+  }
+
+  if (usage?.userId) {
+    await logAfterOpenAIRestCall({
+      startMs,
+      userId: usage.userId,
+      module: 'relationship_manager',
+      action: 'generate_outreach_draft',
+      route: usage.route ?? null,
+      model,
+      description: 'Drafted outreach text from relationship context you provided.',
+      response: completion,
+    })
+  }
 
   const raw = completion.choices[0]?.message?.content
   if (!raw) throw new Error('Empty OpenAI response')
@@ -74,27 +109,60 @@ export async function generateOutreachDraft(
 }
 
 export async function refreshRelationshipSummary(
-  ctx: RelationshipContextPayload
+  ctx: RelationshipContextPayload,
+  usage?: { userId: string | null; route?: string | null }
 ): Promise<z.infer<typeof summarySchema>> {
   const client = getClient()
   if (!client) {
     throw new Error('OPENAI_API_KEY not configured')
   }
 
-  const model = process.env.OPENAI_MODEL?.trim() || 'gpt-4.1-mini'
-  const completion = await client.chat.completions.create({
-    model,
-    temperature: 0.3,
-    response_format: { type: 'json_object' },
-    messages: [
-      {
-        role: 'system',
-        content:
-          'Summarize relationship context for the user. Be neutral and privacy-preserving. Bullet ideas must be actionable and consensual. Respond with JSON only: {"summary":"...","follow_up_ideas":["..."]}',
-      },
-      { role: 'user', content: JSON.stringify(ctx) },
-    ],
-  })
+  const model = resolveOpenAIModelId()
+  const startMs = Date.now()
+  let completion
+  try {
+    completion = await client.chat.completions.create({
+      model,
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Summarize relationship context for the user. Be neutral and privacy-preserving. Bullet ideas must be actionable and consensual. Respond with JSON only: {"summary":"...","follow_up_ideas":["..."]}',
+        },
+        { role: 'user', content: JSON.stringify(ctx) },
+      ],
+    })
+  } catch (e) {
+    if (usage?.userId) {
+      await logAfterOpenAIRestCall({
+        startMs,
+        userId: usage.userId,
+        module: 'relationship_manager',
+        action: 'refresh_relationship_summary',
+        route: usage.route ?? null,
+        model,
+        description: 'Refreshed a neutral relationship summary from saved context.',
+        status: 'failed',
+        error: e instanceof Error ? e.message : 'Unknown error',
+      })
+    }
+    throw e
+  }
+
+  if (usage?.userId) {
+    await logAfterOpenAIRestCall({
+      startMs,
+      userId: usage.userId,
+      module: 'relationship_manager',
+      action: 'refresh_relationship_summary',
+      route: usage.route ?? null,
+      model,
+      description: 'Refreshed a neutral relationship summary from saved context.',
+      response: completion,
+    })
+  }
 
   const raw = completion.choices[0]?.message?.content
   if (!raw) throw new Error('Empty OpenAI response')

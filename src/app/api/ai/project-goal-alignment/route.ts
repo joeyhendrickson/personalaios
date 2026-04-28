@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 
 export async function POST() {
   try {
@@ -195,12 +195,12 @@ Return your response as a JSON object with this structure:
 }`
     console.log('[Project-Goal-Alignment] Prompt generated, length:', prompt.length)
 
-    // Use gpt-4.1-mini
+    // Default chat model (gpt-5-mini unless OPENAI_MODEL is set)
     let text: string
     try {
-      console.log('[Project-Goal-Alignment] Calling OpenAI API with gpt-4.1-mini...')
+      console.log('[Project-Goal-Alignment] Calling OpenAI API...')
       const result = await generateText({
-        model: openai('gpt-4.1-mini'),
+        model: defaultOpenaiModel(),
         prompt,
       })
       text = result.text

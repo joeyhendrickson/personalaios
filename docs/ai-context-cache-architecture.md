@@ -59,20 +59,20 @@
 
 ### Cost Strategy
 
-- **Summarization**: `gpt-4o-mini` (or `OPENAI_SUMMARIZATION_MODEL`)
-- **User-facing**: `gpt-4.1-mini` (unchanged)
+- **Summarization**: defaults to the same chat model as the app (`gpt-5-mini`, or `OPENAI_SUMMARIZATION_MODEL` to override)
+- **User-facing**: `gpt-5-mini` by default (or `OPENAI_MODEL`)
 - Summarize once per day (or on manual refresh); reuse for many AI calls
 
 ---
 
 ## Env Vars
 
-| Variable                     | Required   | Description                                |
-| ---------------------------- | ---------- | ------------------------------------------ |
-| `OPENAI_API_KEY`             | Yes        | For summarization and user-facing AI       |
-| `OPENAI_SUMMARIZATION_MODEL` | No         | Default: `gpt-4o-mini` (cheaper for cache) |
-| `SUPABASE_SERVICE_ROLE_KEY`  | Yes        | For cache writes and cron (bypasses RLS)   |
-| `CRON_SECRET`                | Yes (prod) | Bearer token for cron endpoints            |
+| Variable                     | Required   | Description                                    |
+| ---------------------------- | ---------- | ---------------------------------------------- |
+| `OPENAI_API_KEY`             | Yes        | For summarization and user-facing AI           |
+| `OPENAI_SUMMARIZATION_MODEL` | No         | Optional override for cache summarization only |
+| `SUPABASE_SERVICE_ROLE_KEY`  | Yes        | For cache writes and cron (bypasses RLS)       |
+| `CRON_SECRET`                | Yes (prod) | Bearer token for cron endpoints                |
 
 ---
 

@@ -1,9 +1,13 @@
-import { openai } from '@ai-sdk/openai'
 import { streamText } from 'ai'
 import { createClient } from '@/lib/supabase/server'
 import { assembleAIContext } from '@/lib/ai-context/assemble-context'
+import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
 
 export async function POST(req: Request) {
+  const requestStartMs = Date.now()
+  let logUserId: string | null = null
   try {
     const { messages, language = 'en' } = await req.json()
     console.log('Chat API called with messages:', messages.length, 'language:', language)
@@ -20,6 +24,7 @@ export async function POST(req: Request) {
       return new Response('Unauthorized', { status: 401 })
     }
 
+    logUserId = user.id
     console.log('Chat API user authenticated:', user.id)
 
     const { systemContext, usedCache } = await assembleAIContext(user.id, {
@@ -35,8 +40,10 @@ export async function POST(req: Request) {
 
     console.log('Calling OpenAI with user context...')
 
+    const startMs = Date.now()
+    const modelId = resolveOpenAIModelId()
     const result = await streamText({
-      model: openai('gpt-4.1-mini'),
+      model: defaultOpenaiModel(),
       messages,
       system: `You are an intelligent AI assistant for a Personal AI OS dashboard. You have access to the user's complete dashboard data and can provide personalized advice based on their goals, tasks, habits, education items, and priorities.
 
@@ -142,12 +149,37 @@ Always provide specific, actionable advice based on their actual dashboard data 
 
 LANGUAGE INSTRUCTION:
 ${language === 'es' ? 'Respond in Spanish (español) for all your messages. Use natural, conversational Spanish and maintain a helpful, encouraging tone.' : 'Respond in English for all your messages.'}`,
+      onFinish: async ({ usage }) => {
+        await logAfterVercelSdkCall({
+          startMs,
+          userId: user.id,
+          module: 'chat',
+          action: 'generate_chat_response',
+          route: '/api/chat',
+          model: modelId,
+          description: 'Generated chat response using current user context.',
+          result: { usage },
+        })
+      },
     })
 
     console.log('OpenAI response generated successfully')
     return result.toTextStreamResponse()
   } catch (error) {
     console.error('Chat API error:', error)
+    if (logUserId) {
+      await logAfterVercelSdkCall({
+        startMs: requestStartMs,
+        userId: logUserId,
+        module: 'chat',
+        action: 'generate_chat_response',
+        route: '/api/chat',
+        model: resolveOpenAIModelId(),
+        description: 'Generated chat response using current user context.',
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
     return new Response(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, {
       status: 500,
     })
