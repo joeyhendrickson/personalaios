@@ -323,6 +323,8 @@ export default function Dashboard() {
   const searchParams = useSearchParams()
   const [trialUser, setTrialUser] = useState<{ email: string; name?: string } | null>(null)
   const [goals, setGoals] = useState<Goal[]>([])
+  /** Set when GET /api/projects is not OK so we don't mistake API failure for “no rows”. */
+  const [projectsFetchError, setProjectsFetchError] = useState<string | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [currentWeek, setCurrentWeek] = useState<Week | null>(null)
   const [loading, setLoading] = useState(true)
@@ -592,8 +594,9 @@ export default function Dashboard() {
       await fetchCategories()
 
       // Fetch projects (weekly_goals)
-      const projectsResponse = await fetch('/api/projects')
+      const projectsResponse = await fetch('/api/projects', { credentials: 'same-origin' })
       if (projectsResponse.ok) {
+        setProjectsFetchError(null)
         const projectsData = await projectsResponse.json()
         const allProjects = projectsData.projects || []
         // Separate active and completed projects
@@ -609,6 +612,24 @@ export default function Dashboard() {
           body = await projectsResponse.text()
         }
         console.error('Failed to fetch projects:', projectsResponse.status, body)
+        const hint =
+          projectsResponse.status === 401
+            ? 'Try refreshing the page or signing out and back in.'
+            : ''
+        const detail =
+          typeof body === 'object' &&
+          body !== null &&
+          'error' in body &&
+          typeof (body as { error: unknown }).error === 'string'
+            ? (body as { error: string }).error
+            : typeof body === 'string' && body
+              ? body.slice(0, 200)
+              : ''
+        setProjectsFetchError(
+          [`Could not load projects (HTTP ${projectsResponse.status}).`, detail, hint]
+            .filter(Boolean)
+            .join(' ')
+        )
       }
 
       // Fetch tasks
@@ -907,6 +928,7 @@ export default function Dashboard() {
       console.log('Creating project with data:', newGoal)
       const response = await fetch('/api/projects', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: newGoal.title,
@@ -1030,6 +1052,7 @@ export default function Dashboard() {
     try {
       const response = await fetch(`/api/projects/${goalId}`, {
         method: 'DELETE',
+        credentials: 'same-origin',
       })
 
       if (response.ok) {
@@ -1100,6 +1123,7 @@ export default function Dashboard() {
       // Only delete the original goal if task creation was successful
       const deleteResponse = await fetch(`/api/projects/${goal.id}`, {
         method: 'DELETE',
+        credentials: 'same-origin',
       })
 
       if (!deleteResponse.ok) {
@@ -1159,6 +1183,7 @@ export default function Dashboard() {
       // Create a goal from the task
       const response = await fetch('/api/projects', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -1303,6 +1328,7 @@ export default function Dashboard() {
 
       const response = await fetch(apiEndpoint, {
         method: 'PATCH',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -1390,6 +1416,7 @@ export default function Dashboard() {
     try {
       const response = await fetch(`/api/projects/${editingGoal.id}`, {
         method: 'PATCH',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -1517,6 +1544,7 @@ export default function Dashboard() {
     try {
       const response = await fetch('/api/projects/reorder', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectOrders }),
       })
@@ -2470,6 +2498,23 @@ export default function Dashboard() {
 
                 <div>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {!loading && projectsFetchError && (
+                      <div
+                        className="col-span-2 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"
+                        role="alert"
+                      >
+                        <p className="font-medium">Projects could not be loaded</p>
+                        <p className="mt-1 text-amber-900">{projectsFetchError}</p>
+                        <p className="mt-2 text-xs text-amber-800">
+                          If this persists, open{' '}
+                          <code className="rounded bg-amber-100 px-1">/api/projects?debug=1</code>{' '}
+                          (while signed in) and compare{' '}
+                          <code className="rounded bg-amber-100 px-1">user_id</code> to{' '}
+                          <code className="rounded bg-amber-100 px-1">weekly_goals.user_id</code> in
+                          Supabase.
+                        </p>
+                      </div>
+                    )}
                     {loading ? (
                       <div className="col-span-2 text-center py-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>

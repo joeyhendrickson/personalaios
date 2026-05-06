@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createWeeklyGoalsBackendClient } from '@/lib/supabase/weekly-goals-backend'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -26,8 +27,10 @@ export async function POST(request: NextRequest) {
     const body = bodySchema.parse(await request.json())
     const { projectOrders } = body
 
+    const { client: projectsDb } = await createWeeklyGoalsBackendClient()
+
     const ids = projectOrders.map((p) => p.id)
-    const { data: rows, error: fetchError } = await supabase
+    const { data: rows, error: fetchError } = await projectsDb
       .from('weekly_goals')
       .select('id')
       .eq('user_id', user.id)
@@ -45,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const updates = projectOrders.map((item) =>
-      supabase
+      projectsDb
         .from('weekly_goals')
         .update({ project_sort_order: item.project_sort_order })
         .eq('id', item.id)

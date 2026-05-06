@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createWeeklyGoalsBackendClient } from '@/lib/supabase/weekly-goals-backend'
 import { z } from 'zod'
 
 const updateProjectSchema = z.object({
@@ -30,8 +31,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = await request.json()
     const validatedData = updateProjectSchema.parse(body)
 
+    const { client: projectsDb } = await createWeeklyGoalsBackendClient()
+
     // Verify the project exists and belongs to the user
-    const { data: existingProject, error: fetchError } = await supabase
+    const { data: existingProject, error: fetchError } = await projectsDb
       .from('weekly_goals')
       .select('id, user_id')
       .eq('id', projectId)
@@ -42,7 +45,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
     }
 
-    const { data: updatedProject, error: updateError } = await supabase
+    const { data: updatedProject, error: updateError } = await projectsDb
       .from('weekly_goals')
       .update(validatedData)
       .eq('id', projectId)
@@ -95,8 +98,10 @@ export async function DELETE(
 
     const { id: projectId } = await params
 
+    const { client: projectsDb } = await createWeeklyGoalsBackendClient()
+
     // Verify the project exists and belongs to the user
-    const { data: existingProject, error: fetchError } = await supabase
+    const { data: existingProject, error: fetchError } = await projectsDb
       .from('weekly_goals')
       .select('id, user_id')
       .eq('id', projectId)
@@ -107,7 +112,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
     }
 
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await projectsDb
       .from('weekly_goals')
       .delete()
       .eq('id', projectId)

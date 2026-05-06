@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createWeeklyGoalsBackendClient } from '@/lib/supabase/weekly-goals-backend'
 import { z } from 'zod'
 
 const createProjectSchema = z.object({
@@ -17,6 +18,17 @@ const createProjectSchema = z.object({
   priority: z.enum(['low', 'medium', 'high']).default('medium'),
   deadline: z.string().optional(),
 })
+
+/** Coerce DB/PostgREST values so dashboard filters (`!is_completed`) never mis-classify rows. */
+function rowIsCompleted(v: unknown): boolean {
+  if (v === true || v === 1) return true
+  if (v === false || v === 0 || v === null || v === undefined) return false
+  if (typeof v === 'string') {
+    const s = v.toLowerCase().trim()
+    return s === 'true' || s === 't' || s === '1' || s === 'yes'
+  }
+  return false
+}
 
 const updateProjectSchema = z.object({
   title: z.string().min(1).max(255).optional(),
@@ -49,11 +61,14 @@ export async function GET(request: NextRequest) {
 
     const debug = request.nextUrl.searchParams.get('debug') === '1'
 
-    // Get all weekly_goals for the user (these are the projects)
+    const { client: projectsDb, usesServiceRole } = await createWeeklyGoalsBackendClient()
+
+    // Get all weekly_goals for the user (these are the projects).
+    // Service role avoids RLS hiding rows while still scoped by user.id from verified session.
     let projects: unknown[] | null = null
     let projectsError: { message?: string } | null = null
 
-    const primary = await supabase
+    const primary = await projectsDb
       .from('weekly_goals')
       .select('*')
       .eq('user_id', user.id)
@@ -65,7 +80,7 @@ export async function GET(request: NextRequest) {
 
     // If the sort-order migration hasn't been applied yet, fall back gracefully.
     if (projectsError?.message?.toLowerCase().includes('project_sort_order')) {
-      const fallback = await supabase
+      const fallback = await projectsDb
         .from('weekly_goals')
         .select('*')
         .eq('user_id', user.id)
@@ -85,13 +100,27 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    const rawList = (projects || []) as Record<string, unknown>[]
+    const normalizedProjects = rawList.map((row) => ({
+      ...row,
+      is_completed: rowIsCompleted(row.is_completed),
+    }))
+
     return NextResponse.json(
       debug
         ? {
-            projects: projects || [],
-            debug: { user_id: user.id, count: (projects || []).length },
+            projects: normalizedProjects,
+            debug: {
+              user_id: user.id,
+              count: normalizedProjects.length,
+              weekly_goals_query: usesServiceRole ? 'service_role' : 'anon_jwt_session',
+              note:
+                !usesServiceRole && normalizedProjects.length === 0
+                  ? 'SUPABASE_SERVICE_ROLE_KEY may be unset; listing uses JWT+RLS. Set service role on the server so Projects match weekly_goals in the dashboard.'
+                  : undefined,
+            },
           }
-        : { projects: projects || [] },
+        : { projects: normalizedProjects },
       { status: 200 }
     )
   } catch (error) {

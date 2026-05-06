@@ -39,7 +39,6 @@ import {
   Loader2,
   Minus,
   Flag,
-  Save,
 } from 'lucide-react'
 import { classifyPlaidTransactionDisplay } from '@/lib/budget/transaction-display-classification'
 

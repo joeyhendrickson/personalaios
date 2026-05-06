@@ -82,8 +82,7 @@ export function summarizeUsageLogs(
     const it = Math.floor(num(r.input_tokens))
     const cit = Math.floor(num(r.cached_input_tokens))
     const ot = Math.floor(num(r.output_tokens))
-    const tt =
-      r.total_tokens != null && r.total_tokens !== '' ? Math.floor(num(r.total_tokens)) : it + ot
+    const tt = r.total_tokens != null ? Math.floor(num(r.total_tokens)) : it + ot
 
     totalInputTokens += it
     totalCachedInputTokens += cit
@@ -91,7 +90,7 @@ export function summarizeUsageLogs(
     totalTokens += tt
 
     const lm = r.latency_ms
-    if (lm != null && lm !== '' && Number.isFinite(Number(lm))) {
+    if (lm != null && Number.isFinite(Number(lm))) {
       latencySum += Number(lm)
       latencyCount += 1
     }

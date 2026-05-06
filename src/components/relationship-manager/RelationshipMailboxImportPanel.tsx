@@ -59,7 +59,6 @@ export function RelationshipMailboxImportPanel({
       return
     }
     setBusy(true)
-    setPhase('idle')
     setJob(null)
     try {
       const fd = new FormData()
