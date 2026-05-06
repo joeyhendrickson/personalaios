@@ -20,6 +20,7 @@ import {
   Lock,
   Eye,
   EyeOff,
+  CalendarCheck,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import RewardsSection from '@/components/rewards/rewards-section'
@@ -35,6 +36,8 @@ export default function ProfilePage() {
     totalTasks: 0,
     completedTasks: 0,
     totalPoints: 0,
+    /** Distinct days logged in (daily sign-in tracking). */
+    dailyCheckIns: 0,
   })
   const [loading, setLoading] = useState(true)
 
@@ -93,11 +96,25 @@ export default function ProfilePage() {
 
       const totalPoints = pointsData?.reduce((sum, entry) => sum + (entry.points || 0), 0) || 0
 
+      let dailyCheckIns = 0
+      if (user?.id) {
+        const { count: dailyCheckInsCount, error: signinCountError } = await supabase
+          .from('daily_signin_logs')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+        if (signinCountError) {
+          console.warn('Could not load daily check-in count:', signinCountError.message)
+        } else {
+          dailyCheckIns = dailyCheckInsCount ?? 0
+        }
+      }
+
       setStats({
         totalGoals: goalsCount || 0,
         totalTasks: tasksCount || 0,
         completedTasks: completedTasksCount || 0,
         totalPoints,
+        dailyCheckIns,
       })
     } catch (error) {
       console.error('Error fetching user stats:', error)
@@ -462,7 +479,7 @@ export default function ProfilePage() {
                       <p className="text-gray-600">Loading statistics...</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                       <div className="text-center p-4 bg-blue-50 rounded-lg">
                         <Target className="h-8 w-8 text-blue-600 mx-auto mb-2" />
                         <div className="text-2xl font-bold text-blue-900">{stats.totalGoals}</div>
@@ -493,6 +510,14 @@ export default function ProfilePage() {
                           {stats.totalPoints}
                         </div>
                         <div className="text-sm text-orange-700">Total Points</div>
+                      </div>
+
+                      <div className="text-center p-4 bg-teal-50 rounded-lg">
+                        <CalendarCheck className="h-8 w-8 text-teal-600 mx-auto mb-2" />
+                        <div className="text-2xl font-bold text-teal-900">
+                          {stats.dailyCheckIns}
+                        </div>
+                        <div className="text-sm text-teal-700">Daily Check-Ins</div>
                       </div>
                     </div>
                   )}

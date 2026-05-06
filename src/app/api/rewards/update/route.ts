@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { assertRewardDescriptionUnique } from '@/lib/rewards/reward-description'
 import { z } from 'zod'
 
 // Schema for updating a reward
@@ -50,6 +51,17 @@ export async function PUT(request: NextRequest) {
     if (validatedData.name !== undefined) updateData.name = validatedData.name
     if (validatedData.description !== undefined) updateData.description = validatedData.description
     if (validatedData.point_cost !== undefined) updateData.point_cost = validatedData.point_cost
+
+    const mergedDescription =
+      validatedData.description !== undefined
+        ? validatedData.description
+        : existingReward.description
+    const uniqueCheck = await assertRewardDescriptionUnique(supabase, mergedDescription, {
+      excludeRewardId: validatedData.rewardId,
+    })
+    if (!uniqueCheck.ok) {
+      return NextResponse.json({ error: uniqueCheck.message }, { status: 409 })
+    }
 
     // Update the reward
     const { data: updatedReward, error: updateError } = await supabase

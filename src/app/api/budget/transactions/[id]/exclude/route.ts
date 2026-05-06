@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabaseAdmin'
 
 /**
  * POST - Exclude a transaction from the list (e.g. duplicate)
@@ -51,9 +52,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
     }
 
-    const { error: insertError } = await supabase
-      .from('transaction_exclusions')
-      .insert({ user_id: user.id, transaction_id: transactionId })
+    const exclusionRow = { user_id: user.id, transaction_id: transactionId }
+
+    let insertError: { message?: string; code?: string } | null = null
+    try {
+      const admin = createAdminClient()
+      const { error } = await admin.from('transaction_exclusions').insert(exclusionRow)
+      insertError = error
+    } catch {
+      const { error } = await supabase.from('transaction_exclusions').insert(exclusionRow)
+      insertError = error
+    }
 
     if (insertError) {
       // Already excluded (unique violation) - treat as success

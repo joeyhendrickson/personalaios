@@ -164,7 +164,52 @@ ${language === 'es' ? 'Respond in Spanish (español) for all your messages. Use 
     })
 
     console.log('OpenAI response generated successfully')
-    return result.toTextStreamResponse()
+
+    // GPT-5 class models often stream answer tokens as `reasoning-delta` before/instead of `text-delta`.
+    // `toTextStreamResponse()` only forwards `text-delta`, which produced empty bubbles in the chat UI.
+    const encoder = new TextEncoder()
+    const plainTextStream = new ReadableStream({
+      async start(controller) {
+        let wrote = false
+        try {
+          for await (const part of result.fullStream) {
+            if (part.type === 'text-delta') {
+              const text =
+                'text' in part && typeof (part as { text?: string }).text === 'string'
+                  ? (part as { text: string }).text
+                  : ''
+              if (text) {
+                wrote = true
+                controller.enqueue(encoder.encode(text))
+              }
+            } else if (part.type === 'reasoning-delta') {
+              const text =
+                'text' in part && typeof (part as { text?: string }).text === 'string'
+                  ? (part as { text: string }).text
+                  : ''
+              if (text) {
+                wrote = true
+                controller.enqueue(encoder.encode(text))
+              }
+            }
+          }
+          if (!wrote) {
+            const fallback = await result.text
+            if (fallback) {
+              controller.enqueue(encoder.encode(fallback))
+            }
+          }
+        } catch (e) {
+          controller.error(e)
+          return
+        }
+        controller.close()
+      },
+    })
+
+    return new Response(plainTextStream, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    })
   } catch (error) {
     console.error('Chat API error:', error)
     if (logUserId) {

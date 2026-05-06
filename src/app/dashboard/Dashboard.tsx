@@ -1550,7 +1550,8 @@ export default function Dashboard() {
       })
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to reorder projects')
+        const msg = [errorData.error, errorData.details, errorData.hint].filter(Boolean).join(' — ')
+        throw new Error(msg || 'Failed to reorder projects')
       }
       await fetchDashboardData()
     } catch (error) {

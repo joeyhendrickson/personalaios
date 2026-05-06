@@ -316,46 +316,31 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
       }
 
       let responseContent = ''
+      const decoder = new TextDecoder()
       console.log('Starting to read streaming response...')
       while (true) {
         const { done, value } = await reader.read()
         if (done) {
+          responseContent += decoder.decode()
           console.log('Streaming completed')
           break
         }
 
-        const chunk = new TextDecoder().decode(value)
-        console.log('Received chunk:', chunk)
-        const lines = chunk.split('\n')
+        responseContent += decoder.decode(value, { stream: true })
 
-        for (const line of lines) {
-          console.log('Processing line:', line)
-          // Handle different streaming formats
-          if (line.startsWith('0:')) {
-            // Legacy format
-            const content = line.slice(2)
-            responseContent += content
-            console.log('Added content (legacy):', content)
-          } else if (line.startsWith('0"')) {
-            // JSON format
-            const content = line.slice(2)
-            responseContent += content
-            console.log('Added content (JSON):', content)
-          } else if (line.trim() && !line.startsWith('data:') && !line.startsWith('event:')) {
-            // Direct text content
-            responseContent += line
-            console.log('Added content (direct):', line)
-          }
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId ? { ...msg, content: responseContent } : msg
+          )
+        )
+      }
 
-          // Update the message if we have content
-          if (responseContent) {
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantMessageId ? { ...msg, content: responseContent } : msg
-              )
-            )
-          }
-        }
+      if (responseContent) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId ? { ...msg, content: responseContent } : msg
+          )
+        )
       }
 
       // Speak the complete response if voice is enabled

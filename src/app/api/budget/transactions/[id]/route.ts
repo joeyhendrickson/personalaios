@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabaseAdmin'
 
 /**
  * PATCH - Set or clear the type override for a transaction (income vs expense)
@@ -67,30 +68,60 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     if (type_override === null || type_override === undefined) {
-      // Clear the override
-      await supabase
-        .from('transaction_type_overrides')
-        .delete()
-        .eq('transaction_id', transactionId)
-        .eq('user_id', user.id)
+      let deleteError: { message?: string; code?: string } | null = null
+      try {
+        const admin = createAdminClient()
+        const { error } = await admin
+          .from('transaction_type_overrides')
+          .delete()
+          .eq('transaction_id', transactionId)
+          .eq('user_id', user.id)
+        deleteError = error
+      } catch {
+        const { error } = await supabase
+          .from('transaction_type_overrides')
+          .delete()
+          .eq('transaction_id', transactionId)
+          .eq('user_id', user.id)
+        deleteError = error
+      }
+      if (deleteError) {
+        console.error('Error deleting transaction type override:', deleteError)
+        return NextResponse.json(
+          {
+            error: 'Failed to clear override',
+            details: deleteError.message,
+            code: deleteError.code,
+          },
+          { status: 500 }
+        )
+      }
     } else {
-      // Upsert the override
-      const { error: upsertError } = await supabase.from('transaction_type_overrides').upsert(
-        {
-          user_id: user.id,
-          transaction_id: transactionId,
-          type_override,
-        },
-        {
+      const row = {
+        user_id: user.id,
+        transaction_id: transactionId,
+        type_override,
+      }
+      let upsertError: { message?: string; code?: string } | null = null
+      try {
+        const admin = createAdminClient()
+        const { error } = await admin.from('transaction_type_overrides').upsert(row, {
           onConflict: 'transaction_id',
           ignoreDuplicates: false,
-        }
-      )
+        })
+        upsertError = error
+      } catch {
+        const { error } = await supabase.from('transaction_type_overrides').upsert(row, {
+          onConflict: 'transaction_id',
+          ignoreDuplicates: false,
+        })
+        upsertError = error
+      }
       if (upsertError) {
         console.error('Error upserting transaction type override:', upsertError)
         const hint =
           upsertError.message?.includes('check') || upsertError.code === '23514'
-            ? 'Run migration 034 to add "transfer" support: supabase/migrations/034_add_transfer_to_type_override.sql'
+            ? 'Apply migration 034 or 048 so type_override allows transfer (SQL Editor: supabase/migrations/048_ensure_transfer_type_override_constraint.sql), or run supabase db push.'
             : undefined
         return NextResponse.json(
           {

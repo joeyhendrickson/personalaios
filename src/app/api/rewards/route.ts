@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import {
+  assertRewardDescriptionUnique,
+  dedupeRewardsForAvailableByDescription,
+} from '@/lib/rewards/reward-description'
 import { z } from 'zod'
 
 // Schema for creating a custom reward
@@ -97,10 +101,11 @@ export async function GET() {
     const userRewardIds = userRewards?.map((ur) => ur.reward_id).filter(Boolean) || []
 
     // Filter out hidden rewards AND rewards already added to user's personal collection
-    const defaultRewards =
+    const defaultRewards = dedupeRewardsForAvailableByDescription(
       allRewards?.filter(
         (reward) => !hiddenRewardIds.includes(reward.id) && !userRewardIds.includes(reward.id)
       ) || []
+    )
 
     // Get user's total points earned (sum all points from points_ledger)
     const { data: allPointsData, error: pointsError } = await supabase
@@ -173,6 +178,11 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const validatedData = createRewardSchema.parse(body)
+
+    const uniqueCheck = await assertRewardDescriptionUnique(supabase, validatedData.description, {})
+    if (!uniqueCheck.ok) {
+      return NextResponse.json({ error: uniqueCheck.message }, { status: 409 })
+    }
 
     // Create the custom reward
     const { data: reward, error: rewardError } = await supabase

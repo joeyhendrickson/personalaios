@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ConnectBankButton } from '@/components/modules/budget-optimizer/connect-bank-button'
+import { NetWorthOverTimeChart } from '@/components/modules/budget-optimizer/NetWorthOverTimeChart'
 import {
   ArrowLeft,
   DollarSign,
@@ -776,6 +777,9 @@ export default function BudgetOptimizerModule() {
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null)
   const [isLoadingRules, setIsLoadingRules] = useState(false)
   const [isSavingRule, setIsSavingRule] = useState(false)
+  const [netWorthPoints, setNetWorthPoints] = useState<{ date: string; netWorth: number }[]>([])
+  const [netWorthFirstConnection, setNetWorthFirstConnection] = useState<string | null>(null)
+  const [netWorthLoading, setNetWorthLoading] = useState(false)
   const [incomeGoalForm, setIncomeGoalForm] = useState({
     title: '',
     description: '',
@@ -893,6 +897,32 @@ export default function BudgetOptimizerModule() {
     loadGoals()
     loadTransactionRules()
   }, [])
+
+  useEffect(() => {
+    if (activeTab !== 'overview') return
+    if (connections.length === 0 && manualAccounts.length === 0) return
+
+    let cancelled = false
+    const load = async () => {
+      setNetWorthLoading(true)
+      try {
+        const res = await fetch('/api/budget/net-worth-history', { credentials: 'same-origin' })
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        if (cancelled) return
+        setNetWorthPoints(data.points || [])
+        setNetWorthFirstConnection(data.first_connection_date ?? null)
+      } catch (e) {
+        console.error('Failed to load net worth history:', e)
+      } finally {
+        if (!cancelled) setNetWorthLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, connections, manualAccounts])
 
   // Load transaction rules and flagged transactions when transactions tab is opened
   useEffect(() => {
@@ -1301,7 +1331,7 @@ export default function BudgetOptimizerModule() {
   const loadTransactionRules = async () => {
     setIsLoadingRules(true)
     try {
-      const response = await fetch('/api/budget/transaction-rules')
+      const response = await fetch('/api/budget/transaction-rules', { credentials: 'same-origin' })
       if (response.ok) {
         const data = await response.json()
         setTransactionRules(data.rules || [])
@@ -1383,6 +1413,7 @@ export default function BudgetOptimizerModule() {
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify(transactionRuleForm),
       })
 
@@ -1417,6 +1448,7 @@ export default function BudgetOptimizerModule() {
     try {
       const response = await fetch(`/api/budget/transaction-rules/${ruleId}`, {
         method: 'DELETE',
+        credentials: 'same-origin',
       })
 
       if (response.ok) {
@@ -1457,7 +1489,8 @@ export default function BudgetOptimizerModule() {
 
       while (hasMore) {
         const response = await fetch(
-          `/api/budget/transactions?start_date=${dateRange.start}&end_date=${dateRange.end}&limit=${pageSize}&offset=${offset}`
+          `/api/budget/transactions?start_date=${dateRange.start}&end_date=${dateRange.end}&limit=${pageSize}&offset=${offset}`,
+          { credentials: 'same-origin' }
         )
         if (!response.ok) break
 
@@ -1507,7 +1540,8 @@ export default function BudgetOptimizerModule() {
       const offset = transactionsPagination.nextOffset
 
       const response = await fetch(
-        `/api/budget/transactions?start_date=${dateRange.start}&end_date=${dateRange.end}&limit=${limit}&offset=${offset}`
+        `/api/budget/transactions?start_date=${dateRange.start}&end_date=${dateRange.end}&limit=${limit}&offset=${offset}`,
+        { credentials: 'same-origin' }
       )
       if (!response.ok) return
 
@@ -1543,15 +1577,16 @@ export default function BudgetOptimizerModule() {
     try {
       const response = await fetch(`/api/budget/transactions/${transactionId}/exclude`, {
         method: 'POST',
+        credentials: 'same-origin',
       })
       if (response.ok) {
         setTransactions((prev) => prev.filter((t) => t.id !== transactionId))
         setSelectedTransactionId(null)
       } else {
         const err = await response.json()
-        const msg = err.hint
-          ? `${err.error || 'Failed to remove transaction'}\n\n${err.hint}`
-          : err.error || 'Failed to remove transaction'
+        const msg =
+          [err.error, err.details, err.hint].filter(Boolean).join('\n\n') ||
+          'Failed to remove transaction'
         alert(msg)
       }
     } catch (error) {
@@ -1578,6 +1613,7 @@ export default function BudgetOptimizerModule() {
     try {
       const response = await fetch(`/api/budget/transactions/${transactionId}/flag`, {
         method: 'POST',
+        credentials: 'same-origin',
       })
       if (response.ok) {
         setTransactions((prev) =>
@@ -1598,6 +1634,7 @@ export default function BudgetOptimizerModule() {
     try {
       const response = await fetch(`/api/budget/transactions/${transactionId}/flag`, {
         method: 'PATCH',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resolved: true }),
       })
@@ -1623,6 +1660,7 @@ export default function BudgetOptimizerModule() {
     try {
       const response = await fetch(`/api/budget/transactions/${transactionId}`, {
         method: 'PATCH',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type_override: typeOverride }),
       })
@@ -2350,6 +2388,22 @@ export default function BudgetOptimizerModule() {
                       </>
                     )
                   })()}
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-blue-100">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-indigo-600" />
+                    Net worth over time
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Estimated trend from your synced transactions and current balances (same basis
+                    as the summary cards above).
+                  </p>
+                  <NetWorthOverTimeChart
+                    points={netWorthPoints}
+                    firstConnectionDate={netWorthFirstConnection}
+                    loading={netWorthLoading}
+                  />
                 </div>
               </div>
             )}
@@ -3344,11 +3398,26 @@ export default function BudgetOptimizerModule() {
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={async () => {
-                    setShowTransactionRulesModal(true)
-                    await loadTransactionRules()
+                    if (showTransactionRulesModal) {
+                      setShowTransactionRulesModal(false)
+                      setEditingRuleId(null)
+                      setTransactionRuleForm({
+                        keyword: '',
+                        transaction_type: 'expense',
+                        category_type: 'personal',
+                      })
+                    } else {
+                      setShowTransactionRulesModal(true)
+                      await loadTransactionRules()
+                    }
                   }}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 ${
+                    showTransactionRulesModal
+                      ? 'bg-purple-800 text-white ring-2 ring-purple-300 ring-offset-2'
+                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                  }`}
                   title="Manage transaction categorization rules and colors"
                 >
                   <Settings className="h-4 w-4" />
@@ -3742,6 +3811,168 @@ export default function BudgetOptimizerModule() {
                 )}
               </div>
             </div>
+
+            {showTransactionRulesModal && (
+              <aside className="lg:col-span-1">
+                <div className="bg-white rounded-lg border border-gray-200 p-4 lg:sticky lg:top-4 space-y-4 max-h-[calc(100vh-8rem)] lg:max-h-[calc(100vh-6rem)] flex flex-col">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                        <Settings className="h-5 w-5 text-purple-600" />
+                        Transaction rules
+                      </h3>
+                      <p className="text-xs text-gray-600 mt-1">
+                        If a transaction name contains your keyword, it uses the type and category
+                        you set below.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTransactionRulesModal(false)
+                        setEditingRuleId(null)
+                        setTransactionRuleForm({
+                          keyword: '',
+                          transaction_type: 'expense',
+                          category_type: 'personal',
+                        })
+                      }}
+                      className="p-1 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                      title="Close"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 border-t border-gray-100 pt-4">
+                    <label className="block text-xs font-medium text-gray-700">Keyword</label>
+                    <input
+                      type="text"
+                      value={transactionRuleForm.keyword}
+                      onChange={(e) =>
+                        setTransactionRuleForm((prev) => ({ ...prev, keyword: e.target.value }))
+                      }
+                      placeholder="e.g. uber, payroll"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+                        <select
+                          value={transactionRuleForm.transaction_type}
+                          onChange={(e) =>
+                            setTransactionRuleForm((prev) => ({
+                              ...prev,
+                              transaction_type: e.target.value as 'income' | 'expense' | 'transfer',
+                            }))
+                          }
+                          className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                        >
+                          <option value="expense">Expense</option>
+                          <option value="income">Income</option>
+                          <option value="transfer">Transfer</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Category
+                        </label>
+                        <select
+                          value={transactionRuleForm.category_type}
+                          onChange={(e) =>
+                            setTransactionRuleForm((prev) => ({
+                              ...prev,
+                              category_type: e.target.value as 'personal' | 'business',
+                            }))
+                          }
+                          className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                        >
+                          <option value="personal">Personal</option>
+                          <option value="business">Business</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void saveTransactionRule()}
+                        disabled={isSavingRule || !transactionRuleForm.keyword.trim()}
+                        className="flex-1 min-w-[8rem] px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium"
+                      >
+                        {isSavingRule ? 'Saving…' : editingRuleId ? 'Update rule' : 'Add rule'}
+                      </button>
+                      {editingRuleId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingRuleId(null)
+                            setTransactionRuleForm({
+                              keyword: '',
+                              transaction_type: 'expense',
+                              category_type: 'personal',
+                            })
+                          }}
+                          className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-100 pt-3 flex-1 min-h-0 flex flex-col">
+                    <h4 className="text-sm font-medium text-gray-800 mb-2">Your rules</h4>
+                    {isLoadingRules ? (
+                      <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        Loading rules…
+                      </div>
+                    ) : transactionRules.length === 0 ? (
+                      <p className="text-sm text-gray-500 py-2">No rules yet. Add one above.</p>
+                    ) : (
+                      <ul className="space-y-2 overflow-y-auto pr-1 flex-1">
+                        {transactionRules.map((rule) => (
+                          <li
+                            key={rule.id}
+                            className="flex items-start justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50/80 p-2 text-sm"
+                          >
+                            <div className="min-w-0">
+                              <div className="font-medium text-gray-900 truncate">
+                                {rule.keyword}
+                              </div>
+                              <div className="text-xs text-gray-600 capitalize">
+                                {rule.transaction_type} · {rule.category_type}
+                                {!rule.is_active && (
+                                  <span className="text-amber-700"> · inactive</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 gap-1">
+                              <button
+                                type="button"
+                                onClick={() => editTransactionRule(rule)}
+                                className="p-1.5 rounded text-blue-600 hover:bg-blue-50"
+                                title="Edit"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void deleteTransactionRule(rule.id)}
+                                className="p-1.5 rounded text-red-600 hover:bg-red-50"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </aside>
+            )}
           </div>
         ) : null}
 

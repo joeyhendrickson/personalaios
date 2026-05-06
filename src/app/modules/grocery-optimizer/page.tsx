@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -49,6 +49,15 @@ interface AnalysisResult {
   totalPotentialSavings: number
 }
 
+type SavedAnalysisSummary = {
+  id: string
+  zip_code: string
+  total_spending: number
+  total_savings: number
+  recommended_store: string | null
+  created_at: string
+}
+
 export default function GroceryOptimizerPage() {
   const [zipCode, setZipCode] = useState('')
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
@@ -56,6 +65,35 @@ export default function GroceryOptimizerPage() {
   const [analyzing, setAnalyzing] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysisSummary[]>([])
+  const [loadingSaved, setLoadingSaved] = useState(false)
+  const [savingAnalysis, setSavingAnalysis] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
+
+  const loadSavedAnalyses = async () => {
+    setLoadingSaved(true)
+    setSaveMessage(null)
+    try {
+      const res = await fetch('/api/grocery/analyses', { credentials: 'same-origin' })
+      if (res.ok) {
+        const data = await res.json()
+        setSavedAnalyses((data.analyses || []) as SavedAnalysisSummary[])
+      } else if (res.status === 401) {
+        // Not logged in; hide history quietly.
+        setSavedAnalyses([])
+      } else {
+        console.error('Failed to load saved analyses:', res.status)
+      }
+    } catch (e) {
+      console.error('Failed to load saved analyses:', e)
+    } finally {
+      setLoadingSaved(false)
+    }
+  }
+
+  useEffect(() => {
+    loadSavedAnalyses()
+  }, [])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -117,6 +155,8 @@ export default function GroceryOptimizerPage() {
       const data = await response.json()
       console.log('Analysis successful:', data)
       setAnalysisResult(data)
+      // The server attempts to save each analysis; refresh history UI.
+      loadSavedAnalyses()
     } catch (err) {
       console.error('Error analyzing receipt:', err)
       let errorMessage = 'Failed to analyze receipt. Please try again.'
@@ -146,6 +186,67 @@ export default function GroceryOptimizerPage() {
     setReceiptFile(null)
     setAnalysisResult(null)
     setError(null)
+    setSaveMessage(null)
+  }
+
+  const handleLoadSavedAnalysis = async (id: string) => {
+    setError(null)
+    setSaveMessage(null)
+    try {
+      const res = await fetch(`/api/grocery/analyses/${id}`, { credentials: 'same-origin' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to load analysis')
+
+      const analysis = data.analysis
+      setZipCode(String(analysis.zip_code || ''))
+      setAnalysisResult(analysis.analysis_data as AnalysisResult)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load analysis')
+    }
+  }
+
+  const handleDeleteSavedAnalysis = async (id: string) => {
+    if (!confirm('Delete this saved analysis?')) return
+    setError(null)
+    setSaveMessage(null)
+    try {
+      const res = await fetch(`/api/grocery/analyses/${id}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to delete analysis')
+      setSavedAnalyses((prev) => prev.filter((a) => a.id !== id))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete analysis')
+    }
+  }
+
+  const handleSaveCurrentAnalysis = async () => {
+    if (!analysisResult) return
+    if (!/^\d{5}$/.test(zipCode)) {
+      setError('Enter a valid 5-digit zip code before saving.')
+      return
+    }
+    setSavingAnalysis(true)
+    setError(null)
+    setSaveMessage(null)
+    try {
+      const res = await fetch('/api/grocery/analyses', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zipCode, analysisData: analysisResult }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to save analysis')
+      setSaveMessage('Saved to history.')
+      loadSavedAnalyses()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save analysis')
+    } finally {
+      setSavingAnalysis(false)
+    }
   }
 
   return (
@@ -181,6 +282,68 @@ export default function GroceryOptimizerPage() {
         {!analysisResult ? (
           /* Upload Section */
           <div className="max-w-2xl mx-auto">
+            {/* Saved Analyses */}
+            <div className="mb-6 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-semibold text-gray-900">Saved analyses</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadSavedAnalyses}
+                  disabled={loadingSaved}
+                >
+                  {loadingSaved ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    'Refresh'
+                  )}
+                </Button>
+              </div>
+
+              {savedAnalyses.length === 0 ? (
+                <p className="text-sm text-gray-600">
+                  No saved analyses yet. Analyze a receipt to create one.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {savedAnalyses.map((a) => (
+                    <div
+                      key={a.id}
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-gray-200 p-4"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {a.recommended_store
+                            ? `Best store: ${a.recommended_store}`
+                            : 'Saved analysis'}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          {new Date(a.created_at).toLocaleString()} · Zip {a.zip_code} · Spent $
+                          {Number(a.total_spending || 0).toFixed(2)} · Save $
+                          {Number(a.total_savings || 0).toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" onClick={() => handleLoadSavedAnalysis(a.id)}>
+                          Load
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDeleteSavedAnalysis(a.id)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
               <div className="mb-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-2">
@@ -442,12 +605,26 @@ export default function GroceryOptimizerPage() {
                 Analyze Another Receipt
               </Button>
               <Button
-                onClick={() => window.print()}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 text-lg font-semibold"
+                onClick={handleSaveCurrentAnalysis}
+                disabled={savingAnalysis}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 text-lg font-semibold disabled:opacity-50"
               >
-                Save Analysis
+                {savingAnalysis ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save to History'
+                )}
               </Button>
             </div>
+
+            {saveMessage && (
+              <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+                {saveMessage}
+              </div>
+            )}
           </div>
         )}
       </div>

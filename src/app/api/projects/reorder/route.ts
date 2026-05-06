@@ -47,19 +47,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid project ids' }, { status: 403 })
     }
 
-    const updates = projectOrders.map((item) =>
-      projectsDb
+    // Sequential updates: parallel Promise.all on PostgREST builders can mis-fire; verify each row.
+    for (const item of projectOrders) {
+      const { data, error } = await projectsDb
         .from('weekly_goals')
         .update({ project_sort_order: item.project_sort_order })
         .eq('id', item.id)
         .eq('user_id', user.id)
-    )
+        .select('id')
+        .maybeSingle()
 
-    const results = await Promise.all(updates)
-    const errors = results.filter((r) => r.error)
-    if (errors.length > 0) {
-      console.error('Project reorder errors:', errors)
-      return NextResponse.json({ error: 'Failed to update order' }, { status: 500 })
+      if (error) {
+        console.error('Project reorder update failed:', error)
+        const missingColumn =
+          error.code === '42703' ||
+          (error.message?.toLowerCase().includes('project_sort_order') ?? false)
+        return NextResponse.json(
+          {
+            error: 'Failed to update order',
+            details: error.message,
+            code: error.code,
+            hint: missingColumn
+              ? 'Database may be missing column weekly_goals.project_sort_order. Apply migration 041_weekly_goals_project_sort_order.sql in Supabase.'
+              : undefined,
+          },
+          { status: 500 }
+        )
+      }
+
+      if (data == null) {
+        return NextResponse.json(
+          {
+            error: 'Failed to update order',
+            details: `No row updated for project ${item.id}. Try refreshing the page.`,
+          },
+          { status: 500 }
+        )
+      }
     }
 
     return NextResponse.json({ success: true })
