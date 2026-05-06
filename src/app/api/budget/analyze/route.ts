@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
 import { env } from '@/lib/env'
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { logAfterVercelSdkCall, normalizeUsageFromVercelAI } from '@/lib/ai/usage-logger'
+import { fingerprintTransactionSet } from '@/lib/budget/verified-period-cache'
 
 export async function POST(request: NextRequest) {
   try {
@@ -215,16 +218,73 @@ export async function POST(request: NextRequest) {
     )
 
     // Process transaction data for AI analysis
-    const transactionData = transactionsToAnalyze.map((t: any) => ({
-      date: t.date,
-      amount: t.amount,
-      name: t.name,
-      merchant_name: t.merchant_name,
-      category: t.category,
-      account_name: t.bank_accounts?.name,
-      account_type: t.bank_accounts?.type,
-      is_income: t.amount > 0,
-    }))
+    // User-verified date ranges: omit redundant per-transaction prompt lines when fingerprint still matches
+    const txIdsOmittedFromAiSample = new Set<string>()
+    const verifiedPeriodsApplied: {
+      start_date: string
+      end_date: string
+      transaction_count: number
+    }[] = []
+    let verifiedPeriodsPromptBlock = ''
+
+    const { data: savedVerifiedPeriods, error: verifiedFetchError } = await supabase
+      .from('budget_verified_transaction_periods')
+      .select('*')
+      .eq('user_id', user.id)
+      .lte('start_date', endDate)
+      .gte('end_date', startDate)
+
+    if (!verifiedFetchError && savedVerifiedPeriods?.length) {
+      const blocks: string[] = []
+      for (const period of savedVerifiedPeriods) {
+        const txsInPeriod = transactionsToAnalyze.filter(
+          (t: any) => t.date >= period.start_date && t.date <= period.end_date
+        )
+        if (txsInPeriod.length === 0) continue
+        const fp = fingerprintTransactionSet(
+          txsInPeriod.map((t: any) => ({
+            id: t.id,
+            date: t.date,
+            amount: t.amount,
+            name: t.name,
+            updated_at: t.updated_at,
+          }))
+        )
+        if (fp !== period.content_fingerprint) continue
+        for (const t of txsInPeriod) {
+          txIdsOmittedFromAiSample.add(t.id)
+        }
+        verifiedPeriodsApplied.push({
+          start_date: period.start_date,
+          end_date: period.end_date,
+          transaction_count: txsInPeriod.length,
+        })
+        blocks.push(
+          `Period ${period.start_date} to ${period.end_date} (${txsInPeriod.length} tx, user-verified snapshot):\n${JSON.stringify(period.summary_json, null, 2)}`
+        )
+      }
+      if (blocks.length > 0) {
+        verifiedPeriodsPromptBlock = `
+=== USER-VERIFIED PERIOD SUMMARIES ===
+The user explicitly saved these periods as "correct" after reviewing transactions. For dates within each period below, use these summaries as ground truth for totals and category rollups; do not contradict them with guesses from individual transaction lines. Raw per-transaction detail for those dates is omitted from the sample below to save context.
+
+${blocks.join('\n\n')}
+`
+      }
+    }
+
+    const transactionDataForPromptSample = transactionsToAnalyze
+      .filter((t: any) => !txIdsOmittedFromAiSample.has(t.id))
+      .map((t: any) => ({
+        date: t.date,
+        amount: t.amount,
+        name: t.name,
+        merchant_name: t.merchant_name,
+        category: t.category,
+        account_name: t.bank_accounts?.name,
+        account_type: t.bank_accounts?.type,
+        is_income: t.amount > 0,
+      }))
 
     // Calculate basic spending summary
     const totalIncome = transactionsToAnalyze
@@ -737,9 +797,10 @@ You are an expert financial advisor, budget analyst, and business coach speciali
 === ANALYSIS DATE RANGE ===
 Analysis Period: ${startDate} to ${endDate}
 Total transactions analyzed: ${transactionsToAnalyze.length}
-Recent transactions (sample):
-${JSON.stringify(transactionData.slice(0, 50), null, 2)}
-${transactionData.length > 50 ? `\n... and ${transactionData.length - 50} more transactions` : ''}
+${verifiedPeriodsPromptBlock}
+Recent transactions (sample — excludes user-verified periods listed above):
+${JSON.stringify(transactionDataForPromptSample.slice(0, 50), null, 2)}
+${transactionDataForPromptSample.length > 50 ? `\n... and ${transactionDataForPromptSample.length - 50} more transactions (outside verified periods)` : ''}
 
 === EXPECTED INCOME & EXPENSES ===
 Expected Monthly Income: $${totalExpectedMonthlyIncome.toFixed(2)}
@@ -1075,7 +1136,9 @@ Focus on actionable, specific recommendations that help improve financial situat
 `
 
     // Use AI to analyze the budget data with enhanced coaching capabilities
-    const { text: analysis } = await generateText({
+    const analyzeStartMs = Date.now()
+    const analyzeModelId = resolveOpenAIModelId()
+    const generateResult = await generateText({
       model: defaultOpenaiModel(),
       messages: [
         {
@@ -1090,6 +1153,27 @@ Focus on actionable, specific recommendations that help improve financial situat
       ],
       temperature: 0.3,
     })
+    const analysis = generateResult.text
+
+    const aiUsage = normalizeUsageFromVercelAI(generateResult)
+    void logAfterVercelSdkCall({
+      startMs: analyzeStartMs,
+      userId: user.id,
+      module: 'budget_advisor',
+      action: 'analyze_budget',
+      route: '/api/budget/analyze',
+      model: analyzeModelId,
+      description: 'Comprehensive budget AI analysis',
+      result: generateResult,
+    }).catch((e) => console.error('budget analyze usage log', e))
+
+    let earliest_transaction_date: string | null = null
+    let latest_transaction_date: string | null = null
+    if (transactionsToAnalyze.length > 0) {
+      const sortedDates = transactionsToAnalyze.map((t: any) => String(t.date)).sort()
+      earliest_transaction_date = sortedDates[0]
+      latest_transaction_date = sortedDates[sortedDates.length - 1]
+    }
 
     let parsedAnalysis
     try {
@@ -1285,6 +1369,22 @@ Focus on actionable, specific recommendations that help improve financial situat
       },
       date_range: { start_date: startDate, end_date: endDate },
       goals_count: relevantGoals.length,
+      verified_periods_applied: verifiedPeriodsApplied,
+      ai_prompt_transactions_omitted_count: txIdsOmittedFromAiSample.size,
+      analysis_scope: {
+        requested_start_date: startDate,
+        requested_end_date: endDate,
+        transactions_analyzed_count: transactionsToAnalyze.length,
+        earliest_transaction_date,
+        latest_transaction_date,
+      },
+      ai_usage: {
+        model: analyzeModelId,
+        input_tokens: aiUsage.inputTokens,
+        output_tokens: aiUsage.outputTokens,
+        total_tokens: aiUsage.totalTokens,
+        cached_input_tokens: aiUsage.cachedInputTokens,
+      },
     })
   } catch (error) {
     console.error('Error in budget analysis:', error)

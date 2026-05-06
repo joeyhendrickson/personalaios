@@ -39,6 +39,7 @@ import {
   Loader2,
   Minus,
   Flag,
+  Save,
 } from 'lucide-react'
 import { classifyPlaidTransactionDisplay } from '@/lib/budget/transaction-display-classification'
 
@@ -130,6 +131,29 @@ interface TransactionRule {
   is_active: boolean
   created_at: string
   updated_at: string
+}
+
+type BudgetAnalysisRunSummary = {
+  analysis_scope: {
+    requested_start_date: string
+    requested_end_date: string
+    transactions_analyzed_count: number
+    earliest_transaction_date: string | null
+    latest_transaction_date: string | null
+  }
+  ai_usage: {
+    model: string
+    input_tokens: number | null
+    output_tokens: number | null
+    total_tokens: number | null
+    cached_input_tokens: number | null
+  }
+  verified_periods_applied: Array<{
+    start_date: string
+    end_date: string
+    transaction_count: number
+  }>
+  ai_prompt_transactions_omitted_count: number
 }
 
 interface BudgetAnalysis {
@@ -681,7 +705,14 @@ export default function BudgetOptimizerModule() {
     total: number | null
     nextOffset: number
   }>({ hasMore: false, total: null, nextOffset: 0 })
+  const [verifiedPeriods, setVerifiedPeriods] = useState<
+    Array<{ id: string; start_date: string; end_date: string; updated_at?: string }>
+  >([])
+  const [savingVerifiedPeriod, setSavingVerifiedPeriod] = useState(false)
   const [analysis, setAnalysis] = useState<BudgetAnalysis | null>(null)
+  const [analysisRunSummary, setAnalysisRunSummary] = useState<BudgetAnalysisRunSummary | null>(
+    null
+  )
   const [manualAccounts, setManualAccounts] = useState<ManualAccount[]>([])
   const [expectedIncome, setExpectedIncome] = useState<ExpectedIncome[]>([])
   const [expectedExpenses, setExpectedExpenses] = useState<ExpectedExpense[]>([])
@@ -869,6 +900,7 @@ export default function BudgetOptimizerModule() {
     if (activeTab === 'transactions') {
       loadTransactionRules()
       loadFlaggedTransactions()
+      void loadVerifiedPeriods()
     }
   }, [activeTab])
 
@@ -1281,6 +1313,58 @@ export default function BudgetOptimizerModule() {
       console.error('Error loading transaction rules:', error)
     } finally {
       setIsLoadingRules(false)
+    }
+  }
+
+  const loadVerifiedPeriods = async () => {
+    try {
+      const response = await fetch('/api/budget/verified-periods')
+      if (response.ok) {
+        const data = await response.json()
+        setVerifiedPeriods(data.periods || [])
+      }
+    } catch (error) {
+      console.error('Error loading verified periods:', error)
+    }
+  }
+
+  const saveVerifiedPeriodForDateRange = async () => {
+    if (!dateRange.start || !dateRange.end) {
+      alert('Choose a start and end date first.')
+      return
+    }
+    if (connections.length === 0) {
+      alert('Connect a bank account before saving a verified period.')
+      return
+    }
+    setSavingVerifiedPeriod(true)
+    try {
+      const response = await fetch('/api/budget/verified-periods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start_date: dateRange.start,
+          end_date: dateRange.end,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (response.ok) {
+        await loadVerifiedPeriods()
+        alert(
+          `Saved verified data for ${dateRange.start} → ${dateRange.end} (${data.transaction_count ?? 0} transactions). Budget analysis will reuse this summary when the data has not changed, which reduces AI context size.`
+        )
+      } else {
+        alert(
+          data.hint
+            ? `${data.error || 'Save failed'}\n\n${data.hint}`
+            : data.error || data.details || 'Failed to save verified period.'
+        )
+      }
+    } catch (error) {
+      console.error('Error saving verified period:', error)
+      alert('Failed to save verified period.')
+    } finally {
+      setSavingVerifiedPeriod(false)
     }
   }
 
@@ -1731,7 +1815,32 @@ export default function BudgetOptimizerModule() {
       if (response.ok) {
         const data = await response.json()
         setAnalysis(data.analysis)
+        setAnalysisRunSummary({
+          analysis_scope: {
+            requested_start_date:
+              data.analysis_scope?.requested_start_date ?? analysisDateRange.start,
+            requested_end_date: data.analysis_scope?.requested_end_date ?? analysisDateRange.end,
+            transactions_analyzed_count:
+              data.analysis_scope?.transactions_analyzed_count ??
+              data.spending_summary?.transaction_count ??
+              0,
+            earliest_transaction_date: data.analysis_scope?.earliest_transaction_date ?? null,
+            latest_transaction_date: data.analysis_scope?.latest_transaction_date ?? null,
+          },
+          ai_usage: data.ai_usage ?? {
+            model: '',
+            input_tokens: null,
+            output_tokens: null,
+            total_tokens: null,
+            cached_input_tokens: null,
+          },
+          verified_periods_applied: data.verified_periods_applied ?? [],
+          ai_prompt_transactions_omitted_count: data.ai_prompt_transactions_omitted_count ?? 0,
+        })
         setActiveTab('analysis')
+      } else {
+        const err = await response.json().catch(() => ({}))
+        alert(err.error || err.details || 'Budget analysis failed')
       }
     } catch (error) {
       console.error('Error analyzing budget:', error)
@@ -3208,6 +3317,22 @@ export default function BudgetOptimizerModule() {
                   <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                   {isLoading ? 'Loading...' : 'Refresh'}
                 </button>
+                <button
+                  onClick={() => void saveVerifiedPeriodForDateRange()}
+                  disabled={isLoading || savingVerifiedPeriod || !dateRange.start || !dateRange.end}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                  title="Store a compact summary of this date range for AI budget analysis. After you correct income/expense/transfer choices, save here so wider-range analysis reuses this snapshot when transactions have not changed."
+                >
+                  <Save className={`h-4 w-4 ${savingVerifiedPeriod ? 'opacity-70' : ''}`} />
+                  {savingVerifiedPeriod ? 'Saving…' : 'Save data'}
+                </button>
+                {verifiedPeriods.some(
+                  (p) => p.start_date === dateRange.start && p.end_date === dateRange.end
+                ) && (
+                  <span className="self-center text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-2 py-1">
+                    This range is saved for analysis
+                  </span>
+                )}
                 {connections.length > 0 && (
                   <button
                     onClick={syncAllConnections}
@@ -3682,6 +3807,89 @@ export default function BudgetOptimizerModule() {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {analysisRunSummary && (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
+                      <h3 className="font-semibold text-slate-900 mb-2">This analysis used</h3>
+                      <ul className="space-y-2">
+                        <li>
+                          <span className="font-medium text-slate-700">
+                            Date range you selected:{' '}
+                          </span>
+                          {analysisRunSummary.analysis_scope.requested_start_date} →{' '}
+                          {analysisRunSummary.analysis_scope.requested_end_date}
+                        </li>
+                        <li>
+                          <span className="font-medium text-slate-700">
+                            Bank transactions in that range:{' '}
+                          </span>
+                          {analysisRunSummary.analysis_scope.transactions_analyzed_count}
+                          {analysisRunSummary.analysis_scope.earliest_transaction_date &&
+                            analysisRunSummary.analysis_scope.latest_transaction_date && (
+                              <span className="text-slate-600">
+                                {' '}
+                                (earliest line{' '}
+                                {analysisRunSummary.analysis_scope.earliest_transaction_date},
+                                latest {analysisRunSummary.analysis_scope.latest_transaction_date})
+                              </span>
+                            )}
+                        </li>
+                        {analysisRunSummary.verified_periods_applied.length > 0 && (
+                          <li>
+                            <span className="font-medium text-slate-700">
+                              User-saved verified periods (compact AI context):{' '}
+                            </span>
+                            {analysisRunSummary.verified_periods_applied
+                              .map(
+                                (p) => `${p.start_date}–${p.end_date} (${p.transaction_count} tx)`
+                              )
+                              .join('; ')}
+                            {analysisRunSummary.ai_prompt_transactions_omitted_count > 0 && (
+                              <span className="text-slate-600">
+                                {' '}
+                                — {analysisRunSummary.ai_prompt_transactions_omitted_count} lines
+                                omitted from the long transaction sample in the AI prompt.
+                              </span>
+                            )}
+                          </li>
+                        )}
+                        <li>
+                          <span className="font-medium text-slate-700">AI tokens (this run): </span>
+                          {analysisRunSummary.ai_usage.total_tokens != null ? (
+                            <>
+                              {analysisRunSummary.ai_usage.total_tokens.toLocaleString()} total
+                              {analysisRunSummary.ai_usage.input_tokens != null &&
+                                analysisRunSummary.ai_usage.output_tokens != null && (
+                                  <span className="text-slate-600">
+                                    {' '}
+                                    ({analysisRunSummary.ai_usage.input_tokens.toLocaleString()}{' '}
+                                    prompt +{' '}
+                                    {analysisRunSummary.ai_usage.output_tokens.toLocaleString()}{' '}
+                                    completion)
+                                  </span>
+                                )}
+                              {analysisRunSummary.ai_usage.cached_input_tokens != null &&
+                                analysisRunSummary.ai_usage.cached_input_tokens > 0 && (
+                                  <span className="text-slate-600">
+                                    {' '}
+                                    · cached prompt tokens:{' '}
+                                    {analysisRunSummary.ai_usage.cached_input_tokens.toLocaleString()}
+                                  </span>
+                                )}
+                            </>
+                          ) : (
+                            <span className="text-slate-600">
+                              not reported by the provider for this call
+                            </span>
+                          )}
+                          <span className="text-slate-600">
+                            {' '}
+                            · model {analysisRunSummary.ai_usage.model}
+                          </span>
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+
                   {/* Financial Health Score */}
                   <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6">
                     <div className="flex items-center justify-between mb-4">
