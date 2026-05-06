@@ -47,20 +47,53 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const debug = request.nextUrl.searchParams.get('debug') === '1'
+
     // Get all weekly_goals for the user (these are the projects)
-    const { data: projects, error: projectsError } = await supabase
+    let projects: unknown[] | null = null
+    let projectsError: { message?: string } | null = null
+
+    const primary = await supabase
       .from('weekly_goals')
       .select('*')
       .eq('user_id', user.id)
       .order('project_sort_order', { ascending: true })
       .order('created_at', { ascending: false })
 
-    if (projectsError) {
-      console.error('Error fetching projects:', projectsError)
-      return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 })
+    projects = primary.data as unknown[] | null
+    projectsError = primary.error as { message?: string } | null
+
+    // If the sort-order migration hasn't been applied yet, fall back gracefully.
+    if (projectsError?.message?.toLowerCase().includes('project_sort_order')) {
+      const fallback = await supabase
+        .from('weekly_goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+      projects = fallback.data as unknown[] | null
+      projectsError = fallback.error as { message?: string } | null
     }
 
-    return NextResponse.json({ projects: projects || [] }, { status: 200 })
+    if (projectsError) {
+      console.error('Error fetching projects:', projectsError)
+      return NextResponse.json(
+        {
+          error: 'Failed to fetch projects',
+          details: debug ? projectsError : undefined,
+        },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json(
+      debug
+        ? {
+            projects: projects || [],
+            debug: { user_id: user.id, count: (projects || []).length },
+          }
+        : { projects: projects || [] },
+      { status: 200 }
+    )
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json(

@@ -32,6 +32,8 @@ type DetailPayload = {
     ai_thread_summary?: string | null
     created_at: string
     signed_url?: string | null
+    mime_type?: string | null
+    file_name?: string | null
   }[]
   partial?: boolean
   errors?: string[]
@@ -68,6 +70,8 @@ export default function RelationshipDetailPage() {
       signed_url?: string | null
       caption_notes?: string | null
       ai_thread_summary?: string | null
+      mime_type?: string | null
+      file_name?: string | null
     }[]
   >([])
 
@@ -92,6 +96,8 @@ export default function RelationshipDetailPage() {
           signed_url: s.signed_url ?? null,
           caption_notes: s.caption_notes,
           ai_thread_summary: s.ai_thread_summary,
+          mime_type: s.mime_type ?? null,
+          file_name: s.file_name ?? null,
         }))
       )
     } finally {
@@ -358,7 +364,7 @@ export default function RelationshipDetailPage() {
               <label className="mb-3 inline-flex cursor-pointer items-center rounded-md bg-secondary px-3 py-2 text-sm font-medium">
                 <input
                   type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  accept="image/jpeg,image/png,image/webp,image/gif,application/zip,.zip"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0]
@@ -444,7 +450,7 @@ export default function RelationshipDetailPage() {
               <label className="mb-2 inline-flex cursor-pointer items-center rounded-md bg-secondary px-3 py-2 text-sm font-medium">
                 <input
                   type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0]
@@ -464,7 +470,7 @@ export default function RelationshipDetailPage() {
                         rel="noreferrer"
                         className="mb-1 block text-xs text-primary underline"
                       >
-                        View image
+                        View {s.mime_type === 'application/pdf' ? 'PDF' : 'image'}
                       </a>
                     )}
                     {s.caption_notes && (

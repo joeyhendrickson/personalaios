@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { RELATIONSHIP_MANAGER_BUCKET, buildStoragePath } from '@/lib/relationship-manager/storage'
-import { summarizeMessageScreenshot } from '@/lib/relationship-manager/vision'
+import { summarizeMessagePdf, summarizeMessageScreenshot } from '@/lib/relationship-manager/vision'
 
 const ALLOWED_IMAGE = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+const PDF_MIME = 'application/pdf'
 const MAX_BYTES = 15 * 1024 * 1024
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -74,8 +75,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'Missing file' }, { status: 400 })
     }
-    if (!ALLOWED_IMAGE.has(file.type)) {
-      return NextResponse.json({ error: 'Unsupported image type' }, { status: 400 })
+    const isPdf = file.type === PDF_MIME || file.name.toLowerCase().endsWith('.pdf')
+    if (!isPdf && !ALLOWED_IMAGE.has(file.type)) {
+      return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 })
     }
 
     const buf = Buffer.from(await file.arrayBuffer())
@@ -86,7 +88,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const path = buildStoragePath(user.id, relationshipId, 'message-screenshots', file.name)
     const { error: upErr } = await supabase.storage
       .from(RELATIONSHIP_MANAGER_BUCKET)
-      .upload(path, buf, { contentType: file.type, upsert: false })
+      .upload(path, buf, { contentType: isPdf ? PDF_MIME : file.type, upsert: false })
 
     if (upErr) {
       console.error('screenshot upload', upErr)
@@ -95,10 +97,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
     let ai_thread_summary: string | null = null
     try {
-      ai_thread_summary = await summarizeMessageScreenshot(buf, file.type, rel.name, {
-        userId: user.id,
-        route: `/api/relationship-manager/relationships/${relationshipId}/message-screenshots`,
-      })
+      ai_thread_summary = isPdf
+        ? await summarizeMessagePdf(buf, rel.name, {
+            userId: user.id,
+            route: `/api/relationship-manager/relationships/${relationshipId}/message-screenshots`,
+          })
+        : await summarizeMessageScreenshot(buf, file.type, rel.name, {
+            userId: user.id,
+            route: `/api/relationship-manager/relationships/${relationshipId}/message-screenshots`,
+          })
     } catch (e) {
       console.error('screenshot vision', e)
     }
@@ -109,6 +116,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         user_id: user.id,
         relationship_id: relationshipId,
         storage_path: path,
+        file_name: file.name,
+        mime_type: isPdf ? PDF_MIME : file.type,
         caption_notes: caption_notes || null,
         ai_thread_summary,
       })

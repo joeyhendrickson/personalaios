@@ -40,6 +40,7 @@ import {
   Minus,
   Flag,
 } from 'lucide-react'
+import { classifyPlaidTransactionDisplay } from '@/lib/budget/transaction-display-classification'
 
 interface BankConnection {
   id: string
@@ -109,6 +110,8 @@ interface Transaction {
   bank_accounts: {
     name: string
     type: string
+    official_name?: string | null
+    subtype?: string | null
   }
   transaction_categorizations: Array<{
     budget_categories: {
@@ -3426,75 +3429,16 @@ export default function BudgetOptimizerModule() {
                             isExpense = false
                           }
                         } else {
-                          // Fall back to default logic if no rule matches
-                          // Helper function to detect if this is a money transfer (neutral transaction)
-                          // BUT exclude "Payment from" transactions as those are income, not transfers
-                          const isTransfer = () => {
-                            const name = (transaction.name || '').toLowerCase()
-                            const merchant = (transaction.merchant_name || '').toLowerCase()
-                            const transactionText = `${name} ${merchant}`.toLowerCase()
-                            const categories = (
-                              Array.isArray(transaction.category) ? transaction.category : []
-                            ).map((c: string) => String(c).toLowerCase())
-
-                            // EXCLUDE "Payment from" transactions - these are income, not transfers
-                            if (transactionText.includes('payment from')) {
-                              return false
-                            }
-
-                            // Check Plaid categories for transfer indicators (but not "payment" category alone)
-                            const transferCategories = [
-                              'bank transfer',
-                              'ach',
-                              'wire',
-                              'internal transfer',
-                              'external transfer',
-                            ]
-                            const hasTransferCategory = categories.some((cat: string) =>
-                              transferCategories.some((keyword) => cat.includes(keyword))
-                            )
-                            if (hasTransferCategory) return true
-
-                            // Check transaction name/merchant for transfer keywords
-                            // Exclude "payment from" - only look for outgoing transfers
-                            const transferKeywords = [
-                              'transfer',
-                              'ach',
-                              'wire',
-                              'zelle',
-                              'move money',
-                              'send money',
-                              'payment to',
-                              'internal transfer',
-                              'external transfer',
-                              'p2p',
-                            ]
-                            const hasTransferKeyword = transferKeywords.some((keyword) =>
-                              transactionText.includes(keyword)
-                            )
-                            return hasTransferKeyword
-                          }
-
-                          isMoneyTransfer = isTransfer()
-
-                          // Account type determines how to interpret the amount sign
-                          // Credit cards: Positive = payment/expense (RED), Negative = credit/income (GREEN)
-                          // Debit/Checking/PayPal: Positive = deposit/income (GREEN), Negative = payment/expense (RED)
-                          const accountType = (transaction.bank_accounts?.type || '').toLowerCase()
-                          const isCreditCard =
-                            accountType.includes('credit') || accountType === 'credit'
-
-                          if (!isMoneyTransfer) {
-                            if (isCreditCard) {
-                              // Credit cards: positive = expense (payment), negative = income (credit/refund)
-                              isExpense = transaction.amount > 0
-                              isIncome = transaction.amount < 0
-                            } else {
-                              // Debit/Checking/PayPal: positive = income (deposit), negative = expense (payment)
-                              isExpense = transaction.amount < 0
-                              isIncome = transaction.amount > 0
-                            }
-                          }
+                          const classified = classifyPlaidTransactionDisplay({
+                            amount: transaction.amount,
+                            name: transaction.name,
+                            merchant_name: transaction.merchant_name,
+                            category: transaction.category,
+                            bankAccount: transaction.bank_accounts,
+                          })
+                          isIncome = classified.isIncome
+                          isExpense = classified.isExpense
+                          isMoneyTransfer = classified.isMoneyTransfer
                         }
 
                         const isSelected = selectedTransactionId === transaction.id

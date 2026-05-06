@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     // Get bank account IDs for these connections
     const { data: bankAccounts, error: accountsError } = await supabase
       .from('bank_accounts')
-      .select('id, name, type, bank_connection_id')
+      .select('id, name, official_name, type, subtype, bank_connection_id')
       .in('bank_connection_id', connectionIds)
 
     if (accountsError) {
@@ -227,7 +227,9 @@ export async function GET(request: NextRequest) {
           ? {
               id: account.id,
               name: account.name,
+              official_name: account.official_name ?? null,
               type: account.type,
+              subtype: account.subtype ?? null,
             }
           : null,
       }

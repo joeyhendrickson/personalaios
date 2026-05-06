@@ -601,6 +601,14 @@ export default function Dashboard() {
         const completedProjects = allProjects.filter((project: any) => project.is_completed)
         setGoals(activeProjects)
         setCompletedProjects(completedProjects)
+      } else {
+        let body: unknown = null
+        try {
+          body = await projectsResponse.json()
+        } catch {
+          body = await projectsResponse.text()
+        }
+        console.error('Failed to fetch projects:', projectsResponse.status, body)
       }
 
       // Fetch tasks
