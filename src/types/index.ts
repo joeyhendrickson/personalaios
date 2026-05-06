@@ -13,6 +13,8 @@ export interface Task {
   completed_at?: string
   weekly_goal?: Goal
   sort_order?: number
+  /** Task band for dashboard ordering: high → medium → low */
+  priority?: 'high' | 'medium' | 'low' | string
 }
 
 export interface Goal {

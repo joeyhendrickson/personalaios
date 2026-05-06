@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 
+/** Display order: high, then medium, then low. Unknown values treated as medium. */
+function taskPriorityRank(p: string | null | undefined): number {
+  const x = (p ?? 'medium').toLowerCase()
+  if (x === 'high') return 0
+  if (x === 'low') return 2
+  return 1
+}
+
 const createTaskSchema = z.object({
   weekly_goal_id: z.string().uuid().optional(),
   title: z.string().min(1).max(255),
@@ -60,7 +68,6 @@ export async function GET(request: NextRequest) {
       `
       )
       .eq('user_id', user.id)
-      .order('sort_order', { ascending: false })
       .order('created_at', { ascending: false })
 
     if (goalId) {
@@ -78,7 +85,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 })
     }
 
-    return NextResponse.json({ tasks })
+    const sorted = [...(tasks ?? [])].sort((a, b) => {
+      const ra = taskPriorityRank(a.priority)
+      const rb = taskPriorityRank(b.priority)
+      if (ra !== rb) return ra - rb
+      const sa = a.sort_order ?? 0
+      const sb = b.sort_order ?? 0
+      if (sa !== sb) return sb - sa
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
+
+    return NextResponse.json({ tasks: sorted })
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

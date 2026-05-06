@@ -1,11 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
+const ALLOWED_PRIORITY = new Set(['high', 'medium', 'low'])
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
 
-    // Get the current user
     const {
       data: { user },
       error: userError,
@@ -25,8 +26,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate that all task IDs belong to the user
-    const taskIds = taskOrders.map((item: any) => item.id)
+    for (const item of taskOrders) {
+      if (item.priority != null && !ALLOWED_PRIORITY.has(String(item.priority).toLowerCase())) {
+        return NextResponse.json({ error: 'Invalid priority value' }, { status: 400 })
+      }
+    }
+
+    const taskIds = taskOrders.map((item: { id: string }) => item.id)
     const { data: userTasks, error: fetchError } = await supabase
       .from('tasks')
       .select('id')
@@ -48,22 +54,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update sort_order for each task
-    const updates = taskOrders.map((item: any) =>
-      supabase
+    for (const item of taskOrders as {
+      id: string
+      sort_order: number
+      priority?: string
+    }[]) {
+      const patch: { sort_order: number; priority?: string } = {
+        sort_order: item.sort_order,
+      }
+      if (item.priority != null) {
+        patch.priority = String(item.priority).toLowerCase()
+      }
+
+      const { error: updateError } = await supabase
         .from('tasks')
-        .update({ sort_order: item.sort_order })
+        .update(patch)
         .eq('id', item.id)
         .eq('user_id', user.id)
-    )
 
-    const results = await Promise.all(updates)
-
-    // Check for any errors
-    const errors = results.filter((result) => result.error)
-    if (errors.length > 0) {
-      console.error('Error updating task orders:', errors)
-      return NextResponse.json({ error: 'Failed to update some tasks' }, { status: 500 })
+      if (updateError) {
+        console.error('Error updating task order:', updateError)
+        return NextResponse.json({ error: 'Failed to update task order' }, { status: 500 })
+      }
     }
 
     return NextResponse.json({

@@ -1,39 +1,108 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle, Star, Settings, Target, Trash2, ArrowUpToLine } from 'lucide-react'
+import { CheckCircle, Star, Settings, Target, Trash2 } from 'lucide-react'
 import { Task } from '@/types'
+
+export type TaskReorderItem = { id: string; sort_order: number; priority?: string }
 
 interface DraggableTasksProps {
   tasks: Task[]
-  onReorder: (taskOrders: { id: string; sort_order: number }[]) => Promise<void>
+  onReorder: (taskOrders: TaskReorderItem[]) => Promise<void>
   onToggleTask: (taskId: string) => void
   onEditTask: (task: Task) => void
   onConvertToGoal: (task: Task) => void
   onDeleteTask: (taskId: string) => void
 }
 
+type TaskPriority = 'high' | 'medium' | 'low'
+
+function normalizePriority(p?: string | null): TaskPriority {
+  const x = (p ?? 'medium').toLowerCase()
+  if (x === 'high' || x === 'low') return x
+  return 'medium'
+}
+
+/** Build server payload: tier order high → medium → low; moved task is first within its tier. */
+function computeTaskOrderAfterPriorityChange(
+  tasks: Task[],
+  taskId: string,
+  newPriority: TaskPriority
+): TaskReorderItem[] {
+  const orderIndex = new Map(tasks.map((t, i) => [t.id, i]))
+  const moved = tasks.find((t) => t.id === taskId)
+  if (!moved) {
+    return []
+  }
+
+  const others = tasks.filter((t) => t.id !== taskId)
+  const highs = others.filter((t) => normalizePriority(t.priority) === 'high')
+  const meds = others.filter((t) => normalizePriority(t.priority) === 'medium')
+  const lows = others.filter((t) => normalizePriority(t.priority) === 'low')
+
+  const sortWithin = (arr: Task[]) =>
+    [...arr].sort((a, b) => orderIndex.get(a.id)! - orderIndex.get(b.id)!)
+
+  const movedUpdated: Task = { ...moved, priority: newPriority }
+  let highList = sortWithin(highs)
+  let medList = sortWithin(meds)
+  let lowList = sortWithin(lows)
+
+  if (newPriority === 'high') highList = [movedUpdated, ...highList]
+  else if (newPriority === 'medium') medList = [movedUpdated, ...medList]
+  else lowList = [movedUpdated, ...lowList]
+
+  const merged = [...highList, ...medList, ...lowList]
+  const n = merged.length
+
+  return merged.map((t, idx) => ({
+    id: t.id,
+    priority: normalizePriority(t.priority),
+    sort_order: n - idx,
+  }))
+}
+
 interface TaskItemProps {
   task: Task
-  index: number
   onToggleTask: (taskId: string) => void
   onEditTask: (task: Task) => void
   onConvertToGoal: (task: Task) => void
   onDeleteTask: (taskId: string) => void
-  onMoveToTop: (index: number) => void
+  onSetPriority: (taskId: string, priority: TaskPriority) => void
   isReordering: boolean
 }
 
 function TaskItem({
   task,
-  index,
   onToggleTask,
   onEditTask,
   onConvertToGoal,
   onDeleteTask,
-  onMoveToTop,
+  onSetPriority,
   isReordering,
 }: TaskItemProps) {
+  const current = normalizePriority(task.priority)
+
+  const tierBtn = (p: TaskPriority, label: string) => (
+    <button
+      type="button"
+      onClick={() => onSetPriority(task.id, p)}
+      disabled={isReordering}
+      aria-pressed={current === p}
+      className={`px-2 py-1 text-xs font-medium rounded-md border transition-colors disabled:opacity-50 ${
+        current === p
+          ? p === 'high'
+            ? 'border-red-300 bg-red-50 text-red-800'
+            : p === 'medium'
+              ? 'border-amber-300 bg-amber-50 text-amber-900'
+              : 'border-slate-300 bg-slate-100 text-slate-800'
+          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+      }`}
+    >
+      {label}
+    </button>
+  )
+
   return (
     <div
       className={`bg-white/50 rounded-lg p-4 border transition-all duration-200 hover:shadow-sm ${
@@ -103,20 +172,13 @@ function TaskItem({
           </div>
         </div>
 
-        {/* Move to top button */}
-        <div className="flex-shrink-0">
-          <button
-            onClick={() => onMoveToTop(index)}
-            disabled={index === 0 || isReordering}
-            className={`p-1 rounded transition-colors ${
-              index === 0 || isReordering
-                ? 'text-gray-300 cursor-not-allowed'
-                : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
-            }`}
-            title="Move to top"
-          >
-            <ArrowUpToLine className="h-4 w-4" />
-          </button>
+        <div className="flex-shrink-0 flex flex-col items-end gap-1">
+          <span className="text-[10px] uppercase tracking-wide text-gray-500">Priority</span>
+          <div className="flex flex-wrap gap-1 justify-end max-w-[9rem] sm:max-w-none">
+            {tierBtn('high', 'High')}
+            {tierBtn('medium', 'Med')}
+            {tierBtn('low', 'Low')}
+          </div>
         </div>
       </div>
     </div>
@@ -133,23 +195,15 @@ export function DraggableTasks({
 }: DraggableTasksProps) {
   const [isReordering, setIsReordering] = useState(false)
 
-  const handleMoveToTop = async (index: number) => {
-    if (index === 0 || isReordering) return
-
+  const handleSetPriority = async (taskId: string, priority: TaskPriority) => {
+    if (isReordering) return
     setIsReordering(true)
     try {
-      const newTasks = [...tasks]
-      const [taskToMove] = newTasks.splice(index, 1)
-      newTasks.unshift(taskToMove)
-
-      const taskOrders = newTasks.map((task, idx) => ({
-        id: task.id,
-        sort_order: idx + 1,
-      }))
-
+      const taskOrders = computeTaskOrderAfterPriorityChange(tasks, taskId, priority)
+      if (taskOrders.length === 0) return
       await onReorder(taskOrders)
     } catch (error) {
-      console.error('Error moving task to top:', error)
+      console.error('Error updating task priority:', error)
     } finally {
       setIsReordering(false)
     }
@@ -166,16 +220,15 @@ export function DraggableTasks({
 
   return (
     <div className="space-y-3">
-      {tasks.map((task, index) => (
+      {tasks.map((task) => (
         <TaskItem
           key={task.id}
           task={task}
-          index={index}
           onToggleTask={onToggleTask}
           onEditTask={onEditTask}
           onConvertToGoal={onConvertToGoal}
           onDeleteTask={onDeleteTask}
-          onMoveToTop={handleMoveToTop}
+          onSetPriority={handleSetPriority}
           isReordering={isReordering}
         />
       ))}

@@ -1519,7 +1519,9 @@ export default function Dashboard() {
     }
   }
 
-  const reorderTasks = async (taskOrders: { id: string; sort_order: number }[]) => {
+  const reorderTasks = async (
+    taskOrders: { id: string; sort_order: number; priority?: string }[]
+  ) => {
     try {
       const response = await fetch('/api/tasks/reorder', {
         method: 'POST',
