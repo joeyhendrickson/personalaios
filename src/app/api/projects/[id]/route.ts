@@ -6,6 +6,7 @@ import { z } from 'zod'
 const updateProjectSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   description: z.string().optional(),
+  goal_id: z.string().uuid().nullable().optional(),
   category: z.string().min(1).max(100).optional(),
   target_points: z.number().int().min(0).optional(),
   target_money: z.number().min(0).optional(),

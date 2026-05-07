@@ -26,6 +26,9 @@ interface ChatMessage {
   content: string
 }
 
+type OnboardingChoice = { id: 'new' | 'returning'; label: string }
+type GoalProposal = { id: string; preview: string; payload: Record<string, unknown> }
+
 interface ChatInterfaceProps {
   onGoalCreated?: () => void
   onTaskCreated?: () => void
@@ -194,6 +197,13 @@ What would you like to focus on today? Try asking me about having a "happy day" 
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  // Assistant onboarding state (new users / empty dashboard)
+  const [onboardingActive, setOnboardingActive] = useState(false)
+  const [onboardingPrompt, setOnboardingPrompt] = useState<string | null>(null)
+  const [onboardingChoices, setOnboardingChoices] = useState<OnboardingChoice[] | null>(null)
+  const [onboardingStep, setOnboardingStep] = useState<number>(0)
+  const [goalProposals, setGoalProposals] = useState<GoalProposal[]>([])
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
@@ -201,6 +211,170 @@ What would you like to focus on today? Try asking me about having a "happy day" 
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // Bootstraps onboarding when chat opens for an empty dashboard user.
+  useEffect(() => {
+    const bootstrap = async () => {
+      if (!isExpanded) return
+      try {
+        const res = await fetch('/api/assistant/onboarding/status', {
+          method: 'GET',
+          credentials: 'same-origin',
+        })
+        if (!res.ok) return
+        const data = (await res.json()) as {
+          isEmptyDashboard?: boolean
+          onboarding?: { status?: string; step?: number }
+        }
+        const shouldOnboard =
+          Boolean(data.isEmptyDashboard) &&
+          (data.onboarding?.status === 'not_started' || data.onboarding?.status === 'in_progress')
+        if (!shouldOnboard) return
+
+        setOnboardingActive(true)
+        // Ask the gate question (choice)
+        const r = await fetch('/api/assistant/onboarding/respond', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+        if (!r.ok) return
+        const payload = (await r.json()) as {
+          status: string
+          prompt?: string
+          choices?: OnboardingChoice[]
+          question?: string
+          step?: number
+        }
+        if (payload.status === 'needs_choice') {
+          setOnboardingPrompt(payload.prompt || 'Are you new to Lifestacks?')
+          setOnboardingChoices(
+            payload.choices || [
+              { id: 'new', label: "I'm new / not set up" },
+              { id: 'returning', label: "I've used it" },
+            ]
+          )
+          setOnboardingStep(0)
+        } else if (payload.status === 'question') {
+          setOnboardingPrompt(payload.question || null)
+          setOnboardingChoices(null)
+          setOnboardingStep(payload.step || 1)
+        }
+      } catch {
+        // ignore
+      }
+    }
+    void bootstrap()
+  }, [isExpanded])
+
+  const sendOnboardingChoice = async (choice: 'new' | 'returning') => {
+    setIsLoading(true)
+    try {
+      const r = await fetch('/api/assistant/onboarding/respond', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ choice }),
+      })
+      const payload = await r.json()
+      if (payload.status === 'skipped') {
+        setOnboardingActive(false)
+        setOnboardingPrompt(null)
+        setOnboardingChoices(null)
+        return
+      }
+      if (payload.status === 'question') {
+        setOnboardingPrompt(payload.question || null)
+        setOnboardingChoices(null)
+        setOnboardingStep(payload.step || 1)
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const submitOnboardingAnswer = async (answer: string) => {
+    setIsLoading(true)
+    try {
+      // mirror into chat log
+      setMessages((prev) => [
+        ...prev,
+        { id: Date.now().toString(), role: 'user', content: answer.trim() },
+      ])
+
+      const r = await fetch('/api/assistant/onboarding/respond', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answer }),
+      })
+      const payload = await r.json()
+      if (payload.status === 'question') {
+        setOnboardingPrompt(payload.question || null)
+        setOnboardingChoices(null)
+        setOnboardingStep(payload.step || onboardingStep + 1)
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: payload.question || '',
+          },
+        ])
+      } else if (payload.status === 'recommendations') {
+        setOnboardingPrompt(payload.message || null)
+        setGoalProposals((payload.proposals || []) as GoalProposal[])
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: payload.message || 'Here are some goal options to confirm.',
+          },
+        ])
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const commitGoalProposal = async (proposalId: string) => {
+    setIsLoading(true)
+    try {
+      const r = await fetch('/api/assistant/actions/commit', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proposalId }),
+      })
+      const payload = await r.json()
+      if (r.ok) {
+        setGoalProposals((prev) => prev.filter((p) => p.id !== proposalId))
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: `Added goal to your dashboard: ${(payload.goal?.title as string) || 'New goal'}.`,
+          },
+        ])
+        // Let the app refresh goals panels where used
+        window.dispatchEvent(new CustomEvent('goals-refreshed'))
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: `Failed to add goal: ${payload.error || 'Unknown error'}`,
+          },
+        ])
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const quickActions = [
     {
@@ -260,6 +434,12 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
     console.log('=== CHAT SUBMIT CALLED ===', { input: input.trim(), isLoading })
     e.preventDefault()
     if (!input.trim() || isLoading) return
+
+    if (onboardingActive) {
+      await submitOnboardingAnswer(input.trim())
+      setInput('')
+      return
+    }
 
     // Use the extracted submitMessage function
     await submitMessage(input.trim())
@@ -896,6 +1076,49 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {onboardingActive && onboardingPrompt && (
+          <div className="bg-white border rounded-lg p-4">
+            <div className="text-sm font-medium mb-2">Getting you set up</div>
+            <div className="text-sm text-gray-800 whitespace-pre-wrap">{onboardingPrompt}</div>
+            {onboardingChoices && onboardingChoices.length > 0 && (
+              <div className="mt-3 flex gap-2">
+                {onboardingChoices.map((c) => (
+                  <Button
+                    key={c.id}
+                    variant="outline"
+                    disabled={isLoading}
+                    onClick={() => void sendOnboardingChoice(c.id)}
+                  >
+                    {c.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {onboardingActive && goalProposals.length > 0 && (
+          <div className="space-y-3">
+            {goalProposals.map((p) => (
+              <div key={p.id} className="bg-gray-50 border rounded-lg p-4">
+                <div className="text-sm whitespace-pre-wrap text-gray-900">{p.preview}</div>
+                <div className="mt-3 flex gap-2">
+                  <Button disabled={isLoading} onClick={() => void commitGoalProposal(p.id)}>
+                    Confirm & Add
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={isLoading}
+                    onClick={() => setGoalProposals((prev) => prev.filter((x) => x.id !== p.id))}
+                  >
+                    Skip
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {messages.map((message) => (
           <div key={message.id}>{formatMessage(message)}</div>
         ))}

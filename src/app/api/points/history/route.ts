@@ -55,12 +55,16 @@ export async function GET(request: NextRequest) {
       pointsEntries?.map((entry) => {
         const proj = (entry as { dashboard_project?: { title?: string; category?: string } })
           .dashboard_project
-        const isGoalProgress = entry.weekly_goal_id && proj
+        const isProjectProgress = entry.weekly_goal_id && proj
         const isTaskCompletion = entry.task_id && entry.tasks
 
         return {
           id: entry.id,
-          type: isGoalProgress ? 'goal_progress' : isTaskCompletion ? 'task_completion' : 'other',
+          type: isProjectProgress
+            ? 'project_progress'
+            : isTaskCompletion
+              ? 'task_completion'
+              : 'other',
           points: entry.points,
           description: entry.description,
           created_at: entry.created_at,
@@ -72,8 +76,8 @@ export async function GET(request: NextRequest) {
                   status: (entry as any).tasks.status,
                 }
               : null,
-            goal:
-              isGoalProgress && proj
+            project:
+              isProjectProgress && proj
                 ? {
                     title: proj.title,
                     category: proj.category,

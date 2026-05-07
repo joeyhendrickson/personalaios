@@ -24,14 +24,14 @@ import type { Goal } from '@/types'
 type DragHandleSlot = ReactNode
 
 function SortableProjectCard({
-  goal,
+  project,
   renderProject,
 }: {
-  goal: Goal
-  renderProject: (goal: Goal, slot: { dragHandle: DragHandleSlot }) => ReactNode
+  project: Goal
+  renderProject: (project: Goal, slot: { dragHandle: DragHandleSlot }) => ReactNode
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: goal.id,
+    id: project.id,
   })
 
   const style: CSSProperties = {
@@ -54,7 +54,7 @@ function SortableProjectCard({
 
   return (
     <div ref={setNodeRef} style={style} className={isDragging ? 'opacity-70' : undefined}>
-      {renderProject(goal, { dragHandle })}
+      {renderProject(project, { dragHandle })}
     </div>
   )
 }
@@ -66,7 +66,7 @@ export function DraggableProjectsGrid({
 }: {
   projects: Goal[]
   onReorder: (orders: { id: string; project_sort_order: number }[]) => Promise<void>
-  renderProject: (goal: Goal, slot: { dragHandle: DragHandleSlot }) => ReactNode
+  renderProject: (project: Goal, slot: { dragHandle: DragHandleSlot }) => ReactNode
 }) {
   const [busy, setBusy] = useState(false)
 
@@ -108,8 +108,8 @@ export function DraggableProjectsGrid({
         <div
           className={`grid grid-cols-1 lg:grid-cols-2 gap-4 ${busy ? 'pointer-events-none opacity-80' : ''}`}
         >
-          {projects.map((goal) => (
-            <SortableProjectCard key={goal.id} goal={goal} renderProject={renderProject} />
+          {projects.map((project) => (
+            <SortableProjectCard key={project.id} project={project} renderProject={renderProject} />
           ))}
         </div>
       </SortableContext>

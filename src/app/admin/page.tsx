@@ -211,6 +211,7 @@ export default function AdminDashboard() {
   const [recentActivity, setRecentActivity] = useState<ActivityLog[]>([])
   // const [newUsers, setNewUsers] = useState<User[]>([])
   const [bugReports, setBugReports] = useState<BugReport[]>([])
+  const [userChallenges, setUserChallenges] = useState<any[]>([])
   const [trials, setTrials] = useState<TrialSubscription[]>([])
   const [trialStats, setTrialStats] = useState<TrialStats | null>(null)
   const [standardSubscriptions, setStandardSubscriptions] = useState<StandardSubscription[]>([])
@@ -301,6 +302,13 @@ export default function AdminDashboard() {
       if (bugReportsResponse.ok) {
         const bugReportsData = await bugReportsResponse.json()
         setBugReports(bugReportsData.bugReports || [])
+      }
+
+      // Fetch user-reported productivity challenges
+      const challengesResponse = await fetch('/api/admin/user-challenges')
+      if (challengesResponse.ok) {
+        const challengesData = await challengesResponse.json()
+        setUserChallenges(challengesData.challenges || [])
       }
 
       // Fetch trial subscriptions
@@ -715,6 +723,34 @@ export default function AdminDashboard() {
                 ))
               ) : (
                 <p className="text-gray-500 text-center py-4">No bug reports</p>
+              )}
+            </div>
+          </Card>
+
+          {/* User Reported Challenges */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <Activity className="h-5 w-5 mr-2 text-blue-500" />
+              User Challenges
+            </h3>
+            <div className="space-y-3">
+              {userChallenges.length > 0 ? (
+                userChallenges.slice(0, 8).map((c) => (
+                  <div key={c.id} className="p-3 rounded-lg border bg-blue-50 border-blue-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge variant="outline" className="text-xs bg-white border-blue-300">
+                        {c.severity}
+                      </Badge>
+                      <span className="text-xs text-gray-500">{formatDate(c.created_at)}</span>
+                    </div>
+                    <p className="text-sm text-gray-900 line-clamp-3">{c.message}</p>
+                    {Array.isArray(c.tags) && c.tags.length > 0 && (
+                      <p className="text-xs text-gray-600 mt-2">Tags: {c.tags.join(', ')}</p>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">No user challenges logged</p>
               )}
             </div>
           </Card>

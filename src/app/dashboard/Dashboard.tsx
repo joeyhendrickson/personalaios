@@ -1285,7 +1285,7 @@ export default function Dashboard() {
 
       // Show success message
       alert(
-        `AI Categorization Complete!\n\n${result.message}\n\nUpdated ${result.categorized} goals with new categories.`
+        `AI Categorization Complete!\n\n${result.message}\n\nUpdated ${result.categorized} dashboard projects with new categories.`
       )
     } catch (error) {
       console.error('Error categorizing goals:', error)
@@ -3066,17 +3066,27 @@ export default function Dashboard() {
                         <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                         <p className="text-gray-600 text-sm">No accomplishments yet</p>
                         <p className="text-gray-500 text-xs mt-1">
-                          Complete goals or tasks to see your progress here
+                          Complete projects or tasks to see your progress here
                         </p>
                       </div>
                     ) : (
                       accomplishments.map((accomplishment) => {
-                        const isGoalProgress = accomplishment.type === 'goal_progress'
-                        const isTaskCompletion = accomplishment.type === 'task_completion'
+                        const ac = accomplishment as {
+                          type: string
+                          details?: {
+                            project?: { title?: string; category?: string }
+                            goal?: { title?: string; category?: string }
+                            task?: { title?: string }
+                          }
+                        }
+                        const proj = ac.details?.project ?? ac.details?.goal
+                        const isProjectProgress =
+                          ac.type === 'project_progress' || ac.type === 'goal_progress'
+                        const isTaskCompletion = ac.type === 'task_completion'
 
                         const getIcon = () => {
-                          if (isGoalProgress) {
-                            const category = (accomplishment as any).details.goal?.category
+                          if (isProjectProgress) {
+                            const category = proj?.category
                             return category === 'quick_money'
                               ? '⚡'
                               : category === 'save_money'
@@ -3113,8 +3123,8 @@ export default function Dashboard() {
                         }
 
                         const getTitle = () => {
-                          if (isGoalProgress) {
-                            return `Progress on "${(accomplishment as any).details.goal?.title}"`
+                          if (isProjectProgress) {
+                            return `Progress on "${proj?.title}"`
                           } else if (isTaskCompletion) {
                             return `Completed "${(accomplishment as any).details.task?.title}"`
                           }

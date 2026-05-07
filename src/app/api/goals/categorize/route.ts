@@ -356,7 +356,7 @@ function predictCategoryFallback(title: string, description?: string): string {
   return 'other'
 }
 
-// POST /api/goals/categorize - Categorize all goals using AI
+// POST /api/goals/categorize — categorizes dashboard **projects** (`projects` table), not rows in `goals`.
 export async function POST() {
   try {
     const supabase = await createClient()
@@ -370,58 +370,54 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get all goals for the user
-    console.log('Fetching goals for user:', user.id)
-    const { data: goals, error: goalsError } = await supabase
+    console.log('Fetching dashboard projects for user:', user.id)
+    const { data: dashboardProjects, error: projectsError } = await supabase
       .from('projects')
       .select('id, title, description, category')
       .eq('user_id', user.id)
 
-    if (goalsError) {
-      console.error('Error fetching goals:', goalsError)
-      return NextResponse.json({ error: 'Failed to fetch goals' }, { status: 500 })
+    if (projectsError) {
+      console.error('Error fetching projects:', projectsError)
+      return NextResponse.json({ error: 'Failed to fetch dashboard projects' }, { status: 500 })
     }
 
-    console.log('Found goals:', goals?.length || 0)
-    if (!goals || goals.length === 0) {
+    console.log('Found projects:', dashboardProjects?.length || 0)
+    if (!dashboardProjects || dashboardProjects.length === 0) {
       return NextResponse.json({
-        message: 'No goals found to categorize',
+        message: 'No dashboard projects found to categorize',
         categorized: 0,
       })
     }
 
-    // Categorize each goal
     const categorizationResults = []
     let categorizedCount = 0
 
-    for (const goal of goals) {
+    for (const project of dashboardProjects) {
       try {
-        // Predict category using fallback function directly
-        const newCategory = predictCategoryFallback(goal.title, goal.description || '')
-        console.log(`Categorizing "${goal.title}": ${goal.category} -> ${newCategory}`)
+        const newCategory = predictCategoryFallback(project.title, project.description || '')
+        console.log(`Categorizing "${project.title}": ${project.category} -> ${newCategory}`)
 
-        // Only update if category is different
-        if (newCategory !== goal.category) {
+        if (newCategory !== project.category) {
           const { error: updateError } = await supabase
             .from('projects')
             .update({ category: newCategory })
-            .eq('id', goal.id)
+            .eq('id', project.id)
 
           if (updateError) {
-            console.error('Error updating goal category:', updateError)
+            console.error('Error updating project category:', updateError)
             categorizationResults.push({
-              goalId: goal.id,
-              title: goal.title,
-              oldCategory: goal.category,
+              projectId: project.id,
+              title: project.title,
+              oldCategory: project.category,
               newCategory,
               success: false,
               error: updateError.message,
             })
           } else {
             categorizationResults.push({
-              goalId: goal.id,
-              title: goal.title,
-              oldCategory: goal.category,
+              projectId: project.id,
+              title: project.title,
+              oldCategory: project.category,
               newCategory,
               success: true,
             })
@@ -429,32 +425,32 @@ export async function POST() {
           }
         } else {
           categorizationResults.push({
-            goalId: goal.id,
-            title: goal.title,
-            oldCategory: goal.category,
+            projectId: project.id,
+            title: project.title,
+            oldCategory: project.category,
             newCategory,
             success: true,
             message: 'Category already correct',
           })
         }
       } catch (error) {
-        console.error('Error categorizing goal:', goal.title, error)
+        console.error('Error categorizing project:', project.title, error)
         categorizationResults.push({
-          goalId: goal.id,
-          title: goal.title,
-          oldCategory: goal.category,
-          newCategory: goal.category,
+          projectId: project.id,
+          title: project.title,
+          oldCategory: project.category,
+          newCategory: project.category,
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',
         })
       }
     }
 
-    console.log('Categorization complete:', { categorizedCount, total: goals.length })
+    console.log('Categorization complete:', { categorizedCount, total: dashboardProjects.length })
     return NextResponse.json({
-      message: `Successfully categorized ${categorizedCount} out of ${goals.length} goals`,
+      message: `Successfully updated categories for ${categorizedCount} of ${dashboardProjects.length} dashboard projects`,
       categorized: categorizedCount,
-      total: goals.length,
+      total: dashboardProjects.length,
       results: categorizationResults,
     })
   } catch (error) {

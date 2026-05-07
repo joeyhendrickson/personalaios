@@ -5,11 +5,18 @@ import { Star, Calendar, TrendingUp, Target, CheckCircle } from 'lucide-react'
 
 interface Accomplishment {
   id: string
-  type: 'goal_progress' | 'task_completion' | 'other'
+  /** `goal_progress` is legacy — dashboard project progress uses `project_progress`. */
+  type: 'project_progress' | 'goal_progress' | 'task_completion' | 'other'
   points: number
   description: string
   created_at: string
   details: {
+    project?: {
+      id: string
+      title: string
+      category: string
+    } | null
+    /** @deprecated Legacy alias for `project` (weekly_goal / dashboard project). */
     goal?: {
       id: string
       title: string
@@ -81,12 +88,15 @@ export function AccomplishmentsHistory() {
     })
   }
 
+  const dashboardProject = (a: Accomplishment) => a.details.project ?? a.details.goal
+
   const getIcon = (accomplishment: Accomplishment) => {
-    const isGoalProgress = accomplishment.type === 'goal_progress'
+    const isProjectProgress =
+      accomplishment.type === 'project_progress' || accomplishment.type === 'goal_progress'
     const isTaskCompletion = accomplishment.type === 'task_completion'
 
-    if (isGoalProgress) {
-      const category = accomplishment.details.goal?.category
+    if (isProjectProgress) {
+      const category = dashboardProject(accomplishment)?.category
       return category === 'quick_money'
         ? '⚡'
         : category === 'save_money'
@@ -123,11 +133,12 @@ export function AccomplishmentsHistory() {
   }
 
   const getTitle = (accomplishment: Accomplishment) => {
-    const isGoalProgress = accomplishment.type === 'goal_progress'
+    const isProjectProgress =
+      accomplishment.type === 'project_progress' || accomplishment.type === 'goal_progress'
     const isTaskCompletion = accomplishment.type === 'task_completion'
 
-    if (isGoalProgress) {
-      return `Progress on "${accomplishment.details.goal?.title}"`
+    if (isProjectProgress) {
+      return `Progress on "${dashboardProject(accomplishment)?.title}"`
     } else if (isTaskCompletion) {
       return `Completed "${accomplishment.details.task?.title}"`
     }
@@ -135,11 +146,12 @@ export function AccomplishmentsHistory() {
   }
 
   const getTypeLabel = (accomplishment: Accomplishment) => {
-    const isGoalProgress = accomplishment.type === 'goal_progress'
+    const isProjectProgress =
+      accomplishment.type === 'project_progress' || accomplishment.type === 'goal_progress'
     const isTaskCompletion = accomplishment.type === 'task_completion'
 
-    if (isGoalProgress) {
-      return 'Goal Progress'
+    if (isProjectProgress) {
+      return 'Project Progress'
     } else if (isTaskCompletion) {
       return 'Task Completion'
     }

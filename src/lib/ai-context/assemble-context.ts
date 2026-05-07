@@ -64,6 +64,31 @@ function formatStructuredState(s: StructuredStateSummary | null): string {
 
   const topProjectsFmt = topDp.map((p) => `${p.title} (${p.progress})`).join('; ') || 'None'
 
+  // Planning maturity heuristics (uses goals vs projects counts and optional projects.goal_id linkage)
+  const goalCount = s.totalGoals ?? 0
+  const projectCount = totalProjects
+  const taskCount = s.totalTasks ?? 0
+  const maturityFlags: string[] = []
+  if (goalCount === 0) maturityFlags.push('No quantifiable goals set (recommended: 2–5).')
+  if (goalCount > 5)
+    maturityFlags.push('Too many goals (recommended: 2–5). Consider narrowing focus.')
+  if (projectCount === 0) maturityFlags.push('No active projects. Add 1–3 projects per goal.')
+  if (projectCount > 15)
+    maturityFlags.push('High work-in-progress (15+ projects). Risk of fragmentation/burnout.')
+  if (taskCount < Math.max(2 * Math.max(projectCount, 1), 5))
+    maturityFlags.push('Low task breakdown for current projects. Add 2–7 tasks per project.')
+  if (taskCount > 120)
+    maturityFlags.push('Very high task count. Consider pruning or clarifying next actions.')
+
+  const linked = typeof s.linkedProjectsCount === 'number' ? s.linkedProjectsCount : 0
+  const orphan = typeof s.orphanProjectsCount === 'number' ? s.orphanProjectsCount : 0
+  const goalsWithProjects =
+    typeof s.goalsWithProjectsCount === 'number' ? s.goalsWithProjectsCount : 0
+  if (goalCount > 0 && goalsWithProjects === 0)
+    maturityFlags.push('No projects are linked to goals yet. Link 1–3 projects per goal.')
+  if (orphan > 0 && goalCount > 0)
+    maturityFlags.push('Some projects are not linked to any goal (orphans).')
+
   return `DASHBOARD STATE:
 - Points: Weekly ${s.weeklyPoints}, Daily ${s.dailyPoints}
 - Has Good Living Category: ${hasGoodLiving}
@@ -77,7 +102,13 @@ function formatStructuredState(s: StructuredStateSummary | null): string {
 - Priorities: ${s.topPriorities.map((p) => p.title).join('; ') || 'None'}
 - Fire: ${s.firePriorities.map((p) => p.title).join('; ') || 'None'}
 - Relationships: ${s.relationships?.map((r) => `${r.name} (${r.lastInteraction || 'Never'})`).join('; ') || 'None'}
-- Module data: ${s.moduleSummaries.map((m) => `${m.moduleId}: ${m.summary}`).join('; ') || 'None'}`
+- Module data: ${s.moduleSummaries.map((m) => `${m.moduleId}: ${m.summary}`).join('; ') || 'None'}
+
+PLANNING MATURITY (heuristics):
+- Goals recommended: 2–5; Projects recommended: 6–15 total; Tasks recommended: ~2–7 per project.
+- Current: goals=${goalCount}, projects=${projectCount}, tasks=${taskCount}
+- Goal↔Project links: linked_projects=${linked}, orphan_projects=${orphan}, goals_with_projects=${goalsWithProjects}
+- Flags: ${maturityFlags.join(' | ') || 'Looks within normal ranges.'}`
 }
 
 function formatDerived(d: DerivedInsightsSummary | null): string {

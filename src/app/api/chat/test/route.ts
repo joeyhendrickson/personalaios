@@ -19,18 +19,18 @@ export async function GET() {
     console.log('Chat test user authenticated:', user.id)
 
     // Test basic data fetching
-    const { data: goals, error: goalsError } = await supabase
+    const { data: dashboardProjects, error: projectsError } = await supabase
       .from('projects')
       .select('*')
       .eq('user_id', user.id)
       .limit(3)
 
-    if (goalsError) {
-      console.error('Chat test goals error:', goalsError)
+    if (projectsError) {
+      console.error('Chat test projects error:', projectsError)
       return NextResponse.json(
         {
-          error: 'Failed to fetch goals',
-          details: goalsError.message,
+          error: 'Failed to fetch dashboard projects',
+          details: projectsError.message,
         },
         { status: 500 }
       )
@@ -39,8 +39,8 @@ export async function GET() {
     return NextResponse.json({
       message: 'Chat test successful',
       user_id: user.id,
-      goals_count: goals?.length || 0,
-      sample_goals: goals?.slice(0, 2) || [],
+      projects_count: dashboardProjects?.length || 0,
+      sample_projects: dashboardProjects?.slice(0, 2) || [],
     })
   } catch (error) {
     console.error('Chat test error:', error)

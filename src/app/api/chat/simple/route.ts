@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     logUserId = user.id
 
     // Get basic user data
-    const { data: goals } = await supabase
+    const { data: dashboardProjects } = await supabase
       .from('projects')
       .select('*')
       .eq('user_id', user.id)
@@ -36,9 +36,9 @@ export async function POST(req: Request) {
     const { data: tasks } = await supabase.from('tasks').select('*').eq('user_id', user.id).limit(3)
 
     const userContext = {
-      goalsCount: goals?.length || 0,
+      projectsCount: dashboardProjects?.length || 0,
       tasksCount: tasks?.length || 0,
-      sampleGoals: goals?.slice(0, 2) || [],
+      sampleProjects: dashboardProjects?.slice(0, 2) || [],
     }
 
     console.log('User context:', userContext)
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       messages: [
         {
           role: 'system',
-          content: `You are a helpful productivity assistant. The user has ${userContext.goalsCount} goals and ${userContext.tasksCount} tasks. Be friendly and helpful.`,
+          content: `You are a helpful productivity assistant. The user has ${userContext.projectsCount} dashboard projects (not the same as long-term Goals in the Goals feature) and ${userContext.tasksCount} tasks. Be friendly and helpful.`,
         },
         ...messages,
       ],

@@ -15,6 +15,7 @@ import {
   Calendar,
   BarChart3,
   Target,
+  FolderKanban,
   CheckCircle,
   Zap,
   Lock,
@@ -32,7 +33,10 @@ export default function ProfilePage() {
   const { user, signOut } = useAuth()
   const router = useRouter()
   const [stats, setStats] = useState({
+    /** Rows in `goals` (user goals feature), not dashboard `projects`. */
     totalGoals: 0,
+    /** Dashboard projects (`projects` table). */
+    totalProjects: 0,
     totalTasks: 0,
     completedTasks: 0,
     totalPoints: 0,
@@ -72,21 +76,24 @@ export default function ProfilePage() {
     try {
       const supabase = createClient()
 
-      // Fetch goals count
-      const { count: goalsCount } = await supabase
-        .from('projects')
-        .select('*', { count: 'exact', head: true })
+      const uid = user?.id
+      if (!uid) return
 
-      // Fetch tasks count
-      const { count: tasksCount } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-
-      // Fetch completed tasks count
-      const { count: completedTasksCount } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'completed')
+      const [
+        { count: goalsCount },
+        { count: projectsCount },
+        { count: tasksCount },
+        { count: completedTasksCount },
+      ] = await Promise.all([
+        supabase.from('goals').select('*', { count: 'exact', head: true }).eq('user_id', uid),
+        supabase.from('projects').select('*', { count: 'exact', head: true }).eq('user_id', uid),
+        supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('user_id', uid),
+        supabase
+          .from('tasks')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', uid)
+          .eq('status', 'completed'),
+      ])
 
       // Fetch total points
       const { data: pointsData } = await supabase
@@ -111,6 +118,7 @@ export default function ProfilePage() {
 
       setStats({
         totalGoals: goalsCount || 0,
+        totalProjects: projectsCount || 0,
         totalTasks: tasksCount || 0,
         completedTasks: completedTasksCount || 0,
         totalPoints,
@@ -479,11 +487,17 @@ export default function ProfilePage() {
                       <p className="text-gray-600">Loading statistics...</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                       <div className="text-center p-4 bg-blue-50 rounded-lg">
                         <Target className="h-8 w-8 text-blue-600 mx-auto mb-2" />
                         <div className="text-2xl font-bold text-blue-900">{stats.totalGoals}</div>
-                        <div className="text-sm text-blue-700">Total Goals</div>
+                        <div className="text-sm text-blue-700">Goals</div>
+                      </div>
+
+                      <div className="text-center p-4 bg-sky-50 rounded-lg">
+                        <FolderKanban className="h-8 w-8 text-sky-600 mx-auto mb-2" />
+                        <div className="text-2xl font-bold text-sky-900">{stats.totalProjects}</div>
+                        <div className="text-sm text-sky-700">Projects</div>
                       </div>
 
                       <div className="text-center p-4 bg-green-50 rounded-lg">

@@ -19,19 +19,31 @@ export async function POST() {
     }
     console.log('[Project-Goal-Alignment] User authenticated:', user.id)
 
-    // Fetch user's goals and projects
-    console.log('[Project-Goal-Alignment] Fetching goals...')
-    const { data: goals, error: goalsError } = await supabase
+    console.log('[Project-Goal-Alignment] Fetching user goals (goals table)...')
+    const { data: userGoals, error: userGoalsError } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+
+    if (userGoalsError) {
+      console.error('[Project-Goal-Alignment] Error fetching user goals:', userGoalsError)
+      return NextResponse.json({ error: 'Failed to fetch user goals' }, { status: 500 })
+    }
+    console.log('[Project-Goal-Alignment] User goals fetched:', userGoals?.length || 0)
+
+    console.log('[Project-Goal-Alignment] Fetching dashboard projects (projects table)...')
+    const { data: dashboardProjects, error: projectsError } = await supabase
       .from('projects')
       .select('*')
       .eq('user_id', user.id)
       .eq('is_completed', false)
 
-    if (goalsError) {
-      console.error('[Project-Goal-Alignment] Error fetching goals:', goalsError)
-      return NextResponse.json({ error: 'Failed to fetch goals' }, { status: 500 })
+    if (projectsError) {
+      console.error('[Project-Goal-Alignment] Error fetching projects:', projectsError)
+      return NextResponse.json({ error: 'Failed to fetch dashboard projects' }, { status: 500 })
     }
-    console.log('[Project-Goal-Alignment] Goals fetched:', goals?.length || 0)
+    console.log('[Project-Goal-Alignment] Projects fetched:', dashboardProjects?.length || 0)
 
     // Fetch user's tasks
     console.log('[Project-Goal-Alignment] Fetching tasks...')
@@ -78,13 +90,14 @@ export async function POST() {
 
     // Calculate progress metrics
     console.log('[Project-Goal-Alignment] Calculating progress metrics...')
-    const safeGoals = goals || []
+    const safeUserGoals = userGoals || []
+    const safeProjects = dashboardProjects || []
     const safeTasks = tasks || []
     const safeHabits = habits || []
     const safePriorities = priorities || []
 
-    const totalTargetPoints = safeGoals.reduce((sum, goal) => sum + (goal.target_points || 0), 0)
-    const totalCurrentPoints = safeGoals.reduce((sum, goal) => sum + (goal.current_points || 0), 0)
+    const totalTargetPoints = safeProjects.reduce((sum, p) => sum + (p.target_points || 0), 0)
+    const totalCurrentPoints = safeProjects.reduce((sum, p) => sum + (p.current_points || 0), 0)
     const progressPercentage =
       totalTargetPoints > 0 ? Math.round((totalCurrentPoints / totalTargetPoints) * 100) : 0
 
@@ -96,7 +109,7 @@ export async function POST() {
 
     // Calculate points by category
     console.log('[Project-Goal-Alignment] Calculating category points...')
-    const categoryPoints = [...safeGoals, ...safeTasks].reduce(
+    const categoryPoints = [...safeProjects, ...safeTasks].reduce(
       (acc, item) => {
         const category = item.category || 'Uncategorized'
         if (!acc[category]) {
@@ -104,7 +117,7 @@ export async function POST() {
         }
 
         if ('current_points' in item) {
-          // This is a goal
+          // Dashboard project (`projects` row)
           acc[category].current += item.current_points || 0
           acc[category].target += item.target_points || 0
         } else if ('status' in item) {
@@ -129,14 +142,27 @@ export async function POST() {
     const prompt = `You are a personal productivity and goal achievement expert. Analyze this user's current project-goal alignment and provide actionable insights.
 
 USER'S CURRENT SITUATION:
-- Total Progress: ${progressPercentage}% (${totalCurrentPoints}/${totalTargetPoints} points)
-- Active Goals: ${safeGoals.length}
+- Total Progress (dashboard projects — points): ${progressPercentage}% (${totalCurrentPoints}/${totalTargetPoints} points)
+- User goals (Goals feature / goals table): ${safeUserGoals.length}
+- Active dashboard projects (projects table — week tiles, NOT the same as User goals above): ${safeProjects.length}
 - Active Tasks: ${safeTasks.length}
 - Active Habits: ${safeHabits.length}
 - Current Priorities: ${safePriorities.length}
 
-GOALS BREAKDOWN:
-${safeGoals.length > 0 ? safeGoals.map((goal) => `- ${goal.title || 'Untitled'}: ${goal.current_points || 0}/${goal.target_points || 0} points (${goal.category || 'Uncategorized'})`).join('\n') : '- No active goals'}
+USER GOALS (from Goals feature — quantifiable targets):
+${
+  safeUserGoals.length > 0
+    ? safeUserGoals
+        .map(
+          (g) =>
+            `- ${g.title || 'Untitled'}: current ${g.current_value ?? '—'} / target ${g.target_value ?? '—'} ${g.target_unit || ''} (${g.goal_type || 'goal'})`
+        )
+        .join('\n')
+    : '- No active user goals in the Goals feature'
+}
+
+DASHBOARD PROJECTS (from projects table — distinct from User goals):
+${safeProjects.length > 0 ? safeProjects.map((proj) => `- ${proj.title || 'Untitled'}: ${proj.current_points || 0}/${proj.target_points || 0} points (${proj.category || 'Uncategorized'})`).join('\n') : '- No active dashboard projects'}
 
 TASKS BREAKDOWN:
 ${safeTasks.length > 0 ? safeTasks.map((task) => `- ${task.title || 'Untitled'}: ${task.status || 'unknown'} (${task.category || 'Uncategorized'})`).join('\n') : '- No active tasks'}
@@ -223,18 +249,18 @@ Return your response as a JSON object with this structure:
       // Fallback assessment
       assessment = {
         alignment_score: progressPercentage,
-        overall_assessment: `You're currently at ${progressPercentage}% progress toward your goals. Focus on completing high-impact tasks that directly contribute to your most important goals.`,
+        overall_assessment: `You're at ${progressPercentage}% progress on dashboard project points. Align active projects with your Goals feature targets and focus on high-impact tasks.`,
         key_insights: [
-          `You have ${goals.length} active goals across ${Object.keys(categoryPoints).length} categories`,
-          `Your current progress is ${progressPercentage}% of your target points`,
+          `You have ${safeUserGoals.length} user goals and ${safeProjects.length} active dashboard projects across ${Object.keys(categoryPoints).length} categories`,
+          `Your current dashboard project progress is ${progressPercentage}% of target points`,
           `You have ${tasks.length} active tasks and ${habits.length} habits`,
         ],
         misalignments: [],
         recommendations: [
           {
-            category: 'Goal',
-            action: "Review your goals to ensure they're specific and measurable",
-            reason: 'Clear goals lead to better project alignment',
+            category: 'User goal',
+            action: 'Review your Goals feature targets and ensure dashboard projects support them',
+            reason: 'Clear user goals and linked projects improve alignment',
             priority: 'High',
           },
         ],

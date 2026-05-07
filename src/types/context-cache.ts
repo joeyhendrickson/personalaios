@@ -22,6 +22,12 @@ export interface StructuredStateSummary {
   totalGoals: number
   /** Rows in `projects` table (dashboard "Projects"; formerly weekly_goals); optional for older cache JSON */
   totalDashboardProjects?: number
+  /** How many projects are linked to any goal (via projects.goal_id) */
+  linkedProjectsCount?: number
+  /** Projects with no goal_id set */
+  orphanProjectsCount?: number
+  /** Goals with at least one linked project */
+  goalsWithProjectsCount?: number
   totalTasks: number
   totalHabits: number
   activePriorities: number

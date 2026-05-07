@@ -60,7 +60,7 @@ export async function fetchRawUserData(
   ] = await Promise.all([
     supabase
       .from('projects')
-      .select('*')
+      .select('*, goals(id, title, goal_type)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false }),
     supabase
@@ -256,11 +256,22 @@ export function buildStructuredStateSummary(
   const fmtProjectProgress = (p: Record<string, unknown>) =>
     `${p.current_points ?? 0}/${p.target_points ?? 0}`
 
+  const linkedProjects = raw.dashboardProjects.filter((p) => Boolean(p.goal_id))
+  const orphanProjects = raw.dashboardProjects.filter((p) => !p.goal_id)
+  const goalsWithProjects = new Set<string>()
+  for (const p of linkedProjects) {
+    const gid = p.goal_id
+    if (typeof gid === 'string' && gid) goalsWithProjects.add(gid)
+  }
+
   return {
     weeklyPoints,
     dailyPoints,
     totalGoals: raw.userGoals.length,
     totalDashboardProjects: raw.dashboardProjects.length,
+    linkedProjectsCount: linkedProjects.length,
+    orphanProjectsCount: orphanProjects.length,
+    goalsWithProjectsCount: goalsWithProjects.size,
     totalTasks: raw.tasks.length,
     totalHabits: raw.habits.length,
     activePriorities: raw.priorities.length,

@@ -67,6 +67,33 @@ function sanitizeChatMessages(
   return out
 }
 
+function looksLikeProductivityChallenge(text: string): boolean {
+  const t = text.toLowerCase()
+  if (t.length < 20) return false
+  const hits = [
+    'overwhelmed',
+    'burnout',
+    'burned out',
+    'procrast',
+    'stuck',
+    "can't focus",
+    'cant focus',
+    'too many',
+    'unmotivated',
+    'anxious',
+    'stress',
+    'behind',
+    'avoid',
+    'adhd',
+    'time management',
+    'no time',
+    'not finishing',
+    'not completing',
+    'not making progress',
+  ]
+  return hits.some((h) => t.includes(h))
+}
+
 export async function POST(req: Request) {
   const requestStartMs = Date.now()
   let logUserId: string | null = null
@@ -93,6 +120,24 @@ export async function POST(req: Request) {
 
     logUserId = user.id
     console.log('Chat API user authenticated:', user.id)
+
+    // Best-effort: log user-reported productivity challenges for admin review.
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user')?.content || ''
+    if (looksLikeProductivityChallenge(lastUserMsg)) {
+      try {
+        await supabase.from('user_reported_challenges').insert({
+          user_id: user.id,
+          source: 'productivity_advisor',
+          message: lastUserMsg.slice(0, 4000),
+          context: 'Captured from Productivity Advisor conversation',
+          tags: ['productivity', 'coaching'],
+          severity: lastUserMsg.toLowerCase().includes('burnout') ? 'high' : 'normal',
+          status: 'open',
+        })
+      } catch {
+        // ignore
+      }
+    }
 
     const { systemContext, usedCache } = await assembleAIContext(user.id, {
       messages: messages.map((m: { role: string; content: string }) => ({

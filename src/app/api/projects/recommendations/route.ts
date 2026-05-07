@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch user's active goals (projects) - prioritize by priority and deadline
+    // Fetch user's active dashboard projects — prioritize by priority and deadline
     const { data: goals, error: goalsError } = await supabase
       .from('projects')
       .select(

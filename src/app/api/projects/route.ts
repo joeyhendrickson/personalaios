@@ -6,6 +6,7 @@ import { z } from 'zod'
 const createProjectSchema = z.object({
   title: z.string().min(1).max(255),
   description: z.string().optional(),
+  goal_id: z.string().uuid().optional(),
   category: z
     .string()
     .min(1)
@@ -33,6 +34,7 @@ function rowIsCompleted(v: unknown): boolean {
 const updateProjectSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   description: z.string().optional(),
+  goal_id: z.string().uuid().nullable().optional(),
   category: z
     .string()
     .min(1)
