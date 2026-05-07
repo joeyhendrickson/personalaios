@@ -1946,7 +1946,7 @@ export default function BudgetOptimizerModule() {
 
   const handleSaveManualAccount = async () => {
     if (!manualAccountForm.institution_name || !manualAccountForm.amount) {
-      alert('Please fill in institution name and amount')
+      alert('Please fill in name and amount')
       return
     }
 
@@ -4870,7 +4870,7 @@ export default function BudgetOptimizerModule() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Institution Name <span className="text-red-500">*</span>
+                  Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"

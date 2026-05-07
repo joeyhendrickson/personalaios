@@ -3160,6 +3160,19 @@ export default function Dashboard() {
               </CascadingSection>
             )}
 
+            {/* Daily Habits Section */}
+            {sectionVisibility.habits && (
+              <CascadingSection
+                title={t('section.habits')}
+                icon={<Target className="h-6 w-6 text-pink-500" />}
+                isExpanded={expandedSections.habits}
+                onToggle={() => toggleSectionExpansion('habits')}
+                t={t}
+              >
+                <HabitsSection />
+              </CascadingSection>
+            )}
+
             {/* Category Breakdown */}
             {sectionVisibility.categories && (
               <CascadingSection
@@ -3331,19 +3344,6 @@ export default function Dashboard() {
                     })()}
                   </div>
                 </div>
-              </CascadingSection>
-            )}
-
-            {/* Daily Habits Section */}
-            {sectionVisibility.habits && (
-              <CascadingSection
-                title={t('section.habits')}
-                icon={<Target className="h-6 w-6 text-pink-500" />}
-                isExpanded={expandedSections.habits}
-                onToggle={() => toggleSectionExpansion('habits')}
-                t={t}
-              >
-                <HabitsSection />
               </CascadingSection>
             )}
 

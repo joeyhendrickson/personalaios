@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle, Star, Settings, Target, Trash2 } from 'lucide-react'
+import { ArrowUpToLine, CheckCircle, Star, Settings, Target, Trash2 } from 'lucide-react'
 import { Task } from '@/types'
 
 export type TaskReorderItem = { id: string; sort_order: number; priority?: string }
@@ -64,21 +64,25 @@ function computeTaskOrderAfterPriorityChange(
 
 interface TaskItemProps {
   task: Task
+  index: number
   onToggleTask: (taskId: string) => void
   onEditTask: (task: Task) => void
   onConvertToGoal: (task: Task) => void
   onDeleteTask: (taskId: string) => void
   onSetPriority: (taskId: string, priority: TaskPriority) => void
+  onMoveToTop: (taskId: string) => void
   isReordering: boolean
 }
 
 function TaskItem({
   task,
+  index,
   onToggleTask,
   onEditTask,
   onConvertToGoal,
   onDeleteTask,
   onSetPriority,
+  onMoveToTop,
   isReordering,
 }: TaskItemProps) {
   const current = normalizePriority(task.priority)
@@ -174,7 +178,20 @@ function TaskItem({
 
         <div className="flex-shrink-0 flex flex-col items-end gap-1">
           <span className="text-[10px] uppercase tracking-wide text-gray-500">Priority</span>
-          <div className="flex flex-wrap gap-1 justify-end max-w-[9rem] sm:max-w-none">
+          <div className="flex flex-wrap items-center gap-1 justify-end max-w-[9rem] sm:max-w-none">
+            <button
+              type="button"
+              onClick={() => onMoveToTop(task.id)}
+              disabled={index === 0 || isReordering}
+              className={`p-1 rounded-md border transition-colors ${
+                index === 0 || isReordering
+                  ? 'border-transparent text-gray-300 cursor-not-allowed'
+                  : 'border-gray-200 text-gray-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700'
+              }`}
+              title="Move to top"
+            >
+              <ArrowUpToLine className="h-4 w-4" />
+            </button>
             {tierBtn('high', 'High')}
             {tierBtn('medium', 'Med')}
             {tierBtn('low', 'Low')}
@@ -209,6 +226,21 @@ export function DraggableTasks({
     }
   }
 
+  /** Pin to first row: high priority + first among highs (matches API tier + sort_order rules). */
+  const handleMoveToTop = async (taskId: string) => {
+    if (isReordering) return
+    setIsReordering(true)
+    try {
+      const taskOrders = computeTaskOrderAfterPriorityChange(tasks, taskId, 'high')
+      if (taskOrders.length === 0) return
+      await onReorder(taskOrders)
+    } catch (error) {
+      console.error('Error moving task to top:', error)
+    } finally {
+      setIsReordering(false)
+    }
+  }
+
   if (tasks.length === 0) {
     return (
       <div className="text-center py-8">
@@ -220,15 +252,17 @@ export function DraggableTasks({
 
   return (
     <div className="space-y-3">
-      {tasks.map((task) => (
+      {tasks.map((task, index) => (
         <TaskItem
           key={task.id}
           task={task}
+          index={index}
           onToggleTask={onToggleTask}
           onEditTask={onEditTask}
           onConvertToGoal={onConvertToGoal}
           onDeleteTask={onDeleteTask}
           onSetPriority={handleSetPriority}
+          onMoveToTop={handleMoveToTop}
           isReordering={isReordering}
         />
       ))}

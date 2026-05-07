@@ -44,7 +44,7 @@ export async function GET() {
       .from('goals')
       .select('*')
       .eq('user_id', user.id)
-      .order('priority_level', { ascending: true })
+      .order('priority_level', { ascending: false })
       .order('created_at', { ascending: false })
 
     if (goalsError) {

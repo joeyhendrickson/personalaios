@@ -288,6 +288,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -335,18 +336,27 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         )
       }
 
-      if (responseContent) {
+      let finalContent = responseContent.trim()
+      if (!finalContent) {
+        finalContent =
+          'No reply text arrived from the assistant. Try again in a moment. If it keeps happening, open DevTools → Network, send a message, and inspect the POST /api/chat response.'
         setMessages((prev) =>
           prev.map((msg) =>
-            msg.id === assistantMessageId ? { ...msg, content: responseContent } : msg
+            msg.id === assistantMessageId ? { ...msg, content: finalContent } : msg
+          )
+        )
+      } else if (responseContent !== finalContent) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId ? { ...msg, content: finalContent } : msg
           )
         )
       }
 
       // Speak the complete response if voice is enabled
-      if (responseContent && voiceEnabled) {
+      if (finalContent && voiceEnabled) {
         // Clean and enhance the message for more natural speech
-        const cleanMessage = responseContent
+        const cleanMessage = finalContent
           // Remove markdown formatting
           .replace(/\*\*(.*?)\*\*/g, '$1')
           .replace(/\*(.*?)\*/g, '$1')

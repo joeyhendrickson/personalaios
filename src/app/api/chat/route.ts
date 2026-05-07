@@ -5,12 +5,63 @@ import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
 
+/**
+ * AI SDK normalizes many chunks to `text`; OpenAI still emits `delta` (string or, for some APIs, structured parts).
+ * Missing array-shaped deltas produced empty chat bubbles in production.
+ */
+function textFromStreamPart(part: unknown): string {
+  if (part == null || typeof part !== 'object') return ''
+  const p = part as Record<string, unknown>
+
+  if (typeof p.text === 'string' && p.text.length > 0) return p.text
+
+  const delta = p.delta
+  if (typeof delta === 'string' && delta.length > 0) return delta
+  if (Array.isArray(delta) && delta.length > 0) {
+    return delta
+      .map((block: unknown) => {
+        if (typeof block === 'string') return block
+        if (block != null && typeof block === 'object') {
+          const b = block as Record<string, unknown>
+          if (typeof b.text === 'string') return b.text
+          if (b.type === 'text' && typeof b.text === 'string') return b.text
+        }
+        return ''
+      })
+      .join('')
+  }
+
+  return ''
+}
+
+/** Strip UI-only fields (`id`) so OpenAI / the AI SDK always get valid chat messages. */
+function sanitizeChatMessages(
+  raw: unknown
+): { role: 'user' | 'assistant' | 'system'; content: string }[] {
+  if (!Array.isArray(raw)) return []
+  const out: { role: 'user' | 'assistant' | 'system'; content: string }[] = []
+  for (const m of raw) {
+    if (m == null || typeof m !== 'object') continue
+    const role = (m as { role?: string }).role
+    const content = (m as { content?: unknown }).content
+    if (role !== 'user' && role !== 'assistant' && role !== 'system') continue
+    const text = typeof content === 'string' ? content : ''
+    out.push({ role, content: text })
+  }
+  return out
+}
+
 export async function POST(req: Request) {
   const requestStartMs = Date.now()
   let logUserId: string | null = null
   try {
-    const { messages, language = 'en' } = await req.json()
+    const { messages: rawMessages, language = 'en' } = await req.json()
+    const messages = sanitizeChatMessages(rawMessages)
     console.log('Chat API called with messages:', messages.length, 'language:', language)
+
+    if (messages.length === 0) {
+      return Response.json({ error: 'No valid messages' }, { status: 400 })
+    }
 
     // Get user data for context
     const supabase = await createClient()
@@ -165,43 +216,40 @@ ${language === 'es' ? 'Respond in Spanish (español) for all your messages. Use 
 
     console.log('OpenAI response generated successfully')
 
-    // GPT-5 class models often stream answer tokens as `reasoning-delta` before/instead of `text-delta`.
-    // `toTextStreamResponse()` only forwards `text-delta`, which produced empty bubbles in the chat UI.
+    // Single consumer of `fullStream` only. Do not call `await result.text` after — it runs `consumeStream()`
+    // again on a fresh tee of the same pipeline and often returns empty (blank bubbles on Vercel).
+    // GPT-5 / Responses API: assistant text may stream as text-delta and/or reasoning-delta; both use `text` or `delta`.
     const encoder = new TextEncoder()
     const plainTextStream = new ReadableStream({
       async start(controller) {
         let wrote = false
         try {
           for await (const part of result.fullStream) {
-            if (part.type === 'text-delta') {
-              const text =
-                'text' in part && typeof (part as { text?: string }).text === 'string'
-                  ? (part as { text: string }).text
-                  : ''
-              if (text) {
+            if (part.type === 'error') {
+              const err = part.error
+              const msg = err instanceof Error ? err.message : String(err)
+              controller.enqueue(encoder.encode(`\n[Error] ${msg}`))
+              wrote = true
+              break
+            }
+            if (part.type === 'text-delta' || part.type === 'reasoning-delta') {
+              const chunk = textFromStreamPart(part)
+              if (chunk) {
                 wrote = true
-                controller.enqueue(encoder.encode(text))
-              }
-            } else if (part.type === 'reasoning-delta') {
-              const text =
-                'text' in part && typeof (part as { text?: string }).text === 'string'
-                  ? (part as { text: string }).text
-                  : ''
-              if (text) {
-                wrote = true
-                controller.enqueue(encoder.encode(text))
+                controller.enqueue(encoder.encode(chunk))
               }
             }
           }
           if (!wrote) {
-            const fallback = await result.text
-            if (fallback) {
-              controller.enqueue(encoder.encode(fallback))
-            }
+            controller.enqueue(
+              encoder.encode(
+                'No response text was streamed. Check Vercel function logs for /api/chat, OPENAI_API_KEY, and model access. If this persists, try again in a minute.'
+              )
+            )
           }
         } catch (e) {
-          controller.error(e)
-          return
+          const msg = e instanceof Error ? e.message : 'Unknown error'
+          controller.enqueue(encoder.encode(`\n[Error] ${msg}`))
         }
         controller.close()
       },
