@@ -5,6 +5,22 @@ import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
 
+/** Stream `error` parts are often plain objects, not `Error` — `String(obj)` becomes "[object Object]". */
+function formatStreamError(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  if (err != null && typeof err === 'object') {
+    const o = err as Record<string, unknown>
+    if (typeof o.message === 'string' && o.message.trim()) return o.message
+    try {
+      return JSON.stringify(err)
+    } catch {
+      return 'Unknown error'
+    }
+  }
+  return String(err)
+}
+
 /**
  * AI SDK normalizes many chunks to `text`; OpenAI still emits `delta` (string or, for some APIs, structured parts).
  * Missing array-shaped deltas produced empty chat bubbles in production.
@@ -226,8 +242,7 @@ ${language === 'es' ? 'Respond in Spanish (español) for all your messages. Use 
         try {
           for await (const part of result.fullStream) {
             if (part.type === 'error') {
-              const err = part.error
-              const msg = err instanceof Error ? err.message : String(err)
+              const msg = formatStreamError(part.error)
               controller.enqueue(encoder.encode(`\n[Error] ${msg}`))
               wrote = true
               break
@@ -248,7 +263,7 @@ ${language === 'es' ? 'Respond in Spanish (español) for all your messages. Use 
             )
           }
         } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Unknown error'
+          const msg = formatStreamError(e)
           controller.enqueue(encoder.encode(`\n[Error] ${msg}`))
         }
         controller.close()

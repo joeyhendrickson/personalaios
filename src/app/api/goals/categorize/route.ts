@@ -373,7 +373,7 @@ export async function POST() {
     // Get all goals for the user
     console.log('Fetching goals for user:', user.id)
     const { data: goals, error: goalsError } = await supabase
-      .from('weekly_goals')
+      .from('projects')
       .select('id, title, description, category')
       .eq('user_id', user.id)
 
@@ -403,7 +403,7 @@ export async function POST() {
         // Only update if category is different
         if (newCategory !== goal.category) {
           const { error: updateError } = await supabase
-            .from('weekly_goals')
+            .from('projects')
             .update({ category: newCategory })
             .eq('id', goal.id)
 

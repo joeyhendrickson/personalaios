@@ -78,7 +78,7 @@ export async function POST() {
     // Fetch user's dashboard data
     console.log('[Personalized Recommendations] Fetching dashboard data')
     const [goalsResult, tasksResult, habitsResult, prioritiesResult] = await Promise.all([
-      supabase.from('weekly_goals').select('title, description, category').eq('user_id', user.id),
+      supabase.from('projects').select('title, description, category').eq('user_id', user.id),
       supabase.from('tasks').select('title, description, category').eq('user_id', user.id),
       supabase.from('daily_habits').select('name, description, category').eq('user_id', user.id),
       supabase

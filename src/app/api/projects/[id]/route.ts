@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createWeeklyGoalsBackendClient } from '@/lib/supabase/weekly-goals-backend'
+import { createProjectsBackendClient } from '@/lib/supabase/projects-backend'
 import { z } from 'zod'
 
 const updateProjectSchema = z.object({
@@ -31,11 +31,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = await request.json()
     const validatedData = updateProjectSchema.parse(body)
 
-    const { client: projectsDb } = await createWeeklyGoalsBackendClient()
+    const { client: projectsDb } = await createProjectsBackendClient()
 
     // Verify the project exists and belongs to the user
     const { data: existingProject, error: fetchError } = await projectsDb
-      .from('weekly_goals')
+      .from('projects')
       .select('id, user_id')
       .eq('id', projectId)
       .eq('user_id', user.id)
@@ -46,7 +46,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const { data: updatedProject, error: updateError } = await projectsDb
-      .from('weekly_goals')
+      .from('projects')
       .update(validatedData)
       .eq('id', projectId)
       .eq('user_id', user.id)
@@ -98,11 +98,11 @@ export async function DELETE(
 
     const { id: projectId } = await params
 
-    const { client: projectsDb } = await createWeeklyGoalsBackendClient()
+    const { client: projectsDb } = await createProjectsBackendClient()
 
     // Verify the project exists and belongs to the user
     const { data: existingProject, error: fetchError } = await projectsDb
-      .from('weekly_goals')
+      .from('projects')
       .select('id, user_id')
       .eq('id', projectId)
       .eq('user_id', user.id)
@@ -113,7 +113,7 @@ export async function DELETE(
     }
 
     const { error: deleteError } = await projectsDb
-      .from('weekly_goals')
+      .from('projects')
       .delete()
       .eq('id', projectId)
       .eq('user_id', user.id)

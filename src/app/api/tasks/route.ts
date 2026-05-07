@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       .select(
         `
         *,
-        weekly_goal:weekly_goals(*)
+        weekly_goal:projects(*)
       `
       )
       .eq('user_id', user.id)
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
     // Verify the goal exists and belongs to the user (only if weekly_goal_id is provided)
     if (validatedData.weekly_goal_id) {
       const { data: goal, error: goalError } = await supabase
-        .from('weekly_goals')
+        .from('projects')
         .select('id')
         .eq('id', validatedData.weekly_goal_id)
         .eq('user_id', user.id)
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       .select(
         `
         *,
-        weekly_goal:weekly_goals(*)
+        weekly_goal:projects(*)
       `
       )
       .single()

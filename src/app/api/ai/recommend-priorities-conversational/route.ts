@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
         .order('priority_level', { ascending: true }),
 
       supabase
-        .from('weekly_goals')
+        .from('projects')
         .select('*')
         .eq('user_id', user.id)
         .eq('is_completed', false)
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
 
       // Fetch completed projects for context
       supabase
-        .from('weekly_goals')
+        .from('projects')
         .select('*')
         .eq('user_id', user.id)
         .eq('is_completed', true)

@@ -49,9 +49,9 @@ export async function GET() {
       rate: taskCompletionRate,
     })
 
-    // Fetch projects (stored in weekly_goals table)
+    // Dashboard projects (`projects`)
     const { data: allProjects } = await supabase
-      .from('weekly_goals')
+      .from('projects')
       .select('id, is_completed')
       .eq('user_id', user.id)
 
@@ -96,7 +96,7 @@ export async function GET() {
 
     // Fetch category breakdown
     const { data: projectsWithCategories } = await supabase
-      .from('weekly_goals')
+      .from('projects')
       .select('category, current_points, target_points')
       .eq('user_id', user.id)
 

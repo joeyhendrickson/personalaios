@@ -593,7 +593,7 @@ export default function Dashboard() {
       // Fetch dashboard categories
       await fetchCategories()
 
-      // Fetch projects (weekly_goals)
+      // Fetch dashboard projects (`projects` table)
       const projectsResponse = await fetch('/api/projects', { credentials: 'same-origin' })
       if (projectsResponse.ok) {
         setProjectsFetchError(null)
@@ -2513,7 +2513,7 @@ export default function Dashboard() {
                           <code className="rounded bg-amber-100 px-1">/api/projects?debug=1</code>{' '}
                           (while signed in) and compare{' '}
                           <code className="rounded bg-amber-100 px-1">user_id</code> to{' '}
-                          <code className="rounded bg-amber-100 px-1">weekly_goals.user_id</code> in
+                          <code className="rounded bg-amber-100 px-1">projects.user_id</code> in
                           Supabase.
                         </p>
                       </div>

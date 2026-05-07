@@ -38,7 +38,7 @@ export async function POST(_request: NextRequest, context: { params: Promise<{ i
         .order('priority_level', { ascending: true })
         .limit(12),
       supabase
-        .from('weekly_goals')
+        .from('projects')
         .select('title, description, category, is_completed')
         .eq('user_id', user.id)
         .eq('is_completed', false)
@@ -82,7 +82,7 @@ ${bundle.screenshotContext.slice(0, 2500)}
 USER GOALS:
 ${goalsText}
 
-USER PROJECTS (weekly_goals):
+USER PROJECTS (dashboard "projects" table — not USER GOALS rows from the goals feature):
 ${projectsText}
 
 USER PRIORITIES:

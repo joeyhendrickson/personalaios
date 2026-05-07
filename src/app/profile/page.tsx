@@ -74,7 +74,7 @@ export default function ProfilePage() {
 
       // Fetch goals count
       const { count: goalsCount } = await supabase
-        .from('weekly_goals')
+        .from('projects')
         .select('*', { count: 'exact', head: true })
 
       // Fetch tasks count

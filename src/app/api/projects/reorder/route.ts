@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { createWeeklyGoalsBackendClient } from '@/lib/supabase/weekly-goals-backend'
+import { createProjectsBackendClient } from '@/lib/supabase/projects-backend'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -27,11 +27,11 @@ export async function POST(request: NextRequest) {
     const body = bodySchema.parse(await request.json())
     const { projectOrders } = body
 
-    const { client: projectsDb } = await createWeeklyGoalsBackendClient()
+    const { client: projectsDb } = await createProjectsBackendClient()
 
     const ids = projectOrders.map((p) => p.id)
     const { data: rows, error: fetchError } = await projectsDb
-      .from('weekly_goals')
+      .from('projects')
       .select('id')
       .eq('user_id', user.id)
       .in('id', ids)
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     // Sequential updates: parallel Promise.all on PostgREST builders can mis-fire; verify each row.
     for (const item of projectOrders) {
       const { data, error } = await projectsDb
-        .from('weekly_goals')
+        .from('projects')
         .update({ project_sort_order: item.project_sort_order })
         .eq('id', item.id)
         .eq('user_id', user.id)
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
             details: error.message,
             code: error.code,
             hint: missingColumn
-              ? 'Database may be missing column weekly_goals.project_sort_order. Apply migration 041_weekly_goals_project_sort_order.sql in Supabase.'
+              ? 'Database may be missing column projects.project_sort_order. Apply migration 041_weekly_goals_project_sort_order.sql then 049_rename_weekly_goals_to_projects.sql in Supabase.'
               : undefined,
           },
           { status: 500 }

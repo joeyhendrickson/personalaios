@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     // Test database queries
     const { data: projects, error: projectsError } = await supabase
-      .from('weekly_goals')
+      .from('projects')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })

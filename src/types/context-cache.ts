@@ -18,7 +18,10 @@ export interface StaticProfileSummary {
 export interface StructuredStateSummary {
   weeklyPoints: number
   dailyPoints: number
+  /** Rows in `goals` (weekly/monthly targets), not dashboard projects */
   totalGoals: number
+  /** Rows in `projects` table (dashboard "Projects"; formerly weekly_goals); optional for older cache JSON */
+  totalDashboardProjects?: number
   totalTasks: number
   totalHabits: number
   activePriorities: number
@@ -27,7 +30,8 @@ export interface StructuredStateSummary {
   completedTodayList?: Array<{ title: string; category?: string }>
   categories: string[]
   installedModules: string[]
-  topGoals: Array<{ title: string; category?: string; progress: string }>
+  topGoals: Array<{ title: string; category?: string; progress: string; goalType?: string }>
+  topDashboardProjects?: Array<{ title: string; category?: string; progress: string }>
   topTasks: Array<{ title: string; category?: string; status: string }>
   topPriorities: Array<{ title: string; level?: string }>
   topHabits?: string[]

@@ -22,7 +22,7 @@ export async function POST() {
     // Fetch user's goals and projects
     console.log('[Project-Goal-Alignment] Fetching goals...')
     const { data: goals, error: goalsError } = await supabase
-      .from('weekly_goals')
+      .from('projects')
       .select('*')
       .eq('user_id', user.id)
       .eq('is_completed', false)

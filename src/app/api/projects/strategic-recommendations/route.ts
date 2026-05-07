@@ -18,9 +18,9 @@ export async function GET(request: NextRequest) {
 
     console.log('Generating strategic recommendations for user:', user.id)
 
-    // Fetch user's projects (weekly_goals)
+    // Dashboard projects (`projects`)
     const { data: projects, error: projectsError } = await supabase
-      .from('weekly_goals')
+      .from('projects')
       .select('*')
       .eq('user_id', user.id)
       .eq('is_completed', false)

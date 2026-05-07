@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createWeeklyGoalsBackendClient } from '@/lib/supabase/weekly-goals-backend'
+import { createProjectsBackendClient } from '@/lib/supabase/projects-backend'
 import { z } from 'zod'
 
 const updateProgressSchema = z.object({
@@ -24,11 +24,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = await request.json()
     const { progress } = updateProgressSchema.parse(body)
 
-    const { client: projectsDb } = await createWeeklyGoalsBackendClient()
+    const { client: projectsDb } = await createProjectsBackendClient()
 
     // Get the current project
     const { data: project, error: projectError } = await projectsDb
-      .from('weekly_goals')
+      .from('projects')
       .select('*')
       .eq('id', projectId)
       .eq('user_id', user.id)
@@ -47,7 +47,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     // Update the project
     const { data: updatedProject, error: updateError } = await projectsDb
-      .from('weekly_goals')
+      .from('projects')
       .update({
         current_points: newCurrentPoints,
         is_completed: isCompleted,

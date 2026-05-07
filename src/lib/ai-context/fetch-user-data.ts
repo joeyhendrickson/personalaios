@@ -8,7 +8,10 @@ import { getModuleTables } from './module-mappings'
 import type { StaticProfileSummary, StructuredStateSummary } from '@/types/context-cache'
 
 export interface RawUserData {
-  goals: Record<string, unknown>[]
+  /** Rows from `goals` (user goals — weekly/monthly/etc.) */
+  userGoals: Record<string, unknown>[]
+  /** Dashboard projects (`projects`; formerly weekly_goals) */
+  dashboardProjects: Record<string, unknown>[]
   tasks: Record<string, unknown>[]
   habits: Record<string, unknown>[]
   educationItems: Record<string, unknown>[]
@@ -42,7 +45,8 @@ export async function fetchRawUserData(
   weekStart.setDate(weekStart.getDate() - weekStart.getDay())
 
   const [
-    goalsResult,
+    dashboardProjectsResult,
+    userGoalsResult,
     tasksResult,
     habitsResult,
     educationResult,
@@ -55,7 +59,12 @@ export async function fetchRawUserData(
     profileResult,
   ] = await Promise.all([
     supabase
-      .from('weekly_goals')
+      .from('projects')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('goals')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false }),
@@ -121,7 +130,8 @@ export async function fetchRawUserData(
       (data as { assessment_data?: Record<string, unknown> } | null)?.assessment_data || {}
   }
 
-  const goals = (goalsResult.data || []) as Record<string, unknown>[]
+  const dashboardProjects = (dashboardProjectsResult.data || []) as Record<string, unknown>[]
+  const userGoals = (userGoalsResult.data || []) as Record<string, unknown>[]
   const tasks = (tasksResult.data || []) as Record<string, unknown>[]
   const installedModulesList = (installedModulesResult.data || []) as { module_id: string }[]
 
@@ -166,11 +176,16 @@ export async function fetchRawUserData(
   )
 
   const allCategories = [
-    ...new Set([...goals, ...tasks].map((i) => (i.category as string) || '').filter(Boolean)),
+    ...new Set(
+      [...userGoals, ...dashboardProjects, ...tasks]
+        .map((i) => (i.category as string) || '')
+        .filter(Boolean)
+    ),
   ] as string[]
 
   return {
-    goals,
+    userGoals,
+    dashboardProjects,
     tasks,
     habits: (habitsResult.data || []) as Record<string, unknown>[],
     educationItems: (educationResult.data || []) as Record<string, unknown>[],
@@ -230,10 +245,22 @@ export function buildStructuredStateSummary(
   const firePriorities = (c?.firePriorities ?? []) as Record<string, unknown>[]
   const categories = (c?.categories ?? []) as string[]
 
+  const fmtGoalProgress = (g: Record<string, unknown>) => {
+    const cv = g.current_value
+    const tv = g.target_value
+    const unit = (g.target_unit as string) || ''
+    if (cv != null && tv != null) return `${cv}/${tv}${unit ? ' ' + unit : ''}`
+    return (g.status as string) || 'active'
+  }
+
+  const fmtProjectProgress = (p: Record<string, unknown>) =>
+    `${p.current_points ?? 0}/${p.target_points ?? 0}`
+
   return {
     weeklyPoints,
     dailyPoints,
-    totalGoals: raw.goals.length,
+    totalGoals: raw.userGoals.length,
+    totalDashboardProjects: raw.dashboardProjects.length,
     totalTasks: raw.tasks.length,
     totalHabits: raw.habits.length,
     activePriorities: raw.priorities.length,
@@ -245,10 +272,16 @@ export function buildStructuredStateSummary(
     })),
     categories,
     installedModules: raw.installedModules.map((m) => m.module_id),
-    topGoals: raw.goals.slice(0, 5).map((g) => ({
+    topGoals: raw.userGoals.slice(0, 8).map((g) => ({
       title: (g.title as string) || 'Untitled',
-      category: g.category as string,
-      progress: `${g.current_points ?? 0}/${g.target_points ?? 0}`,
+      goalType: g.goal_type as string | undefined,
+      category: undefined,
+      progress: fmtGoalProgress(g),
+    })),
+    topDashboardProjects: raw.dashboardProjects.slice(0, 8).map((p) => ({
+      title: (p.title as string) || 'Untitled',
+      category: p.category as string | undefined,
+      progress: fmtProjectProgress(p),
     })),
     topTasks: raw.tasks.slice(0, 10).map((t) => ({
       title: (t.title as string) || 'Untitled',

@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
         created_at,
         weekly_goal_id,
         task_id,
-        weekly_goals!points_ledger_weekly_goal_id_fkey (
+        dashboard_project:projects!points_ledger_weekly_goal_id_fkey (
           id,
           title,
           category
@@ -54,7 +54,10 @@ export async function GET(request: NextRequest) {
     // Transform the data into a unified accomplishments format
     const accomplishments =
       pointsEntries?.map((entry) => {
-        const isGoalProgress = entry.weekly_goal_id && entry.weekly_goals
+        const proj = (
+          entry as { dashboard_project?: { id?: string; title?: string; category?: string } }
+        ).dashboard_project
+        const isGoalProgress = entry.weekly_goal_id && proj
         const isTaskCompletion = entry.task_id && entry.tasks
 
         return {
@@ -64,13 +67,14 @@ export async function GET(request: NextRequest) {
           description: entry.description,
           created_at: entry.created_at,
           details: {
-            goal: isGoalProgress
-              ? {
-                  id: (entry as any).weekly_goals.id,
-                  title: (entry as any).weekly_goals.title,
-                  category: (entry as any).weekly_goals.category,
-                }
-              : null,
+            goal:
+              isGoalProgress && proj
+                ? {
+                    id: proj.id,
+                    title: proj.title,
+                    category: proj.category,
+                  }
+                : null,
             task: isTaskCompletion
               ? {
                   id: (entry as any).tasks.id,

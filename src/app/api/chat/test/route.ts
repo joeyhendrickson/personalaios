@@ -20,7 +20,7 @@ export async function GET() {
 
     // Test basic data fetching
     const { data: goals, error: goalsError } = await supabase
-      .from('weekly_goals')
+      .from('projects')
       .select('*')
       .eq('user_id', user.id)
       .limit(3)

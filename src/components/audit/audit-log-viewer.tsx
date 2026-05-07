@@ -78,7 +78,13 @@ export function AuditLogViewer({ limit = 50, showFilters = true }: AuditLogViewe
 
     // Table filter
     if (tableFilter !== 'all') {
-      filtered = filtered.filter((log) => log.table_name === tableFilter)
+      if (tableFilter === 'projects') {
+        filtered = filtered.filter(
+          (log) => log.table_name === 'projects' || log.table_name === 'weekly_goals'
+        )
+      } else {
+        filtered = filtered.filter((log) => log.table_name === tableFilter)
+      }
     }
 
     setFilteredLogs(filtered)
@@ -120,6 +126,7 @@ export function AuditLogViewer({ limit = 50, showFilters = true }: AuditLogViewe
       case 'weeks':
         return Calendar
       case 'weekly_goals':
+      case 'projects':
         return User
       case 'tasks':
         return Database
@@ -241,7 +248,7 @@ export function AuditLogViewer({ limit = 50, showFilters = true }: AuditLogViewe
                 <SelectContent>
                   <SelectItem value="all">All Tables</SelectItem>
                   <SelectItem value="weeks">Weeks</SelectItem>
-                  <SelectItem value="weekly_goals">Goals</SelectItem>
+                  <SelectItem value="projects">Projects (dashboard)</SelectItem>
                   <SelectItem value="tasks">Tasks</SelectItem>
                   <SelectItem value="points_ledger">Points</SelectItem>
                   <SelectItem value="money_ledger">Money</SelectItem>

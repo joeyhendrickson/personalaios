@@ -26,7 +26,7 @@ export async function POST() {
       { data: accomplishments },
       { data: pointsData },
     ] = await Promise.all([
-      supabase.from('weekly_goals').select('*').eq('user_id', user.id), // Projects stored in weekly_goals table
+      supabase.from('projects').select('*').eq('user_id', user.id), // Dashboard projects table
       supabase.from('tasks').select('*').eq('user_id', user.id),
       supabase.from('daily_habits').select('*').eq('user_id', user.id),
       supabase.from('priorities').select('*').eq('user_id', user.id).eq('deleted', false),

@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
     // Import goals
     for (const goalData of goals) {
       const { data: goal, error: goalError } = await supabase
-        .from('weekly_goals')
+        .from('projects')
         .insert({
           week_id: weekId,
           user_id: user.id,

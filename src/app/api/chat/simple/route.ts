@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 
     // Get basic user data
     const { data: goals } = await supabase
-      .from('weekly_goals')
+      .from('projects')
       .select('*')
       .eq('user_id', user.id)
       .limit(3)

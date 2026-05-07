@@ -54,13 +54,23 @@ function formatStructuredState(s: StructuredStateSummary | null): string {
       c.toLowerCase().includes('wellness') ||
       c.toLowerCase().includes('health')
   )
+  const totalProjects = typeof s.totalDashboardProjects === 'number' ? s.totalDashboardProjects : 0
+  const topDp = Array.isArray(s.topDashboardProjects) ? s.topDashboardProjects : []
+
+  const topUserGoalsFmt =
+    (s.topGoals ?? [])
+      .map((g) => `${g.title} (${g.goalType ?? 'goal'}, ${g.progress})`)
+      .join('; ') || 'None'
+
+  const topProjectsFmt = topDp.map((p) => `${p.title} (${p.progress})`).join('; ') || 'None'
+
   return `DASHBOARD STATE:
 - Points: Weekly ${s.weeklyPoints}, Daily ${s.dailyPoints}
 - Has Good Living Category: ${hasGoodLiving}
-- Goals: ${s.totalGoals}, Tasks: ${s.totalTasks}, Habits: ${s.totalHabits}
-- Priorities: ${s.activePriorities}, Completed today: ${s.completedTasksToday}
+- User GOALS (${s.totalGoals}) — weekly/monthly targets from Goals feature: Top: ${topUserGoalsFmt}
+- Dashboard PROJECTS (${totalProjects}) — week-scoped tiles on Projects panel (not the same table as User Goals): Top: ${topProjectsFmt}
+- Tasks: ${s.totalTasks}, Habits: ${s.totalHabits}, Priorities: ${s.activePriorities}, Completed today: ${s.completedTasksToday}
 - Modules: ${s.installedModules.join(', ') || 'None'}
-- Top goals: ${s.topGoals.map((g) => `${g.title} (${g.progress})`).join('; ') || 'None'}
 - Top tasks: ${s.topTasks.map((t) => `${t.title} [${t.status}]`).join('; ') || 'None'}
 - Completed today: ${s.completedTodayList?.map((t) => `${t.title} (${t.category || ''})`).join('; ') || 'None'}
 - Habits: ${s.topHabits?.filter(Boolean).join('; ') || 'None'}

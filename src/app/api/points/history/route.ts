@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         created_at,
         weekly_goal_id,
         task_id,
-        weekly_goals!points_ledger_weekly_goal_id_fkey (
+        dashboard_project:projects!points_ledger_weekly_goal_id_fkey (
           id,
           title,
           category
@@ -53,7 +53,9 @@ export async function GET(request: NextRequest) {
     // Transform the data into a unified history format
     const history =
       pointsEntries?.map((entry) => {
-        const isGoalProgress = entry.weekly_goal_id && entry.weekly_goals
+        const proj = (entry as { dashboard_project?: { title?: string; category?: string } })
+          .dashboard_project
+        const isGoalProgress = entry.weekly_goal_id && proj
         const isTaskCompletion = entry.task_id && entry.tasks
 
         return {
@@ -70,12 +72,13 @@ export async function GET(request: NextRequest) {
                   status: (entry as any).tasks.status,
                 }
               : null,
-            goal: isGoalProgress
-              ? {
-                  title: (entry as any).weekly_goals.title,
-                  category: (entry as any).weekly_goals.category,
-                }
-              : null,
+            goal:
+              isGoalProgress && proj
+                ? {
+                    title: proj.title,
+                    category: proj.category,
+                  }
+                : null,
           },
         }
       }) || []

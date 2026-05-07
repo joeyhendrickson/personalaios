@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createWeeklyGoalsBackendClient } from '@/lib/supabase/weekly-goals-backend'
+import { createProjectsBackendClient } from '@/lib/supabase/projects-backend'
 import { z } from 'zod'
 
 const createProjectSchema = z.object({
@@ -46,7 +46,7 @@ const updateProjectSchema = z.object({
   deadline: z.string().optional(),
 })
 
-// GET /api/projects - Get all projects (weekly_goals) for the current user
+// GET /api/projects — dashboard projects (`projects` table, formerly weekly_goals)
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -61,15 +61,15 @@ export async function GET(request: NextRequest) {
 
     const debug = request.nextUrl.searchParams.get('debug') === '1'
 
-    const { client: projectsDb, usesServiceRole } = await createWeeklyGoalsBackendClient()
+    const { client: projectsDb, usesServiceRole } = await createProjectsBackendClient()
 
-    // Get all weekly_goals for the user (these are the projects).
+    // All rows in `projects` for this user.
     // Service role avoids RLS hiding rows while still scoped by user.id from verified session.
     let projects: unknown[] | null = null
     let projectsError: { message?: string } | null = null
 
     const primary = await projectsDb
-      .from('weekly_goals')
+      .from('projects')
       .select('*')
       .eq('user_id', user.id)
       .order('project_sort_order', { ascending: true })
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     // If the sort-order migration hasn't been applied yet, fall back gracefully.
     if (projectsError?.message?.toLowerCase().includes('project_sort_order')) {
       const fallback = await projectsDb
-        .from('weekly_goals')
+        .from('projects')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
@@ -113,10 +113,10 @@ export async function GET(request: NextRequest) {
             debug: {
               user_id: user.id,
               count: normalizedProjects.length,
-              weekly_goals_query: usesServiceRole ? 'service_role' : 'anon_jwt_session',
+              projects_query: usesServiceRole ? 'service_role' : 'anon_jwt_session',
               note:
                 !usesServiceRole && normalizedProjects.length === 0
-                  ? 'SUPABASE_SERVICE_ROLE_KEY may be unset; listing uses JWT+RLS. Set service role on the server so Projects match weekly_goals in the dashboard.'
+                  ? 'SUPABASE_SERVICE_ROLE_KEY may be unset; listing uses JWT+RLS. Set service role so Projects match the `projects` table in the dashboard.'
                   : undefined,
             },
           }
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/projects - Create a new project (weekly_goal)
+// POST /api/projects — create a dashboard project (`projects`)
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { data: minSortRow } = await supabase
-      .from('weekly_goals')
+      .from('projects')
       .select('project_sort_order')
       .eq('user_id', user.id)
       .order('project_sort_order', { ascending: true })
@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
 
     // Create project with current week
     const { data: project, error: projectError } = await supabase
-      .from('weekly_goals')
+      .from('projects')
       .insert({
         user_id: user.id,
         week_id: currentWeek.id,

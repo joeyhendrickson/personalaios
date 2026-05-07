@@ -86,7 +86,8 @@ export async function refreshUserContextCache(
 
     const raw = await fetchRawUserData(supabase, userId)
     const checksum = simpleChecksum({
-      goals: raw.goals.length,
+      userGoals: raw.userGoals.length,
+      dashboardProjects: raw.dashboardProjects.length,
       tasks: raw.tasks.length,
       priorities: raw.priorities.length,
       ts: Math.floor(Date.now() / 3600000),
@@ -189,10 +190,12 @@ async function generateDerivedInsights(
 {"overallProgress":"string","strengths":["string"],"areasForImprovement":["string"],"recommendations":["string"],"goalAlignment":"1 sentence","productivityScore":0-100,"nextSteps":["string"]}
 
 USER DATA:
-- Goals: ${structured.totalGoals}, Tasks: ${structured.totalTasks}, Habits: ${structured.totalHabits}
+- User goals table: ${structured.totalGoals}; Dashboard projects: ${structured.totalDashboardProjects ?? '—'}
+- Tasks: ${structured.totalTasks}, Habits: ${structured.totalHabits}
 - Weekly points: ${structured.weeklyPoints}, Daily points: ${structured.dailyPoints}
 - Completed today: ${structured.completedTasksToday}, Priorities: ${structured.activePriorities}
-- Top goals: ${structured.topGoals.map((g) => g.title).join(', ') || 'None'}
+- Top user goals: ${structured.topGoals.map((g) => g.title).join(', ') || 'None'}
+- Top dashboard projects: ${(structured.topDashboardProjects ?? []).map((p) => p.title).join(', ') || 'None'}
 - Top priorities: ${structured.topPriorities.map((p) => p.title).join(', ') || 'None'}`
 
   const modelId = summarizationModelId()

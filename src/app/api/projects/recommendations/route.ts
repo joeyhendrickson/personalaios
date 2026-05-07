@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch user's active goals (projects) - prioritize by priority and deadline
     const { data: goals, error: goalsError } = await supabase
-      .from('weekly_goals')
+      .from('projects')
       .select(
         'id, title, description, category, current_points, target_points, priority, deadline, is_completed'
       )

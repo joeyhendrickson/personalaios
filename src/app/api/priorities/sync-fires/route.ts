@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     // Get all active fires category goals
     const { data: firesGoals, error: goalsError } = await supabase
-      .from('weekly_goals')
+      .from('projects')
       .select('id, title, description, category, current_points, target_points')
       .eq('user_id', user.id)
       .eq('category', 'fires')

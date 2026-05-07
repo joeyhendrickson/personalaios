@@ -81,7 +81,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           console.log(`Updating project ${priority.project_id} progress`)
           // Get current project to calculate new progress
           const { data: project } = await supabase
-            .from('weekly_goals')
+            .from('projects')
             .select('current_points, target_points')
             .eq('id', priority.project_id)
             .eq('user_id', user.id)
@@ -96,7 +96,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             )
 
             await supabase
-              .from('weekly_goals')
+              .from('projects')
               .update({
                 current_points: newCurrentPoints,
                 updated_at: new Date().toISOString(),

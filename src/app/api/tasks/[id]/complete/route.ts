@@ -52,7 +52,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .select(
         `
         *,
-        weekly_goal:weekly_goals(*)
+        weekly_goal:projects(*)
       `
       )
       .single()

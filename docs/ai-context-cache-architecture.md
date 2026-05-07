@@ -18,7 +18,7 @@
 
 ### Data Ontology (Supabase)
 
-- **Core**: `weekly_goals`, `tasks`, `goals`, `priorities`, `daily_habits`, `education_items`, `points_ledger`, `accomplishments`
+- **Core**: `projects` (dashboard projects; formerly `weekly_goals`), `tasks`, `goals` (user goals), `priorities`, `daily_habits`, `education_items`, `points_ledger`, `accomplishments`
 - **Profile**: `profiles`, `user_profiles` (assessment_data)
 - **Budget**: `transactions`, `bank_connections`, `expected_income`, `expected_expenses`
 - **Modules**: Per-module tables (see `moduleTableMappings` in chat route)
