@@ -224,6 +224,26 @@ const modules: Module[] = [
     ],
     complexity: 'intermediate',
   },
+  {
+    id: 'narrative-integration',
+    title: 'I Am Present',
+    description:
+      'Structured reflective journaling to reduce rumination: organize the story, extract meaning, ground in the present, and return to next actions.',
+    category: 'Wellness',
+    icon: <Sparkles className="h-8 w-8" />,
+    status: 'available',
+    features: [
+      'State Check',
+      'Safety Gate',
+      'Event Inventory',
+      'Rumination Detection',
+      'Meaning-making',
+      'Present Grounding',
+      'Future Reorientation',
+      'Closure Summary',
+    ],
+    complexity: 'beginner',
+  },
 ]
 
 const categories = [
