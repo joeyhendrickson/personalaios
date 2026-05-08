@@ -28,11 +28,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { goals, stats, target_areas, body_type_goal } = body
+    const { goals, stats, target_areas, body_type_goal, dashboard_goals, latest_biometrics } = body
 
     console.log(`Generating workout plan for user: ${user.id}`)
     console.log(
-      `Goals: ${goals?.length || 0}, Stats: ${stats?.length || 0}, Target areas: ${target_areas?.join(', ') || 'none'}`
+      `Goals: ${goals?.length || 0}, Stats: ${stats?.length || 0}, Target areas: ${target_areas?.join(', ') || 'none'}, Dashboard goals: ${dashboard_goals?.length || 0}`
     )
 
     // Get available exercises from database
@@ -52,7 +52,9 @@ export async function POST(request: NextRequest) {
       stats || [],
       target_areas || [],
       body_type_goal,
-      exercises || []
+      exercises || [],
+      dashboard_goals || [],
+      latest_biometrics || null
     )
 
     // Save workout plan to database
@@ -154,7 +156,9 @@ async function generateWorkoutPlanWithAI(
   stats: any[],
   targetAreas: string[],
   bodyTypeGoal: string,
-  availableExercises: any[]
+  availableExercises: any[],
+  dashboardGoals: any[] = [],
+  latestBiometrics: any | null = null
 ) {
   // Prepare data for AI
   const goalsData = goals.map((g) => ({
@@ -183,19 +187,52 @@ async function generateWorkoutPlanWithAI(
     is_compound: e.is_compound,
   }))
 
+  const dashboardGoalsSummary =
+    dashboardGoals.length > 0
+      ? JSON.stringify(
+          dashboardGoals.slice(0, 15).map((g: any) => ({
+            title: g.title,
+            description: g.description,
+            priority: g.priority_level,
+            target_date: g.target_date,
+          })),
+          null,
+          2
+        )
+      : 'None provided'
+
+  const biometricsSummary = latestBiometrics
+    ? `Latest biometrics snapshot (use to bias recovery and session intensity, not medical advice):
+Sleep (hours): ${latestBiometrics.sleep_hours ?? 'n/a'}
+Blood pressure: ${latestBiometrics.blood_pressure_systolic ?? '—'}/${latestBiometrics.blood_pressure_diastolic ?? '—'}
+Resting heart rate: ${latestBiometrics.resting_heart_rate ?? 'n/a'}
+Stress (1-10): ${latestBiometrics.stress_level_1_10 ?? 'n/a'}
+Self-reported energy (1-10): ${latestBiometrics.energy_level_self_1_10 ?? 'n/a'}
+Contextual energy estimate (1-10): ${latestBiometrics.contextual_energy_level_1_10 ?? 'n/a'}
+`
+    : 'No recent biometrics logged — assume moderate recovery unless stats suggest otherwise.'
+
   const prompt = `
 Create a comprehensive, detailed weekly workout plan based on the following user data:
 
-USER GOALS:
+FITNESS MODULE GOALS:
 ${JSON.stringify(goalsData, null, 2)}
+
+DASHBOARD GOALS (user's primary Life Stacks goals — align volume and exercise selection where sensible):
+${dashboardGoalsSummary}
 
 CURRENT FITNESS STATS:
 ${JSON.stringify(statsData, null, 2)}
+
+BIOMETRICS / RECOVERY CONTEXT:
+${biometricsSummary}
 
 TARGET AREAS: ${targetAreas.join(', ')}
 DESIRED BODY TYPE: ${bodyTypeGoal}
 
 IMPORTANT: Pay special attention to the goal descriptions provided above. These contain specific details about what the user wants to achieve and should heavily influence your workout plan recommendations.
+When contextual energy is low, prefer shorter sessions, fewer hard sets, and more built-in recovery while still progressing toward dashboard goals.
+When energy is high and stress moderate, you may include slightly more volume or conditioning aligned with their goals.
 
 AVAILABLE EXERCISES:
 ${JSON.stringify(exercisesData, null, 2)}

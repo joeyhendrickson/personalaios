@@ -43,6 +43,19 @@ import {
   Droplets,
   Flame,
 } from 'lucide-react'
+import WorkoutPlanModal from '@/components/fitness-tracker/WorkoutPlanModal'
+import BiometricsSection, {
+  type FitnessBiometricRow,
+} from '@/components/fitness-tracker/BiometricsSection'
+import FitnessProgressPanel from '@/components/fitness-tracker/FitnessProgressPanel'
+
+interface DashboardGoal {
+  id?: string
+  title?: string
+  description?: string
+  priority_level?: number
+  target_date?: string
+}
 
 interface BodyPhoto {
   id: string
@@ -158,6 +171,10 @@ export default function FitnessTrackerModule() {
   const [showEditStatForm, setShowEditStatForm] = useState(false)
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null)
   const [showExerciseModal, setShowExerciseModal] = useState(false)
+  const [dashboardGoals, setDashboardGoals] = useState<DashboardGoal[]>([])
+  const [biometrics, setBiometrics] = useState<FitnessBiometricRow[]>([])
+  const [workoutModalOpen, setWorkoutModalOpen] = useState(false)
+  const [modalWorkoutPlan, setModalWorkoutPlan] = useState<WorkoutPlan | null>(null)
 
   // Available options
   const bodyTypes = [
@@ -333,15 +350,25 @@ export default function FitnessTrackerModule() {
     setIsLoading(true)
     try {
       // Load all fitness data
-      const [photosRes, goalsRes, statsRes, workoutsRes, nutritionRes, nutritionPrefsRes] =
-        await Promise.all([
-          fetch('/api/fitness/body-photos'),
-          fetch('/api/fitness/goals'),
-          fetch('/api/fitness/stats'),
-          fetch('/api/fitness/workout-plans'),
-          fetch('/api/fitness/nutrition-plans'),
-          fetch('/api/fitness/nutrition-preferences'),
-        ])
+      const [
+        photosRes,
+        goalsRes,
+        statsRes,
+        workoutsRes,
+        nutritionRes,
+        nutritionPrefsRes,
+        dashboardGoalsRes,
+        biometricsRes,
+      ] = await Promise.all([
+        fetch('/api/fitness/body-photos'),
+        fetch('/api/fitness/goals'),
+        fetch('/api/fitness/stats'),
+        fetch('/api/fitness/workout-plans'),
+        fetch('/api/fitness/nutrition-plans'),
+        fetch('/api/fitness/nutrition-preferences'),
+        fetch('/api/goals'),
+        fetch('/api/fitness/biometrics'),
+      ])
 
       // Check for table existence errors
       const responses = [photosRes, goalsRes, statsRes, workoutsRes, nutritionRes]
@@ -359,6 +386,15 @@ export default function FitnessTrackerModule() {
       if (statsRes.ok) setFitnessStats(await statsRes.json())
       if (workoutsRes.ok) setWorkoutPlans(await workoutsRes.json())
       if (nutritionRes.ok) setNutritionPlans(await nutritionRes.json())
+
+      if (dashboardGoalsRes.ok) {
+        const dg = await dashboardGoalsRes.json()
+        setDashboardGoals(dg.goals || [])
+      }
+      if (biometricsRes.ok) {
+        const bio = await biometricsRes.json()
+        setBiometrics(bio.biometrics || [])
+      }
 
       if (nutritionPrefsRes.ok) {
         const prefs = await nutritionPrefsRes.json()
@@ -572,6 +608,8 @@ export default function FitnessTrackerModule() {
           stats: fitnessStats,
           target_areas: selectedTargetAreas,
           body_type_goal: selectedBodyType,
+          dashboard_goals: dashboardGoals,
+          latest_biometrics: biometrics[0] ?? null,
         }),
       })
 
@@ -661,6 +699,10 @@ export default function FitnessTrackerModule() {
 
       if (response.ok) {
         setWorkoutPlans((prev) => prev.filter((plan) => plan.id !== planId))
+        if (modalWorkoutPlan?.id === planId) {
+          setModalWorkoutPlan(null)
+          setWorkoutModalOpen(false)
+        }
         setSuccessMessage('Workout plan deleted successfully!')
         setTimeout(() => setSuccessMessage(''), 3000)
       } else {
@@ -1023,6 +1065,11 @@ export default function FitnessTrackerModule() {
           {/* Stats Tab */}
           {activeTab === 'stats' && (
             <div className="space-y-6">
+              <BiometricsSection
+                latestFitbitOptIn={!!biometrics[0]?.fitbit_opt_in}
+                onAfterSave={loadFitnessData}
+              />
+
               <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold flex items-center">
@@ -1037,6 +1084,26 @@ export default function FitnessTrackerModule() {
                     Log Stats
                   </button>
                 </div>
+
+                {biometrics[0] &&
+                  typeof biometrics[0].contextual_energy_level_1_10 === 'number' && (
+                    <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-gray-800">
+                      <span className="font-semibold text-amber-950">
+                        Latest contextual energy:{' '}
+                      </span>
+                      {biometrics[0].contextual_energy_level_1_10}/10
+                      {typeof biometrics[0].energy_level_self_1_10 === 'number' && (
+                        <span className="text-gray-700">
+                          {' '}
+                          (you rated {biometrics[0].energy_level_self_1_10}/10)
+                        </span>
+                      )}
+                      <span className="text-gray-600">
+                        {' '}
+                        · {new Date(biometrics[0].recorded_at).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
 
                 {fitnessStats.length === 0 ? (
                   <div className="text-center py-12">
@@ -1070,20 +1137,30 @@ export default function FitnessTrackerModule() {
                             {typeStats.map((stat) => (
                               <div
                                 key={stat.id}
-                                className="flex justify-between items-center p-3 bg-gray-50 rounded"
+                                className="flex flex-wrap justify-between items-center gap-2 p-3 bg-gray-50 rounded"
                               >
-                                <div className="flex-1">
+                                <div className="flex-1 min-w-[120px]">
                                   <p className="font-medium text-sm">{stat.exercise_name}</p>
                                   {stat.rep_range && (
                                     <p className="text-xs text-gray-500">{stat.rep_range} reps</p>
                                   )}
                                 </div>
-                                <div className="text-right mr-3">
+                                <div className="text-right mr-2">
                                   <p className="font-semibold">
                                     {stat.measurement_value} {stat.measurement_unit}
                                   </p>
                                   <p className="text-xs text-gray-500">
-                                    {new Date(stat.recorded_at).toLocaleDateString()}
+                                    {new Date(stat.recorded_at).toLocaleString()}
+                                  </p>
+                                </div>
+                                <div className="text-center px-2 py-1 rounded bg-white border border-amber-100 min-w-[5.5rem]">
+                                  <p className="text-[10px] uppercase tracking-wide text-gray-500">
+                                    Energy
+                                  </p>
+                                  <p className="text-sm font-semibold text-amber-900">
+                                    {typeof biometrics[0]?.contextual_energy_level_1_10 === 'number'
+                                      ? `${biometrics[0].contextual_energy_level_1_10}/10`
+                                      : '—'}
                                   </p>
                                 </div>
                                 <div className="flex space-x-1">
@@ -1150,21 +1227,26 @@ export default function FitnessTrackerModule() {
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {workoutPlans.map((plan) => (
-                      <div key={plan.id} className="border border-gray-200 rounded-lg p-6">
-                        {/* Plan Header with Delete Button */}
-                        <div className="flex items-center justify-between mb-6">
-                          <div>
-                            <h4 className="text-2xl font-bold text-gray-900">{plan.plan_name}</h4>
-                            <p className="text-sm text-gray-600 capitalize">
-                              {plan.plan_type} Plan • {plan.duration_weeks} weeks •{' '}
-                              {plan.frequency_per_week}x/week
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3">
+                      <div
+                        key={plan.id}
+                        className="border border-gray-200 rounded-lg overflow-hidden flex flex-col bg-white shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        <button
+                          type="button"
+                          className="text-left p-5 flex-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+                          onClick={() => {
+                            setModalWorkoutPlan(plan)
+                            setWorkoutModalOpen(true)
+                          }}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <h4 className="text-lg font-bold text-gray-900 pr-2">
+                              {plan.plan_name}
+                            </h4>
                             <span
-                              className={`text-xs px-3 py-1 rounded-full ${
+                              className={`shrink-0 text-xs px-2 py-1 rounded-full ${
                                 plan.difficulty_level === 'beginner'
                                   ? 'bg-green-100 text-green-800'
                                   : plan.difficulty_level === 'intermediate'
@@ -1174,195 +1256,33 @@ export default function FitnessTrackerModule() {
                             >
                               {plan.difficulty_level}
                             </span>
-                            <button
-                              onClick={() => deleteWorkoutPlan(plan.id)}
-                              className="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete workout plan"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
                           </div>
+                          <p className="text-sm text-gray-600 capitalize mb-3">
+                            {plan.plan_type} · {plan.duration_weeks} weeks ·{' '}
+                            {plan.frequency_per_week}x/week
+                          </p>
+                          {plan.description && (
+                            <p className="text-sm text-gray-500 line-clamp-2 mb-3">
+                              {plan.description}
+                            </p>
+                          )}
+                          <p className="text-sm text-green-700 font-medium">
+                            View timeline & adapted routine →
+                          </p>
+                        </button>
+                        <div className="border-t border-gray-100 px-5 py-3 flex justify-end bg-gray-50">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              deleteWorkoutPlan(plan.id)
+                            }}
+                            className="text-red-600 hover:text-red-800 text-sm inline-flex items-center gap-1"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </button>
                         </div>
-
-                        {/* Weekly Grid Format */}
-                        {plan.weekly_structure && (
-                          <div className="overflow-x-auto">
-                            <div className="min-w-[800px]">
-                              {/* Week Headers */}
-                              <div className="grid grid-cols-8 gap-2 mb-4">
-                                <div className="text-center font-semibold text-gray-700 py-2"></div>
-                                {['WEEK 1', 'WEEK 2', 'WEEK 3', 'WEEK 4'].map((week, index) => (
-                                  <div
-                                    key={week}
-                                    className="text-center font-bold text-white bg-green-600 py-2 rounded-lg"
-                                  >
-                                    {week}
-                                  </div>
-                                ))}
-                              </div>
-
-                              {/* Days of Week */}
-                              {[
-                                'sunday',
-                                'monday',
-                                'tuesday',
-                                'wednesday',
-                                'thursday',
-                                'friday',
-                                'saturday',
-                              ].map((day) => (
-                                <div key={day} className="grid grid-cols-8 gap-2 mb-2">
-                                  {/* Day Label */}
-                                  <div className="bg-gray-100 p-3 rounded-lg flex items-center justify-center">
-                                    <span className="font-semibold text-gray-800 uppercase text-sm">
-                                      {day.substring(0, 3)}
-                                    </span>
-                                  </div>
-
-                                  {/* Week 1 & 3 (Same content) */}
-                                  <div className="bg-blue-50 p-3 rounded-lg min-h-[120px]">
-                                    {plan.weekly_structure?.[day]?.exercises &&
-                                    plan.weekly_structure?.[day]?.exercises.length > 0 ? (
-                                      <div className="space-y-1">
-                                        {plan.weekly_structure?.[day]?.exercises.map(
-                                          (exercise: any, index: number) => (
-                                            <div
-                                              key={index}
-                                              className="text-xs bg-white p-2 rounded border cursor-pointer hover:bg-blue-100 transition-colors"
-                                              onClick={() =>
-                                                handleExerciseClick(exercise.exercise_name)
-                                              }
-                                            >
-                                              <div className="font-medium text-gray-800">
-                                                {exercise.exercise_name}
-                                              </div>
-                                              <div className="text-gray-600">
-                                                {exercise.sets} sets × {exercise.reps} reps
-                                              </div>
-                                            </div>
-                                          )
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <div className="text-sm text-gray-500 italic text-center pt-4">
-                                        {day === 'sunday'
-                                          ? 'Rest Time'
-                                          : day === 'saturday'
-                                            ? '30-45 Min. Cardio of choice'
-                                            : 'No exercises'}
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Week 2 & 4 (Same content) */}
-                                  <div className="bg-green-50 p-3 rounded-lg min-h-[120px]">
-                                    {plan.weekly_structure?.[day]?.exercises &&
-                                    plan.weekly_structure?.[day]?.exercises.length > 0 ? (
-                                      <div className="space-y-1">
-                                        {plan.weekly_structure?.[day]?.exercises.map(
-                                          (exercise: any, index: number) => (
-                                            <div
-                                              key={index}
-                                              className="text-xs bg-white p-2 rounded border cursor-pointer hover:bg-green-100 transition-colors"
-                                              onClick={() =>
-                                                handleExerciseClick(exercise.exercise_name)
-                                              }
-                                            >
-                                              <div className="font-medium text-gray-800">
-                                                {exercise.exercise_name}
-                                              </div>
-                                              <div className="text-gray-600">
-                                                {exercise.sets} sets × {exercise.reps} reps
-                                              </div>
-                                            </div>
-                                          )
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <div className="text-sm text-gray-500 italic text-center pt-4">
-                                        {day === 'sunday'
-                                          ? 'Rest Time'
-                                          : day === 'saturday'
-                                            ? '30-45 Min. Cardio of choice'
-                                            : 'No exercises'}
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Week 3 (Same as Week 1) */}
-                                  <div className="bg-blue-50 p-3 rounded-lg min-h-[120px]">
-                                    {plan.weekly_structure?.[day]?.exercises &&
-                                    plan.weekly_structure?.[day]?.exercises.length > 0 ? (
-                                      <div className="space-y-1">
-                                        {plan.weekly_structure?.[day]?.exercises.map(
-                                          (exercise: any, index: number) => (
-                                            <div
-                                              key={index}
-                                              className="text-xs bg-white p-2 rounded border cursor-pointer hover:bg-blue-100 transition-colors"
-                                              onClick={() =>
-                                                handleExerciseClick(exercise.exercise_name)
-                                              }
-                                            >
-                                              <div className="font-medium text-gray-800">
-                                                {exercise.exercise_name}
-                                              </div>
-                                              <div className="text-gray-600">
-                                                {exercise.sets} sets × {exercise.reps} reps
-                                              </div>
-                                            </div>
-                                          )
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <div className="text-sm text-gray-500 italic text-center pt-4">
-                                        {day === 'sunday'
-                                          ? 'Rest Time'
-                                          : day === 'saturday'
-                                            ? '30-45 Min. Cardio of choice'
-                                            : 'No exercises'}
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Week 4 (Same as Week 2) */}
-                                  <div className="bg-green-50 p-3 rounded-lg min-h-[120px]">
-                                    {plan.weekly_structure?.[day]?.exercises &&
-                                    plan.weekly_structure?.[day]?.exercises.length > 0 ? (
-                                      <div className="space-y-1">
-                                        {plan.weekly_structure?.[day]?.exercises.map(
-                                          (exercise: any, index: number) => (
-                                            <div
-                                              key={index}
-                                              className="text-xs bg-white p-2 rounded border cursor-pointer hover:bg-green-100 transition-colors"
-                                              onClick={() =>
-                                                handleExerciseClick(exercise.exercise_name)
-                                              }
-                                            >
-                                              <div className="font-medium text-gray-800">
-                                                {exercise.exercise_name}
-                                              </div>
-                                              <div className="text-gray-600">
-                                                {exercise.sets} sets × {exercise.reps} reps
-                                              </div>
-                                            </div>
-                                          )
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <div className="text-sm text-gray-500 italic text-center pt-4">
-                                        {day === 'sunday'
-                                          ? 'Rest Time'
-                                          : day === 'saturday'
-                                            ? '30-45 Min. Cardio of choice'
-                                            : 'No exercises'}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -1747,20 +1667,31 @@ export default function FitnessTrackerModule() {
                   <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
                   Progress Tracking
                 </h3>
-                <div className="text-center py-12">
-                  <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h4 className="text-lg font-medium text-gray-900 mb-2">
-                    Progress tracking coming soon
-                  </h4>
-                  <p className="text-gray-600">
-                    Track your fitness progress with charts and analytics
-                  </p>
-                </div>
+                <p className="text-sm text-gray-600 mb-6">
+                  Timestamped stats and biometrics: we highlight improvements and dips versus your
+                  prior entries so you can see trajectory, not just single numbers.
+                </p>
+                <FitnessProgressPanel fitnessStats={fitnessStats} biometrics={biometrics} />
               </div>
             </div>
           )}
         </div>
       </div>
+
+      <WorkoutPlanModal
+        plan={modalWorkoutPlan}
+        open={workoutModalOpen && !!modalWorkoutPlan}
+        onClose={() => {
+          setWorkoutModalOpen(false)
+          setModalWorkoutPlan(null)
+        }}
+        fitnessGoals={fitnessGoals}
+        dashboardGoals={dashboardGoals}
+        fitnessStats={fitnessStats}
+        latestBiometric={biometrics[0] ?? null}
+        onExerciseClick={handleExerciseClick}
+        onGoNutrition={() => setActiveTab('nutrition')}
+      />
 
       {/* Image Upload Modal */}
       {showImageUpload && (
