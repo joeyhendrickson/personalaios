@@ -280,8 +280,12 @@ export default function FitnessTrackerModule() {
     whole30:
       'Included foods: meat, seafood, eggs, vegetables, fruit, natural fats (olive oil, avocado), herbs/spices. Excludes: added sugar, alcohol, grains, legumes, dairy, most additives.',
     keto: 'Included foods: meat, fish, eggs, low-carb vegetables, olive oil, avocado, nuts/seeds, full-fat dairy (if tolerated). Limits: grains, sugar, most fruit, starchy vegetables.',
-    high_protein:
-      'Included foods: lean meats, fish, eggs, Greek yogurt/cottage cheese, legumes, tofu/tempeh, protein shakes (optional), high-protein snacks. Balanced carbs/fats as needed.',
+    high_protein_vegetarian:
+      'Included foods: beans, lentils, chickpeas, tofu, tempeh, edamame, Greek yogurt or cottage cheese and other dairy (if you include them), eggs (if you include them), seitan as an option for some meal plans, quinoa and pseudograins paired with plants, nuts and seeds, plenty of vegetables. Goal: repeat protein across meals/snacks—about a palm-sized plant protein portion plus balanced carbs/fats so you hit your targets without relying on meat or fish.',
+    gluten_free:
+      'Included foods: all naturally gluten-free whole foods—fruits, vegetables, eggs, dairy, fish/meat/poultry if you eat them, legumes (check sauces and labels), potatoes, rice, corn, quinoa, buckwheat, certified gluten-free oats if they work for you, nuts/seeds. Avoid wheat, barley, rye, malt, and triticale (read labels on sauces, soups, dressings, and processed foods due to hidden gluten and cross-contact).',
+    anti_inflammatory:
+      'Typically emphasizes vegetables (especially leafy and colorful kinds), berries, whole grains where tolerated, fatty fish such as salmon or sardines if you eat seafood, olive oil and other unsaturated fats, nuts, beans, and herbs/spices often used include turmeric and ginger patterns. Usually leans toward fewer fried foods, less refined sugar, and less ultra-processed meat—but this is guidance, not a diagnosis; tune it to foods you tolerate and enjoy.',
     vegan:
       'Included foods: vegetables, fruit, beans/lentils, tofu/tempeh, whole grains, nuts/seeds, plant oils. Focus on protein and micronutrients (B12, iron, omega-3).',
     mediterranean:
@@ -1456,7 +1460,9 @@ export default function FitnessTrackerModule() {
                         </div>
                       </div>
                       <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                        {selectedDietLongDescription || 'Select a diet to see included foods.'}
+                        {selectedDietLongDescription ||
+                          dietTypes.find((d) => d.value === selectedDietType)?.description ||
+                          'Select a diet above to see a fuller guide to typical foods.'}
                       </div>
                     </div>
                   </div>
