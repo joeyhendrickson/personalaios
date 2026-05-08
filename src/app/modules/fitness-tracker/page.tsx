@@ -148,6 +148,9 @@ export default function FitnessTrackerModule() {
   const [errorMessage, setErrorMessage] = useState<string>('')
   const [selectedDietType, setSelectedDietType] = useState<string>('')
   const [selectedModifications, setSelectedModifications] = useState<string[]>([])
+  const [dietPrefsLoaded, setDietPrefsLoaded] = useState(false)
+  const [savingDietPrefs, setSavingDietPrefs] = useState(false)
+  const [selectedDietLongDescription, setSelectedDietLongDescription] = useState<string>('')
   const [zipcode, setZipcode] = useState<string>('')
   const [heightInches, setHeightInches] = useState<string>('')
   const [weightLbs, setWeightLbs] = useState<string>('')
@@ -273,6 +276,33 @@ export default function FitnessTrackerModule() {
     { value: 'raw_food', label: 'Raw Food', description: 'Uncooked, unprocessed foods' },
   ]
 
+  const dietLongDescriptions: Record<string, string> = {
+    whole30:
+      'Included foods: meat, seafood, eggs, vegetables, fruit, natural fats (olive oil, avocado), herbs/spices. Excludes: added sugar, alcohol, grains, legumes, dairy, most additives.',
+    keto: 'Included foods: meat, fish, eggs, low-carb vegetables, olive oil, avocado, nuts/seeds, full-fat dairy (if tolerated). Limits: grains, sugar, most fruit, starchy vegetables.',
+    high_protein:
+      'Included foods: lean meats, fish, eggs, Greek yogurt/cottage cheese, legumes, tofu/tempeh, protein shakes (optional), high-protein snacks. Balanced carbs/fats as needed.',
+    vegan:
+      'Included foods: vegetables, fruit, beans/lentils, tofu/tempeh, whole grains, nuts/seeds, plant oils. Focus on protein and micronutrients (B12, iron, omega-3).',
+    mediterranean:
+      'Included foods: olive oil, fish/seafood, vegetables, legumes, whole grains, nuts, fruit, yogurt/cheese (optional), herbs. Limits: ultra-processed foods and added sugars.',
+    pescatarian:
+      'Included foods: fish/seafood, vegetables, fruit, legumes, whole grains, nuts/seeds, eggs/dairy (optional). Excludes: meat/poultry.',
+    atkins:
+      'Included foods: proteins, non-starchy vegetables, healthy fats; carbs increase across phases. Limits: sugar and refined carbs, especially early phases.',
+    paleo:
+      'Included foods: meat, fish, eggs, vegetables, fruit, nuts/seeds, natural fats. Excludes: grains, most dairy, legumes, refined sugar.',
+    dash: 'Included foods: vegetables, fruit, whole grains, lean proteins, low-fat dairy, beans, nuts. Emphasizes sodium reduction and steady energy.',
+    low_carb:
+      'Included foods: protein, non-starchy vegetables, healthy fats, limited whole-food carbs. Limits: refined grains, sugary foods, and large starch portions.',
+    intermittent_fasting:
+      'Included foods: your normal food choices, but within an eating window (e.g., 8 hours). Focus on protein, fiber, and hydration to support the fasting schedule.',
+    flexitarian:
+      'Included foods: mostly plant-based meals with occasional meat/fish. Emphasizes legumes, vegetables, whole grains, and simple proteins when included.',
+    raw_food:
+      'Included foods: raw fruits/vegetables, nuts/seeds, sprouted grains/legumes (if used), cold-pressed oils. Avoids cooked foods; focus on variety and adequate protein.',
+  }
+
   const dietModifications = [
     'Allow alcohol (beer, wine, spirits)',
     'Include dairy products',
@@ -299,13 +329,15 @@ export default function FitnessTrackerModule() {
     setIsLoading(true)
     try {
       // Load all fitness data
-      const [photosRes, goalsRes, statsRes, workoutsRes, nutritionRes] = await Promise.all([
-        fetch('/api/fitness/body-photos'),
-        fetch('/api/fitness/goals'),
-        fetch('/api/fitness/stats'),
-        fetch('/api/fitness/workout-plans'),
-        fetch('/api/fitness/nutrition-plans'),
-      ])
+      const [photosRes, goalsRes, statsRes, workoutsRes, nutritionRes, nutritionPrefsRes] =
+        await Promise.all([
+          fetch('/api/fitness/body-photos'),
+          fetch('/api/fitness/goals'),
+          fetch('/api/fitness/stats'),
+          fetch('/api/fitness/workout-plans'),
+          fetch('/api/fitness/nutrition-plans'),
+          fetch('/api/fitness/nutrition-preferences'),
+        ])
 
       // Check for table existence errors
       const responses = [photosRes, goalsRes, statsRes, workoutsRes, nutritionRes]
@@ -323,12 +355,51 @@ export default function FitnessTrackerModule() {
       if (statsRes.ok) setFitnessStats(await statsRes.json())
       if (workoutsRes.ok) setWorkoutPlans(await workoutsRes.json())
       if (nutritionRes.ok) setNutritionPlans(await nutritionRes.json())
+
+      if (nutritionPrefsRes.ok) {
+        const prefs = await nutritionPrefsRes.json()
+        const pref = prefs?.preferences
+        if (pref && !dietPrefsLoaded) {
+          if (typeof pref.diet_type === 'string') {
+            setSelectedDietType(pref.diet_type)
+            setSelectedDietLongDescription(dietLongDescriptions[pref.diet_type] || '')
+          }
+          if (Array.isArray(pref.diet_modifications))
+            setSelectedModifications(pref.diet_modifications)
+          setDietPrefsLoaded(true)
+        }
+      }
     } catch (error) {
       console.error('Error loading fitness data:', error)
       setErrorMessage('Failed to load fitness data. Please check your connection and try again.')
       setTimeout(() => setErrorMessage(''), 5000)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const saveDietPreferences = async () => {
+    setSavingDietPrefs(true)
+    try {
+      const res = await fetch('/api/fitness/nutrition-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          diet_type: selectedDietType || null,
+          diet_modifications: selectedModifications,
+        }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j?.error || 'Failed to save diet preferences')
+      }
+      setSuccessMessage('Diet preferences saved!')
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : 'Failed to save diet preferences')
+      setTimeout(() => setErrorMessage(''), 5000)
+    } finally {
+      setSavingDietPrefs(false)
     }
   }
 
@@ -1323,7 +1394,11 @@ export default function FitnessTrackerModule() {
                             name="diet_type"
                             value={diet.value}
                             checked={selectedDietType === diet.value}
-                            onChange={(e) => setSelectedDietType(e.target.value)}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              setSelectedDietType(v)
+                              setSelectedDietLongDescription(dietLongDescriptions[v] || '')
+                            }}
                             className="mt-1 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
                           />
                           <div className="flex-1">
@@ -1365,6 +1440,42 @@ export default function FitnessTrackerModule() {
                       ))}
                     </div>
                   </div>
+                </div>
+
+                {/* Diet description panel (appears when diet selected) */}
+                {selectedDietType && (
+                  <div className="mt-5">
+                    <div className="border border-green-200 bg-green-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm font-semibold text-gray-900">
+                          Foods typically included (
+                          {dietTypes.find((d) => d.value === selectedDietType)?.label})
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          Use this as a guide, not a rulebook.
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                        {selectedDietLongDescription || 'Select a diet to see included foods.'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Save preferences */}
+                <div className="mt-5 flex justify-end">
+                  <button
+                    onClick={saveDietPreferences}
+                    disabled={savingDietPrefs}
+                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingDietPrefs ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Save Diet Preferences
+                  </button>
                 </div>
 
                 {/* Zipcode Input */}

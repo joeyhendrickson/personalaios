@@ -89,7 +89,7 @@ const modules: Module[] = [
     icon: <DollarSign className="h-8 w-8" />,
     status: 'available',
     features: ['Expense Tracking', 'Budget Analysis', 'Savings Goals', 'Investment Advice'],
-    complexity: 'beginner',
+    complexity: 'advanced',
   },
   {
     id: 'grocery-optimizer',
@@ -114,7 +114,7 @@ const modules: Module[] = [
     icon: <Brain className="h-8 w-8" />,
     status: 'available',
     features: ['Goal Setting', 'Motivation', 'Habit Tracking', 'Progress Analysis'],
-    complexity: 'intermediate',
+    complexity: 'beginner',
   },
   {
     id: 'fitness-tracker',
@@ -149,7 +149,7 @@ const modules: Module[] = [
       'Reminder System',
       'Relationship Insights',
     ],
-    complexity: 'beginner',
+    complexity: 'advanced',
   },
   {
     id: 'relationship-intel',
@@ -179,7 +179,7 @@ const modules: Module[] = [
     icon: <BarChart3 className="h-8 w-8" />,
     status: 'premium',
     features: ['Data Visualization', 'Trend Analysis', 'Predictive Insights', 'Custom Reports'],
-    complexity: 'advanced',
+    complexity: 'beginner',
   },
   {
     id: 'focus-enhancer',
@@ -195,7 +195,7 @@ const modules: Module[] = [
       'Digital Wellness',
       'Habit Building',
     ],
-    complexity: 'beginner',
+    complexity: 'intermediate',
   },
   {
     id: 'habit-master',
@@ -222,7 +222,7 @@ const modules: Module[] = [
       'Vision Creation',
       'Goal Generation',
     ],
-    complexity: 'intermediate',
+    complexity: 'advanced',
   },
   {
     id: 'narrative-integration',
@@ -242,7 +242,7 @@ const modules: Module[] = [
       'Future Reorientation',
       'Closure Summary',
     ],
-    complexity: 'beginner',
+    complexity: 'advanced',
   },
 ]
 
