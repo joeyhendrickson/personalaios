@@ -8,15 +8,8 @@ const createHabitSchema = z.object({
   points_per_completion: z.number().min(1).max(1000).default(25),
 })
 
-const updateHabitSchema = z.object({
-  title: z.string().min(1).max(255).optional(),
-  description: z.string().optional(),
-  points_per_completion: z.number().min(1).max(1000).optional(),
-  is_active: z.boolean().optional(),
-})
-
 // GET /api/habits - Get all habits for the current user
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = await createClient()
 

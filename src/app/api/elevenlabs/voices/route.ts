@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { ElevenLabsService } from '@/lib/elevenlabs'
 import { env } from '@/lib/env'
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Get API key directly from process.env to ensure we have the latest value
     const apiKey = process.env.ELEVENLABS_API_KEY?.trim() || env.ELEVENLABS_API_KEY?.trim()

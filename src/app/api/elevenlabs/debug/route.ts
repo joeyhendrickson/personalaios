@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
 // Diagnostic endpoint to check API key configuration in production
 // This helps diagnose 401 errors without exposing the actual key
-export async function GET(request: NextRequest) {
+export async function GET() {
   const apiKeyFromProcess = process.env.ELEVENLABS_API_KEY
   const apiKeyTrimmed = apiKeyFromProcess?.trim()
 

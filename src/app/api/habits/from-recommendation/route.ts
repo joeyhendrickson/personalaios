@@ -36,10 +36,7 @@ export async function POST(request: NextRequest) {
     console.log('User ID:', user.id)
 
     // Check if daily_habits table exists
-    const { data: tableCheck, error: tableError } = await supabase
-      .from('daily_habits')
-      .select('id')
-      .limit(1)
+    const { error: tableError } = await supabase.from('daily_habits').select('id').limit(1)
 
     if (tableError) {
       console.error('Table check error:', tableError)
