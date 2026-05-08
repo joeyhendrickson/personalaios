@@ -17,7 +17,7 @@ type OnboardingRow = {
   responses: Record<string, unknown>
 }
 
-function nextQuestion(step: number, prior: Record<string, unknown>): string {
+function nextQuestion(step: number): string {
   // Deterministic scaffolding; AI refinement happens when generating recommendations.
   switch (step) {
     case 1:
@@ -133,7 +133,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       status: 'question',
       step: 1,
-      question: nextQuestion(1, row.responses || {}),
+      question: nextQuestion(1),
     })
   }
 
@@ -165,7 +165,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       status: 'question',
       step: nextStep,
-      question: nextQuestion(nextStep, responses),
+      question: nextQuestion(nextStep),
     })
   }
 

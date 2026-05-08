@@ -107,8 +107,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function fetchComprehensiveUserData(supabase: any, userId: string) {
-  // Fetch user profile with assessment data
-  const { data: profileData } = await supabase
+  await supabase
     .from('profiles')
     .select('assessment_data')
     .eq('id', userId)

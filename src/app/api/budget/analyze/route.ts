@@ -46,6 +46,10 @@ export async function POST(request: NextRequest) {
       .eq('status', 'active')
       .order('priority_level', { ascending: true })
 
+    if (goalsError) {
+      console.error('Error fetching goals for budget analysis:', goalsError)
+    }
+
     // Fetch expected income and expenses
     const [expectedIncomeResult, expectedExpensesResult] = await Promise.all([
       supabase.from('expected_income').select('*').eq('user_id', user.id).eq('is_active', true),
@@ -166,6 +170,10 @@ export async function POST(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(1)
 
+    if (focusError) {
+      console.error('Error fetching focus analyses:', focusError)
+    }
+
     let appSubscriptions: string[] = []
     if (focusAnalyses && focusAnalyses.length > 0 && focusAnalyses[0].app_usage_data) {
       // Extract app names from app_usage_data JSONB
@@ -184,7 +192,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user's budget categories
-    const { data: categories, error: categoriesError } = await supabase
+    const { error: categoriesError } = await supabase
       .from('budget_categories')
       .select('*')
       .eq('user_id', user.id)
@@ -728,14 +736,6 @@ ${blocks.join('\n\n')}
 
     // Estimate food waste as 25% of grocery spending (based on research showing 20-30% of food is wasted)
     const estimatedFoodWaste = totalGrocerySpending * 0.25
-
-    // Format waste area totals for AI prompt
-    const wasteAreaTotals = Object.entries(wasteAreaCategories).map(([key, category]) => ({
-      category: category.name,
-      total: category.total,
-      transactionCount: category.transactions.length,
-      note: (category as any).note || undefined,
-    }))
 
     // Check for app subscriptions in transactions
     const subscriptionTransactions = transactionsToAnalyze.filter((t: any) => {

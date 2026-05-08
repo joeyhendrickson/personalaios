@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const supabase = await createClient()
 
