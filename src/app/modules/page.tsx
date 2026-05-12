@@ -35,7 +35,6 @@ import {
   PenTool,
   Briefcase,
   Sparkles,
-  Heart,
 } from 'lucide-react'
 import RatingStars from '@/components/rating-stars'
 
