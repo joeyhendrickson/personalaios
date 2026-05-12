@@ -25,6 +25,25 @@ function clampIntField(v: unknown, min: number, max: number): number | undefined
   return Math.max(min, Math.min(max, n))
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isValidUuid(v: unknown): boolean {
+  return typeof v === 'string' && UUID_RE.test(v)
+}
+
+const MANAGED_KEYS = new Set(['id', 'session_id', 'user_id', 'created_at', 'updated_at'])
+const UUID_KEYS = new Set(['linked_goal_id_optional', 'linked_project_id_optional'])
+
+function stripUnsafeFields(obj: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {}
+  for (const [k, v] of Object.entries(obj)) {
+    if (MANAGED_KEYS.has(k)) continue
+    if (UUID_KEYS.has(k) && !isValidUuid(v)) continue
+    out[k] = v
+  }
+  return out
+}
+
 export async function requireUserId(supabase: Awaited<ReturnType<typeof createClient>>) {
   const {
     data: { user },
@@ -127,13 +146,13 @@ export async function updateNarrativeIntegrationSession(
   const supabase = await createClient()
   const userId = await requireUserId(supabase)
 
-  const sanitized = { ...patch }
+  const sanitized = stripUnsafeFields(patch as Record<string, any>)
   if (sanitized.stress_level !== undefined)
-    sanitized.stress_level = clampIntField(sanitized.stress_level, 1, 10) as any
+    sanitized.stress_level = clampIntField(sanitized.stress_level, 1, 10)
   if (sanitized.rumination_level !== undefined)
-    sanitized.rumination_level = clampIntField(sanitized.rumination_level, 1, 10) as any
+    sanitized.rumination_level = clampIntField(sanitized.rumination_level, 1, 10)
   if (sanitized.engagement_level !== undefined)
-    sanitized.engagement_level = clampIntField(sanitized.engagement_level, 1, 10) as any
+    sanitized.engagement_level = clampIntField(sanitized.engagement_level, 1, 10)
 
   const { data, error } = await supabase
     .from('narrative_integration_sessions')
@@ -166,7 +185,7 @@ export async function upsertNarrativeIntegrationEventInventory(
 
   if (existingError) throw new Error(existingError.message)
 
-  const sanitizedInventory = { ...inventory } as any
+  const sanitizedInventory = stripUnsafeFields(inventory as Record<string, any>)
   if (sanitizedInventory.integration_score !== undefined)
     sanitizedInventory.integration_score = clampIntField(
       sanitizedInventory.integration_score,
@@ -272,7 +291,7 @@ export async function upsertMeaningExtraction(
 
   if (existingError) throw new Error(existingError.message)
 
-  const sanitizedPatch = { ...patch } as any
+  const sanitizedPatch = stripUnsafeFields(patch as Record<string, any>)
   if (sanitizedPatch.confidence_level !== undefined)
     sanitizedPatch.confidence_level = clampIntField(sanitizedPatch.confidence_level, 1, 10)
 
@@ -311,10 +330,12 @@ export async function upsertFutureReorientation(
 
   if (existingError) throw new Error(existingError.message)
 
+  const sanitizedFuture = stripUnsafeFields(patch as Record<string, any>)
+
   if (existing && existing.length > 0) {
     const { data, error } = await supabase
       .from('narrative_integration_future_reorientations')
-      .update({ ...patch })
+      .update(sanitizedFuture)
       .eq('id', existing[0].id)
       .select('*')
       .single()
@@ -324,7 +345,7 @@ export async function upsertFutureReorientation(
 
   const { data, error } = await supabase
     .from('narrative_integration_future_reorientations')
-    .insert({ session_id: sessionId, ...patch })
+    .insert({ session_id: sessionId, ...sanitizedFuture })
     .select('*')
     .single()
   if (error) throw new Error(error.message)
