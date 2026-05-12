@@ -503,6 +503,10 @@ export default function AdminDashboard() {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
+              <Button onClick={() => router.push('/admin/billing')} variant="outline" size="sm">
+                <DollarSign className="h-4 w-4 mr-2" />
+                Platform Costs
+              </Button>
               <Button
                 onClick={() => {
                   setRawDataOpen(!rawDataOpen)
