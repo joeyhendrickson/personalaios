@@ -31,14 +31,67 @@ function isValidUuid(v: unknown): boolean {
   return typeof v === 'string' && UUID_RE.test(v)
 }
 
-const MANAGED_KEYS = new Set(['id', 'session_id', 'user_id', 'created_at', 'updated_at'])
-const UUID_KEYS = new Set(['linked_goal_id_optional', 'linked_project_id_optional'])
+const SESSION_ALLOWED = new Set([
+  'title',
+  'event_summary',
+  'stress_level',
+  'rumination_level',
+  'engagement_level',
+  'dissociation_indicators',
+  'safety_status',
+  'current_phase',
+  'meaning_statement',
+  'lesson_statement',
+  'present_grounding_summary',
+  'future_action',
+  'completion_status',
+  'completed_at',
+  'user_goal',
+  'emotional_state',
+  'readiness_to_process',
+])
 
-function stripUnsafeFields(obj: Record<string, any>): Record<string, any> {
+const EVENT_ALLOWED = new Set([
+  'event_name',
+  'approximate_time_period',
+  'people_involved_optional',
+  'what_happened_briefly',
+  'emotional_impact',
+  'what_question_keeps_repeating',
+  'what_belief_formed_afterward',
+  'how_it_affects_life_now',
+  'brief_description',
+  'unresolved_question',
+  'frozen_belief',
+  'current_reinterpretation',
+  'extracted_lesson',
+  'integration_score',
+])
+
+const MEANING_ALLOWED = new Set([
+  'category',
+  'user_selected_meaning',
+  'ai_suggested_meanings',
+  'final_meaning_statement',
+  'confidence_level',
+  'user_edited',
+])
+
+const FUTURE_ALLOWED = new Set([
+  'linked_goal_id_optional',
+  'linked_project_id_optional',
+  'next_action',
+  'user_commitment',
+  'follow_up_date_optional',
+])
+
+const FUTURE_UUID_FIELDS = new Set(['linked_goal_id_optional', 'linked_project_id_optional'])
+
+function pickAllowed(obj: Record<string, any>, allowed: Set<string>): Record<string, any> {
   const out: Record<string, any> = {}
   for (const [k, v] of Object.entries(obj)) {
-    if (MANAGED_KEYS.has(k)) continue
-    if (UUID_KEYS.has(k) && !isValidUuid(v)) continue
+    if (!allowed.has(k)) continue
+    if (FUTURE_UUID_FIELDS.has(k) && !isValidUuid(v)) continue
     out[k] = v
   }
   return out
@@ -146,7 +199,7 @@ export async function updateNarrativeIntegrationSession(
   const supabase = await createClient()
   const userId = await requireUserId(supabase)
 
-  const sanitized = stripUnsafeFields(patch as Record<string, any>)
+  const sanitized = pickAllowed(patch as Record<string, any>, SESSION_ALLOWED)
   if (sanitized.stress_level !== undefined)
     sanitized.stress_level = clampIntField(sanitized.stress_level, 1, 10)
   if (sanitized.rumination_level !== undefined)
@@ -185,7 +238,7 @@ export async function upsertNarrativeIntegrationEventInventory(
 
   if (existingError) throw new Error(existingError.message)
 
-  const sanitizedInventory = stripUnsafeFields(inventory as Record<string, any>)
+  const sanitizedInventory = pickAllowed(inventory as Record<string, any>, EVENT_ALLOWED)
   if (sanitizedInventory.integration_score !== undefined)
     sanitizedInventory.integration_score = clampIntField(
       sanitizedInventory.integration_score,
@@ -291,7 +344,7 @@ export async function upsertMeaningExtraction(
 
   if (existingError) throw new Error(existingError.message)
 
-  const sanitizedPatch = stripUnsafeFields(patch as Record<string, any>)
+  const sanitizedPatch = pickAllowed(patch as Record<string, any>, MEANING_ALLOWED)
   if (sanitizedPatch.confidence_level !== undefined)
     sanitizedPatch.confidence_level = clampIntField(sanitizedPatch.confidence_level, 1, 10)
 
@@ -330,7 +383,7 @@ export async function upsertFutureReorientation(
 
   if (existingError) throw new Error(existingError.message)
 
-  const sanitizedFuture = stripUnsafeFields(patch as Record<string, any>)
+  const sanitizedFuture = pickAllowed(patch as Record<string, any>, FUTURE_ALLOWED)
 
   if (existing && existing.length > 0) {
     const { data, error } = await supabase

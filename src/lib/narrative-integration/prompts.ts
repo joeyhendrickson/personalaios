@@ -88,8 +88,6 @@ Return a JSON object ONLY, no markdown, no extra text:
     "confidence_level"?: number
   },
   "future": {
-    "linked_goal_id_optional"?: string,
-    "linked_project_id_optional"?: string,
     "next_action"?: string,
     "user_commitment"?: string,
     "follow_up_date_optional"?: string
