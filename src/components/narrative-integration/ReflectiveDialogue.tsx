@@ -64,7 +64,7 @@ export default function ReflectiveDialogue(props: {
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json?.error || 'Failed to get response')
+      if (!res.ok) throw new Error(json?.error || json?.details || 'Failed to get response')
 
       setMessages((p) => [
         ...p,

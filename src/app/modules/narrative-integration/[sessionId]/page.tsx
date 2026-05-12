@@ -118,7 +118,7 @@ export default function NarrativeIntegrationSessionPage() {
               <div>
                 <h1 className="text-2xl font-bold text-black flex items-center gap-3">
                   <Sparkles className="h-6 w-6 text-blue-600" />
-                  {session.title || 'Narrative Integration'}
+                  {session.title || 'I Am Present'}
                 </h1>
                 <p className="text-xs text-gray-600">
                   Calm, structured reflection. Not therapy. Updated{' '}

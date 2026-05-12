@@ -228,8 +228,7 @@ const modules: Module[] = [
   {
     id: 'narrative-integration',
     title: 'I Am Present',
-    description:
-      'Structured reflective journaling to reduce rumination: organize the story, extract meaning, ground in the present, and return to next actions.',
+    description: 'Make peace with the past',
     category: 'Wellness',
     icon: <Sparkles className="h-8 w-8" />,
     status: 'available',

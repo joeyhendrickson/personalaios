@@ -232,17 +232,31 @@ export async function POST(req: NextRequest) {
       rumination: rumination,
     })
   } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error)
+    const model = resolveOpenAIModelId()
+
     console.error('Error in Narrative Integration chat API:', {
-      error: error instanceof Error ? error.message : String(error),
+      error: errMsg,
       stack: error instanceof Error ? error.stack : undefined,
       hasOpenAIKey: !!env.OPENAI_API_KEY,
-      openAIModel: resolveOpenAIModelId(),
+      openAIModel: model,
     })
+
+    let userFacingError = errMsg
+    if (errMsg.includes('model_not_found') || errMsg.includes('does not exist')) {
+      userFacingError = `OpenAI model "${model}" is not available for your API key. Set OPENAI_MODEL in your environment to a model you have access to (e.g. gpt-4o-mini).`
+    } else if (errMsg.includes('Incorrect API key') || errMsg.includes('invalid_api_key')) {
+      userFacingError = 'OpenAI API key is invalid. Check your OPENAI_API_KEY environment variable.'
+    } else if (errMsg.includes('Rate limit') || errMsg.includes('429')) {
+      userFacingError = 'OpenAI rate limit reached. Please wait a moment and try again.'
+    } else if (errMsg.includes('insufficient_quota')) {
+      userFacingError = 'OpenAI quota exceeded. Check your billing at platform.openai.com.'
+    }
 
     return NextResponse.json(
       {
-        error: 'Failed to generate Narrative Integration response',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        error: userFacingError,
+        details: errMsg,
       },
       { status: 500 }
     )

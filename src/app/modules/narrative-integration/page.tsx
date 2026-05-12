@@ -91,9 +91,7 @@ export default function NarrativeIntegrationDashboardPage() {
                 <h1 className="text-3xl font-bold text-black flex items-center gap-3">
                   <Sparkles className="h-8 w-8 text-blue-600" />I Am Present
                 </h1>
-                <p className="text-sm text-gray-600">
-                  Narrative Integration — reflective journaling to reduce rumination (not therapy).
-                </p>
+                <p className="text-sm text-gray-600">Make peace with the past</p>
               </div>
             </div>
 
@@ -171,7 +169,7 @@ export default function NarrativeIntegrationDashboardPage() {
                     <div className="flex items-center justify-between gap-4">
                       <div className="min-w-0">
                         <p className="font-medium text-gray-900 truncate">
-                          {s.title || 'Narrative Integration Session'}
+                          {s.title || 'I Am Present Session'}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
                           Updated {new Date(s.updated_at).toLocaleString()}
