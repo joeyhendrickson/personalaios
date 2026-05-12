@@ -12,6 +12,19 @@ import type {
   NarrativeIntegrationEventInventory,
 } from './types'
 
+function toInt(v: unknown): number | undefined {
+  if (v === null || v === undefined) return undefined
+  const n = Number(v)
+  if (Number.isNaN(n)) return undefined
+  return Math.round(n)
+}
+
+function clampIntField(v: unknown, min: number, max: number): number | undefined {
+  const n = toInt(v)
+  if (n === undefined) return undefined
+  return Math.max(min, Math.min(max, n))
+}
+
 export async function requireUserId(supabase: Awaited<ReturnType<typeof createClient>>) {
   const {
     data: { user },
@@ -41,8 +54,8 @@ export async function createNarrativeIntegrationSession(input: {
       user_id: userId,
       title: input.title ?? null,
       event_summary: input.event_summary ?? null,
-      stress_level: input.stress_level ?? null,
-      rumination_level: input.rumination_level ?? null,
+      stress_level: clampIntField(input.stress_level, 1, 10) ?? null,
+      rumination_level: clampIntField(input.rumination_level, 1, 10) ?? null,
       readiness_to_process: input.readiness_to_process ?? null,
       emotional_state: input.emotional_state ?? null,
       user_goal: input.user_goal ?? null,
@@ -114,9 +127,17 @@ export async function updateNarrativeIntegrationSession(
   const supabase = await createClient()
   const userId = await requireUserId(supabase)
 
+  const sanitized = { ...patch }
+  if (sanitized.stress_level !== undefined)
+    sanitized.stress_level = clampIntField(sanitized.stress_level, 1, 10) as any
+  if (sanitized.rumination_level !== undefined)
+    sanitized.rumination_level = clampIntField(sanitized.rumination_level, 1, 10) as any
+  if (sanitized.engagement_level !== undefined)
+    sanitized.engagement_level = clampIntField(sanitized.engagement_level, 1, 10) as any
+
   const { data, error } = await supabase
     .from('narrative_integration_sessions')
-    .update({ ...patch })
+    .update(sanitized)
     .eq('id', sessionId)
     .eq('user_id', userId)
     .select('*')
@@ -145,10 +166,18 @@ export async function upsertNarrativeIntegrationEventInventory(
 
   if (existingError) throw new Error(existingError.message)
 
+  const sanitizedInventory = { ...inventory } as any
+  if (sanitizedInventory.integration_score !== undefined)
+    sanitizedInventory.integration_score = clampIntField(
+      sanitizedInventory.integration_score,
+      1,
+      10
+    )
+
   if (existing && existing.length > 0) {
     const { data, error } = await supabase
       .from('narrative_integration_events')
-      .update({ ...inventory })
+      .update(sanitizedInventory)
       .eq('id', existing[0].id)
       .select('*')
       .single()
@@ -158,7 +187,7 @@ export async function upsertNarrativeIntegrationEventInventory(
 
   const { data, error } = await supabase
     .from('narrative_integration_events')
-    .insert({ session_id: sessionId, ...inventory })
+    .insert({ session_id: sessionId, ...sanitizedInventory })
     .select('*')
     .single()
 
@@ -202,7 +231,7 @@ export async function addNarrativeIntegrationMessage(input: {
       session_id: input.session_id,
       role: input.role,
       content: input.content,
-      rumination_score: input.rumination_score ?? null,
+      rumination_score: clampIntField(input.rumination_score, 1, 10) ?? null,
       rumination_pattern: input.rumination_pattern ?? null,
       phase: input.phase ?? null,
     })
@@ -243,10 +272,14 @@ export async function upsertMeaningExtraction(
 
   if (existingError) throw new Error(existingError.message)
 
+  const sanitizedPatch = { ...patch } as any
+  if (sanitizedPatch.confidence_level !== undefined)
+    sanitizedPatch.confidence_level = clampIntField(sanitizedPatch.confidence_level, 1, 10)
+
   if (existing && existing.length > 0) {
     const { data, error } = await supabase
       .from('narrative_integration_meaning_extractions')
-      .update({ ...patch })
+      .update(sanitizedPatch)
       .eq('id', existing[0].id)
       .select('*')
       .single()
@@ -256,7 +289,7 @@ export async function upsertMeaningExtraction(
 
   const { data, error } = await supabase
     .from('narrative_integration_meaning_extractions')
-    .insert({ session_id: sessionId, ...patch })
+    .insert({ session_id: sessionId, ...sanitizedPatch })
     .select('*')
     .single()
   if (error) throw new Error(error.message)
