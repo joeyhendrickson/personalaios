@@ -35,6 +35,7 @@ import {
   PenTool,
   Briefcase,
   Sparkles,
+  Heart,
 } from 'lucide-react'
 import RatingStars from '@/components/rating-stars'
 
@@ -243,6 +244,24 @@ const modules: Module[] = [
       'Closure Summary',
     ],
     complexity: 'advanced',
+  },
+  {
+    id: 'gratitude-journal',
+    title: 'Gratitude Journal',
+    description:
+      'Nightly challenge to write 3 things you are thankful for. Build a gratitude habit, track streaks, and earn points.',
+    category: 'Wellness',
+    icon: <Heart className="h-8 w-8" />,
+    status: 'available',
+    features: [
+      'Nightly Challenge',
+      'Streak Tracking',
+      'Mood Rating',
+      'Reflections',
+      'Points Rewards',
+      'AI Context Integration',
+    ],
+    complexity: 'beginner',
   },
 ]
 

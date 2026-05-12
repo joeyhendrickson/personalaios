@@ -22,6 +22,7 @@ export const MODULE_TABLE_MAPPINGS: Record<string, string[]> = {
   'raid-monitoring': ['raid_monitoring_jobs', 'raid_monitoring_entries'],
   'focus-enhancer': ['focus_sessions', 'focus_benchmarks', 'focus_analyses'],
   'habit-master': ['habit_master_templates', 'habit_master_insights'],
+  'gratitude-journal': ['gratitude_journal_entries'],
 }
 
 const FALLBACK_PATTERNS = [

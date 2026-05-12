@@ -135,6 +135,7 @@ async function fetchComprehensiveUserData(supabase: any, userId: string) {
     weeksResult,
     accomplishmentsResult,
     activeModulesResult,
+    gratitudeResult,
   ] = await Promise.all([
     supabase.from('goals').select('*').eq('user_id', userId),
     supabase.from('projects').select('*').eq('user_id', userId),
@@ -165,6 +166,12 @@ async function fetchComprehensiveUserData(supabase: any, userId: string) {
       .select('module_id, last_accessed')
       .eq('user_id', userId)
       .eq('is_active', true),
+    supabase
+      .from('gratitude_journal_entries')
+      .select('*')
+      .eq('user_id', userId)
+      .order('entry_date', { ascending: false })
+      .limit(14),
   ])
 
   return {
@@ -178,6 +185,7 @@ async function fetchComprehensiveUserData(supabase: any, userId: string) {
     weeks: weeksResult.data || [],
     accomplishments: accomplishmentsResult.data || [],
     activeModules: activeModulesResult.data || [],
+    gratitudeEntries: gratitudeResult.data || [],
   }
 }
 
@@ -357,6 +365,19 @@ ${userData.accomplishments
   .map((a: any) => `- ${a.title}`)
   .join('\n')}
 
+GRATITUDE JOURNAL (recent entries – use to understand what the user values, track emotional wellbeing, and connect gratitudes to their goals/projects/habits):
+${
+  userData.gratitudeEntries?.length > 0
+    ? userData.gratitudeEntries
+        .slice(0, 7)
+        .map(
+          (e: any) =>
+            `- ${e.entry_date}: ${(e.gratitude_items || []).join('; ')}${e.mood_rating ? ` (mood: ${e.mood_rating}/5)` : ''}${e.reflection ? ` – "${e.reflection}"` : ''}`
+        )
+        .join('\n')
+    : 'No gratitude entries yet.'
+}
+
 CONVERSATION HISTORY:
 ${conversationHistory
   .slice(-5)
@@ -374,6 +395,7 @@ INSTRUCTIONS:
 5. Be positive about their use of the Personal AI OS system
 6. Reference their specific goals, projects, or habits when relevant
 7. Keep the tone conversational and supportive
+8. When the user has gratitude journal entries, reference what they are thankful for to reinforce positivity, connect gratitudes to their goals and progress, and track emotional patterns over time
 
 AVAILABLE MODULES TO RECOMMEND (Only recommend modules that are NOT already active):
 - Market Advisor: For financial growth and investment learning
@@ -389,6 +411,7 @@ AVAILABLE MODULES TO RECOMMEND (Only recommend modules that are NOT already acti
 - Focus Enhancer: For advanced focus tracking and concentration optimization
 - Stress Manager: For stress level tracking and management techniques
 - Creativity Boost: For AI-powered brainstorming and idea generation
+- Gratitude Journal: For nightly gratitude practice, mood tracking, and building a thankfulness habit
 
 IMPORTANT: Only recommend modules that the user has NOT already installed. Check the ACTIVE MODULES list above before making recommendations.
 
