@@ -286,7 +286,8 @@ export class StockDataService {
 
     // Yahoo Finance: chart API with dynamic range
     try {
-      const range = cappedDays <= 5 ? '5d' : cappedDays <= 60 ? '3mo' : cappedDays <= 180 ? '6mo' : '1y'
+      const range =
+        cappedDays <= 5 ? '5d' : cappedDays <= 60 ? '3mo' : cappedDays <= 180 ? '6mo' : '1y'
       const url = `https://query1.finance.yahoo.com/v8/finance/chart/${cleanSymbol}?interval=1d&range=${range}`
       const response = await this.fetchWithTimeout(url)
       const data = await response.json()

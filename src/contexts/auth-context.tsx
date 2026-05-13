@@ -19,10 +19,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   // Memoize Supabase client - creating it on every render caused infinite re-renders
-  const supabase = useMemo(
-    () => (typeof window !== 'undefined' ? createClient() : null),
-    []
-  )
+  const supabase = useMemo(() => (typeof window !== 'undefined' ? createClient() : null), [])
 
   useEffect(() => {
     if (!supabase) {

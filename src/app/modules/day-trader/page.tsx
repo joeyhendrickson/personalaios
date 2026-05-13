@@ -406,10 +406,7 @@ export default function DayTraderModule() {
           investorType: config.investorType,
           informationSources: config.informationSources,
           eventMonitoring: config.eventMonitoring,
-          patterns:
-            patterns.length > 0
-              ? patterns.map(({ imageUrl: _, ...p }) => p)
-              : undefined,
+          patterns: patterns.length > 0 ? patterns.map(({ imageUrl: _, ...p }) => p) : undefined,
           patternLookbackDays: patternLookbackDaysUsed ?? undefined,
         }),
       })
@@ -1083,7 +1080,9 @@ export default function DayTraderModule() {
                     <div className="space-y-4">
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <label className="text-sm font-medium text-gray-700">Days to look back</label>
+                          <label className="text-sm font-medium text-gray-700">
+                            Days to look back
+                          </label>
                           <input
                             type="number"
                             min={1}
@@ -1153,8 +1152,8 @@ export default function DayTraderModule() {
                   </h3>
                   <p className="text-sm text-gray-600 mb-4">
                     Analysis based on consolidation patterns, structural patterns, and candlestick
-                    formations from the last {patternLookbackDaysUsed ?? patternLookbackDays} trading
-                    day{(patternLookbackDaysUsed ?? patternLookbackDays) === 1 ? '' : 's'}.
+                    formations from the last {patternLookbackDaysUsed ?? patternLookbackDays}{' '}
+                    trading day{(patternLookbackDaysUsed ?? patternLookbackDays) === 1 ? '' : 's'}.
                   </p>
 
                   {/* Data Warning */}
