@@ -31,6 +31,18 @@ function isValidUuid(v: unknown): boolean {
   return typeof v === 'string' && UUID_RE.test(v)
 }
 
+/** Postgres DATE rejects ""; coerce blanks and junk to null. */
+function normalizeOptionalPgDate(v: unknown): string | null {
+  if (v === null || v === undefined) return null
+  if (typeof v !== 'string') return null
+  const t = v.trim()
+  if (t === '') return null
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t
+  const d = new Date(t)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString().slice(0, 10)
+}
+
 const SESSION_ALLOWED = new Set([
   'title',
   'event_summary',
@@ -384,6 +396,11 @@ export async function upsertFutureReorientation(
   if (existingError) throw new Error(existingError.message)
 
   const sanitizedFuture = pickAllowed(patch as Record<string, any>, FUTURE_ALLOWED)
+  if ('follow_up_date_optional' in sanitizedFuture) {
+    sanitizedFuture.follow_up_date_optional = normalizeOptionalPgDate(
+      sanitizedFuture.follow_up_date_optional
+    )
+  }
 
   if (existing && existing.length > 0) {
     const { data, error } = await supabase

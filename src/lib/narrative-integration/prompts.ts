@@ -102,7 +102,9 @@ Return a JSON object ONLY, no markdown, no extra text:
     "user_commitment"?: string,
     "follow_up_date_optional"?: string
   }
-}`
+}
+If you include "follow_up_date_optional", it must be a real calendar date as YYYY-MM-DD, or omit the key entirely — never an empty string.
+`
 
   return `
 ${NARRATIVE_INTEGRATION_SYSTEM_PROMPT}

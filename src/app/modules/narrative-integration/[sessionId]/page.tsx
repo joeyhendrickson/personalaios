@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { ArrowLeft, ShieldAlert, Sparkles } from 'lucide-react'
 
 import StateCheck from '@/components/narrative-integration/StateCheck'
@@ -22,6 +22,9 @@ type Session = {
   engagement_level: number | null
   dissociation_indicators: boolean | null
   safety_status: 'ok' | 'needs_grounding' | 'high_risk'
+  emotional_state: string | null
+  user_goal: string | null
+  readiness_to_process: boolean | null
   current_phase:
     | 'state_check'
     | 'stabilization'
@@ -43,7 +46,6 @@ type Session = {
 
 export default function NarrativeIntegrationSessionPage() {
   const params = useParams<{ sessionId: string }>()
-  const router = useRouter()
   const sessionId = params.sessionId
 
   const [session, setSession] = useState<Session | null>(null)
@@ -147,11 +149,16 @@ export default function NarrativeIntegrationSessionPage() {
           </p>
         </div>
 
-        <StateCheck session={session} onUpdated={onSessionUpdated} />
+        <StateCheck
+          session={session}
+          disabled={disableDeepProcessing}
+          onUpdated={onSessionUpdated}
+        />
 
         {session.current_phase !== 'state_check' && (
           <EventInventoryForm
             sessionId={session.id}
+            currentPhase={session.current_phase}
             disabled={disableDeepProcessing}
             onPhaseAdvanced={load}
           />

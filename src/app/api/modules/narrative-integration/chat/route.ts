@@ -125,6 +125,10 @@ export async function POST(req: NextRequest) {
       session: {
         id: session.id,
         title: session.title,
+        event_summary: session.event_summary,
+        emotional_state: session.emotional_state,
+        user_goal: session.user_goal,
+        readiness_to_process: session.readiness_to_process,
         current_phase: session.current_phase,
         safety_status: nextSafetyStatus,
         stress_level: session.stress_level,

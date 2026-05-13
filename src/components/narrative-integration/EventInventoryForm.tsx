@@ -15,6 +15,7 @@ type Inventory = {
 
 export default function EventInventoryForm(props: {
   sessionId: string
+  currentPhase: string
   disabled: boolean
   onPhaseAdvanced?: () => void
 }) {
@@ -76,11 +77,13 @@ export default function EventInventoryForm(props: {
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error || 'Failed to save inventory')
 
-      await fetch(`/api/modules/narrative-integration/sessions/${props.sessionId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_phase: 'rumination_analysis' }),
-      })
+      if (props.currentPhase === 'event_inventory') {
+        await fetch(`/api/modules/narrative-integration/sessions/${props.sessionId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ current_phase: 'rumination_analysis' }),
+        })
+      }
 
       props.onPhaseAdvanced?.()
     } catch (e) {
@@ -96,6 +99,7 @@ export default function EventInventoryForm(props: {
         <h2 className="font-semibold text-gray-900">Step 2 — What happened? (briefly)</h2>
         <p className="text-sm text-gray-600">
           Keep it factual and high-level. This module is about coherence and meaning — not reliving.
+          You can come back and update this anytime; guided reflection uses the latest version.
         </p>
       </div>
 
@@ -214,7 +218,11 @@ export default function EventInventoryForm(props: {
           disabled={saving}
           className="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50"
         >
-          {saving ? 'Saving…' : 'Save & Continue'}
+          {saving
+            ? 'Saving…'
+            : props.currentPhase === 'event_inventory'
+              ? 'Save & Continue'
+              : 'Save Step 2'}
         </button>
       </div>
     </div>
