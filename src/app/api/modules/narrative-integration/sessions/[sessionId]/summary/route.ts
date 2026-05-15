@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
+  combineMeaningStatements,
   getNarrativeIntegrationEvent,
   getNarrativeIntegrationSession,
+  listMeaningExtractions,
   updateNarrativeIntegrationSession,
 } from '@/lib/narrative-integration/actions'
 import { createClient } from '@/lib/supabase/server'
@@ -12,10 +14,12 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ sessionId
 
     const session = await getNarrativeIntegrationSession(sessionId)
     const event = await getNarrativeIntegrationEvent(sessionId)
+    const meanings = await listMeaningExtractions(sessionId)
+    const combinedMeaning = combineMeaningStatements(meanings) || session.meaning_statement || ''
 
     // Completion gate: only mark completed if key artifacts exist + stress is stable-ish
     const stressOk = (session.stress_level ?? 10) <= 7
-    const hasMeaning = !!session.meaning_statement
+    const hasMeaning = !!combinedMeaning
     const hasLesson = !!session.lesson_statement
     const hasAction = !!session.future_action
 
@@ -27,7 +31,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ sessionId
       event_brief: session.event_summary || event?.what_happened_briefly || '',
       old_belief: oldBelief,
       updated_belief: updatedBelief,
-      meaning_statement: session.meaning_statement || '',
+      meaning_statement: combinedMeaning,
       lesson_learned: session.lesson_statement || '',
       gratitude_or_grounding_statement: session.present_grounding_summary || '',
       future_action: session.future_action || '',

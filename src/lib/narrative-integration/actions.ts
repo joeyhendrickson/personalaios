@@ -341,6 +341,99 @@ export async function listNarrativeIntegrationMessages(sessionId: string) {
   return (data || []) as NarrativeIntegrationMessage[]
 }
 
+function sanitizeMeaningPatch(patch: Partial<MeaningExtraction>): Record<string, unknown> {
+  const sanitized = pickAllowed(patch as Record<string, any>, MEANING_ALLOWED)
+  if (sanitized.confidence_level !== undefined)
+    sanitized.confidence_level = clampIntField(sanitized.confidence_level, 1, 10)
+  return sanitized
+}
+
+/** Combined text for session.meaning_statement and summaries. */
+export function combineMeaningStatements(meanings: MeaningExtraction[]): string | null {
+  const parts = meanings
+    .map((m) => {
+      const stmt = (m.final_meaning_statement || m.user_selected_meaning || '').trim()
+      if (!stmt) return null
+      const cat = (m.category || '').trim()
+      return cat ? `${cat}: ${stmt}` : stmt
+    })
+    .filter(Boolean) as string[]
+  return parts.length > 0 ? parts.join('\n') : null
+}
+
+export async function listMeaningExtractions(sessionId: string) {
+  const supabase = await createClient()
+  await getNarrativeIntegrationSession(sessionId)
+
+  const { data, error } = await supabase
+    .from('narrative_integration_meaning_extractions')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data || []) as MeaningExtraction[]
+}
+
+export async function createMeaningExtraction(
+  sessionId: string,
+  patch: Partial<MeaningExtraction>
+) {
+  const supabase = await createClient()
+  await getNarrativeIntegrationSession(sessionId)
+
+  const sanitized = sanitizeMeaningPatch(patch)
+  const { data, error } = await supabase
+    .from('narrative_integration_meaning_extractions')
+    .insert({ session_id: sessionId, ...sanitized })
+    .select('*')
+    .single()
+  if (error) throw new Error(error.message)
+  return data as MeaningExtraction
+}
+
+export async function updateMeaningExtraction(
+  sessionId: string,
+  meaningId: string,
+  patch: Partial<MeaningExtraction>
+) {
+  const supabase = await createClient()
+  await getNarrativeIntegrationSession(sessionId)
+
+  const sanitized = sanitizeMeaningPatch(patch)
+  const { data, error } = await supabase
+    .from('narrative_integration_meaning_extractions')
+    .update(sanitized)
+    .eq('id', meaningId)
+    .eq('session_id', sessionId)
+    .select('*')
+    .single()
+  if (error) throw new Error(error.message)
+  return data as MeaningExtraction
+}
+
+export async function deleteMeaningExtraction(sessionId: string, meaningId: string) {
+  const supabase = await createClient()
+  await getNarrativeIntegrationSession(sessionId)
+
+  const { error } = await supabase
+    .from('narrative_integration_meaning_extractions')
+    .delete()
+    .eq('id', meaningId)
+    .eq('session_id', sessionId)
+
+  if (error) throw new Error(error.message)
+}
+
+export async function syncSessionMeaningStatement(sessionId: string) {
+  const meanings = await listMeaningExtractions(sessionId)
+  const combined = combineMeaningStatements(meanings)
+  return updateNarrativeIntegrationSession(sessionId, {
+    meaning_statement: combined,
+  })
+}
+
+/** AI chat: update first row if present, otherwise insert. */
 export async function upsertMeaningExtraction(
   sessionId: string,
   patch: Partial<MeaningExtraction>
@@ -352,13 +445,12 @@ export async function upsertMeaningExtraction(
     .from('narrative_integration_meaning_extractions')
     .select('*')
     .eq('session_id', sessionId)
+    .order('created_at', { ascending: true })
     .limit(1)
 
   if (existingError) throw new Error(existingError.message)
 
-  const sanitizedPatch = pickAllowed(patch as Record<string, any>, MEANING_ALLOWED)
-  if (sanitizedPatch.confidence_level !== undefined)
-    sanitizedPatch.confidence_level = clampIntField(sanitizedPatch.confidence_level, 1, 10)
+  const sanitizedPatch = sanitizeMeaningPatch(patch)
 
   if (existing && existing.length > 0) {
     const { data, error } = await supabase

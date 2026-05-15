@@ -7,7 +7,9 @@ import {
   addNarrativeIntegrationMessage,
   getNarrativeIntegrationEvent,
   getNarrativeIntegrationSession,
+  listMeaningExtractions,
   listNarrativeIntegrationMessages,
+  syncSessionMeaningStatement,
   updateNarrativeIntegrationSession,
   upsertMeaningExtraction,
   upsertFutureReorientation,
@@ -120,6 +122,7 @@ export async function POST(req: NextRequest) {
     const userContextSummary = user ? await fetchUserContextSummary(supabase, user.id) : ''
 
     const event = await getNarrativeIntegrationEvent(sessionId)
+    const meanings = await listMeaningExtractions(sessionId)
 
     const sessionSnapshot = {
       session: {
@@ -151,6 +154,10 @@ export async function POST(req: NextRequest) {
             extracted_lesson: event.extracted_lesson,
           }
         : null,
+      meaning_map: meanings.map((m) => ({
+        category: m.category,
+        statement: m.final_meaning_statement || m.user_selected_meaning,
+      })),
     }
 
     const system = narrativeIntegrationAssistantPrompt({
@@ -203,8 +210,9 @@ export async function POST(req: NextRequest) {
     // Persist meaning/future if provided
     if (parsed.meaning && Object.keys(parsed.meaning).length > 0) {
       await upsertMeaningExtraction(sessionId, parsed.meaning as any)
-      if (parsed.meaning.final_meaning_statement) {
-        updates.meaning_statement = parsed.meaning.final_meaning_statement
+      const synced = await syncSessionMeaningStatement(sessionId)
+      if (synced.meaning_statement) {
+        updates.meaning_statement = synced.meaning_statement
       }
     }
     if (parsed.future && Object.keys(parsed.future).length > 0) {
