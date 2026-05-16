@@ -31,19 +31,100 @@ type AiJson = {
 }
 
 async function fetchUserContextSummary(supabase: any, userId: string) {
-  const [goalsResult, projectsResult, habitsResult, prioritiesResult] = await Promise.all([
-    supabase.from('goals').select('id,title').eq('user_id', userId).limit(8),
-    supabase.from('projects').select('id,title').eq('user_id', userId).limit(8),
-    supabase.from('daily_habits').select('id,title').eq('user_id', userId).limit(8),
-    supabase.from('priorities').select('id,title').eq('user_id', userId).limit(8),
+  const [
+    goalsResult,
+    projectsResult,
+    tasksResult,
+    habitsResult,
+    prioritiesResult,
+    completedProjectsResult,
+    completedTasksResult,
+  ] = await Promise.all([
+    supabase
+      .from('goals')
+      .select('id,title')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .order('priority_level', { ascending: true })
+      .limit(8),
+    supabase
+      .from('projects')
+      .select('id,title')
+      .eq('user_id', userId)
+      .eq('is_completed', false)
+      .order('updated_at', { ascending: false })
+      .limit(8),
+    supabase
+      .from('tasks')
+      .select('id,title')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(10),
+    supabase
+      .from('daily_habits')
+      .select('id,title')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('order_index', { ascending: true })
+      .limit(8),
+    supabase
+      .from('priorities')
+      .select('id,title')
+      .eq('user_id', userId)
+      .eq('is_completed', false)
+      .eq('is_deleted', false)
+      .order('manual_order', { ascending: true })
+      .limit(8),
+    supabase
+      .from('projects')
+      .select('title')
+      .eq('user_id', userId)
+      .eq('is_completed', true)
+      .order('updated_at', { ascending: false })
+      .limit(5),
+    supabase
+      .from('tasks')
+      .select('title')
+      .eq('user_id', userId)
+      .eq('status', 'completed')
+      .order('updated_at', { ascending: false })
+      .limit(5),
   ])
 
-  const goals = (goalsResult.data || []).map((g: any) => `- ${g.title}`).join('\n')
-  const projects = (projectsResult.data || []).map((p: any) => `- ${p.title}`).join('\n')
-  const habits = (habitsResult.data || []).map((h: any) => `- ${h.title}`).join('\n')
-  const priorities = (prioritiesResult.data || []).map((p: any) => `- ${p.title}`).join('\n')
+  const formatList = (items: { title?: string }[] | null, empty: string) => {
+    const lines = (items || []).map((x) => `- ${x.title}`).filter((l) => l.length > 3)
+    return lines.length ? lines.join('\n') : empty
+  }
 
-  return `GOALS:\n${goals || '- (none found)'}\n\nPROJECTS:\n${projects || '- (none found)'}\n\nPRIORITIES:\n${priorities || '- (none found)'}\n\nHABITS:\n${habits || '- (none found)'}`
+  const goals = formatList(goalsResult.data, '- (none active)')
+  const projects = formatList(projectsResult.data, '- (none active)')
+  const tasks = formatList(tasksResult.data, '- (none open)')
+  const habits = formatList(habitsResult.data, '- (none active)')
+  const priorities = formatList(prioritiesResult.data, '- (none open)')
+  const completedProjects = formatList(completedProjectsResult.data, '- (none listed)')
+  const completedTasks = formatList(completedTasksResult.data, '- (none listed)')
+
+  return `ACTIVE GOALS (in progress — OK to reference for direction):
+${goals}
+
+ACTIVE PROJECTS (not completed — OK to reference for next steps):
+${projects}
+
+OPEN TASKS (pending only — OK to suggest as concrete actions):
+${tasks}
+
+OPEN PRIORITIES (not completed — OK to reference today):
+${priorities}
+
+ACTIVE DAILY HABITS:
+${habits}
+
+RECENTLY COMPLETED (for acknowledgment only — do NOT treat as current work or suggest doing these):
+Projects:
+${completedProjects}
+Tasks:
+${completedTasks}`
 }
 
 export async function POST(req: NextRequest) {
