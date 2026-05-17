@@ -48,6 +48,7 @@
     "next-intl": "^4.3.12",
     "openai": "^5.20.2",
     "papaparse": "^5.5.3",
+    "pdf-lib": "^1.17.1",
     "plaid": "^38.1.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

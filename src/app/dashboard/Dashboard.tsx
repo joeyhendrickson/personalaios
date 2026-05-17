@@ -57,6 +57,7 @@ import {
   buildLinkableGoals,
   resolveLinkedGoalTitle,
 } from '@/components/projects/project-goal-link-select'
+import { WeeklyProgressReportModal } from '@/components/dashboard/weekly-progress-report-modal'
 import { Task, Goal, Habit, Priority } from '@/types'
 import { DeletedPriorities } from '@/components/priorities/deleted-priorities'
 import TrialStatusBanner from '@/components/trial/trial-status-banner'
@@ -377,6 +378,7 @@ export default function Dashboard() {
   const [updatingProgress, setUpdatingProgress] = useState<string | null>(null)
   const [localProgress, setLocalProgress] = useState<Record<string, number>>({})
   const [showPointsDetails, setShowPointsDetails] = useState(false)
+  const [showProgressReportModal, setShowProgressReportModal] = useState(false)
   const [userTimezone, setUserTimezone] = useState<string>('America/New_York') // Default to Eastern
   const [pointsHistory, setPointsHistory] = useState<Record<string, unknown>[]>([])
   const [strategicRecommendation, setStrategicRecommendation] = useState<{
@@ -1879,7 +1881,17 @@ export default function Dashboard() {
                     {totalCurrentPoints}/{totalTargetPoints}
                   </p>
                 </div>
-                <CheckCircle className="h-8 w-8 text-blue-400" />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowProgressReportModal(true)}
+                    className="text-blue-500 hover:text-blue-700"
+                    title="Generate progress report"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </button>
+                  <CheckCircle className="h-8 w-8 text-blue-400" />
+                </div>
               </div>
               <div className="flex justify-center mb-4">
                 <ProgressRing percentage={progressPercentage} size={100} color="#60A5FA" />
@@ -4510,6 +4522,11 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <WeeklyProgressReportModal
+        open={showProgressReportModal}
+        onClose={() => setShowProgressReportModal(false)}
+      />
 
       {/* Points Details Modal */}
       {showPointsDetails && (
