@@ -18,13 +18,13 @@ import {
   FolderKanban,
   CheckCircle,
   Zap,
+  Gift,
   Lock,
   Eye,
   EyeOff,
   CalendarCheck,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import RewardsSection from '@/components/rewards/rewards-section'
 import DisciplineTrophies from '@/components/discipline/discipline-trophies'
 import TotalHabitTrophies from '@/components/trophies/total-habit-trophies'
 import SigninStreakTrophies from '@/components/trophies/signin-streak-trophies'
@@ -540,9 +540,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Rewards Section */}
-          <RewardsSection />
-
           {/* Trophy Sections */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Sign-In Streak Trophies */}
@@ -562,7 +559,7 @@ export default function ProfilePage() {
               <CardDescription>Manage your productivity system</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Button
                   variant="outline"
                   onClick={() => router.push('/dashboard')}
@@ -579,6 +576,15 @@ export default function ProfilePage() {
                 >
                   <Zap className="h-6 w-6 mb-2" />
                   <span>Life Hacks</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/modules/rewards-self-care')}
+                  className="h-20 flex flex-col items-center justify-center"
+                >
+                  <Gift className="h-6 w-6 mb-2" />
+                  <span>Rewards & Self-Care</span>
                 </Button>
               </div>
             </CardContent>

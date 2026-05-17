@@ -35,6 +35,7 @@ import {
   PenTool,
   Briefcase,
   Sparkles,
+  Gift,
 } from 'lucide-react'
 import RatingStars from '@/components/rating-stars'
 
@@ -242,6 +243,23 @@ const modules: Module[] = [
       'Closure Summary',
     ],
     complexity: 'advanced',
+  },
+  {
+    id: 'rewards-self-care',
+    title: 'Rewards & Self-Care',
+    description:
+      'Redeem points for rewards, explore partner offers, and set personal milestones for self-care.',
+    category: 'Wellness',
+    icon: <Gift className="h-8 w-8" />,
+    status: 'available',
+    features: [
+      'Points balance',
+      'Available rewards',
+      'Partner rewards',
+      'Redeemed history',
+      'Custom milestones',
+    ],
+    complexity: 'beginner',
   },
   {
     id: 'gratitude-journal',

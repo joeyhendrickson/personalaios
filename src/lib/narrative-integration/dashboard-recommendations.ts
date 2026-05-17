@@ -117,19 +117,25 @@ Return JSON only:
     if (match) parsed = JSON.parse(match[0])
   }
 
-  const recs = (parsed.recommendations || []).slice(0, 3).map((r, i) => ({
-    id: r.id || `rec-${i + 1}`,
-    type: r.type === 'task' ? 'task' : 'habit',
-    title: String(r.title || '').trim(),
-    description: String(r.description || '').trim(),
-    rationale: String(r.rationale || '').trim(),
-    category:
-      r.type === 'task' && TASK_CATEGORIES.includes(r.category as (typeof TASK_CATEGORIES)[number])
-        ? r.category
-        : r.type === 'task'
-          ? 'personal'
-          : undefined,
-  }))
+  const recs: DashboardRecommendation[] = (parsed.recommendations || [])
+    .slice(0, 3)
+    .map((r, i): DashboardRecommendation => {
+      const type: DashboardRecommendation['type'] = r.type === 'task' ? 'task' : 'habit'
+      return {
+        id: r.id || `rec-${i + 1}`,
+        type,
+        title: String(r.title || '').trim(),
+        description: String(r.description || '').trim(),
+        rationale: String(r.rationale || '').trim(),
+        category:
+          type === 'task' &&
+          TASK_CATEGORIES.includes(r.category as (typeof TASK_CATEGORIES)[number])
+            ? (r.category as (typeof TASK_CATEGORIES)[number])
+            : type === 'task'
+              ? 'personal'
+              : undefined,
+      }
+    })
 
   return recs.filter((r) => r.title.length > 0)
 }

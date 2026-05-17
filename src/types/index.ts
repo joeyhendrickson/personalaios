@@ -31,6 +31,8 @@ export interface Goal {
   updated_at: string
   /** Dashboard project list order (lower = higher in list). */
   project_sort_order?: number
+  /** Optional link to a high-level goal (`goals` table). */
+  goal_id?: string | null
   tasks?: Task[]
 }
 

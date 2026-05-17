@@ -52,6 +52,11 @@ import ActiveProjectsWidget from '@/components/dashboard/active-projects-widget'
 import TaskAdvisor from '@/components/dashboard/task-advisor'
 import { DraggableTasks } from '@/components/tasks/draggable-tasks'
 import { DraggableProjectsGrid } from '@/components/projects/draggable-projects-grid'
+import {
+  ProjectGoalLinkSelect,
+  buildLinkableGoals,
+  resolveLinkedGoalTitle,
+} from '@/components/projects/project-goal-link-select'
 import { Task, Goal, Habit, Priority } from '@/types'
 import { DeletedPriorities } from '@/components/priorities/deleted-priorities'
 import TrialStatusBanner from '@/components/trial/trial-status-banner'
@@ -450,7 +455,9 @@ export default function Dashboard() {
     description: '',
     category: 'other',
     target_points: 10,
+    goal_id: '',
   })
+  const [editProjectGoalId, setEditProjectGoalId] = useState('')
 
   // Reset chat trigger after it's been used
   useEffect(() => {
@@ -936,6 +943,7 @@ export default function Dashboard() {
           category: newGoal.category,
           target_points: newGoal.target_points,
           target_money: 0,
+          ...(newGoal.goal_id ? { goal_id: newGoal.goal_id } : {}),
         }),
       })
 
@@ -945,7 +953,13 @@ export default function Dashboard() {
         const data = await response.json()
         console.log('Project created successfully:', data)
         await fetchDashboardData() // Refresh data
-        setNewGoal({ title: '', description: '', category: 'other', target_points: 10 })
+        setNewGoal({
+          title: '',
+          description: '',
+          category: 'other',
+          target_points: 10,
+          goal_id: '',
+        })
         setShowAddGoal(false)
         alert('Project created successfully!')
       } else {
@@ -1392,6 +1406,7 @@ export default function Dashboard() {
 
   const openEditGoal = (goal: Goal) => {
     setEditingGoal(goal)
+    setEditProjectGoalId(goal.goal_id || '')
     setShowEditGoal(true)
   }
 
@@ -2701,6 +2716,11 @@ export default function Dashboard() {
                               localProgress[goal.id] !== undefined
                                 ? localProgress[goal.id]
                                 : baseProgress
+                            const linkedGoalTitle = resolveLinkedGoalTitle(
+                              (goal as Goal).goal_id,
+                              highLevelGoals,
+                              completedGoals
+                            )
                             const categoryColors = {
                               quick_money: '#DC2626',
                               save_money: '#059669',
@@ -2802,6 +2822,14 @@ export default function Dashboard() {
                                     <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-blue-200 text-blue-700">
                                       {(goal as any).category}
                                     </span>
+                                    {linkedGoalTitle && (
+                                      <span
+                                        className="inline-flex max-w-[10rem] items-center truncate rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-800"
+                                        title={`Linked goal: ${linkedGoalTitle}`}
+                                      >
+                                        🎯 {linkedGoalTitle}
+                                      </span>
+                                    )}
                                     <button
                                       onClick={() => convertGoalToTask(goal)}
                                       className="text-green-500 hover:text-green-700"
@@ -3555,6 +3583,11 @@ export default function Dashboard() {
                   </select>
                 )}
               </div>
+              <ProjectGoalLinkSelect
+                value={newGoal.goal_id}
+                onChange={(goal_id) => setNewGoal({ ...newGoal, goal_id })}
+                goals={buildLinkableGoals(highLevelGoals, completedGoals)}
+              />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Target Points <span className="text-gray-400 text-xs">(optional)</span>
@@ -4117,6 +4150,12 @@ export default function Dashboard() {
                   })()}
                 </select>
               </div>
+              <ProjectGoalLinkSelect
+                id="edit-goal-goal-link"
+                value={editProjectGoalId}
+                onChange={setEditProjectGoalId}
+                goals={buildLinkableGoals(highLevelGoals, completedGoals, editingGoal.goal_id)}
+              />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Target Points
@@ -4175,6 +4214,7 @@ export default function Dashboard() {
                       category,
                       target_points,
                       current_points,
+                      goal_id: editProjectGoalId || null,
                     })
                   }}
                   className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
