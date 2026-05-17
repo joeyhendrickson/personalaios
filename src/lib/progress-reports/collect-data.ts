@@ -8,6 +8,28 @@ export type RawReportContext = {
   stats: ProgressReportStats
   moduleHighlights: ModuleHighlight[]
   accomplishments: string[]
+  focusEvidence: {
+    completedTasks: Array<{ title: string; category: string; points?: number }>
+    pendingTasksSample: Array<{ title: string; category: string }>
+    projects: Array<{
+      title: string
+      category: string
+      progressPercent: number
+      currentPoints: number
+      targetPoints: number
+      completedInPeriod: boolean
+      updatedInPeriod: boolean
+    }>
+    goals: Array<{
+      title: string
+      goalType?: string
+      progressPercent: number
+      currentValue: number
+      targetValue: number
+    }>
+    habits: Array<{ title: string; completionsInPeriod: number; pointsPerCompletion?: number }>
+    habitCompletionByDay?: Record<string, number>
+  }
   rawModuleNotes: Record<string, unknown>
 }
 
@@ -19,13 +41,17 @@ export async function collectReportContext(
   const supabase = await createClient()
   const startIso = periodStart.toISOString()
   const endIso = periodEnd.toISOString()
+  const startDate = periodStart.toISOString().split('T')[0]
+  const endDate = periodEnd.toISOString().split('T')[0]
 
   const [
     pointsRes,
     tasksCompletedRes,
     tasksCreatedRes,
+    tasksPendingRes,
     projectsRes,
     habitCompletionsRes,
+    habitsRes,
     goalsRes,
     accomplishmentsRes,
     aiUsageRes,
@@ -37,38 +63,55 @@ export async function collectReportContext(
   ] = await Promise.all([
     supabase
       .from('points_ledger')
-      .select('points, created_at')
+      .select('points, created_at, description')
       .eq('user_id', userId)
       .gte('created_at', startIso)
       .lte('created_at', endIso),
     supabase
       .from('tasks')
-      .select('id, title, category, completed_at')
+      .select('id, title, category, points_value, completed_at')
       .eq('user_id', userId)
       .eq('status', 'completed')
       .gte('completed_at', startIso)
-      .lte('completed_at', endIso),
+      .lte('completed_at', endIso)
+      .order('completed_at', { ascending: false })
+      .limit(40),
     supabase
       .from('tasks')
-      .select('id')
+      .select('id, title, category')
       .eq('user_id', userId)
       .gte('created_at', startIso)
       .lte('created_at', endIso),
     supabase
+      .from('tasks')
+      .select('id, title, category')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .order('sort_order', { ascending: true })
+      .limit(15),
+    supabase
       .from('projects')
-      .select('id, title, category, is_completed, current_points, target_points, updated_at')
-      .eq('user_id', userId),
+      .select(
+        'id, title, category, is_completed, current_points, target_points, updated_at, created_at'
+      )
+      .eq('user_id', userId)
+      .order('project_sort_order', { ascending: true }),
     supabase
       .from('habit_completions')
-      .select('id')
+      .select('id, habit_id, completed_at, points_awarded')
       .eq('user_id', userId)
       .gte('completed_at', startIso)
       .lte('completed_at', endIso),
     supabase
-      .from('goals')
-      .select('id, title, current_value, target_value, status, updated_at')
+      .from('daily_habits')
+      .select('id, title, points_per_completion, is_active')
       .eq('user_id', userId)
-      .eq('status', 'active'),
+      .eq('is_active', true),
+    supabase
+      .from('goals')
+      .select('id, title, goal_type, current_value, target_value, status, updated_at')
+      .eq('user_id', userId)
+      .in('status', ['active', 'completed']),
     supabase
       .from('accomplishments')
       .select('title, description, created_at')
@@ -101,8 +144,8 @@ export async function collectReportContext(
       .from('gratitude_journal_entries')
       .select('entry_date, gratitude_items, reflection, mood_rating')
       .eq('user_id', userId)
-      .gte('entry_date', periodStart.toISOString().split('T')[0])
-      .lte('entry_date', periodEnd.toISOString().split('T')[0])
+      .gte('entry_date', startDate)
+      .lte('entry_date', endDate)
       .order('entry_date', { ascending: false })
       .limit(14),
     supabase
@@ -144,12 +187,15 @@ export async function collectReportContext(
         new Date(p.updated_at) <= periodEnd
     ).length || 0
 
-  const goalsProgress = (goalsRes.data || []).slice(0, 8).map((g) => {
-    const target = g.target_value || 0
-    const current = g.current_value || 0
-    const progressPercent = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0
-    return { title: g.title as string, progressPercent }
-  })
+  const goalsProgress = (goalsRes.data || [])
+    .filter((g) => g.status === 'active')
+    .slice(0, 8)
+    .map((g) => {
+      const target = g.target_value || 0
+      const current = g.current_value || 0
+      const progressPercent = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0
+      return { title: g.title as string, progressPercent }
+    })
 
   const stats: ProgressReportStats = {
     totalPoints,
@@ -160,6 +206,84 @@ export async function collectReportContext(
     goalsProgress,
     topCategories,
   }
+
+  const habitTitleById = new Map(
+    (habitsRes.data || []).map((h) => [
+      h.id,
+      { title: h.title as string, points: h.points_per_completion },
+    ])
+  )
+  const habitCompletionCounts: Record<string, number> = {}
+  const habitCompletionByDay: Record<string, number> = {}
+
+  for (const row of habitCompletionsRes.data || []) {
+    const hid = row.habit_id as string
+    habitCompletionCounts[hid] = (habitCompletionCounts[hid] || 0) + 1
+    const day = (row.completed_at as string).split('T')[0]
+    habitCompletionByDay[day] = (habitCompletionByDay[day] || 0) + 1
+  }
+
+  const habits = Object.entries(habitCompletionCounts)
+    .map(([habitId, completionsInPeriod]) => {
+      const meta = habitTitleById.get(habitId)
+      return {
+        title: meta?.title || 'Habit',
+        completionsInPeriod,
+        pointsPerCompletion: meta?.points,
+      }
+    })
+    .sort((a, b) => b.completionsInPeriod - a.completionsInPeriod)
+    .slice(0, 15)
+
+  const completedTasks = (tasksCompletedRes.data || []).map((t) => ({
+    title: t.title as string,
+    category: (t.category as string) || 'other',
+    points: t.points_value as number | undefined,
+  }))
+
+  const pendingTasksSample = (tasksPendingRes.data || []).map((t) => ({
+    title: t.title as string,
+    category: (t.category as string) || 'other',
+  }))
+
+  const projects = (projectsRes.data || []).map((p) => {
+    const target = (p.target_points as number) || 0
+    const current = (p.current_points as number) || 0
+    const progressPercent = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0
+    const updated = p.updated_at ? new Date(p.updated_at as string) : null
+    const updatedInPeriod = updated ? updated >= periodStart && updated <= periodEnd : false
+    const completedInPeriod =
+      Boolean(p.is_completed) && updated ? updated >= periodStart && updated <= periodEnd : false
+    return {
+      title: p.title as string,
+      category: (p.category as string) || 'other',
+      progressPercent,
+      currentPoints: current,
+      targetPoints: target,
+      completedInPeriod,
+      updatedInPeriod,
+    }
+  })
+
+  const goals = (goalsRes.data || [])
+    .filter((g) => {
+      if (g.status === 'active') return true
+      const updated = g.updated_at ? new Date(g.updated_at as string) : null
+      return updated ? updated >= periodStart && updated <= periodEnd : false
+    })
+    .slice(0, 12)
+    .map((g) => {
+      const target = (g.target_value as number) || 0
+      const current = (g.current_value as number) || 0
+      const progressPercent = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0
+      return {
+        title: g.title as string,
+        goalType: g.goal_type as string | undefined,
+        progressPercent,
+        currentValue: current,
+        targetValue: target,
+      }
+    })
 
   const moduleUsageCount: Record<string, number> = {}
   for (const row of aiUsageRes.data || []) {
@@ -261,6 +385,14 @@ export async function collectReportContext(
     stats,
     moduleHighlights,
     accomplishments,
+    focusEvidence: {
+      completedTasks,
+      pendingTasksSample,
+      projects,
+      goals,
+      habits,
+      habitCompletionByDay,
+    },
     rawModuleNotes: {
       narrativeSessions: narrativeRes.data,
       gratitudeEntries: gratitudeRes.data,

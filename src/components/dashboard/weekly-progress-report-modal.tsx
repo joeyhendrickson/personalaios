@@ -123,7 +123,7 @@ export function WeeklyProgressReportModal({
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div className="flex items-center gap-2">
             <Settings className="h-5 w-5 text-blue-500" />
-            <h3 className="text-lg font-semibold text-gray-900">Progress Report</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Progress Plan</h3>
           </div>
           <button
             type="button"
@@ -137,8 +137,9 @@ export function WeeklyProgressReportModal({
 
         <div className="space-y-5 overflow-y-auto px-6 py-5">
           <p className="text-sm text-gray-600">
-            Generate a styled progress report with your accomplishments, Life Hacks highlights, and
-            an AI-written summary. Cover art is designed with DALL·E 3.
+            Generate a styled progress plan with a profile of who you are, what drove your
+            motivation, where your attention went, and a SWOT analysis—plus highlights you can share
+            or frame for motivation!
           </p>
 
           {quota && (
@@ -228,7 +229,20 @@ export function WeeklyProgressReportModal({
               {hasCoverImage && (
                 <p className="text-xs text-gray-500">Custom DALL·E cover included in PDF</p>
               )}
-              <p className="text-sm text-gray-700 line-clamp-4">{report.narrativeSummary}</p>
+              {report.userProfile && (
+                <p className="text-xs text-gray-600 line-clamp-2">
+                  {report.userProfile.whoYouSeemToBe}
+                </p>
+              )}
+              {report.focusReview?.summary && (
+                <p className="text-sm text-gray-700 line-clamp-3">{report.focusReview.summary}</p>
+              )}
+              {report.swot?.strengths?.length ? (
+                <p className="text-xs text-gray-500">
+                  SWOT included ({report.swot.strengths.length} strengths,{' '}
+                  {report.swot.opportunities?.length || 0} opportunities)
+                </p>
+              ) : null}
               {report.highlightsBullets.length > 0 && (
                 <ul className="text-xs text-gray-600 list-disc pl-4 space-y-1">
                   {report.highlightsBullets.slice(0, 4).map((b, i) => (

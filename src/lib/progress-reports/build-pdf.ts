@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
-import type { ProgressReportDocument } from './types'
+import type { ProgressReportDocument, ReportSwot } from './types'
 
 const PAGE_WIDTH = 612
 const PAGE_HEIGHT = 792
@@ -31,6 +31,31 @@ function wrapText(
   return lines.length ? lines : ['']
 }
 
+function swotLines(swot: ReportSwot | undefined): string[] {
+  if (!swot) return []
+  const lines: string[] = []
+  if (swot.strengths.length) {
+    lines.push('Strengths')
+    swot.strengths.forEach((s) => lines.push(`  • ${s}`))
+    lines.push('')
+  }
+  if (swot.weaknesses.length) {
+    lines.push('Weaknesses')
+    swot.weaknesses.forEach((s) => lines.push(`  • ${s}`))
+    lines.push('')
+  }
+  if (swot.opportunities.length) {
+    lines.push('Opportunities')
+    swot.opportunities.forEach((s) => lines.push(`  • ${s}`))
+    lines.push('')
+  }
+  if (swot.threats.length) {
+    lines.push('Threats')
+    swot.threats.forEach((s) => lines.push(`  • ${s}`))
+  }
+  return lines
+}
+
 export async function buildProgressReportPdf(
   report: ProgressReportDocument,
   coverImageBase64: string | null
@@ -40,7 +65,10 @@ export async function buildProgressReportPdf(
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold)
   const contentWidth = PAGE_WIDTH - MARGIN * 2
 
-  // Cover page
+  const userProfile = report.userProfile
+  const focusReview = report.focusReview
+  const swot = report.swot
+
   const cover = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
   let y = PAGE_HEIGHT - MARGIN
 
@@ -72,7 +100,7 @@ export async function buildProgressReportPdf(
   })
   y -= 22
 
-  cover.drawText('Progress Report', {
+  cover.drawText('Progress Plan', {
     x: MARGIN,
     y,
     size: 28,
@@ -139,7 +167,7 @@ export async function buildProgressReportPdf(
     `Habit completions: ${report.stats.habitCompletions}`,
     ...(report.stats.topCategories.length
       ? [
-          'Top categories: ' +
+          'Top task categories: ' +
             report.stats.topCategories.map((c) => `${c.category} (${c.points})`).join(', '),
         ]
       : []),
@@ -150,7 +178,46 @@ export async function buildProgressReportPdf(
 
   addSectionPage('At a glance', statsLines)
 
-  addSectionPage('Your story', wrapText(report.narrativeSummary, contentWidth, fontRegular, 11))
+  if (userProfile) {
+    const profileLines = [
+      'Who you seem to be',
+      ...wrapText(userProfile.whoYouSeemToBe, contentWidth, fontRegular, 11),
+      '',
+      'What you seem focused on',
+      ...wrapText(userProfile.apparentFocus, contentWidth, fontRegular, 11),
+      '',
+      'What appears to drive your motivation',
+      ...userProfile.motivationDrivers.map((d) => `• ${d}`),
+    ]
+    addSectionPage('About you', profileLines)
+  }
+
+  if (focusReview) {
+    const focusLines = [
+      ...wrapText(focusReview.summary, contentWidth, fontRegular, 11),
+      '',
+      ...(focusReview.tasksFocus.length
+        ? ['Tasks you completed', ...focusReview.tasksFocus.map((t) => `• ${t}`), '']
+        : []),
+      ...(focusReview.projectsFocus.length
+        ? ['Projects', ...focusReview.projectsFocus.map((t) => `• ${t}`), '']
+        : []),
+      ...(focusReview.goalsFocus.length
+        ? ['Goals', ...focusReview.goalsFocus.map((t) => `• ${t}`)]
+        : []),
+    ]
+    addSectionPage('Where your attention went', focusLines)
+  }
+
+  const swotSection = swotLines(swot)
+  if (swotSection.length) {
+    addSectionPage('SWOT analysis', swotSection)
+  }
+
+  addSectionPage(
+    'Executive summary',
+    wrapText(report.narrativeSummary, contentWidth, fontRegular, 11)
+  )
 
   if (report.highlightsBullets.length) {
     addSectionPage(

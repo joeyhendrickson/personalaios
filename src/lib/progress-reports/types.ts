@@ -17,6 +17,26 @@ export type ProgressReportStats = {
   topCategories: Array<{ category: string; points: number }>
 }
 
+export type UserProfileInsight = {
+  whoYouSeemToBe: string
+  apparentFocus: string
+  motivationDrivers: string[]
+}
+
+export type FocusReview = {
+  summary: string
+  tasksFocus: string[]
+  projectsFocus: string[]
+  goalsFocus: string[]
+}
+
+export type ReportSwot = {
+  strengths: string[]
+  weaknesses: string[]
+  opportunities: string[]
+  threats: string[]
+}
+
 export type ProgressReportDocument = {
   periodType: ReportPeriodType
   periodLabel: string
@@ -26,6 +46,9 @@ export type ProgressReportDocument = {
   stats: ProgressReportStats
   moduleHighlights: ModuleHighlight[]
   accomplishments: string[]
+  userProfile: UserProfileInsight
+  focusReview: FocusReview
+  swot: ReportSwot
   narrativeSummary: string
   highlightsBullets: string[]
   coverArtPrompt: string

@@ -14,7 +14,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const quota = await getProgressReportQuota(user.id, user.email)
+    const quota = await getProgressReportQuota(user.id, user.email, {
+      userMetadata: user.user_metadata,
+    })
     return NextResponse.json({ quota })
   } catch (error) {
     console.error('[progress-reports/quota]', error)

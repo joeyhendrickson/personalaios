@@ -27,7 +27,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { periodType } = bodySchema.parse(body) as { periodType: ReportPeriodType }
 
-    const quota = await getProgressReportQuota(user.id, user.email)
+    const quota = await getProgressReportQuota(user.id, user.email, {
+      userMetadata: user.user_metadata,
+    })
     if (!quota.canGenerate) {
       return NextResponse.json(
         {
@@ -65,6 +67,9 @@ export async function POST(request: NextRequest) {
       stats: context.stats,
       moduleHighlights: aiContent.moduleHighlights,
       accomplishments: context.accomplishments,
+      userProfile: aiContent.userProfile,
+      focusReview: aiContent.focusReview,
+      swot: aiContent.swot,
       narrativeSummary: aiContent.narrativeSummary,
       highlightsBullets: aiContent.highlightsBullets,
       coverArtPrompt: aiContent.coverArtPrompt,
@@ -96,7 +101,9 @@ export async function POST(request: NextRequest) {
       report: reportDoc,
       createdAt: row.created_at,
       hasCoverImage: Boolean(coverImageBase64),
-      quota: await getProgressReportQuota(user.id, user.email),
+      quota: await getProgressReportQuota(user.id, user.email, {
+        userMetadata: user.user_metadata,
+      }),
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
