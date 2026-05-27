@@ -2752,9 +2752,9 @@ export default function Dashboard() {
                             }
                             return (
                               <div className="bg-white/50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-all duration-200">
-                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                                <div className="mb-4 flex items-start gap-4">
                                   <div className="flex shrink-0 items-start pt-1">{dragHandle}</div>
-                                  <div className="flex-1 w-full min-w-0">
+                                  <div className="flex-1 min-w-0">
                                     <span className="text-2xl block mb-2">
                                       {(goal as any).category === 'quick_money'
                                         ? '⚡'
@@ -2789,6 +2789,19 @@ export default function Dashboard() {
                                                                   ? '💡'
                                                                   : '📋'}
                                     </span>
+                                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-blue-200 text-blue-700">
+                                        {(goal as any).category}
+                                      </span>
+                                      {linkedGoalTitle && (
+                                        <span
+                                          className="inline-flex max-w-full items-center truncate rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-800 sm:max-w-[16rem]"
+                                          title={`Linked goal: ${linkedGoalTitle}`}
+                                        >
+                                          🎯 {linkedGoalTitle}
+                                        </span>
+                                      )}
+                                    </div>
                                     <h3 className="font-semibold text-gray-900 mb-1">
                                       {(goal as any).title}
                                     </h3>
@@ -2830,18 +2843,7 @@ export default function Dashboard() {
                                       )}
                                     </div>
                                   </div>
-                                  <div className="flex flex-wrap items-center gap-2 flex-shrink-0 sm:flex-nowrap">
-                                    <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-blue-200 text-blue-700">
-                                      {(goal as any).category}
-                                    </span>
-                                    {linkedGoalTitle && (
-                                      <span
-                                        className="inline-flex max-w-[10rem] items-center truncate rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-800"
-                                        title={`Linked goal: ${linkedGoalTitle}`}
-                                      >
-                                        🎯 {linkedGoalTitle}
-                                      </span>
-                                    )}
+                                  <div className="flex shrink-0 items-center gap-2 self-start">
                                     <button
                                       onClick={() => convertGoalToTask(goal)}
                                       className="text-green-500 hover:text-green-700"
