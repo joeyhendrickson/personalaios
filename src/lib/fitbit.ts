@@ -122,11 +122,15 @@ export interface FitbitActivityData {
   }>
 }
 
+export function isFitbitConfigured(): boolean {
+  return Boolean(env.FITBIT_CLIENT_ID && env.FITBIT_CLIENT_SECRET)
+}
+
 export class FitbitAPI {
   private baseURL = 'https://api.fitbit.com'
   private authURL = 'https://www.fitbit.com'
 
-  constructor() {
+  private assertConfigured() {
     if (!env.FITBIT_CLIENT_ID || !env.FITBIT_CLIENT_SECRET) {
       throw new Error('Fitbit credentials not configured')
     }
@@ -134,6 +138,7 @@ export class FitbitAPI {
 
   // Generate OAuth authorization URL
   getAuthorizationURL(redirectURI: string, state?: string): string {
+    this.assertConfigured()
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: env.FITBIT_CLIENT_ID!,
@@ -147,6 +152,7 @@ export class FitbitAPI {
 
   // Exchange authorization code for access token
   async exchangeCodeForToken(code: string, redirectURI: string): Promise<FitbitTokenResponse> {
+    this.assertConfigured()
     const credentials = Buffer.from(`${env.FITBIT_CLIENT_ID}:${env.FITBIT_CLIENT_SECRET}`).toString(
       'base64'
     )
@@ -176,6 +182,7 @@ export class FitbitAPI {
 
   // Refresh access token
   async refreshToken(refreshToken: string): Promise<FitbitTokenResponse> {
+    this.assertConfigured()
     const credentials = Buffer.from(`${env.FITBIT_CLIENT_ID}:${env.FITBIT_CLIENT_SECRET}`).toString(
       'base64'
     )
@@ -323,4 +330,8 @@ export class FitbitAPI {
   }
 }
 
-export const fitbitAPI = new FitbitAPI()
+let _fitbitAPI: FitbitAPI | null = null
+export function getFitbitAPI(): FitbitAPI {
+  if (!_fitbitAPI) _fitbitAPI = new FitbitAPI()
+  return _fitbitAPI
+}

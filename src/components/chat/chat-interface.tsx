@@ -1324,7 +1324,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         className="flex items-center justify-between gap-2 p-4 border-b bg-black text-white rounded-t-lg cursor-move"
         onMouseDown={handleDragStart}
       >
-        <h3 className="font-semibold truncate">Productivity Advisor</h3>
+        <h3 className="font-semibold truncate">Advisor</h3>
         <div className="flex items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
           <Button
             variant="ghost"

@@ -1602,7 +1602,7 @@ export default function Dashboard() {
               <div className="flex items-center space-x-4">
                 <img src="/LifeStacks-logo.png" alt="Life Stacks" className="h-40 w-auto" />
                 <div>
-                  <p className="text-sm text-gray-600 flex items-center">
+                  <p className="text-sm text-gray-600 hidden sm:flex items-center">
                     <Calendar className="h-4 w-4 mr-1" />
                     {currentWeek ? (
                       <>
@@ -1701,7 +1701,7 @@ export default function Dashboard() {
                       <RefreshCw
                         className={`h-4 w-4 ${refreshingAiContext ? 'animate-spin' : ''}`}
                       />
-                      {refreshingAiContext ? 'Refreshing...' : 'Refresh AI Context'}
+                      {refreshingAiContext ? 'Updating...' : 'Update AI Context'}
                     </button>
                     <button
                       onClick={async () => {
@@ -4596,8 +4596,8 @@ export default function Dashboard() {
         onClose={() => setShowDeletedPriorities(false)}
       />
 
-      {/* Privacy Policy Link */}
-      <div className="fixed bottom-4 right-4 z-10">
+      {/* Privacy Policy Footer */}
+      <footer className="mt-8 border-t border-gray-200 py-6 text-center">
         <a
           href="/privacy-policy"
           target="_blank"
@@ -4606,7 +4606,7 @@ export default function Dashboard() {
         >
           {t('nav.privacyPolicy')}
         </a>
-      </div>
+      </footer>
     </div>
   )
 }

@@ -420,10 +420,7 @@ export default function ModulesPage() {
     return installedModules.find((module) => module.module_id === moduleId && module.is_active)
   }
 
-  const activeModules = modules.filter((module) => isModuleInstalled(module.id))
-  const availableModules = modules.filter((module) => !isModuleInstalled(module.id))
-
-  const filteredModules = availableModules.filter((module) => {
+  const matchesFilters = (module: (typeof modules)[number]) => {
     const matchesSearch =
       module.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       module.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -432,7 +429,14 @@ export default function ModulesPage() {
       selectedComplexity === 'All' || module.complexity === selectedComplexity
 
     return matchesSearch && matchesCategory && matchesComplexity
-  })
+  }
+
+  const activeModules = modules.filter(
+    (module) => isModuleInstalled(module.id) && matchesFilters(module)
+  )
+  const availableModules = modules.filter((module) => !isModuleInstalled(module.id))
+
+  const filteredModules = availableModules.filter((module) => matchesFilters(module))
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -477,8 +481,8 @@ export default function ModulesPage() {
       <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/dashboard">
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
+              <Link href="/dashboard" className="self-start">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 hover:bg-gray-100">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Dashboard
