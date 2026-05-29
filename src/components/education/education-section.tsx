@@ -432,44 +432,42 @@ export default function EducationSection() {
                   </button>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <h4
-                            className={`min-w-0 break-words font-medium ${item.is_completed ? 'line-through text-gray-500' : 'text-gray-900'}`}
-                          >
-                            {item.title}
-                          </h4>
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(item.priority_level)}`}
-                          >
-                            P{item.priority_level}
-                          </span>
-                          <span className="text-sm text-gray-500">+{item.points_value} pts</span>
-                        </div>
-                        {item.description && (
-                          <p className="mt-1 w-full break-words text-sm text-gray-600">
-                            {item.description}
-                          </p>
-                        )}
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <h4
+                          className={`min-w-0 break-words font-medium ${item.is_completed ? 'line-through text-gray-500' : 'text-gray-900'}`}
+                        >
+                          {item.title}
+                        </h4>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(item.priority_level)}`}
+                        >
+                          P{item.priority_level}
+                        </span>
+                        <span className="text-sm text-gray-500">+{item.points_value} pts</span>
                       </div>
+                      {item.description && (
+                        <p className="mt-1 w-full break-words text-sm text-gray-600">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
 
-                      <div className="flex shrink-0 items-center gap-1 self-start">
-                        <button
-                          onClick={() => handleEdit(item)}
-                          className="p-1 text-gray-400 hover:text-gray-600 transition-colors touch-manipulation"
-                          title="Edit item"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-1 text-gray-400 hover:text-red-600 transition-colors touch-manipulation"
-                          title="Delete item"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+                    <div className="mt-2 flex items-center gap-1">
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors touch-manipulation"
+                        title="Edit item"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="p-1 text-gray-400 hover:text-red-600 transition-colors touch-manipulation"
+                        title="Delete item"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
 
                     <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">

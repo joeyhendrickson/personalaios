@@ -255,8 +255,10 @@ const CascadingSection = ({
 
       {/* Content - Animated Expand/Collapse */}
       <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
+        className={`transition-all duration-300 ease-in-out ${
+          isExpanded
+            ? 'max-h-none overflow-visible opacity-100'
+            : 'max-h-0 overflow-hidden opacity-0'
         }`}
       >
         <div className="px-6 pb-8">{children}</div>

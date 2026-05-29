@@ -128,29 +128,30 @@ function TaskItem({
         </button>
 
         <div className="flex-1 min-w-0 space-y-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <h4
-                className={`font-medium text-left break-words ${
-                  task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
-                }`}
-              >
-                {task.title}
-              </h4>
-              <p className="w-full text-sm text-gray-600 mt-1 text-left leading-relaxed break-words">
-                {task.description || 'No description'}
+          <div className="min-w-0">
+            <h4
+              className={`w-full font-medium text-left break-words ${
+                task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
+              }`}
+            >
+              {task.title}
+            </h4>
+            <p className="w-full text-sm text-gray-600 mt-1 text-left leading-relaxed break-words">
+              {task.description || 'No description'}
+            </p>
+            {task.weekly_goal?.title && (
+              <p className="w-full text-xs text-blue-600 mt-1 text-left break-words">
+                📋 {task.weekly_goal.title}
               </p>
-              {task.weekly_goal?.title && (
-                <p className="text-xs text-blue-600 mt-1 text-left break-words">
-                  📋 {task.weekly_goal.title}
-                </p>
-              )}
-            </div>
-            <div className="flex shrink-0 items-center gap-1 self-start">
-              <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-700">
-                <Star className="h-3 w-3 mr-1" />
-                {task.points_value || 0}
-              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-700">
+              <Star className="h-3 w-3 mr-1" />
+              {task.points_value || 0}
+            </span>
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => onEditTask(task)}
                 className="text-gray-500 hover:text-gray-700 touch-manipulation"

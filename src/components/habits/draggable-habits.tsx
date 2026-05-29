@@ -97,45 +97,43 @@ function SortableHabitItem({
       </button>
 
       <div className="flex-1 min-w-0 text-left">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <h4
-                className={`min-w-0 break-words font-medium ${completedToday ? 'line-through text-gray-500' : 'text-gray-900'}`}
-              >
-                {habit.title}
-              </h4>
-              <span className="text-sm text-gray-500">+{habit.points_per_completion} pts</span>
-            </div>
-            {habit.description && (
-              <p className="mt-1 w-full break-words text-left text-sm leading-relaxed text-gray-600">
-                {habit.description}
-              </p>
-            )}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h4
+              className={`min-w-0 break-words font-medium ${completedToday ? 'line-through text-gray-500' : 'text-gray-900'}`}
+            >
+              {habit.title}
+            </h4>
+            <span className="text-sm text-gray-500">+{habit.points_per_completion} pts</span>
           </div>
+          {habit.description && (
+            <p className="mt-1 w-full break-words text-left text-sm leading-relaxed text-gray-600">
+              {habit.description}
+            </p>
+          )}
+        </div>
 
-          <div className="flex shrink-0 items-center gap-1 self-start">
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onEditHabit(habit)
-              }}
-              className="p-1 text-gray-400 hover:text-gray-600 transition-colors touch-manipulation"
-              title="Edit habit"
-            >
-              <Edit className="h-4 w-4" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onDeleteHabit(habit.id)
-              }}
-              className="p-1 text-gray-400 hover:text-red-600 transition-colors touch-manipulation"
-              title="Delete habit"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
+        <div className="mt-2 flex items-center gap-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onEditHabit(habit)
+            }}
+            className="p-1 text-gray-400 hover:text-gray-600 transition-colors touch-manipulation"
+            title="Edit habit"
+          >
+            <Edit className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onDeleteHabit(habit.id)
+            }}
+            className="p-1 text-gray-400 hover:text-red-600 transition-colors touch-manipulation"
+            title="Delete habit"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
 
         <div className="mt-1 flex items-center space-x-4 text-xs text-gray-500 text-left">
