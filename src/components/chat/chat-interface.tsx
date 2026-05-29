@@ -28,6 +28,12 @@ interface ChatMessage {
 
 type OnboardingChoice = { id: 'new' | 'returning'; label: string }
 type GoalProposal = { id: string; preview: string; payload: Record<string, unknown> }
+type DashboardProposal = {
+  id: string
+  action_type: 'create_goal' | 'create_project' | 'create_task'
+  preview: string
+  sort_order: number
+}
 
 interface ChatInterfaceProps {
   onGoalCreated?: () => void
@@ -43,9 +49,6 @@ export function ChatInterface({
   triggerOpen,
 }: ChatInterfaceProps) {
   const { language, t } = useLanguage()
-  // Suppress unused parameter warnings
-  void onGoalCreated
-  void onTaskCreated
   void onTaskCompleted
   const [isExpanded, setIsExpanded] = useState(false)
   const [dimensions, setDimensions] = useState({ width: 384, height: 600 }) // w-96 = 384px
@@ -185,7 +188,7 @@ export function ChatInterface({
 
 • Plan your day and prioritize tasks based on your goals
 • Analyze your progress and suggest improvements
-• Create new tasks and goals with appropriate point values
+• Turn a conversation into linked goals, projects, and tasks (use Add to dashboard)
 • Focus on specific areas like "Good Living" or "Enjoyment"
 • Track your habits, education, and priorities
 • Provide personalized advice based on your data
@@ -203,6 +206,19 @@ What would you like to focus on today? Try asking me about having a "happy day" 
   const [onboardingChoices, setOnboardingChoices] = useState<OnboardingChoice[] | null>(null)
   const [onboardingStep, setOnboardingStep] = useState<number>(0)
   const [goalProposals, setGoalProposals] = useState<GoalProposal[]>([])
+  const [dashboardPlan, setDashboardPlan] = useState<{
+    planGroupId: string
+    summary: string
+    proposals: DashboardProposal[]
+  } | null>(null)
+
+  const refreshDashboard = () => {
+    onGoalCreated?.()
+    onTaskCreated?.()
+    window.dispatchEvent(new CustomEvent('goals-refreshed'))
+    window.dispatchEvent(new CustomEvent('tasks-refreshed'))
+    window.dispatchEvent(new CustomEvent('dashboard-refreshed'))
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -339,7 +355,7 @@ What would you like to focus on today? Try asking me about having a "happy day" 
     }
   }
 
-  const commitGoalProposal = async (proposalId: string) => {
+  const commitProposalById = async (proposalId: string) => {
     setIsLoading(true)
     try {
       const r = await fetch('/api/assistant/actions/commit', {
@@ -351,23 +367,127 @@ What would you like to focus on today? Try asking me about having a "happy day" 
       const payload = await r.json()
       if (r.ok) {
         setGoalProposals((prev) => prev.filter((p) => p.id !== proposalId))
+        setDashboardPlan((prev) =>
+          prev
+            ? {
+                ...prev,
+                proposals: prev.proposals.filter((p) => p.id !== proposalId),
+              }
+            : null
+        )
+        const label =
+          payload.kind === 'project' ? 'project' : payload.kind === 'task' ? 'task' : 'goal'
+        const title =
+          (payload.project?.title as string) ||
+          (payload.task?.title as string) ||
+          (payload.goal?.title as string) ||
+          'item'
         setMessages((prev) => [
           ...prev,
           {
             id: Date.now().toString(),
             role: 'assistant',
-            content: `Added goal to your dashboard: ${(payload.goal?.title as string) || 'New goal'}.`,
+            content: `Added ${label} to your dashboard: ${title}.`,
           },
         ])
-        // Let the app refresh goals panels where used
-        window.dispatchEvent(new CustomEvent('goals-refreshed'))
+        refreshDashboard()
       } else {
         setMessages((prev) => [
           ...prev,
           {
             id: Date.now().toString(),
             role: 'assistant',
-            content: `Failed to add goal: ${payload.error || 'Unknown error'}`,
+            content: `Could not add item: ${payload.error || 'Unknown error'}`,
+          },
+        ])
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const commitGoalProposal = (proposalId: string) => void commitProposalById(proposalId)
+
+  const commitFullDashboardPlan = async () => {
+    if (!dashboardPlan) return
+    setIsLoading(true)
+    try {
+      const r = await fetch('/api/assistant/actions/commit-plan', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planGroupId: dashboardPlan.planGroupId }),
+      })
+      const payload = await r.json()
+      if (r.ok) {
+        const count = (payload.committed as { title: string }[])?.length ?? 0
+        setDashboardPlan(null)
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content:
+              payload.status === 'partial'
+                ? `Added ${count} item(s). Some items need attention: ${(payload.errors as { error: string }[])?.map((e) => e.error).join('; ')}`
+                : `Successfully added ${count} item(s) to your dashboard (goals, projects, and tasks are linked).`,
+          },
+        ])
+        refreshDashboard()
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: `Failed to add plan: ${payload.error || 'Unknown error'}`,
+          },
+        ])
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const generateDashboardPlanFromChat = async () => {
+    const chatMessages = messages
+      .filter((m) => m.id !== 'welcome')
+      .map((m) => ({ role: m.role, content: m.content }))
+    if (chatMessages.filter((m) => m.role === 'user').length === 0) {
+      alert('Have a short conversation about your goals first, then tap Add to dashboard.')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const r = await fetch('/api/assistant/actions/propose', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: chatMessages }),
+      })
+      const payload = await r.json()
+      if (r.ok) {
+        setDashboardPlan({
+          planGroupId: payload.planGroupId,
+          summary: payload.summary,
+          proposals: payload.proposals,
+        })
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: `${payload.summary}\n\nReview each item below. Projects link to goals; tasks link to projects. Use Confirm & Add on each item, or Confirm all.`,
+          },
+        ])
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: `Could not build a dashboard plan: ${payload.error || 'Unknown error'}`,
           },
         ])
       }
@@ -1119,6 +1239,68 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
           </div>
         )}
 
+        {dashboardPlan && dashboardPlan.proposals.length > 0 && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50/80 p-4 space-y-3">
+            <div className="text-sm font-medium text-blue-950">
+              Dashboard plan (review before adding)
+            </div>
+            <p className="text-sm text-blue-900 whitespace-pre-wrap">{dashboardPlan.summary}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                disabled={isLoading}
+                className="touch-manipulation"
+                onClick={() => void commitFullDashboardPlan()}
+              >
+                Confirm all
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isLoading}
+                onClick={() => setDashboardPlan(null)}
+              >
+                Dismiss plan
+              </Button>
+            </div>
+            {dashboardPlan.proposals.map((p) => (
+              <div key={p.id} className="rounded-lg border bg-white p-3">
+                <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                  {p.action_type.replace('create_', '')}
+                </div>
+                <div className="text-sm whitespace-pre-wrap text-gray-900">{p.preview}</div>
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    size="sm"
+                    disabled={isLoading}
+                    className="touch-manipulation"
+                    onClick={() => void commitProposalById(p.id)}
+                  >
+                    Confirm & Add
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isLoading}
+                    onClick={() =>
+                      setDashboardPlan((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              proposals: prev.proposals.filter((x) => x.id !== p.id),
+                            }
+                          : null
+                      )
+                    }
+                  >
+                    Skip
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {messages.map((message) => (
           <div key={message.id}>{formatMessage(message)}</div>
         ))}
@@ -1139,6 +1321,23 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
       {/* Quick Actions */}
       <div className="p-6 border-t bg-gray-50">
+        {!onboardingActive && (
+          <div className="mb-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-10 touch-manipulation border-blue-300 bg-blue-50 text-blue-900 hover:bg-blue-100"
+              disabled={isLoading || messages.filter((m) => m.role === 'user').length === 0}
+              onClick={() => void generateDashboardPlanFromChat()}
+            >
+              <Target className="w-4 h-4 mr-2" />
+              Add conversation to dashboard
+            </Button>
+            <p className="mt-1 text-xs text-gray-500 text-center">
+              Creates linked goals, projects, and tasks for you to confirm
+            </p>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3 mb-4">
           {quickActions.map((action, index) => (
             <Button

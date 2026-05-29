@@ -52,6 +52,7 @@ import ActiveProjectsWidget from '@/components/dashboard/active-projects-widget'
 import TaskAdvisor from '@/components/dashboard/task-advisor'
 import { DraggableTasks } from '@/components/tasks/draggable-tasks'
 import { DraggableProjectsGrid } from '@/components/projects/draggable-projects-grid'
+import { ProjectCardContent } from '@/components/projects/project-card-content'
 import {
   ProjectGoalLinkSelect,
   buildLinkableGoals,
@@ -63,6 +64,8 @@ import { DeletedPriorities } from '@/components/priorities/deleted-priorities'
 import TrialStatusBanner from '@/components/trial/trial-status-banner'
 import { useActivityTracking } from '@/hooks/use-activity-tracking'
 import { useAdminAuth } from '@/hooks/use-admin-auth'
+import { useGuardedAsync } from '@/hooks/use-guarded-async'
+import { parseIntFromForm } from '@/lib/form/numeric-input'
 
 // Type definitions
 
@@ -325,6 +328,8 @@ export default function Dashboard() {
   const { user, signOut } = useAuth()
   const { logActivity } = useActivityTracking()
   const { isAdmin } = useAdminAuth()
+  const addTaskGuard = useGuardedAsync()
+  const addGoalGuard = useGuardedAsync()
   const { t } = useLanguage()
   const searchParams = useSearchParams()
   const [trialUser, setTrialUser] = useState<{ email: string; name?: string } | null>(null)
@@ -456,7 +461,7 @@ export default function Dashboard() {
     title: '',
     description: '',
     category: 'other',
-    target_points: 10,
+    target_points: '10',
     goal_id: '',
   })
   const [editProjectGoalId, setEditProjectGoalId] = useState('')
@@ -472,7 +477,7 @@ export default function Dashboard() {
     title: '',
     description: '',
     category: 'other',
-    points_value: 5,
+    points_value: '5',
     weekly_goal_id: '',
   })
 
@@ -922,103 +927,107 @@ export default function Dashboard() {
 
   const taskCompletionRate = totalPoints > 0 ? Math.round((completedPoints / totalPoints) * 100) : 0
 
-  const handleAddGoal = async () => {
-    if (!newGoal.title.trim()) {
-      alert('Please enter a project title')
-      return
-    }
-
-    if (!newGoal.category) {
-      alert('Please select a category')
-      return
-    }
-
-    try {
-      console.log('Creating project with data:', newGoal)
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: newGoal.title,
-          description: newGoal.description,
-          category: newGoal.category,
-          target_points: newGoal.target_points,
-          target_money: 0,
-          ...(newGoal.goal_id ? { goal_id: newGoal.goal_id } : {}),
-        }),
-      })
-
-      console.log('Project creation response status:', response.status)
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Project created successfully:', data)
-        await fetchDashboardData() // Refresh data
-        setNewGoal({
-          title: '',
-          description: '',
-          category: 'other',
-          target_points: 10,
-          goal_id: '',
-        })
-        setShowAddGoal(false)
-        alert('Project created successfully!')
-      } else {
-        const errorData = await response.json()
-        console.error('Error creating project:', errorData)
-        alert(`Failed to create project: ${errorData.error || 'Unknown error'}`)
+  const handleAddGoal = () => {
+    void addGoalGuard.run(async () => {
+      if (!newGoal.title.trim()) {
+        alert('Please enter a project title')
+        return
       }
-    } catch (error) {
-      console.error('Error creating project:', error)
-      alert('Failed to create project. Please try again.')
-    }
+
+      if (!newGoal.category) {
+        alert('Please select a category')
+        return
+      }
+
+      try {
+        console.log('Creating project with data:', newGoal)
+        const response = await fetch('/api/projects', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: newGoal.title,
+            description: newGoal.description,
+            category: newGoal.category,
+            target_points: parseIntFromForm(newGoal.target_points, 10, { min: 1 }),
+            target_money: 0,
+            ...(newGoal.goal_id ? { goal_id: newGoal.goal_id } : {}),
+          }),
+        })
+
+        console.log('Project creation response status:', response.status)
+
+        if (response.ok) {
+          const data = await response.json()
+          console.log('Project created successfully:', data)
+          await fetchDashboardData() // Refresh data
+          setNewGoal({
+            title: '',
+            description: '',
+            category: 'other',
+            target_points: '10',
+            goal_id: '',
+          })
+          setShowAddGoal(false)
+          alert('Project created successfully!')
+        } else {
+          const errorData = await response.json()
+          console.error('Error creating project:', errorData)
+          alert(`Failed to create project: ${errorData.error || 'Unknown error'}`)
+        }
+      } catch (error) {
+        console.error('Error creating project:', error)
+        alert('Failed to create project. Please try again.')
+      }
+    })
   }
 
-  const handleAddTask = async () => {
-    if (!newTask.title.trim()) {
-      alert('Please enter a task title')
-      return
-    }
-
-    if (!newTask.weekly_goal_id) {
-      alert('Please select a project for this task')
-      return
-    }
-
-    try {
-      const response = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          weekly_goal_id: newTask.weekly_goal_id,
-          title: newTask.title,
-          description: newTask.description,
-          category: newTask.category,
-          points_value: newTask.points_value,
-          money_value: 0,
-        }),
-      })
-
-      if (response.ok) {
-        await fetchDashboardData() // Refresh data
-        setNewTask({
-          title: '',
-          description: '',
-          category: 'other',
-          points_value: 5,
-          weekly_goal_id: '',
-        })
-        setShowAddTask(false)
-        alert('Task created successfully!')
-      } else {
-        const errorData = await response.json()
-        alert(`Failed to create task: ${errorData.error || 'Unknown error'}`)
+  const handleAddTask = () => {
+    void addTaskGuard.run(async () => {
+      if (!newTask.title.trim()) {
+        alert('Please enter a task title')
+        return
       }
-    } catch (error) {
-      console.error('Error creating task:', error)
-      alert('Error creating task. Please try again.')
-    }
+
+      if (!newTask.weekly_goal_id) {
+        alert('Please select a project for this task')
+        return
+      }
+
+      try {
+        const response = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            weekly_goal_id: newTask.weekly_goal_id,
+            title: newTask.title,
+            description: newTask.description,
+            category: newTask.category,
+            points_value: parseIntFromForm(newTask.points_value, 5, { min: 1 }),
+            money_value: 0,
+          }),
+        })
+
+        if (response.ok) {
+          await fetchDashboardData() // Refresh data
+          setNewTask({
+            title: '',
+            description: '',
+            category: 'other',
+            points_value: '5',
+            weekly_goal_id: '',
+          })
+          setShowAddTask(false)
+          alert('Task created successfully!')
+        } else {
+          const errorData = await response.json()
+          alert(`Failed to create task: ${errorData.error || 'Unknown error'}`)
+        }
+      } catch (error) {
+        console.error('Error creating task:', error)
+        alert('Error creating task. Please try again.')
+      }
+    })
   }
 
   const toggleTask = async (taskId: string) => {
@@ -2590,94 +2599,31 @@ export default function Dashboard() {
                           return (
                             <div
                               key={goal.id}
-                              className="bg-green-50 rounded-xl p-6 border border-green-200 hover:shadow-md transition-all duration-200"
+                              className="w-full min-w-0 rounded-xl border border-green-200 bg-green-50 p-4 transition-all duration-200 hover:shadow-md sm:p-6"
                             >
-                              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-                                <div className="flex-1 w-full min-w-0">
-                                  <span className="text-2xl block mb-2">
-                                    {(goal as any).category === 'quick_money'
-                                      ? '⚡'
-                                      : (goal as any).category === 'save_money'
-                                        ? '💳'
-                                        : (goal as any).category === 'health'
-                                          ? '💪'
-                                          : (goal as any).category === 'network_expansion'
-                                            ? '🤝'
-                                            : (goal as any).category === 'business_growth'
-                                              ? '📈'
-                                              : (goal as any).category === 'fires'
-                                                ? '🔥'
-                                                : (goal as any).category === 'good_living'
-                                                  ? '🌟'
-                                                  : (goal as any).category === 'big_vision'
-                                                    ? '🎯'
-                                                    : (goal as any).category === 'job'
-                                                      ? '💼'
-                                                      : (goal as any).category === 'organization'
-                                                        ? '📁'
-                                                        : (goal as any).category === 'tech_issues'
-                                                          ? '🔧'
-                                                          : (goal as any).category ===
-                                                              'business_launch'
-                                                            ? '🚀'
-                                                            : (goal as any).category ===
-                                                                'future_planning'
-                                                              ? '🗺️'
-                                                              : (goal as any).category ===
-                                                                  'innovation'
-                                                                ? '💡'
-                                                                : '📋'}
-                                  </span>
-                                  <h3 className="font-semibold text-gray-900 mb-1">
-                                    {(goal as any).title}
-                                  </h3>
-                                  <div className="space-y-2">
-                                    <p className="text-sm text-gray-600 leading-relaxed">
-                                      {(() => {
-                                        const description =
-                                          (goal as any).description || 'No description'
-                                        const shouldTruncate = description.length > 120
-                                        const displayDescription =
-                                          shouldTruncate && !expandedDescriptions[goal.id]
-                                            ? description.substring(0, 120).trim() + '...'
-                                            : description
-                                        return displayDescription
-                                      })()}
-                                    </p>
-                                    {((goal as any).description || '').length > 120 && (
-                                      <button
-                                        onClick={() =>
-                                          setExpandedDescriptions((prev) => ({
-                                            ...prev,
-                                            [goal.id]: !prev[goal.id],
-                                          }))
-                                        }
-                                        className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                                      >
-                                        {expandedDescriptions[goal.id] ? (
-                                          <>
-                                            <ChevronUp className="w-3 h-3" />
-                                            Show Less
-                                          </>
-                                        ) : (
-                                          <>
-                                            <ChevronDown className="w-3 h-3" />
-                                            {t('projects.viewDetails')}
-                                          </>
-                                        )}
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2 flex-shrink-0 sm:flex-nowrap">
-                                  <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-green-200 text-green-700">
-                                    {(goal as any).category}
-                                  </span>
-                                  <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 border-green-200 text-green-700">
-                                    Completed
-                                  </span>
-                                </div>
-                              </div>
+                              <ProjectCardContent
+                                category={(goal as any).category}
+                                title={(goal as any).title}
+                                description={(goal as any).description || 'No description'}
+                                expanded={expandedDescriptions[goal.id]}
+                                onToggleExpand={() =>
+                                  setExpandedDescriptions((prev) => ({
+                                    ...prev,
+                                    [goal.id]: !prev[goal.id],
+                                  }))
+                                }
+                                viewDetailsLabel={t('projects.viewDetails')}
+                                badges={
+                                  <>
+                                    <span className="inline-flex items-center rounded-full border border-green-200 px-2.5 py-0.5 text-xs font-semibold capitalize text-green-700">
+                                      {(goal as any).category}
+                                    </span>
+                                    <span className="inline-flex items-center rounded-full border border-green-200 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                                      Completed
+                                    </span>
+                                  </>
+                                }
+                              />
                               <div className="space-y-3">
                                 <div>
                                   <div className="flex justify-between text-sm mb-1">
@@ -2751,115 +2697,56 @@ export default function Dashboard() {
                               other: '#6B7280',
                             }
                             return (
-                              <div className="bg-white/50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-all duration-200">
-                                <div className="mb-4 flex items-start gap-4">
-                                  <div className="flex shrink-0 items-start pt-1">{dragHandle}</div>
-                                  <div className="flex-1 min-w-0">
-                                    <span className="text-2xl block mb-2">
-                                      {(goal as any).category === 'quick_money'
-                                        ? '⚡'
-                                        : (goal as any).category === 'save_money'
-                                          ? '💳'
-                                          : (goal as any).category === 'health'
-                                            ? '💪'
-                                            : (goal as any).category === 'network_expansion'
-                                              ? '🤝'
-                                              : (goal as any).category === 'business_growth'
-                                                ? '📈'
-                                                : (goal as any).category === 'fires'
-                                                  ? '🔥'
-                                                  : (goal as any).category === 'good_living'
-                                                    ? '🌟'
-                                                    : (goal as any).category === 'big_vision'
-                                                      ? '🎯'
-                                                      : (goal as any).category === 'job'
-                                                        ? '💼'
-                                                        : (goal as any).category === 'organization'
-                                                          ? '📁'
-                                                          : (goal as any).category === 'tech_issues'
-                                                            ? '🔧'
-                                                            : (goal as any).category ===
-                                                                'business_launch'
-                                                              ? '🚀'
-                                                              : (goal as any).category ===
-                                                                  'future_planning'
-                                                                ? '🗺️'
-                                                                : (goal as any).category ===
-                                                                    'innovation'
-                                                                  ? '💡'
-                                                                  : '📋'}
-                                    </span>
-                                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 capitalize border-blue-200 text-blue-700">
+                              <div className="w-full min-w-0 rounded-xl border border-gray-200 bg-white/50 p-4 transition-all duration-200 hover:shadow-md sm:p-6">
+                                <ProjectCardContent
+                                  category={(goal as any).category}
+                                  title={(goal as any).title}
+                                  description={(goal as any).description || 'No description'}
+                                  dragHandle={dragHandle}
+                                  expanded={expandedDescriptions[goal.id]}
+                                  onToggleExpand={() =>
+                                    setExpandedDescriptions((prev) => ({
+                                      ...prev,
+                                      [goal.id]: !prev[goal.id],
+                                    }))
+                                  }
+                                  viewDetailsLabel={t('projects.viewDetails')}
+                                  trailingActions={
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => convertGoalToTask(goal)}
+                                        className="text-green-500 hover:text-green-700 touch-manipulation"
+                                        title="Convert to Task"
+                                      >
+                                        <CheckCircle className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => deleteGoal(goal.id)}
+                                        className="text-red-500 hover:text-red-700 touch-manipulation"
+                                        title="Delete Goal"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    </>
+                                  }
+                                  badges={
+                                    <>
+                                      <span className="inline-flex items-center rounded-full border border-blue-200 px-2.5 py-0.5 text-xs font-semibold capitalize text-blue-700">
                                         {(goal as any).category}
                                       </span>
-                                      {linkedGoalTitle && (
+                                      {linkedGoalTitle ? (
                                         <span
-                                          className="inline-flex max-w-full items-center truncate rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-800 sm:max-w-[16rem]"
+                                          className="inline-flex max-w-full items-center rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-800"
                                           title={`Linked goal: ${linkedGoalTitle}`}
                                         >
-                                          🎯 {linkedGoalTitle}
+                                          <span className="truncate">🎯 {linkedGoalTitle}</span>
                                         </span>
-                                      )}
-                                    </div>
-                                    <h3 className="font-semibold text-gray-900 mb-1">
-                                      {(goal as any).title}
-                                    </h3>
-                                    <div className="space-y-2">
-                                      <p className="text-sm text-gray-600 leading-relaxed">
-                                        {(() => {
-                                          const description =
-                                            (goal as any).description || 'No description'
-                                          const shouldTruncate = description.length > 120
-                                          const displayDescription =
-                                            shouldTruncate && !expandedDescriptions[goal.id]
-                                              ? description.substring(0, 120).trim() + '...'
-                                              : description
-                                          return displayDescription
-                                        })()}
-                                      </p>
-                                      {((goal as any).description || '').length > 120 && (
-                                        <button
-                                          onClick={() =>
-                                            setExpandedDescriptions((prev) => ({
-                                              ...prev,
-                                              [goal.id]: !prev[goal.id],
-                                            }))
-                                          }
-                                          className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                                        >
-                                          {expandedDescriptions[goal.id] ? (
-                                            <>
-                                              <ChevronUp className="w-3 h-3" />
-                                              Show Less
-                                            </>
-                                          ) : (
-                                            <>
-                                              <ChevronDown className="w-3 h-3" />
-                                              {t('projects.viewDetails')}
-                                            </>
-                                          )}
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="flex shrink-0 items-center gap-2 self-start">
-                                    <button
-                                      onClick={() => convertGoalToTask(goal)}
-                                      className="text-green-500 hover:text-green-700"
-                                      title="Convert to Task"
-                                    >
-                                      <CheckCircle className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => deleteGoal(goal.id)}
-                                      className="text-red-500 hover:text-red-700"
-                                      title="Delete Goal"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </button>
-                                  </div>
-                                </div>
+                                      ) : null}
+                                    </>
+                                  }
+                                />
 
                                 <div className="space-y-4">
                                   <div className="flex items-center justify-between text-sm">
@@ -3609,9 +3496,7 @@ export default function Dashboard() {
                 <input
                   type="number"
                   value={newGoal.target_points}
-                  onChange={(e) =>
-                    setNewGoal({ ...newGoal, target_points: parseInt(e.target.value) })
-                  }
+                  onChange={(e) => setNewGoal({ ...newGoal, target_points: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   min="1"
                   placeholder="Default: 10 points"
@@ -3619,14 +3504,18 @@ export default function Dashboard() {
               </div>
               <div className="flex space-x-3">
                 <button
+                  type="button"
                   onClick={handleAddGoal}
-                  className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
+                  disabled={addGoalGuard.isRunning}
+                  className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {t('projects.addProject')}
+                  {addGoalGuard.isRunning ? 'Adding…' : t('projects.addProject')}
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowAddGoal(false)}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors"
+                  disabled={addGoalGuard.isRunning}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors touch-manipulation disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -3649,7 +3538,13 @@ export default function Dashboard() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="space-y-4">
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault()
+                handleAddTask()
+              }}
+            >
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
                 <input
@@ -3658,6 +3553,7 @@ export default function Dashboard() {
                   onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter task title"
+                  disabled={addTaskGuard.isRunning}
                 />
               </div>
               <div>
@@ -3668,6 +3564,7 @@ export default function Dashboard() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter task description"
                   rows={3}
+                  disabled={addTaskGuard.isRunning}
                 />
               </div>
               <div>
@@ -3676,6 +3573,7 @@ export default function Dashboard() {
                   value={newTask.category}
                   onChange={(e) => setNewTask({ ...newTask, category: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={addTaskGuard.isRunning}
                 >
                   <option value="quick_money">⚡ Quick Money</option>
                   <option value="save_money">💳 Save Money</option>
@@ -3707,6 +3605,7 @@ export default function Dashboard() {
                   onChange={(e) => setNewTask({ ...newTask, weekly_goal_id: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
+                  disabled={addTaskGuard.isRunning}
                 >
                   <option value="">Select a project (required)</option>
                   {goals.map((goal) => (
@@ -3721,28 +3620,30 @@ export default function Dashboard() {
                 <input
                   type="number"
                   value={newTask.points_value}
-                  onChange={(e) =>
-                    setNewTask({ ...newTask, points_value: parseInt(e.target.value) })
-                  }
+                  onChange={(e) => setNewTask({ ...newTask, points_value: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   min="1"
+                  disabled={addTaskGuard.isRunning}
                 />
               </div>
               <div className="flex space-x-3">
                 <button
-                  onClick={handleAddTask}
-                  className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
+                  type="submit"
+                  disabled={addTaskGuard.isRunning}
+                  className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Add Task
+                  {addTaskGuard.isRunning ? 'Adding…' : 'Add Task'}
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowAddTask(false)}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors"
+                  disabled={addTaskGuard.isRunning}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors touch-manipulation disabled:opacity-50"
                 >
                   Cancel
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}

@@ -164,7 +164,7 @@ ${systemContext}
 CORE CAPABILITIES:
 1. **Personalized Advice**: Analyze user's data to provide specific, actionable recommendations
 2. **Category Analysis**: Understand user's focus areas and suggest improvements
-3. **Task Creation**: Can suggest creating new tasks with appropriate value and priority
+3. **Dashboard planning**: User can tap "Add conversation to dashboard" to get confirmable goals, projects (linked to goals), and tasks (linked to projects)
 4. **Goal Alignment**: Help align daily activities with weekly goals
 5. **Progress Tracking**: Reference current progress and suggest next steps
 6. **Habit Integration**: Incorporate daily habits into recommendations

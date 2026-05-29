@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { parseIntFromForm } from '@/lib/form/numeric-input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -130,7 +131,7 @@ export default function RewardsSection() {
   const [newReward, setNewReward] = useState({
     name: '',
     description: '',
-    point_cost: 500,
+    point_cost: '500',
     category_id: '',
   })
   const [editingReward, setEditingReward] = useState<any>(null)
@@ -140,7 +141,7 @@ export default function RewardsSection() {
   const [newMilestone, setNewMilestone] = useState({
     milestone_name: '',
     description: '',
-    target_points: 1000,
+    target_points: '1000',
     reward_unlocked_id: '',
   })
 
@@ -234,12 +235,15 @@ export default function RewardsSection() {
       const response = await fetch('/api/rewards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newReward),
+        body: JSON.stringify({
+          ...newReward,
+          point_cost: parseIntFromForm(newReward.point_cost, 500, { min: 500 }),
+        }),
       })
 
       if (response.ok) {
         setShowCreateReward(false)
-        setNewReward({ name: '', description: '', point_cost: 100, category_id: '' })
+        setNewReward({ name: '', description: '', point_cost: '500', category_id: '' })
         await fetchRewardsData()
         alert('Custom reward created successfully!')
       } else {
@@ -257,7 +261,10 @@ export default function RewardsSection() {
       const response = await fetch('/api/rewards/milestones', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newMilestone),
+        body: JSON.stringify({
+          ...newMilestone,
+          target_points: parseIntFromForm(newMilestone.target_points, 1000, { min: 1 }),
+        }),
       })
 
       if (response.ok) {
@@ -265,7 +272,7 @@ export default function RewardsSection() {
         setNewMilestone({
           milestone_name: '',
           description: '',
-          target_points: 1000,
+          target_points: '1000',
           reward_unlocked_id: '',
         })
         await fetchRewardsData()
@@ -434,7 +441,7 @@ export default function RewardsSection() {
       id: userReward.id,
       name: getRewardName(userReward),
       description: getRewardDescription(userReward),
-      point_cost: getRewardCost(userReward),
+      point_cost: String(getRewardCost(userReward)),
       is_custom: userReward.is_custom,
     })
     setShowEditUserRewardDialog(true)
@@ -451,7 +458,7 @@ export default function RewardsSection() {
           userRewardId: editingUserReward.id,
           custom_name: editingUserReward.name,
           custom_description: editingUserReward.description,
-          custom_point_cost: editingUserReward.point_cost,
+          custom_point_cost: parseIntFromForm(editingUserReward.point_cost, 0, { min: 0 }),
         }),
       })
 
@@ -475,6 +482,7 @@ export default function RewardsSection() {
     if (reward) {
       setEditingReward({
         ...reward,
+        point_cost: String(reward.point_cost),
         isSystemReward: !reward.is_custom || reward.created_by !== user?.id,
       })
       setShowEditDialog(true)
@@ -493,7 +501,7 @@ export default function RewardsSection() {
           body: JSON.stringify({
             name: editingReward.name,
             description: editingReward.description,
-            point_cost: editingReward.point_cost,
+            point_cost: parseIntFromForm(editingReward.point_cost, 500, { min: 500 }),
             category_id: editingReward.reward_categories?.id || editingReward.category_id || '',
           }),
         })
@@ -525,7 +533,7 @@ export default function RewardsSection() {
             rewardId: editingReward.id,
             name: editingReward.name,
             description: editingReward.description,
-            point_cost: editingReward.point_cost,
+            point_cost: parseIntFromForm(editingReward.point_cost, 500, { min: 500 }),
           }),
         })
 
@@ -715,7 +723,7 @@ export default function RewardsSection() {
                         onChange={(e) =>
                           setEditingUserReward({
                             ...editingUserReward,
-                            point_cost: parseInt(e.target.value) || 0,
+                            point_cost: e.target.value,
                           })
                         }
                         min="0"
@@ -877,7 +885,7 @@ export default function RewardsSection() {
                         onChange={(e) =>
                           setNewReward({
                             ...newReward,
-                            point_cost: parseInt(e.target.value) || 500,
+                            point_cost: e.target.value,
                           })
                         }
                         min="500"
@@ -956,7 +964,7 @@ export default function RewardsSection() {
                           onChange={(e) =>
                             setEditingReward({
                               ...editingReward,
-                              point_cost: parseInt(e.target.value) || 500,
+                              point_cost: e.target.value,
                             })
                           }
                           min="500"
@@ -1121,7 +1129,7 @@ export default function RewardsSection() {
                         onChange={(e) =>
                           setNewMilestone({
                             ...newMilestone,
-                            target_points: parseInt(e.target.value) || 0,
+                            target_points: e.target.value,
                           })
                         }
                         min="1"

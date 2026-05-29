@@ -53,7 +53,11 @@ function SortableProjectCard({
   )
 
   return (
-    <div ref={setNodeRef} style={style} className={isDragging ? 'opacity-70' : undefined}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`w-full min-w-0 ${isDragging ? 'opacity-70' : undefined}`}
+    >
       {renderProject(project, { dragHandle })}
     </div>
   )
@@ -106,7 +110,7 @@ export function DraggableProjectsGrid({
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={projects.map((p) => p.id)} strategy={rectSortingStrategy}>
         <div
-          className={`grid grid-cols-1 lg:grid-cols-2 gap-4 ${busy ? 'pointer-events-none opacity-80' : ''}`}
+          className={`grid w-full min-w-0 grid-cols-1 gap-4 lg:grid-cols-2 ${busy ? 'pointer-events-none opacity-80' : ''}`}
         >
           {projects.map((project) => (
             <SortableProjectCard key={project.id} project={project} renderProject={renderProject} />

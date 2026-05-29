@@ -1,21 +1,22 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import {
+  commitProposal,
+  loadProposalForCommit,
+  markProposalCommitted,
+  sortProposalsForCommit,
+  type CommitContext,
+} from '@/lib/assistant/commit-proposal'
+import type { ActionProposalRow } from '@/lib/assistant/proposal-schemas'
 
 const bodySchema = z.object({
   proposalId: z.string().uuid(),
 })
 
-const createGoalSchema = z.object({
-  title: z.string().min(1).max(255),
-  description: z.string().optional(),
-  goal_type: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']),
-  target_value: z.number().min(0),
-  target_unit: z.string().min(1).max(50),
-  priority_level: z.number().int().min(1).max(5).default(3),
-  start_date: z.string().nullable().optional(),
-  target_date: z.string().nullable().optional(),
-})
+function normTitle(title: string) {
+  return title.trim().toLowerCase()
+}
 
 export async function POST(req: Request) {
   const supabase = await createClient()
@@ -23,64 +24,77 @@ export async function POST(req: Request) {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser()
-  if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { proposalId } = bodySchema.parse(await req.json())
-
-  const { data: proposal, error } = await supabase
-    .from('assistant_action_proposals')
-    .select('*')
-    .eq('id', proposalId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (error || !proposal) return NextResponse.json({ error: 'Proposal not found' }, { status: 404 })
-  if (proposal.status !== 'proposed')
-    return NextResponse.json({ error: `Proposal is ${proposal.status}` }, { status: 400 })
-
-  const expiresAt = new Date((proposal as any).expires_at as string)
-  if (Number.isFinite(expiresAt.getTime()) && expiresAt.getTime() < Date.now()) {
-    await supabase
-      .from('assistant_action_proposals')
-      .update({ status: 'expired' })
-      .eq('id', proposalId)
-      .eq('user_id', user.id)
-    return NextResponse.json({ error: 'Proposal expired' }, { status: 400 })
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (proposal.action_type !== 'create_goal') {
-    return NextResponse.json({ error: 'Unsupported action_type' }, { status: 400 })
-  }
+  try {
+    const { proposalId } = bodySchema.parse(await req.json())
+    const proposal = await loadProposalForCommit(supabase, user.id, proposalId)
 
-  const payload = createGoalSchema.parse((proposal as any).payload)
+    const ctx: CommitContext = {
+      goalTitleToId: new Map(),
+      projectTitleToId: new Map(),
+    }
 
-  const { data: goal, error: insertError } = await supabase
-    .from('goals')
-    .insert({
-      user_id: user.id,
-      title: payload.title,
-      description: payload.description,
-      goal_type: payload.goal_type,
-      target_value: payload.target_value,
-      target_unit: payload.target_unit,
-      current_value: 0,
-      priority_level: payload.priority_level,
-      start_date: payload.start_date ?? null,
-      target_date: payload.target_date ?? null,
-      status: 'active',
+    const [{ data: existingGoals }, { data: existingProjects }] = await Promise.all([
+      supabase.from('goals').select('id, title').eq('user_id', user.id),
+      supabase
+        .from('projects')
+        .select('id, title')
+        .eq('user_id', user.id)
+        .eq('is_completed', false),
+    ])
+
+    for (const g of existingGoals || []) {
+      ctx.goalTitleToId.set(normTitle(g.title as string), g.id as string)
+    }
+    for (const p of existingProjects || []) {
+      ctx.projectTitleToId.set(normTitle(p.title as string), p.id as string)
+    }
+
+    if (proposal.plan_group_id) {
+      const { data: siblings } = await supabase
+        .from('assistant_action_proposals')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('plan_group_id', proposal.plan_group_id)
+        .eq('status', 'proposed')
+
+      const sorted = sortProposalsForCommit((siblings || []) as ActionProposalRow[])
+      const targetIndex = sorted.findIndex((p) => p.id === proposalId)
+
+      for (let i = 0; i < targetIndex; i++) {
+        const sib = sorted[i]
+        try {
+          const fresh = await loadProposalForCommit(supabase, user.id, sib.id)
+          await commitProposal(supabase, user.id, fresh, ctx)
+          await markProposalCommitted(supabase, user.id, sib.id)
+        } catch (e) {
+          return NextResponse.json(
+            {
+              error: `Confirm "${sib.action_type}" items above this one first: ${e instanceof Error ? e.message : 'dependency failed'}`,
+            },
+            { status: 400 }
+          )
+        }
+      }
+    }
+
+    const result = await commitProposal(supabase, user.id, proposal, ctx)
+    await markProposalCommitted(supabase, user.id, proposalId)
+
+    return NextResponse.json({
+      status: 'committed',
+      kind: result.kind,
+      goal: result.kind === 'goal' ? result.record : undefined,
+      project: result.kind === 'project' ? result.record : undefined,
+      task: result.kind === 'task' ? result.record : undefined,
     })
-    .select()
-    .single()
-
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 })
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'Failed to commit' },
+      { status: e instanceof Error && e.message.includes('not found') ? 404 : 500 }
+    )
   }
-
-  await supabase
-    .from('assistant_action_proposals')
-    .update({ status: 'committed', committed_at: new Date().toISOString() })
-    .eq('id', proposalId)
-    .eq('user_id', user.id)
-
-  return NextResponse.json({ status: 'committed', goal }, { status: 200 })
 }

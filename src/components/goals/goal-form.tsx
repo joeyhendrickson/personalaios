@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { parseFloatFromForm, parseIntFromForm } from '@/lib/form/numeric-input'
 
 interface GoalFormProps {
   weekId: string
@@ -65,8 +66,8 @@ export function GoalForm({ weekId, onSuccess }: GoalFormProps) {
       | 'financial'
       | 'personal'
       | 'other',
-    target_points: 0,
-    target_money: 0,
+    target_points: '0',
+    target_money: '0',
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -83,7 +84,11 @@ export function GoalForm({ weekId, onSuccess }: GoalFormProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...formData,
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          target_points: parseIntFromForm(formData.target_points, 0, { min: 0 }),
+          target_money: parseFloatFromForm(formData.target_money, 0, { min: 0 }),
           week_id: weekId,
         }),
       })
@@ -98,8 +103,8 @@ export function GoalForm({ weekId, onSuccess }: GoalFormProps) {
         title: '',
         description: '',
         category: 'other',
-        target_points: 0,
-        target_money: 0,
+        target_points: '0',
+        target_money: '0',
       })
 
       onSuccess?.()
@@ -195,9 +200,7 @@ export function GoalForm({ weekId, onSuccess }: GoalFormProps) {
                 type="number"
                 min="0"
                 value={formData.target_points}
-                onChange={(e) =>
-                  setFormData({ ...formData, target_points: parseInt(e.target.value) || 0 })
-                }
+                onChange={(e) => setFormData({ ...formData, target_points: e.target.value })}
                 disabled={isLoading}
               />
             </div>
@@ -209,9 +212,7 @@ export function GoalForm({ weekId, onSuccess }: GoalFormProps) {
                 min="0"
                 step="0.01"
                 value={formData.target_money}
-                onChange={(e) =>
-                  setFormData({ ...formData, target_money: parseFloat(e.target.value) || 0 })
-                }
+                onChange={(e) => setFormData({ ...formData, target_money: e.target.value })}
                 disabled={isLoading}
               />
             </div>

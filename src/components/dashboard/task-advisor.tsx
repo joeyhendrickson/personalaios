@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useGuardedAsync } from '@/hooks/use-guarded-async'
 import { Target, TrendingUp, CheckCircle, Lightbulb, RotateCcw } from 'lucide-react'
 import { useLanguage } from '@/contexts/language-context'
 
@@ -26,6 +27,7 @@ interface TaskAdvisorProps {
 export default function TaskAdvisor({ goals }: TaskAdvisorProps) {
   const [projectData, setProjectData] = useState<ProjectData | null>(null)
   const [loading, setLoading] = useState(false)
+  const addToTasksGuard = useGuardedAsync()
   const { t } = useLanguage()
 
   const fetchProjectRecommendations = async () => {
@@ -47,35 +49,40 @@ export default function TaskAdvisor({ goals }: TaskAdvisorProps) {
     }
   }
 
-  const handleAddToTasks = async (recommendation: ProjectRecommendation) => {
-    try {
-      const response = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: recommendation.title,
-          description: recommendation.description,
-          category: 'other', // Default category
-          points_value:
-            recommendation.priority === 'high' ? 10 : recommendation.priority === 'medium' ? 5 : 3,
-          money_value: 0,
-        }),
-      })
+  const handleAddToTasks = (recommendation: ProjectRecommendation) => {
+    void addToTasksGuard.run(async () => {
+      try {
+        const response = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: recommendation.title,
+            description: recommendation.description,
+            category: 'other', // Default category
+            points_value:
+              recommendation.priority === 'high'
+                ? 10
+                : recommendation.priority === 'medium'
+                  ? 5
+                  : 3,
+            money_value: 0,
+          }),
+        })
 
-      if (response.ok) {
-        alert('Task added successfully!')
-        // Optionally refresh the page or update the UI
-        window.location.reload()
-      } else {
-        const errorData = await response.json()
-        alert(`Failed to add task: ${errorData.error || 'Unknown error'}`)
+        if (response.ok) {
+          alert('Task added successfully!')
+          window.location.reload()
+        } else {
+          const errorData = await response.json()
+          alert(`Failed to add task: ${errorData.error || 'Unknown error'}`)
+        }
+      } catch (error) {
+        console.error('Error adding task:', error)
+        alert(`Error adding task: ${error instanceof Error ? error.message : 'Unknown error'}`)
       }
-    } catch (error) {
-      console.error('Error adding task:', error)
-      alert(`Error adding task: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
+    })
   }
 
   const handleRefreshRecommendations = () => {
@@ -173,10 +180,12 @@ export default function TaskAdvisor({ goals }: TaskAdvisorProps) {
                   {getImpactLabel(rec.impact)}
                 </span>
                 <button
+                  type="button"
                   onClick={() => handleAddToTasks(rec)}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                  disabled={addToTasksGuard.isRunning}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors touch-manipulation disabled:opacity-50"
                 >
-                  {t('taskAdvisor.addToTasks')} →
+                  {addToTasksGuard.isRunning ? '…' : `${t('taskAdvisor.addToTasks')} →`}
                 </button>
               </div>
             </div>

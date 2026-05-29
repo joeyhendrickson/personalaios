@@ -12,6 +12,8 @@ import {
   Calendar,
   Star,
 } from 'lucide-react'
+import { IntegerFormInput } from '@/components/form/integer-form-input'
+import { parseFloatFromForm, parseIntFromForm } from '@/lib/form/numeric-input'
 
 interface EducationItem {
   id: string
@@ -32,8 +34,8 @@ interface EducationItem {
 interface EducationFormData {
   title: string
   description: string
-  points_value: number
-  cost: number
+  points_value: string
+  cost: string
   priority_level: number
   target_date: string
 }
@@ -47,8 +49,8 @@ export default function EducationSection() {
   const [formData, setFormData] = useState<EducationFormData>({
     title: '',
     description: '',
-    points_value: 100,
-    cost: 0,
+    points_value: '100',
+    cost: '0',
     priority_level: 3,
     target_date: '',
   })
@@ -83,6 +85,8 @@ export default function EducationSection() {
     e.preventDefault()
     if (!formData.title.trim()) return
 
+    const pointsFallback = editingItem?.points_value ?? 100
+
     try {
       const url = editingItem ? `/api/education/${editingItem.id}` : '/api/education'
       const method = editingItem ? 'PATCH' : 'POST'
@@ -91,8 +95,17 @@ export default function EducationSection() {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          cost: formData.cost || undefined,
+          title: formData.title,
+          description: formData.description,
+          points_value: parseIntFromForm(formData.points_value, pointsFallback, {
+            min: 1,
+            max: 10000,
+          }),
+          cost: (() => {
+            const cost = parseFloatFromForm(formData.cost, 0, { min: 0 })
+            return cost > 0 ? cost : undefined
+          })(),
+          priority_level: formData.priority_level,
           target_date: formData.target_date || undefined,
         }),
       })
@@ -104,8 +117,8 @@ export default function EducationSection() {
         setFormData({
           title: '',
           description: '',
-          points_value: 100,
-          cost: 0,
+          points_value: '100',
+          cost: '0',
           priority_level: 3,
           target_date: '',
         })
@@ -172,8 +185,8 @@ export default function EducationSection() {
     setFormData({
       title: item.title,
       description: item.description || '',
-      points_value: item.points_value,
-      cost: item.cost || 0,
+      points_value: String(item.points_value),
+      cost: String(item.cost ?? 0),
       priority_level: item.priority_level,
       target_date: item.target_date || '',
     })
@@ -262,8 +275,8 @@ export default function EducationSection() {
               setFormData({
                 title: '',
                 description: '',
-                points_value: 100,
-                cost: 0,
+                points_value: '100',
+                cost: '0',
                 priority_level: 3,
                 target_date: '',
               })
@@ -306,14 +319,9 @@ export default function EducationSection() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Points Value
                   </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10000"
+                  <IntegerFormInput
                     value={formData.points_value}
-                    onChange={(e) =>
-                      setFormData({ ...formData, points_value: parseInt(e.target.value) || 100 })
-                    }
+                    onValueChange={(points_value) => setFormData({ ...formData, points_value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -324,9 +332,7 @@ export default function EducationSection() {
                     min="0"
                     step="0.01"
                     value={formData.cost}
-                    onChange={(e) =>
-                      setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 })
-                    }
+                    onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -377,8 +383,8 @@ export default function EducationSection() {
                     setFormData({
                       title: '',
                       description: '',
-                      points_value: 100,
-                      cost: 0,
+                      points_value: '100',
+                      cost: '0',
                       priority_level: 3,
                       target_date: '',
                     })

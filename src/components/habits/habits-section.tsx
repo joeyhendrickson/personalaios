@@ -6,11 +6,13 @@ import { useLanguage } from '@/contexts/language-context'
 import { Plus, Target, Lightbulb } from 'lucide-react'
 import { DraggableHabits } from './draggable-habits'
 import { Habit } from '@/types'
+import { IntegerFormInput } from '@/components/form/integer-form-input'
+import { parseIntFromForm } from '@/lib/form/numeric-input'
 
 interface HabitFormData {
   title: string
   description: string
-  points_per_completion: number
+  points_per_completion: string
 }
 
 export default function HabitsSection() {
@@ -22,7 +24,7 @@ export default function HabitsSection() {
   const [formData, setFormData] = useState<HabitFormData>({
     title: '',
     description: '',
-    points_per_completion: 25,
+    points_per_completion: '25',
   })
   const [isImporting, setIsImporting] = useState(false)
 
@@ -55,6 +57,8 @@ export default function HabitsSection() {
     e.preventDefault()
     if (!formData.title.trim()) return
 
+    const pointsFallback = editingHabit?.points_per_completion ?? 25
+
     try {
       const url = editingHabit ? `/api/habits/${editingHabit.id}` : '/api/habits'
       const method = editingHabit ? 'PATCH' : 'POST'
@@ -62,14 +66,21 @@ export default function HabitsSection() {
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          points_per_completion: parseIntFromForm(formData.points_per_completion, pointsFallback, {
+            min: 1,
+            max: 1000,
+          }),
+        }),
       })
 
       if (response.ok) {
         await fetchHabits()
         setShowAddForm(false)
         setEditingHabit(null)
-        setFormData({ title: '', description: '', points_per_completion: 25 })
+        setFormData({ title: '', description: '', points_per_completion: '25' })
       } else {
         const errorData = await response.json()
         console.error('Error saving habit:', errorData)
@@ -131,7 +142,7 @@ export default function HabitsSection() {
     setFormData({
       title: habit.title,
       description: habit.description || '',
-      points_per_completion: habit.points_per_completion,
+      points_per_completion: String(habit.points_per_completion),
     })
     setShowAddForm(true)
   }
@@ -212,7 +223,7 @@ export default function HabitsSection() {
             <button
               onClick={() => {
                 setEditingHabit(null)
-                setFormData({ title: '', description: '', points_per_completion: 25 })
+                setFormData({ title: '', description: '', points_per_completion: '25' })
                 setShowAddForm(true)
               }}
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-10 px-4 py-2"
@@ -254,18 +265,13 @@ export default function HabitsSection() {
               </div>
               <div className="flex items-center space-x-3">
                 <label className="text-sm font-medium text-gray-700">Points per completion:</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="1000"
+                <IntegerFormInput
+                  aria-label="Points per completion"
                   value={formData.points_per_completion}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      points_per_completion: parseInt(e.target.value) || 25,
-                    })
+                  onValueChange={(points_per_completion) =>
+                    setFormData({ ...formData, points_per_completion })
                   }
-                  className="w-20 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-24 min-w-[4.5rem] px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
               <div className="flex space-x-2">
@@ -280,7 +286,7 @@ export default function HabitsSection() {
                   onClick={() => {
                     setShowAddForm(false)
                     setEditingHabit(null)
-                    setFormData({ title: '', description: '', points_per_completion: 25 })
+                    setFormData({ title: '', description: '', points_per_completion: '25' })
                   }}
                   className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
                 >
