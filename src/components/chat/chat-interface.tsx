@@ -18,12 +18,37 @@ import {
   Heart,
   CheckCircle2,
   Activity,
+  Save,
+  History,
+  Trash2,
 } from 'lucide-react'
 
 interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+}
+
+const WELCOME_MESSAGE: ChatMessage = {
+  id: 'welcome',
+  role: 'assistant',
+  content: `👋 Hi! I'm your intelligent AI assistant with full access to your dashboard data. I can help you:
+
+• Plan your day and prioritize tasks based on your goals
+• Analyze your progress and suggest improvements
+• Turn a conversation into linked goals, projects, and tasks (use Add to dashboard)
+• Focus on specific areas like "Good Living" or "Enjoyment"
+• Track your habits, education, and priorities
+• Provide personalized advice based on your data
+
+What would you like to focus on today? Try asking me about having a "happy day" or planning your strategy!`,
+}
+
+type SavedChatSession = {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
 }
 
 type OnboardingChoice = { id: 'new' | 'returning'; label: string }
@@ -180,22 +205,11 @@ export function ChatInterface({
       }
     }
   }, [])
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: `👋 Hi! I'm your intelligent AI assistant with full access to your dashboard data. I can help you:
-
-• Plan your day and prioritize tasks based on your goals
-• Analyze your progress and suggest improvements
-• Turn a conversation into linked goals, projects, and tasks (use Add to dashboard)
-• Focus on specific areas like "Good Living" or "Enjoyment"
-• Track your habits, education, and priorities
-• Provide personalized advice based on your data
-
-What would you like to focus on today? Try asking me about having a "happy day" or planning your strategy!`,
-    },
-  ])
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE])
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [savedSessions, setSavedSessions] = useState<SavedChatSession[]>([])
+  const [showSessions, setShowSessions] = useState(false)
+  const [isSavingChat, setIsSavingChat] = useState(false)
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -354,6 +368,133 @@ What would you like to focus on today? Try asking me about having a "happy day" 
       setIsLoading(false)
     }
   }
+
+  const hasRealConversation = messages.some((m) => m.id !== 'welcome' && m.role === 'user')
+
+  const loadSessions = async () => {
+    try {
+      const r = await fetch('/api/assistant/chats', { credentials: 'same-origin' })
+      if (r.ok) {
+        const data = await r.json()
+        setSavedSessions((data.sessions || []) as SavedChatSession[])
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Refresh the saved list whenever the panel opens.
+  useEffect(() => {
+    if (showSessions) void loadSessions()
+  }, [showSessions])
+
+  const saveCurrentChat = async () => {
+    if (!hasRealConversation) {
+      alert('Start a conversation before saving.')
+      return
+    }
+    setIsSavingChat(true)
+    try {
+      const payloadMessages = messages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+      }))
+
+      if (currentSessionId) {
+        const r = await fetch(`/api/assistant/chats/${currentSessionId}`, {
+          method: 'PATCH',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: payloadMessages }),
+        })
+        if (!r.ok) throw new Error('save failed')
+      } else {
+        const r = await fetch('/api/assistant/chats', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: payloadMessages }),
+        })
+        if (!r.ok) throw new Error('save failed')
+        const data = await r.json()
+        setCurrentSessionId(data.session.id as string)
+      }
+      await loadSessions()
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: 'Chat saved. You can reopen it anytime from Saved chats.',
+        },
+      ])
+    } catch {
+      alert('Could not save chat. Please try again.')
+    } finally {
+      setIsSavingChat(false)
+    }
+  }
+
+  const loadSession = async (sessionId: string) => {
+    setIsLoading(true)
+    try {
+      const r = await fetch(`/api/assistant/chats/${sessionId}`, { credentials: 'same-origin' })
+      if (!r.ok) throw new Error('load failed')
+      const data = await r.json()
+      const loaded = (data.session.messages || []) as ChatMessage[]
+      setMessages(loaded.length > 0 ? loaded : [WELCOME_MESSAGE])
+      setCurrentSessionId(sessionId)
+      setShowSessions(false)
+      setGoalProposals([])
+      setDashboardPlan(null)
+    } catch {
+      alert('Could not load that chat.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const deleteSession = async (sessionId: string) => {
+    if (!confirm('Delete this saved chat?')) return
+    try {
+      const r = await fetch(`/api/assistant/chats/${sessionId}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      })
+      if (r.ok) {
+        setSavedSessions((prev) => prev.filter((s) => s.id !== sessionId))
+        if (currentSessionId === sessionId) setCurrentSessionId(null)
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const startNewChat = () => {
+    setMessages([WELCOME_MESSAGE])
+    setCurrentSessionId(null)
+    setGoalProposals([])
+    setDashboardPlan(null)
+    setShowSessions(false)
+  }
+
+  // Once a chat is saved, keep it in sync so users resume exactly where they left off.
+  useEffect(() => {
+    if (!currentSessionId || isLoading || !hasRealConversation) return
+    const handle = setTimeout(() => {
+      void fetch(`/api/assistant/chats/${currentSessionId}`, {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: messages.map((m) => ({ id: m.id, role: m.role, content: m.content })),
+        }),
+      }).catch(() => {})
+    }, 1500)
+    return () => clearTimeout(handle)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, currentSessionId, isLoading])
 
   const commitProposalById = async (proposalId: string) => {
     setIsLoading(true)
@@ -1180,19 +1321,97 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
     >
       {/* Header - Draggable */}
       <div
-        className="flex items-center justify-between p-4 border-b bg-black text-white rounded-t-lg cursor-move"
+        className="flex items-center justify-between gap-2 p-4 border-b bg-black text-white rounded-t-lg cursor-move"
         onMouseDown={handleDragStart}
       >
-        <h3 className="font-semibold">Productivity Advisor</h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsExpanded(false)}
-          className="text-white hover:bg-gray-800"
-        >
-          ✕
-        </Button>
+        <h3 className="font-semibold truncate">Productivity Advisor</h3>
+        <div className="flex items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={startNewChat}
+            className="text-white hover:bg-gray-800 h-8 px-2"
+            title="New chat"
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void saveCurrentChat()}
+            disabled={isSavingChat || !hasRealConversation}
+            className="text-white hover:bg-gray-800 h-8 px-2"
+            title={currentSessionId ? 'Update saved chat' : 'Save chat'}
+          >
+            <Save className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowSessions((v) => !v)}
+            className={`text-white hover:bg-gray-800 h-8 px-2 ${showSessions ? 'bg-gray-800' : ''}`}
+            title="Saved chats"
+          >
+            <History className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsExpanded(false)}
+            className="text-white hover:bg-gray-800 h-8 px-2"
+          >
+            ✕
+          </Button>
+        </div>
       </div>
+
+      {showSessions && (
+        <div className="border-b bg-gray-50 max-h-56 overflow-y-auto">
+          <div className="p-3">
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+              Saved chats
+            </div>
+            {savedSessions.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                No saved chats yet. Use the save icon to keep this conversation.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {savedSessions.map((s) => (
+                  <div
+                    key={s.id}
+                    className={`flex items-center gap-2 rounded-md border p-2 ${
+                      currentSessionId === s.id
+                        ? 'border-blue-300 bg-blue-50'
+                        : 'border-gray-200 bg-white'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => void loadSession(s.id)}
+                      className="min-w-0 flex-1 text-left touch-manipulation"
+                      title="Open chat"
+                    >
+                      <div className="truncate text-sm font-medium text-gray-900">{s.title}</div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(s.updated_at).toLocaleString()}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void deleteSession(s.id)}
+                      className="shrink-0 p-1 text-gray-400 hover:text-red-600 touch-manipulation"
+                      title="Delete chat"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">

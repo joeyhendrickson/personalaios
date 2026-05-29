@@ -115,7 +115,7 @@ function TaskItem({
           : 'border-gray-200 hover:border-blue-200'
       } ${isReordering ? 'opacity-50' : ''}`}
     >
-      <div className="flex items-start space-x-3">
+      <div className="flex items-start gap-3">
         <button
           onClick={() => onToggleTask(task.id)}
           className={`w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-all duration-200 flex-shrink-0 ${
@@ -127,74 +127,74 @@ function TaskItem({
           {task.status === 'completed' && <CheckCircle className="h-3 w-3 text-white" />}
         </button>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-2 sm:space-y-0">
+        <div className="flex-1 min-w-0 space-y-3">
+          <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <h4
-                className={`font-medium text-left ${
+                className={`font-medium text-left break-words ${
                   task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
                 }`}
               >
                 {task.title}
               </h4>
-              <p className="text-sm text-gray-600 mt-1 text-left leading-relaxed">
+              <p className="w-full text-sm text-gray-600 mt-1 text-left leading-relaxed break-words">
                 {task.description || 'No description'}
               </p>
               {task.weekly_goal?.title && (
-                <p className="text-xs text-blue-600 mt-1 text-left">📋 {task.weekly_goal.title}</p>
+                <p className="text-xs text-blue-600 mt-1 text-left break-words">
+                  📋 {task.weekly_goal.title}
+                </p>
               )}
             </div>
-            <div className="flex items-center space-x-2 flex-shrink-0 sm:ml-4">
-              <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gray-100 text-gray-700">
+            <div className="flex shrink-0 items-center gap-1 self-start">
+              <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-700">
                 <Star className="h-3 w-3 mr-1" />
                 {task.points_value || 0}
               </span>
-              <div className="flex items-center space-x-1">
-                <button
-                  onClick={() => onEditTask(task)}
-                  className="text-gray-500 hover:text-gray-700"
-                  title="Edit Task"
-                >
-                  <Settings className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => onConvertToGoal(task)}
-                  className="text-blue-500 hover:text-blue-700"
-                  title="Convert to Goal"
-                >
-                  <Target className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => onDeleteTask(task.id)}
-                  className="text-red-500 hover:text-red-700"
-                  title="Delete Task"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+              <button
+                onClick={() => onEditTask(task)}
+                className="text-gray-500 hover:text-gray-700 touch-manipulation"
+                title="Edit Task"
+              >
+                <Settings className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => onConvertToGoal(task)}
+                className="text-blue-500 hover:text-blue-700 touch-manipulation"
+                title="Convert to Goal"
+              >
+                <Target className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => onDeleteTask(task.id)}
+                className="text-red-500 hover:text-red-700 touch-manipulation"
+                title="Delete Task"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
           </div>
-        </div>
 
-        <div className="flex-shrink-0 flex flex-col items-end gap-1">
-          <span className="text-[10px] uppercase tracking-wide text-gray-500">Priority</span>
-          <div className="flex flex-wrap items-center gap-1 justify-end max-w-[9rem] sm:max-w-none">
-            <button
-              type="button"
-              onClick={() => onMoveToTop(task.id)}
-              disabled={index === 0 || isReordering}
-              className={`p-1 rounded-md border transition-colors ${
-                index === 0 || isReordering
-                  ? 'border-transparent text-gray-300 cursor-not-allowed'
-                  : 'border-gray-200 text-gray-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700'
-              }`}
-              title="Move to top"
-            >
-              <ArrowUpToLine className="h-4 w-4" />
-            </button>
-            {tierBtn('high', 'High')}
-            {tierBtn('medium', 'Med')}
-            {tierBtn('low', 'Low')}
+          <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-2">
+            <span className="text-[10px] uppercase tracking-wide text-gray-500">Priority</span>
+            <div className="flex flex-wrap items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onMoveToTop(task.id)}
+                disabled={index === 0 || isReordering}
+                className={`p-1 rounded-md border transition-colors touch-manipulation ${
+                  index === 0 || isReordering
+                    ? 'border-transparent text-gray-300 cursor-not-allowed'
+                    : 'border-gray-200 text-gray-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700'
+                }`}
+                title="Move to top"
+              >
+                <ArrowUpToLine className="h-4 w-4" />
+              </button>
+              {tierBtn('high', 'High')}
+              {tierBtn('medium', 'Med')}
+              {tierBtn('low', 'Low')}
+            </div>
           </div>
         </div>
       </div>

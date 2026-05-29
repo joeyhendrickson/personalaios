@@ -2875,23 +2875,23 @@ export default function Dashboard() {
                             key={task.id}
                             className="bg-green-50 rounded-lg p-4 border border-green-200 transition-all duration-200"
                           >
-                            <div className="flex items-start space-x-4">
+                            <div className="flex items-start gap-3">
                               <div className="flex-shrink-0 mt-1">
                                 <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                                   <CheckCircle className="w-3 h-3 text-white" />
                                 </div>
                               </div>
-                              <div className="flex-1">
-                                <div className="flex items-center justify-between">
-                                  <h3 className="font-medium text-gray-900 line-through">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <h3 className="min-w-0 flex-1 break-words font-medium text-gray-900 line-through">
                                     {task.title}
                                   </h3>
-                                  <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 border-green-200 text-green-700">
+                                  <span className="inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-green-200 text-green-700">
                                     Completed
                                   </span>
                                 </div>
                                 {task.description && (
-                                  <p className="text-sm text-gray-600 mt-1 line-through">
+                                  <p className="w-full text-sm text-gray-600 mt-1 line-through break-words">
                                     {task.description}
                                   </p>
                                 )}
