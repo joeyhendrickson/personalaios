@@ -66,6 +66,13 @@ export default function BiometricsSection(props: {
   const [connectMessage, setConnectMessage] = useState('')
   const [connectError, setConnectError] = useState('')
 
+  // "Request access" form (Testing-mode allowlist)
+  const [showRequest, setShowRequest] = useState(false)
+  const [requestEmail, setRequestEmail] = useState('')
+  const [requestSubmitting, setRequestSubmitting] = useState(false)
+  const [requestDone, setRequestDone] = useState(false)
+  const [requestError, setRequestError] = useState('')
+
   const loadHealthStatus = useCallback(async () => {
     try {
       const res = await fetch('/api/fitness/google-health/status')
@@ -153,6 +160,28 @@ export default function BiometricsSection(props: {
       setConnectMessage('')
       setConnectError('')
       await loadHealthStatus()
+    }
+  }
+
+  const submitAccessRequest = async () => {
+    setRequestSubmitting(true)
+    setRequestError('')
+    try {
+      const res = await fetch('/api/fitness/google-health/request-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: requestEmail.trim() }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setRequestError(json?.error || 'Could not send your request.')
+      } else {
+        setRequestDone(true)
+      }
+    } catch {
+      setRequestError('Could not send your request. Please try again.')
+    } finally {
+      setRequestSubmitting(false)
     }
   }
 
@@ -272,6 +301,63 @@ export default function BiometricsSection(props: {
                 )}
                 Connect Google Health
               </button>
+
+              <div className="border-t border-gray-100 pt-3">
+                {!showRequest && !requestDone && (
+                  <button
+                    type="button"
+                    onClick={() => setShowRequest(true)}
+                    className="text-xs text-gray-500 underline hover:text-gray-700 touch-manipulation"
+                  >
+                    Getting &ldquo;access blocked&rdquo;? Request wearable access
+                  </button>
+                )}
+
+                {requestDone ? (
+                  <p className="text-sm text-green-700">
+                    Request sent. We&apos;ll enable your account and email you when it&apos;s ready.
+                  </p>
+                ) : (
+                  showRequest && (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs text-gray-600">
+                        Wearable sync is in limited early access. Enter the Google email you&apos;ll
+                        connect with and we&apos;ll enable it for you.
+                      </p>
+                      <input
+                        type="email"
+                        value={requestEmail}
+                        onChange={(e) => setRequestEmail(e.target.value)}
+                        placeholder="you@gmail.com"
+                        className="w-full sm:max-w-xs border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={submitAccessRequest}
+                          disabled={requestSubmitting || !requestEmail.trim()}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50 touch-manipulation"
+                        >
+                          {requestSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                          Request access
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowRequest(false)}
+                          className="text-sm text-gray-500 hover:text-gray-700 touch-manipulation"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      {requestError && (
+                        <p className="text-sm text-red-600" role="alert">
+                          {requestError}
+                        </p>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-3">

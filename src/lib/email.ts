@@ -42,6 +42,56 @@ export async function sendBugReportEmail(data: BugReportEmailData) {
   }
 }
 
+export interface HealthAccessRequestEmailData {
+  googleEmail: string
+  accountEmail: string
+  note?: string
+}
+
+export async function sendHealthAccessRequestEmail(data: HealthAccessRequestEmailData) {
+  if (!env.RESEND_API_KEY || !resend) {
+    console.warn('RESEND_API_KEY not configured, skipping email send')
+    return { success: false, error: 'Email service not configured' }
+  }
+
+  try {
+    const { data: emailData, error } = await resend.emails.send({
+      from: 'Life Stacks <noreply@lifestacks.ai>',
+      to: [env.BUG_REPORT_EMAIL || 'joeyhendrickson@me.com'],
+      replyTo: data.accountEmail,
+      subject: `[GOOGLE HEALTH ACCESS] ${data.googleEmail}`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+          <h2>Wearable access request</h2>
+          <p>A user wants to connect Google Health on Life Stacks. Add their Google email to the OAuth consent screen's <strong>Test users</strong> list in Google Cloud Console.</p>
+          <table style="border-collapse: collapse; width: 100%;">
+            <tr><td style="padding: 8px; font-weight: 600;">Google email to allowlist</td><td style="padding: 8px;">${data.googleEmail}</td></tr>
+            <tr><td style="padding: 8px; font-weight: 600;">Requested by (account)</td><td style="padding: 8px;">${data.accountEmail}</td></tr>
+            ${data.note ? `<tr><td style="padding: 8px; font-weight: 600;">Note</td><td style="padding: 8px;">${data.note.replace(/\n/g, '<br>')}</td></tr>` : ''}
+            <tr><td style="padding: 8px; font-weight: 600;">Requested at</td><td style="padding: 8px;">${new Date().toLocaleString()}</td></tr>
+          </table>
+        </div>
+      `,
+      text: `Wearable access request
+
+Google email to allowlist: ${data.googleEmail}
+Requested by (account): ${data.accountEmail}
+${data.note ? `Note: ${data.note}\n` : ''}Requested at: ${new Date().toLocaleString()}
+
+Add the Google email above to the OAuth consent screen's Test users list in Google Cloud Console.`,
+    })
+
+    if (error) {
+      console.error('Error sending health access request email:', error)
+      return { success: false, error: error.message }
+    }
+    return { success: true, messageId: emailData?.id }
+  } catch (error) {
+    console.error('Error in sendHealthAccessRequestEmail:', error)
+    return { success: false, error: 'Failed to send email' }
+  }
+}
+
 function generateBugReportHTML(data: BugReportEmailData): string {
   const priorityColors = {
     low: '#10B981',

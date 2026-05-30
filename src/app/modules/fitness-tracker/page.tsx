@@ -431,7 +431,8 @@ export default function FitnessTrackerModule() {
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
-        throw new Error(j?.error || 'Failed to save diet preferences')
+        const detail = j?.details ? `: ${j.details}` : ''
+        throw new Error(`${j?.error || 'Failed to save diet preferences'}${detail}`)
       }
       setSuccessMessage('Diet preferences saved!')
       setTimeout(() => setSuccessMessage(''), 3000)

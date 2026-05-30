@@ -16,7 +16,10 @@ const serverEnvSchema = z.object({
   TWILIO_PHONE_NUMBER: z.string().optional(),
   TWILIO_FROM_NUMBER: z.string().optional(),
   GOOGLE_PLACES_API_KEY: z.string().optional(),
+  EVENTBRITE_API_KEY: z.string().optional(),
+  EVENTBRITE_CLIENT_SECRET: z.string().optional(),
   EVENTBRITE_PRIVATE_TOKEN: z.string().optional(),
+  EVENTBRITE_PUBLIC_TOKEN: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().optional(),
   CRON_SECRET: z.string().optional(),
 })
@@ -100,7 +103,10 @@ const parseEnv = () => {
     TWILIO_PHONE_NUMBER: getEnv('TWILIO_PHONE_NUMBER'),
     TWILIO_FROM_NUMBER: getEnv('TWILIO_FROM_NUMBER'),
     GOOGLE_PLACES_API_KEY: getEnv('GOOGLE_PLACES_API_KEY'),
+    EVENTBRITE_API_KEY: getEnv('EVENTBRITE_API_KEY'),
+    EVENTBRITE_CLIENT_SECRET: getEnv('EVENTBRITE_CLIENT_SECRET'),
     EVENTBRITE_PRIVATE_TOKEN: getEnv('EVENTBRITE_PRIVATE_TOKEN'),
+    EVENTBRITE_PUBLIC_TOKEN: getEnv('EVENTBRITE_PUBLIC_TOKEN'),
     RESEND_FROM_EMAIL: getEnv('RESEND_FROM_EMAIL'),
     CRON_SECRET: getEnv('CRON_SECRET'),
 

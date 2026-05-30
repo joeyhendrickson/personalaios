@@ -495,9 +495,8 @@ export default function RelationshipDetailPage() {
             <h2 className="text-lg font-medium">Event suggestions</h2>
           </div>
           <p className="mb-4 text-sm text-muted-foreground">
-            Uses your relationship zip (save under Context) plus interests and uploaded context.
-            Requires <code className="rounded bg-muted px-1">EVENTBRITE_PRIVATE_TOKEN</code> on the
-            server.
+            Based on the context of your relationship, get event recommendations that will help you
+            reach out and connect with them.
           </p>
           <button
             type="button"
@@ -523,7 +522,7 @@ export default function RelationshipDetailPage() {
             <h2 className="text-lg font-medium">Alignment to your goals</h2>
           </div>
           <p className="mb-4 text-sm text-muted-foreground">
-            Compares this relationship to your active goals, weekly projects, and priorities.
+            Considers this relationship to your active goals, weekly projects, and priorities.
           </p>
           <button
             type="button"
