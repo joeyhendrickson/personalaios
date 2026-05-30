@@ -17,8 +17,18 @@ export const GOOGLE_HEALTH_SCOPES = [
   'https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly',
 ]
 
+// Prefer dedicated GOOGLE_HEALTH_* creds, but fall back to the shared GOOGLE_* OAuth
+// client so a single Google Cloud OAuth client can serve both Drive and Health.
+function getClientId(): string | undefined {
+  return process.env.GOOGLE_HEALTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID
+}
+
+function getClientSecret(): string | undefined {
+  return process.env.GOOGLE_HEALTH_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET
+}
+
 export function isGoogleHealthConfigured(): boolean {
-  return Boolean(process.env.GOOGLE_HEALTH_CLIENT_ID && process.env.GOOGLE_HEALTH_CLIENT_SECRET)
+  return Boolean(getClientId() && getClientSecret())
 }
 
 export function getGoogleHealthRedirectUri(): string {
@@ -29,11 +39,7 @@ export function getGoogleHealthRedirectUri(): string {
 }
 
 export function createGoogleHealthOAuthClient() {
-  return new google.auth.OAuth2(
-    process.env.GOOGLE_HEALTH_CLIENT_ID,
-    process.env.GOOGLE_HEALTH_CLIENT_SECRET,
-    getGoogleHealthRedirectUri()
-  )
+  return new google.auth.OAuth2(getClientId(), getClientSecret(), getGoogleHealthRedirectUri())
 }
 
 export function getGoogleHealthAuthUrl(state: string): string {
