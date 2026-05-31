@@ -40,11 +40,28 @@ interface SerpApiResponse {
  * assume the next occurrence). Returns undefined when it can't be parsed reliably.
  */
 function parseEventDate(when?: string, startDate?: string): Date | undefined {
+  const now = new Date()
+
+  // Handle SerpApi's relative phrasing first ("Today, 6 – 11 PM", "Tomorrow, 7 PM").
+  const lowerWhen = (when || '').toLowerCase()
+  if (lowerWhen.startsWith('today')) {
+    const d = new Date(now)
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
+  if (lowerWhen.startsWith('tomorrow')) {
+    const d = new Date(now)
+    d.setDate(d.getDate() + 1)
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
+
   const raw = (startDate || when || '').trim()
   if (!raw) return undefined
   // Take the portion before any range separator ("–", "-", "to").
   const head = raw.split(/[–-]|(?:\bto\b)/)[0].trim()
-  const now = new Date()
+  // Reject relative/day-of-week-only tokens that Date can misparse (e.g. "Today" → year 2001).
+  if (!/\d/.test(head)) return undefined
   const candidates = [head, `${head} ${now.getFullYear()}`]
   for (const c of candidates) {
     const parsed = new Date(c)

@@ -3,7 +3,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, Loader2, Sparkles, CalendarRange, Target, Inbox } from 'lucide-react'
+import {
+  ArrowLeft,
+  Loader2,
+  Sparkles,
+  CalendarRange,
+  Target,
+  Inbox,
+  Clock,
+  MapPin,
+  ExternalLink,
+} from 'lucide-react'
 
 type DetailPayload = {
   relationship: Record<string, unknown> & {
@@ -39,6 +49,38 @@ type DetailPayload = {
   errors?: string[]
 }
 
+type SuggestedEvent = {
+  externalId: string
+  title: string
+  description?: string
+  startAt?: string
+  whenText?: string
+  url?: string
+  venueName?: string
+  address?: string
+  raw?: { thumbnail?: string; image?: string }
+}
+
+type RankedEvent = {
+  index: number
+  score: number
+  reason: string
+  event: SuggestedEvent
+}
+
+type EventsResult = {
+  zip_code?: string
+  source?: string
+  cached?: boolean
+  events?: SuggestedEvent[]
+  ranked?: RankedEvent[]
+  note?: string
+  error?: string
+  hint?: string
+}
+
+type DisplayEvent = { index: number; score?: number; reason?: string; event: SuggestedEvent }
+
 export default function RelationshipDetailPage() {
   const params = useParams()
   const id = params.relationshipId as string
@@ -56,7 +98,7 @@ export default function RelationshipDetailPage() {
   const [notes, setNotes] = useState('')
 
   const [eventsLoading, setEventsLoading] = useState(false)
-  const [eventsResult, setEventsResult] = useState<unknown>(null)
+  const [eventsResult, setEventsResult] = useState<EventsResult | null>(null)
 
   const [alignLoading, setAlignLoading] = useState(false)
   const [alignResult, setAlignResult] = useState<unknown>(null)
@@ -507,11 +549,99 @@ export default function RelationshipDetailPage() {
             {eventsLoading && <Loader2 className="h-4 w-4 animate-spin" />}
             Suggest events
           </button>
-          {eventsResult != null && (
-            <pre className="mt-4 max-h-[480px] overflow-auto rounded-md bg-muted p-3 text-xs">
-              {JSON.stringify(eventsResult, null, 2)}
-            </pre>
-          )}
+          {eventsResult != null &&
+            (() => {
+              if (eventsResult.error) {
+                return (
+                  <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                    <p className="font-medium">{eventsResult.error}</p>
+                    {eventsResult.hint && <p className="mt-1 text-red-600">{eventsResult.hint}</p>}
+                  </div>
+                )
+              }
+
+              const list: DisplayEvent[] =
+                eventsResult.ranked && eventsResult.ranked.length > 0
+                  ? eventsResult.ranked
+                  : (eventsResult.events ?? []).map((event, i) => ({ index: i + 1, event }))
+
+              if (list.length === 0) {
+                return (
+                  <p className="mt-4 text-sm text-muted-foreground">
+                    {eventsResult.note ||
+                      'No events found. Try adding a zip code or broader interests under Context.'}
+                  </p>
+                )
+              }
+
+              return (
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    {eventsResult.zip_code && <span>Near {eventsResult.zip_code}</span>}
+                    {eventsResult.cached && (
+                      <span className="rounded-full bg-muted px-2 py-0.5">Cached</span>
+                    )}
+                  </div>
+                  <div className="grid gap-3">
+                    {list.map((r) => {
+                      const ev = r.event
+                      const img = ev.raw?.image || ev.raw?.thumbnail
+                      const where = ev.venueName || ev.address
+                      return (
+                        <div
+                          key={ev.externalId}
+                          className="flex gap-3 rounded-lg border border-border bg-background p-3"
+                        >
+                          {img && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={img}
+                              alt=""
+                              className="h-20 w-20 shrink-0 rounded-md object-cover"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-medium leading-snug break-words">{ev.title}</h3>
+                              {typeof r.score === 'number' && (
+                                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                                  {r.score}
+                                </span>
+                              )}
+                            </div>
+                            {ev.whenText && (
+                              <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                                <Clock className="h-3.5 w-3.5 shrink-0" />
+                                <span className="break-words">{ev.whenText}</span>
+                              </p>
+                            )}
+                            {where && (
+                              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                                <span className="break-words">{where}</span>
+                              </p>
+                            )}
+                            {r.reason && (
+                              <p className="mt-2 text-sm text-foreground/80">{r.reason}</p>
+                            )}
+                            {ev.url && (
+                              <a
+                                href={ev.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                              >
+                                View event <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
         </section>
       )}
 
