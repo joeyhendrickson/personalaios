@@ -11,6 +11,7 @@ export const MODULE_LABELS: Record<string, string> = {
   'gratitude-journal': 'Gratitude Journal',
   'fitness-tracker': 'Fitness Tracker',
   'relationship-manager': 'Relationship Manager',
+  'dating-manager': 'Dating Management',
   'relationship-intel': 'Relationship Intel',
   'analytics-dashboard': 'Analytics Dashboard',
   'rewards-self-care': 'Rewards & Self-Care',

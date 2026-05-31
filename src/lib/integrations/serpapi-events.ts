@@ -86,6 +86,73 @@ function stableExternalId(ev: SerpApiEvent): string {
   return `ge_${(hash >>> 0).toString(36)}`
 }
 
+interface SerpApiLocalResult {
+  title?: string
+  place_id?: string
+  data_id?: string
+  rating?: number
+  reviews?: number
+  type?: string
+  address?: string
+  description?: string
+  links?: { website?: string; directions?: string }
+  thumbnail?: string
+}
+
+interface SerpApiLocalResponse {
+  local_results?: SerpApiLocalResult[]
+  error?: string
+}
+
+/**
+ * Google Local places (restaurants, venues, things to do) via SerpApi
+ * (engine=google_local). Useful for date-spot ideas like restaurants or activities.
+ */
+export async function searchGoogleLocal(
+  params: GoogleEventsSearchParams
+): Promise<NormalizedExternalEvent[]> {
+  const key = process.env.SERPAPI_KEY?.trim()
+  if (!key) {
+    throw new Error('SERPAPI_KEY required')
+  }
+
+  const url = new URL('https://serpapi.com/search')
+  url.searchParams.set('engine', 'google_local')
+  url.searchParams.set('q', params.q)
+  if (params.location) url.searchParams.set('location', params.location)
+  url.searchParams.set('hl', 'en')
+  url.searchParams.set('gl', 'us')
+  url.searchParams.set('api_key', key)
+
+  const res = await fetch(url.toString(), { cache: 'no-store' })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`SerpApi ${res.status}: ${text.slice(0, 500)}`)
+  }
+
+  const data = (await res.json()) as SerpApiLocalResponse
+  if (data.error) {
+    throw new Error(`SerpApi: ${data.error}`)
+  }
+
+  return (data.local_results ?? []).map((r) => {
+    const ratingText = r.rating
+      ? `${r.rating}★${r.reviews ? ` (${r.reviews} reviews)` : ''}`
+      : undefined
+    const descParts = [r.type, ratingText].filter(Boolean).join(' · ')
+    return {
+      externalId: `gl_${r.place_id || r.data_id || `${r.title ?? ''}|${r.address ?? ''}`}`,
+      title: r.title ?? 'Place',
+      description: r.description || descParts || undefined,
+      whenText: ratingText,
+      url: r.links?.website || r.links?.directions,
+      venueName: r.title,
+      address: r.address,
+      raw: r as unknown as Record<string, unknown>,
+    }
+  })
+}
+
 export async function searchGoogleEvents(
   params: GoogleEventsSearchParams
 ): Promise<NormalizedExternalEvent[]> {

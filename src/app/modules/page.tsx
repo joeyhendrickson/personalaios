@@ -153,6 +153,22 @@ const modules: Module[] = [
     complexity: 'advanced',
   },
   {
+    id: 'dating-manager',
+    title: 'Dating Management',
+    description:
+      'Evaluate potential partners against the life you want — qualities, photos, connection, and date ideas.',
+    category: 'Social',
+    icon: <Heart className="h-8 w-8" />,
+    status: 'available',
+    features: [
+      'Partner Criteria from Your Goals',
+      'Prospect Cards & AI Evaluation',
+      'Photo & Connection Analysis',
+      'Date Idea Recommendations',
+    ],
+    complexity: 'advanced',
+  },
+  {
     id: 'relationship-intel',
     title: 'Relationship Intel',
     description: 'One grounded next move per person from your messages, notes, and goals.',

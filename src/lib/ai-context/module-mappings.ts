@@ -14,6 +14,7 @@ export const MODULE_TABLE_MAPPINGS: Record<string, string[]> = {
   ],
   'day-trader': ['trading_analyses'],
   'relationship-manager': ['relationships', 'relationship_types', 'relationship_goals'],
+  'dating-manager': ['dating_prospects', 'dating_evaluations', 'dating_partner_criteria'],
   'grocery-optimizer': ['grocery_receipts', 'grocery_items', 'grocery_analyses'],
   'ai-coach': ['ai_coach_sessions', 'ai_coach_insights'],
   'time-blocker': ['time_blocks', 'time_block_sessions'],
