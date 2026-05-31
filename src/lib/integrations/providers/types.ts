@@ -53,10 +53,22 @@ export interface NormalizedExternalEvent {
   title: string
   description?: string
   startAt?: Date
+  /** Human-readable schedule text, e.g. "Fri, Dec 5, 7 – 9 PM" (sources may not give a parseable date). */
+  whenText?: string
   url?: string
   venueName?: string
+  address?: string
   lat?: number
   lng?: number
   zipCode?: string
   raw: Record<string, unknown>
+}
+
+export interface GoogleEventsSearchParams {
+  /** Free-text query, e.g. "live music" or "networking". Location is appended automatically. */
+  q: string
+  /** City/zip used to localize results, e.g. "78701" or "Austin, Texas". */
+  location?: string
+  /** SerpApi htichips date filter, e.g. "date:week", "date:month", "date:weekend". */
+  dateFilter?: string
 }

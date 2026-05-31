@@ -20,6 +20,7 @@ const serverEnvSchema = z.object({
   EVENTBRITE_CLIENT_SECRET: z.string().optional(),
   EVENTBRITE_PRIVATE_TOKEN: z.string().optional(),
   EVENTBRITE_PUBLIC_TOKEN: z.string().optional(),
+  SERPAPI_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().optional(),
   CRON_SECRET: z.string().optional(),
 })
@@ -107,6 +108,7 @@ const parseEnv = () => {
     EVENTBRITE_CLIENT_SECRET: getEnv('EVENTBRITE_CLIENT_SECRET'),
     EVENTBRITE_PRIVATE_TOKEN: getEnv('EVENTBRITE_PRIVATE_TOKEN'),
     EVENTBRITE_PUBLIC_TOKEN: getEnv('EVENTBRITE_PUBLIC_TOKEN'),
+    SERPAPI_KEY: getEnv('SERPAPI_KEY'),
     RESEND_FROM_EMAIL: getEnv('RESEND_FROM_EMAIL'),
     CRON_SECRET: getEnv('CRON_SECRET'),
 
