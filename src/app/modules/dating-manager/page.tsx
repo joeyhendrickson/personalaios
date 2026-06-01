@@ -11,7 +11,6 @@ import {
   MapPin,
   ExternalLink,
   Clock,
-  Star,
   Users,
   Save,
 } from 'lucide-react'
@@ -26,6 +25,7 @@ type ProspectListItem = {
   positive_qualities?: string | null
   toxic_qualities?: string | null
   attractiveness_score?: number | null
+  evaluation_score?: number | null
   updated_at: string
 }
 
@@ -258,10 +258,13 @@ function ProspectsTab() {
             >
               <div className="flex items-start justify-between gap-2">
                 <h3 className="font-medium break-words">{p.name}</h3>
-                {typeof p.attractiveness_score === 'number' && (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">
-                    <Star className="h-3 w-3" />
-                    {p.attractiveness_score}
+                {typeof p.evaluation_score === 'number' && (
+                  <span
+                    title="AI evaluation score"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    {p.evaluation_score}
                   </span>
                 )}
               </div>

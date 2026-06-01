@@ -30,7 +30,34 @@ export async function GET(request: NextRequest) {
       .order('updated_at', { ascending: false })
 
     if (error) throw new Error(error.message)
-    return NextResponse.json({ prospects: data ?? [] })
+
+    // Attach the latest AI evaluation score per prospect (shown on the card).
+    const prospects = data ?? []
+    const ids = prospects.map((p) => p.id)
+    const scoreByProspect = new Map<string, number>()
+    if (ids.length > 0) {
+      const { data: evals } = await supabase
+        .from('dating_evaluations')
+        .select('prospect_id, result, created_at')
+        .eq('user_id', user.id)
+        .eq('scope', 'prospect')
+        .in('prospect_id', ids)
+        .order('created_at', { ascending: false })
+
+      for (const row of evals ?? []) {
+        const pid = row.prospect_id as string | null
+        if (!pid || scoreByProspect.has(pid)) continue // first = most recent
+        const score = (row.result as Record<string, unknown> | null)?.overall_score
+        if (typeof score === 'number') scoreByProspect.set(pid, score)
+      }
+    }
+
+    const withScores = prospects.map((p) => ({
+      ...p,
+      evaluation_score: scoreByProspect.has(p.id) ? scoreByProspect.get(p.id)! : null,
+    }))
+
+    return NextResponse.json({ prospects: withScores })
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Failed to list prospects' },
