@@ -13,6 +13,7 @@ import {
   HeartHandshake,
   Camera,
   Save,
+  X,
 } from 'lucide-react'
 
 type Photo = {
@@ -183,6 +184,25 @@ export default function ProspectDetailPage() {
     if (!confirm('Delete this prospect and all its photos?')) return
     const res = await fetch(`/api/dating-manager/prospects/${id}`, { method: 'DELETE' })
     if (res.ok) router.push('/modules/dating-manager')
+  }
+
+  const deletePhoto = async (photoId: string) => {
+    setError('')
+    const prev = photos
+    setPhotos((list) => list.filter((ph) => ph.id !== photoId))
+    const res = await fetch(`/api/dating-manager/prospects/${id}/photos/${photoId}`, {
+      method: 'DELETE',
+    })
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}))
+      setError(json?.error || 'Could not delete photo')
+      setPhotos(prev)
+      return
+    }
+    const json = await res.json().catch(() => ({}))
+    setProspect((p) =>
+      p ? { ...p, attractiveness_score: json.attractiveness_score ?? p.attractiveness_score } : p
+    )
   }
 
   if (loading) {
@@ -377,8 +397,17 @@ export default function ProspectDetailPage() {
                 return (
                   <div
                     key={ph.id}
-                    className="flex gap-3 rounded-lg border border-border bg-background p-3"
+                    className="relative flex gap-3 rounded-lg border border-border bg-background p-3"
                   >
+                    <button
+                      type="button"
+                      onClick={() => deletePhoto(ph.id)}
+                      title="Remove photo from evaluation"
+                      aria-label="Remove photo"
+                      className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-muted-foreground shadow-sm ring-1 ring-border hover:bg-red-50 hover:text-red-600"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                     {ph.signed_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img

@@ -1,8 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { generateText } from 'ai'
 import { createClient } from '@/lib/supabase/server'
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 import { buildUserVisionContext } from '@/lib/dating-manager/context'
+
+const saveSchema = z.object({
+  summary: z.string().max(8000),
+  criteria: z.record(z.string(), z.unknown()).optional(),
+})
 
 // GET: fetch the stored partner criteria for this user
 export async function GET() {
@@ -24,6 +30,54 @@ export async function GET() {
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Failed to fetch criteria' },
+      { status: 500 }
+    )
+  }
+}
+
+// PUT: save user-edited criteria (no AI call)
+export async function PUT(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { summary, criteria } = saveSchema.parse(await request.json())
+    const generated_at = new Date().toISOString()
+
+    // Preserve the existing structured criteria unless the client sends new values.
+    let criteriaPayload = criteria
+    if (!criteriaPayload) {
+      const { data: existing } = await supabase
+        .from('dating_partner_criteria')
+        .select('criteria')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      criteriaPayload = (existing?.criteria as Record<string, unknown>) || {}
+    }
+    criteriaPayload = { ...criteriaPayload, summary }
+
+    const { error } = await supabase.from('dating_partner_criteria').upsert(
+      {
+        user_id: user.id,
+        summary,
+        criteria: criteriaPayload,
+        generated_at,
+      },
+      { onConflict: 'user_id' }
+    )
+    if (error) throw new Error(error.message)
+
+    return NextResponse.json({ criteria: { summary, criteria: criteriaPayload, generated_at } })
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Invalid data', details: e.issues }, { status: 400 })
+    }
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'Failed to save criteria' },
       { status: 500 }
     )
   }

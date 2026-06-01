@@ -13,6 +13,7 @@ import {
   Clock,
   Star,
   Users,
+  Save,
 } from 'lucide-react'
 
 const MODULE_ID = 'dating-manager'
@@ -284,8 +285,11 @@ function ProspectsTab() {
 
 function CriteriaTab() {
   const [criteria, setCriteria] = useState<Criteria | null>(null)
+  const [summaryDraft, setSummaryDraft] = useState('')
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [savedAt, setSavedAt] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -294,15 +298,19 @@ function CriteriaTab() {
         const res = await fetch('/api/dating-manager/criteria')
         const json = await res.json()
         setCriteria(json.criteria ?? null)
+        setSummaryDraft(json.criteria?.summary ?? '')
       } finally {
         setLoading(false)
       }
     })()
   }, [])
 
+  const dirty = (criteria?.summary ?? '') !== summaryDraft
+
   const generate = async () => {
     setGenerating(true)
     setError('')
+    setSavedAt(false)
     try {
       const res = await fetch('/api/dating-manager/criteria', { method: 'POST' })
       const json = await res.json()
@@ -311,8 +319,31 @@ function CriteriaTab() {
         return
       }
       setCriteria(json.criteria)
+      setSummaryDraft(json.criteria?.summary ?? '')
     } finally {
       setGenerating(false)
+    }
+  }
+
+  const save = async () => {
+    setSaving(true)
+    setError('')
+    setSavedAt(false)
+    try {
+      const res = await fetch('/api/dating-manager/criteria', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ summary: summaryDraft }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json?.error || 'Could not save criteria')
+        return
+      }
+      setCriteria(json.criteria)
+      setSavedAt(true)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -338,19 +369,33 @@ function CriteriaTab() {
         Inferred from your goals, projects, priorities, and habits — what genuinely supports the
         life you&apos;re building.
       </p>
-      <button
-        type="button"
-        onClick={generate}
-        disabled={generating}
-        className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-      >
-        {generating ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Sparkles className="h-4 w-4" />
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={generate}
+          disabled={generating}
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+        >
+          {generating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+          {criteria ? 'Regenerate' : 'Generate from my goals'}
+        </button>
+        {criteria && (
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving || !dirty}
+            className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted/60 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save edits
+          </button>
         )}
-        {criteria ? 'Regenerate' : 'Generate from my goals'}
-      </button>
+        {savedAt && !dirty && <span className="text-xs text-green-600">Saved</span>}
+      </div>
 
       {error && (
         <p className="text-sm text-red-600" role="alert">
@@ -362,7 +407,19 @@ function CriteriaTab() {
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       ) : criteria ? (
         <div className="space-y-4">
-          {criteria.summary && <p className="text-sm text-foreground/90">{criteria.summary}</p>}
+          <label className="block">
+            <span className="text-sm font-medium text-foreground">Summary (editable)</span>
+            <textarea
+              value={summaryDraft}
+              onChange={(e) => {
+                setSummaryDraft(e.target.value)
+                setSavedAt(false)
+              }}
+              rows={5}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              placeholder="What you need in a partner…"
+            />
+          </label>
           {list('Core needs', criteria.criteria?.core_needs)}
           {list('Supportive traits', criteria.criteria?.supportive_traits)}
           {list('Watch-outs', criteria.criteria?.watch_outs)}
