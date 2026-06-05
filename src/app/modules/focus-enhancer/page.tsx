@@ -45,6 +45,14 @@ interface ConversationMessage {
   type?: 'question' | 'insight' | 'suggestion'
 }
 
+// Saved analyses round-trip through JSON, so a message's `timestamp` may come
+// back as a string instead of a Date. Coerce defensively before formatting.
+function formatMessageTime(value: Date | string | number | null | undefined): string {
+  if (value === null || value === undefined) return ''
+  const date = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString()
+}
+
 export default function FocusEnhancerPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
@@ -566,7 +574,7 @@ What's the first app you'd like to talk about?`,
                 </div>
                 <p className="text-sm text-gray-700 mb-3">{insight.description}</p>
                 <ul className="text-sm text-gray-600 space-y-1">
-                  {insight.suggestions.map((suggestion, i) => (
+                  {(insight.suggestions || []).map((suggestion, i) => (
                     <li key={i} className="flex items-start">
                       <ArrowRight className="h-3 w-3 mr-2 mt-1 flex-shrink-0" />
                       {suggestion}
@@ -606,7 +614,7 @@ What's the first app you'd like to talk about?`,
                       message.role === 'user' ? 'text-purple-100' : 'text-gray-500'
                     }`}
                   >
-                    {message.timestamp.toLocaleTimeString()}
+                    {formatMessageTime(message.timestamp)}
                   </p>
                 </div>
               </div>
