@@ -61,6 +61,12 @@ export const createTaskPayloadSchema = z.object({
   points_value: z.number().int().min(1).max(1000).default(5),
 })
 
+export const createHabitPayloadSchema = z.object({
+  title: z.string().min(1).max(255),
+  description: z.string().optional(),
+  points_per_completion: z.number().int().min(5).max(100).default(25),
+})
+
 export const aiPlanItemSchema = z.discriminatedUnion('type', [
   z
     .object({
@@ -80,17 +86,18 @@ export const aiPlanItemSchema = z.discriminatedUnion('type', [
     category: taskCategorySchema.default('other'),
     points_value: z.number().int().min(1).max(1000).default(5),
   }),
+  z.object({ type: z.literal('create_habit') }).merge(createHabitPayloadSchema),
 ])
 
 export const aiPlanResponseSchema = z.object({
   summary: z.string().min(1),
-  items: z.array(aiPlanItemSchema).min(1).max(20),
+  items: z.array(aiPlanItemSchema).min(1).max(40),
 })
 
 export type ActionProposalRow = {
   id: string
   user_id: string
-  action_type: 'create_goal' | 'create_project' | 'create_task'
+  action_type: 'create_goal' | 'create_project' | 'create_task' | 'create_habit'
   payload: Record<string, unknown>
   status: string
   plan_group_id: string | null
@@ -135,6 +142,14 @@ export function formatProposalPreview(
           : payload.weekly_goal_id
             ? 'Linked to project'
             : '',
+      ]
+        .filter(Boolean)
+        .join('\n')
+    case 'create_habit':
+      return [
+        `Habit: ${payload.title}`,
+        payload.description ? String(payload.description) : '',
+        `Points: ${payload.points_per_completion ?? 25}/completion`,
       ]
         .filter(Boolean)
         .join('\n')

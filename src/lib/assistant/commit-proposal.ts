@@ -3,6 +3,7 @@ import {
   createGoalPayloadSchema,
   createProjectPayloadSchema,
   createTaskPayloadSchema,
+  createHabitPayloadSchema,
   type ActionProposalRow,
 } from '@/lib/assistant/proposal-schemas'
 import { getOrCreateCurrentWeek } from '@/lib/assistant/get-current-week'
@@ -156,6 +157,36 @@ export async function commitProposal(
     return { kind: 'task', record: task as Record<string, unknown> }
   }
 
+  if (proposal.action_type === 'create_habit') {
+    const payload = createHabitPayloadSchema.parse(proposal.payload)
+
+    const { data: maxHabit } = await supabase
+      .from('daily_habits')
+      .select('order_index')
+      .eq('user_id', userId)
+      .order('order_index', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const nextOrder = (maxHabit?.order_index ?? -1) + 1
+
+    const { data: habit, error } = await supabase
+      .from('daily_habits')
+      .insert({
+        user_id: userId,
+        title: payload.title,
+        description: payload.description ?? null,
+        points_per_completion: payload.points_per_completion,
+        is_active: true,
+        order_index: nextOrder,
+      })
+      .select()
+      .single()
+
+    if (error) throw new Error(error.message)
+    return { kind: 'habit', record: habit as Record<string, unknown> }
+  }
+
   throw new Error(`Unsupported action_type: ${proposal.action_type}`)
 }
 
@@ -207,6 +238,7 @@ const ACTION_ORDER: Record<ActionProposalRow['action_type'], number> = {
   create_goal: 0,
   create_project: 1,
   create_task: 2,
+  create_habit: 3,
 }
 
 export function sortProposalsForCommit(rows: ActionProposalRow[]) {

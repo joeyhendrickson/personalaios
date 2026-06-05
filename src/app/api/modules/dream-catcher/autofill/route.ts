@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { commitProposal, type CommitContext } from '@/lib/assistant/commit-proposal'
+import type { ActionProposalRow } from '@/lib/assistant/proposal-schemas'
+import { generateOnboardingPlan, type SeedGoal } from '@/lib/dream-catcher/generate-onboarding-plan'
+
+const HIERARCHY_ORDER = { create_goal: 0, create_project: 1, create_task: 2 } as const
+
+function norm(title: string) {
+  return title.trim().toLowerCase()
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,158 +29,148 @@ export async function POST(request: NextRequest) {
       personality_traits,
       dreams_discovered,
       is_new_user = false,
+    }: {
+      goals?: SeedGoal[]
+      vision_statement?: string
+      personality_traits?: string[]
+      dreams_discovered?: string[]
+      is_new_user?: boolean
     } = body
 
     if (!goals || !Array.isArray(goals) || goals.length === 0) {
       return NextResponse.json({ error: 'Goals are required' }, { status: 400 })
     }
 
-    let goalsAdded = 0
+    // 1) Generate a full starter dashboard (goals → projects → tasks → habits).
+    const plan = await generateOnboardingPlan({
+      visionStatement: vision_statement,
+      dreams: dreams_discovered,
+      personalityTraits: personality_traits,
+      seedGoals: goals,
+    })
+
+    // 2) Pre-seed the link maps with the user's existing entities so we link to
+    //    (and don't duplicate) anything already on their dashboard.
+    const ctx: CommitContext = { goalTitleToId: new Map(), projectTitleToId: new Map() }
+
+    const [{ data: existingGoals }, { data: existingProjects }, { data: existingHabits }] =
+      await Promise.all([
+        supabase.from('goals').select('id, title').eq('user_id', user.id),
+        supabase.from('projects').select('id, title').eq('user_id', user.id),
+        supabase.from('daily_habits').select('title').eq('user_id', user.id),
+      ])
+
+    existingGoals?.forEach((g) => g.title && ctx.goalTitleToId.set(norm(g.title), g.id))
+    existingProjects?.forEach((p) => p.title && ctx.projectTitleToId.set(norm(p.title), p.id))
+    const existingHabitTitles = new Set(
+      (existingHabits || []).map((h) => norm(h.title || '')).filter(Boolean)
+    )
+
+    const counts = { goals_added: 0, projects_added: 0, tasks_added: 0, habits_added: 0 }
     const errors: string[] = []
 
-    // For existing users, check if they already have goals
-    if (!is_new_user) {
-      const { data: existingGoals } = await supabase
-        .from('goals')
-        .select('title')
-        .eq('user_id', user.id)
-
-      const existingGoalTitles = new Set(
-        (existingGoals || []).map((g) => g.title.toLowerCase().trim())
+    // 3) Commit goals → projects → tasks via the canonical write path.
+    const hierarchyItems = plan.items
+      .filter((i) => i.type !== 'create_habit')
+      .sort(
+        (a, b) =>
+          HIERARCHY_ORDER[a.type as keyof typeof HIERARCHY_ORDER] -
+          HIERARCHY_ORDER[b.type as keyof typeof HIERARCHY_ORDER]
       )
 
-      // Filter out goals that already exist (by title)
-      const newGoals = goals.filter(
-        (goal: any) => !existingGoalTitles.has(goal.goal.toLowerCase().trim())
-      )
+    for (const item of hierarchyItems) {
+      const { type, ...payload } = item as { type: string } & Record<string, unknown>
 
-      if (newGoals.length === 0) {
-        return NextResponse.json({
-          success: true,
-          goals_added: 0,
-          message: 'All goals already exist in your dashboard',
-        })
-      }
+      // Skip duplicates we already have (idempotent re-runs / existing users).
+      if (type === 'create_goal' && ctx.goalTitleToId.has(norm(String(payload.title)))) continue
+      if (type === 'create_project' && ctx.projectTitleToId.has(norm(String(payload.title))))
+        continue
 
-      // Create goals for existing users (append mode)
-      for (const goalData of newGoals) {
-        try {
-          const { error: goalError } = await supabase.from('goals').insert({
-            user_id: user.id,
-            title: goalData.goal,
-            description: `From Dream Catcher: ${goalData.category} - ${goalData.timeline}`,
-            category: goalData.category.toLowerCase().replace(/\s+/g, '_'),
-            goal_type: 'personal',
-            target_value: null,
-            current_value: null,
-            priority:
-              goalData.priority === 'high'
-                ? 'high'
-                : goalData.priority === 'medium'
-                  ? 'medium'
-                  : 'low',
-            status: 'in_progress',
-            deadline: calculateDeadline(goalData.timeline),
-          })
-
-          if (goalError) {
-            console.error('Error creating goal:', goalError)
-            errors.push(`Failed to create goal: ${goalData.goal}`)
-          } else {
-            goalsAdded++
-          }
-        } catch (err) {
-          console.error('Error processing goal:', err)
-          errors.push(`Error processing goal: ${goalData.goal}`)
-        }
-      }
-    } else {
-      // For new users, create all goals (they have empty dashboard)
-      for (const goalData of goals) {
-        try {
-          const { error: goalError } = await supabase.from('goals').insert({
-            user_id: user.id,
-            title: goalData.goal,
-            description: `From Dream Catcher: ${goalData.category} - ${goalData.timeline}`,
-            category: goalData.category.toLowerCase().replace(/\s+/g, '_'),
-            goal_type: 'personal',
-            target_value: null,
-            current_value: null,
-            priority:
-              goalData.priority === 'high'
-                ? 'high'
-                : goalData.priority === 'medium'
-                  ? 'medium'
-                  : 'low',
-            status: 'in_progress',
-            deadline: calculateDeadline(goalData.timeline),
-          })
-
-          if (goalError) {
-            console.error('Error creating goal:', goalError)
-            errors.push(`Failed to create goal: ${goalData.goal}`)
-          } else {
-            goalsAdded++
-          }
-        } catch (err) {
-          console.error('Error processing goal:', err)
-          errors.push(`Error processing goal: ${goalData.goal}`)
-        }
+      try {
+        await commitProposal(
+          supabase,
+          user.id,
+          { action_type: type, payload } as unknown as ActionProposalRow,
+          ctx
+        )
+        if (type === 'create_goal') counts.goals_added++
+        else if (type === 'create_project') counts.projects_added++
+        else if (type === 'create_task') counts.tasks_added++
+      } catch (err) {
+        errors.push(
+          `${type} "${String(payload.title)}": ${err instanceof Error ? err.message : 'failed'}`
+        )
       }
     }
 
-    // Log activity
+    // 4) Insert habits directly into daily_habits.
+    const habitItems = plan.items.filter((i) => i.type === 'create_habit')
+    if (habitItems.length > 0) {
+      const { data: maxHabit } = await supabase
+        .from('daily_habits')
+        .select('order_index')
+        .eq('user_id', user.id)
+        .order('order_index', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      let nextOrder = (maxHabit?.order_index ?? -1) + 1
+
+      for (const habit of habitItems) {
+        if (habit.type !== 'create_habit') continue
+        if (existingHabitTitles.has(norm(habit.title))) continue
+        const { error: habitError } = await supabase.from('daily_habits').insert({
+          user_id: user.id,
+          title: habit.title,
+          description: habit.description ?? null,
+          points_per_completion: habit.points_per_completion ?? 25,
+          is_active: true,
+          order_index: nextOrder++,
+        })
+        if (habitError) errors.push(`habit "${habit.title}": ${habitError.message}`)
+        else counts.habits_added++
+      }
+    }
+
+    // 5) Mark onboarding complete so the dashboard stops routing here.
+    await supabase.from('assistant_onboarding_state').upsert(
+      {
+        user_id: user.id,
+        status: 'completed',
+        step: 99,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    )
+
     await supabase.from('activity_logs').insert({
       user_id: user.id,
       activity_type: 'dream_catcher_autofill',
-      description: `Dream Catcher autofill: ${goalsAdded} goals added to dashboard`,
-      metadata: {
-        goals_added: goalsAdded,
-        is_new_user: is_new_user,
-        total_goals: goals.length,
-      },
+      description: `Dream Catcher set up dashboard: ${counts.goals_added} goals, ${counts.projects_added} projects, ${counts.tasks_added} tasks, ${counts.habits_added} habits`,
+      metadata: { ...counts, is_new_user },
     })
 
     return NextResponse.json({
       success: true,
-      goals_added: goalsAdded,
-      total_goals: goals.length,
+      // Back-compat field used by the existing client redirect.
+      goals_added: counts.goals_added,
+      counts,
+      summary: plan.summary,
       errors: errors.length > 0 ? errors : undefined,
       message:
         errors.length > 0
-          ? `Added ${goalsAdded} goals. Some goals could not be added.`
-          : `Successfully added ${goalsAdded} goals to your dashboard!`,
+          ? `Set up your dashboard with some issues: ${counts.goals_added} goals, ${counts.projects_added} projects, ${counts.tasks_added} tasks, ${counts.habits_added} habits.`
+          : `Your dashboard is ready: ${counts.goals_added} goals, ${counts.projects_added} projects, ${counts.tasks_added} tasks, ${counts.habits_added} habits.`,
     })
   } catch (error) {
     console.error('Error in autofill Dream Catcher API:', error)
     return NextResponse.json(
       {
-        error: 'Failed to autofill dashboard',
+        error: 'Failed to set up dashboard',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     )
   }
-}
-
-function calculateDeadline(timeline: string): string | null {
-  const now = new Date()
-  const deadline = new Date()
-
-  if (timeline.includes('1 month') || timeline.includes('1 month')) {
-    deadline.setMonth(now.getMonth() + 1)
-  } else if (timeline.includes('3 months')) {
-    deadline.setMonth(now.getMonth() + 3)
-  } else if (timeline.includes('6 months')) {
-    deadline.setMonth(now.getMonth() + 6)
-  } else if (timeline.includes('1 year')) {
-    deadline.setFullYear(now.getFullYear() + 1)
-  } else if (timeline.includes('2+ years') || timeline.includes('2 years')) {
-    deadline.setFullYear(now.getFullYear() + 2)
-  } else {
-    // Default to 3 months
-    deadline.setMonth(now.getMonth() + 3)
-  }
-
-  return deadline.toISOString().split('T')[0]
 }

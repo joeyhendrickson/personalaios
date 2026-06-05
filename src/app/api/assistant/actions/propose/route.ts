@@ -31,19 +31,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No conversation to plan from' }, { status: 400 })
     }
 
-    const { data: goals } = await supabase
-      .from('goals')
-      .select('id, title, goal_type, status')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
+    const [{ data: goals }, { data: projects }, { data: habits }] = await Promise.all([
+      supabase
+        .from('goals')
+        .select('id, title, goal_type, status')
+        .eq('user_id', user.id)
+        .eq('status', 'active'),
+      supabase
+        .from('projects')
+        .select('id, title')
+        .eq('user_id', user.id)
+        .eq('is_completed', false),
+      supabase.from('daily_habits').select('title').eq('user_id', user.id).eq('is_active', true),
+    ])
 
     const existingGoals = (goals || []).map((g) => ({
       id: g.id as string,
       title: g.title as string,
       goal_type: (g.goal_type as string) || 'monthly',
     }))
+    const existingProjects = (projects || []).map((p) => ({
+      id: p.id as string,
+      title: p.title as string,
+    }))
+    const existingHabits = (habits || []).map((h) => ({ title: h.title as string }))
 
-    const plan = await generateDashboardPlanFromConversation(messages, existingGoals)
+    const plan = await generateDashboardPlanFromConversation(
+      messages,
+      existingGoals,
+      existingProjects,
+      existingHabits
+    )
 
     const goalIds = new Set(existingGoals.map((g) => g.id))
     for (const item of plan.items) {
@@ -89,7 +107,7 @@ export async function POST(req: Request) {
         id: data.id as string,
         action_type: actionType,
         preview: formatProposalPreview(
-          actionType as 'create_goal' | 'create_project' | 'create_task',
+          actionType as 'create_goal' | 'create_project' | 'create_task' | 'create_habit',
           payload as Record<string, unknown>
         ),
         sort_order: sortOrder,

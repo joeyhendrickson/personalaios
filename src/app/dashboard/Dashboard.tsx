@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Target,
   CheckCircle,
@@ -337,6 +337,10 @@ export default function Dashboard() {
   const addGoalGuard = useGuardedAsync()
   const { t } = useLanguage()
   const searchParams = useSearchParams()
+  const router = useRouter()
+  // Gate brand-new users (empty dashboard, never onboarded) into Dream Catcher
+  // instead of showing them a blank dashboard.
+  const [onboardingGate, setOnboardingGate] = useState(true)
   const [trialUser, setTrialUser] = useState<{ email: string; name?: string } | null>(null)
   const [goals, setGoals] = useState<Goal[]>([])
   /** Set when GET /api/projects is not OK so we don't mistake API failure for “no rows”. */
@@ -494,6 +498,34 @@ export default function Dashboard() {
       fetchStrategicRecommendations()
     }
   }, [user])
+
+  // First-login routing: send users with an empty, never-started dashboard through
+  // the Dream Catcher onboarding so they don't land on a blank dashboard.
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/assistant/onboarding/status')
+        if (!res.ok) {
+          if (!cancelled) setOnboardingGate(false)
+          return
+        }
+        const data = await res.json()
+        const status = data?.onboarding?.status
+        if (!cancelled && data?.isEmptyDashboard && status === 'not_started') {
+          router.replace('/modules/dream-catcher?newUser=true')
+          return // keep the gate up (spinner) while we navigate away
+        }
+      } catch {
+        /* never trap the user behind a failed check */
+      }
+      if (!cancelled) setOnboardingGate(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user, router])
 
   // Initialize client-side state to prevent hydration mismatches
   useEffect(() => {
@@ -1593,6 +1625,17 @@ export default function Dashboard() {
         `Error reordering projects: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
     }
+  }
+
+  if (user && onboardingGate) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600">Preparing your dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

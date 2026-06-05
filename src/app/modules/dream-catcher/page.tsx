@@ -791,18 +791,33 @@ function DreamCatcherModuleContent() {
     } else {
       // No progress, safe to exit
       if (isNewUser) {
-        router.push('/dashboard')
+        void leaveToDashboardAsNewUser()
       } else {
         router.push('/modules')
       }
     }
   }
 
+  // New users who bail out before setting up their dashboard get marked 'skipped'
+  // so the dashboard stops routing them back into Dream Catcher.
+  const leaveToDashboardAsNewUser = async () => {
+    try {
+      await fetch('/api/assistant/onboarding/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'skipped' }),
+      })
+    } catch {
+      /* non-fatal — still let them leave */
+    }
+    router.push('/dashboard')
+  }
+
   const confirmExit = () => {
     // Mark that user has exited (we'll track this in the database)
     setShowExitWarning(false)
     if (isNewUser) {
-      router.push('/dashboard')
+      void leaveToDashboardAsNewUser()
     } else {
       router.push('/modules')
     }
@@ -890,9 +905,14 @@ function DreamCatcherModuleContent() {
       }
 
       const data = await response.json()
+      const c = data.counts || {}
+      alert(
+        data.message ||
+          `Your dashboard is ready: ${c.goals_added ?? data.goals_added ?? 0} goals, ${c.projects_added ?? 0} projects, ${c.tasks_added ?? 0} tasks, ${c.habits_added ?? 0} habits.`
+      )
 
-      // Redirect to dashboard
-      router.push(`/dashboard?autofilled=true&goalsAdded=${data.goals_added || 0}`)
+      // Redirect to the freshly populated dashboard
+      router.push('/dashboard?onboarded=true')
     } catch (error) {
       console.error('Error autofilling dashboard:', error)
       alert(
@@ -1463,12 +1483,12 @@ function DreamCatcherModuleContent() {
                       {isAutofilling ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Autofilling...</span>
+                          <span>Setting up your dashboard...</span>
                         </>
                       ) : (
                         <>
                           <Target className="h-4 w-4" />
-                          <span>Autofill Dashboard</span>
+                          <span>Set Up My Dashboard</span>
                         </>
                       )}
                     </button>
@@ -1677,12 +1697,12 @@ function DreamCatcherModuleContent() {
                   {isAutofilling ? (
                     <>
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      <span>Autofilling Dashboard...</span>
+                      <span>Setting up your dashboard...</span>
                     </>
                   ) : (
                     <>
                       <Target className="h-5 w-5" />
-                      <span>Autofill My Dashboard</span>
+                      <span>Set Up My Dashboard</span>
                     </>
                   )}
                 </button>

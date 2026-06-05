@@ -36,7 +36,7 @@ const WELCOME_MESSAGE: ChatMessage = {
 
 • Plan your day and prioritize tasks based on your goals
 • Analyze your progress and suggest improvements
-• Turn a conversation into linked goals, projects, and tasks (use Add to dashboard)
+• Turn a conversation into linked goals, projects, tasks, and habits (use Add to dashboard). I only add to your dashboard — I never remove existing items unless you ask me to.
 • Focus on specific areas like "Good Living" or "Enjoyment"
 • Track your habits, education, and priorities
 • Provide personalized advice based on your data
