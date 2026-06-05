@@ -1248,8 +1248,9 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
       )
       // Add spacing before questions
       .replace(/(\?)\s*([A-Z])/g, '$1\n\n$2')
-      // Add spacing after periods that end sentences
-      .replace(/([.!?])\s*([A-Z][a-z])/g, '$1\n\n$2')
+      // Add spacing after periods that end sentences — but NOT after a list
+      // marker like "1." so the number stays on the same line as its text.
+      .replace(/([^\d\s])([.!?])\s*([A-Z][a-z])/g, '$1$2\n\n$3')
       // Add proper spacing between paragraphs
       .replace(/\n\n+/g, '\n\n')
       // Clean up excessive line breaks but keep good spacing

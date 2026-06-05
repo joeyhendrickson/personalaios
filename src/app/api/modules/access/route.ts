@@ -20,19 +20,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Module ID is required' }, { status: 400 })
     }
 
-    // Update last_accessed timestamp for the module
-    const { error } = await supabase
-      .from('installed_modules')
-      .update({
-        last_accessed: new Date().toISOString(),
-        is_active: true, // Ensure it's marked as active when accessed
-      })
-      .eq('user_id', user.id)
-      .eq('module_id', moduleId)
+    // Atomically bump the open count (and last_accessed) so the Life Hacks list
+    // can be ordered by how frequently each module is used.
+    const { error: rpcError } = await supabase.rpc('increment_module_access', {
+      p_module_id: moduleId,
+    })
 
-    if (error) {
-      console.error('Error updating module access:', error)
-      return NextResponse.json({ error: 'Failed to update module access' }, { status: 500 })
+    // Fall back to a timestamp-only update when the migration adding the counter
+    // and RPC hasn't been applied yet.
+    if (rpcError) {
+      const { error } = await supabase
+        .from('installed_modules')
+        .update({
+          last_accessed: new Date().toISOString(),
+          is_active: true,
+        })
+        .eq('user_id', user.id)
+        .eq('module_id', moduleId)
+
+      if (error) {
+        console.error('Error updating module access:', error)
+        return NextResponse.json({ error: 'Failed to update module access' }, { status: 500 })
+      }
     }
 
     return NextResponse.json({ success: true })

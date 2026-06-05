@@ -406,7 +406,7 @@ AVAILABLE MODULES TO RECOMMEND (Only recommend modules that are NOT already acti
 - Relationship Manager: For personal and professional relationship tracking
 - Mood Tracker: For mental health and emotional well-being
 - Energy Optimizer: For energy management and performance
-- Calendar AI: For smart scheduling and time optimization
+- Lifestacks Calendar: For scheduling tasks and habits into Google Calendar
 - Productivity Analyst: For comprehensive data visualization and insights
 - Focus Enhancer: For advanced focus tracking and concentration optimization
 - Stress Manager: For stress level tracking and management techniques

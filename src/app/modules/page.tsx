@@ -19,7 +19,6 @@ import {
   Activity,
   BarChart3,
   PieChart,
-  Clock,
   Star,
   Settings,
   Lightbulb,
@@ -56,6 +55,7 @@ interface InstalledModule {
   installed_at: string
   last_accessed: string
   is_active: boolean
+  access_count?: number
 }
 
 interface AppRating {
@@ -128,16 +128,6 @@ const modules: Module[] = [
     complexity: 'intermediate',
   },
   {
-    id: 'time-blocker',
-    title: 'Time Blocker',
-    description: 'Advanced time management with AI-optimized scheduling and focus sessions.',
-    category: 'Productivity',
-    icon: <Clock className="h-8 w-8" />,
-    status: 'available',
-    features: ['Smart Scheduling', 'Focus Sessions', 'Time Analysis', 'Productivity Insights'],
-    complexity: 'beginner',
-  },
-  {
     id: 'relationship-manager',
     title: 'Relationship Manager',
     description: 'Track and optimize personal and professional relationships.',
@@ -170,12 +160,13 @@ const modules: Module[] = [
   },
   {
     id: 'calendar-ai',
-    title: 'Calendar AI',
-    description: 'AI-powered calendar management with smart scheduling and optimization.',
+    title: 'Lifestacks Calendar',
+    description:
+      'Connect Google Calendar and let AI schedule your tasks and habits into open time slots.',
     category: 'Productivity',
     icon: <Calendar className="h-8 w-8" />,
     status: 'available',
-    features: ['Smart Scheduling', 'Conflict Resolution', 'Time Optimization', 'Meeting Insights'],
+    features: ['Google Calendar sync', 'AI scheduling', 'Editable time slots', 'Recurring habits'],
     complexity: 'beginner',
   },
   {
@@ -276,6 +267,296 @@ const modules: Module[] = [
     complexity: 'beginner',
   },
 ]
+
+// Purpose/intent keywords per module so search can match on what a module is *for*,
+// not just literal words in its title/description (e.g. "money" → Budget Advisor,
+// "workout" → Fitness Tracker, "love" → Dating Management).
+const MODULE_KEYWORDS: Record<string, string[]> = {
+  'day-trader': [
+    'stocks',
+    'stock',
+    'trading',
+    'trade',
+    'invest',
+    'investing',
+    'investment',
+    'market',
+    'shares',
+    'crypto',
+    'portfolio',
+    'money',
+    'finance',
+    'wealth',
+  ],
+  'budget-optimizer': [
+    'budget',
+    'money',
+    'spending',
+    'spend',
+    'save',
+    'savings',
+    'expenses',
+    'expense',
+    'finance',
+    'bills',
+    'debt',
+    'cash',
+    'income',
+    'afford',
+  ],
+  'grocery-optimizer': [
+    'grocery',
+    'groceries',
+    'food',
+    'shopping',
+    'receipt',
+    'store',
+    'coupons',
+    'meals',
+    'supermarket',
+    'save',
+    'money',
+    'cost',
+  ],
+  'ai-coach': [
+    'coach',
+    'coaching',
+    'motivation',
+    'goals',
+    'goal',
+    'mentor',
+    'accountability',
+    'advice',
+    'guidance',
+    'productivity',
+    'habits',
+  ],
+  'fitness-tracker': [
+    'fitness',
+    'workout',
+    'exercise',
+    'gym',
+    'health',
+    'weight',
+    'nutrition',
+    'diet',
+    'steps',
+    'training',
+    'run',
+    'running',
+    'biometrics',
+    'cardio',
+    'strength',
+    'muscle',
+  ],
+  'relationship-manager': [
+    'relationship',
+    'relationships',
+    'friends',
+    'family',
+    'networking',
+    'contacts',
+    'social',
+    'connections',
+    'colleagues',
+    'people',
+  ],
+  'dating-manager': [
+    'dating',
+    'date',
+    'partner',
+    'love',
+    'romance',
+    'girlfriend',
+    'boyfriend',
+    'match',
+    'marriage',
+    'compatibility',
+    'crush',
+    'relationship',
+    'spouse',
+  ],
+  'calendar-ai': [
+    'calendar',
+    'schedule',
+    'scheduling',
+    'time',
+    'events',
+    'planning',
+    'agenda',
+    'reminders',
+    'appointments',
+    'google calendar',
+    'time blocking',
+    'plan',
+  ],
+  'analytics-dashboard': [
+    'analytics',
+    'data',
+    'metrics',
+    'charts',
+    'insights',
+    'reports',
+    'statistics',
+    'trends',
+    'dashboard',
+    'productivity',
+    'numbers',
+  ],
+  'focus-enhancer': [
+    'focus',
+    'concentration',
+    'screen time',
+    'distraction',
+    'distractions',
+    'phone',
+    'digital',
+    'attention',
+    'procrastination',
+    'productivity',
+    'wellness',
+    'doomscrolling',
+  ],
+  'dream-catcher': [
+    'dreams',
+    'dream',
+    'vision',
+    'purpose',
+    'personality',
+    'assessment',
+    'goals',
+    'discovery',
+    'meaning',
+    'aspirations',
+    'identity',
+    'future',
+  ],
+  'narrative-integration': [
+    'past',
+    'trauma',
+    'healing',
+    'heal',
+    'mindfulness',
+    'present',
+    'peace',
+    'anxiety',
+    'rumination',
+    'closure',
+    'meditation',
+    'emotional',
+    'grief',
+    'regret',
+    'forgiveness',
+  ],
+  'rewards-self-care': [
+    'rewards',
+    'reward',
+    'points',
+    'self care',
+    'self-care',
+    'treat',
+    'milestones',
+    'motivation',
+    'redeem',
+    'gifts',
+    'incentive',
+  ],
+  'gratitude-journal': [
+    'gratitude',
+    'thankful',
+    'journal',
+    'journaling',
+    'reflection',
+    'mood',
+    'streak',
+    'happiness',
+    'mindfulness',
+    'wellbeing',
+    'thanks',
+    'grateful',
+  ],
+}
+
+const SEARCH_STOPWORDS = new Set([
+  'the',
+  'a',
+  'an',
+  'to',
+  'for',
+  'of',
+  'and',
+  'or',
+  'my',
+  'me',
+  'i',
+  'app',
+  'apps',
+  'module',
+  'modules',
+  'life',
+  'hack',
+  'hacks',
+  'that',
+  'with',
+  'help',
+  'helps',
+  'want',
+  'need',
+  'how',
+  'do',
+  'is',
+  'in',
+  'on',
+  'it',
+  'this',
+  'be',
+  'get',
+  'best',
+])
+
+function tokenizeQuery(query: string): string[] {
+  return query
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 2 && !SEARCH_STOPWORDS.has(t))
+}
+
+function fieldScore(
+  tokens: string[],
+  text: string,
+  exactWeight: number,
+  partialWeight: number
+): number {
+  const lower = text.toLowerCase()
+  const words = new Set(lower.split(/[^a-z0-9]+/).filter(Boolean))
+  let score = 0
+  for (const token of tokens) {
+    if (words.has(token)) score += exactWeight
+    else if (lower.includes(token)) score += partialWeight
+  }
+  return score
+}
+
+// Relevance score for a module against a search query. Higher = more relevant.
+function scoreModule(module: Module, query: string, tokens: string[]): number {
+  if (tokens.length === 0) return 0
+  const features = module.features.join(' ')
+  const keywords = (MODULE_KEYWORDS[module.id] || []).join(' ')
+
+  let score = 0
+  score += fieldScore(tokens, module.title, 12, 6)
+  score += fieldScore(tokens, keywords, 6, 4)
+  score += fieldScore(tokens, features, 5, 3)
+  score += fieldScore(tokens, module.category, 4, 2)
+  score += fieldScore(tokens, module.description, 3, 2)
+
+  const q = query.trim().toLowerCase()
+  if (q.length > 1) {
+    if (module.title.toLowerCase().includes(q)) score += 8
+    else if (module.description.toLowerCase().includes(q)) score += 4
+  }
+  return score
+}
 
 const categories = [
   'All',
@@ -427,12 +708,42 @@ export default function ModulesPage() {
     return matchesSearch && matchesCategory && matchesComplexity
   }
 
-  const activeModules = modules.filter(
-    (module) => isModuleInstalled(module.id) && matchesFilters(module)
-  )
+  // Show the most frequently opened life hacks first, falling back to most
+  // recently used when usage is tied (or counts aren't tracked yet).
+  const activeModules = modules
+    .filter((module) => isModuleInstalled(module.id) && matchesFilters(module))
+    .sort((a, b) => {
+      const aInstalled = getInstalledModule(a.id)
+      const bInstalled = getInstalledModule(b.id)
+      const aCount = aInstalled?.access_count ?? 0
+      const bCount = bInstalled?.access_count ?? 0
+      if (bCount !== aCount) return bCount - aCount
+      const aTime = aInstalled ? new Date(aInstalled.last_accessed).getTime() : 0
+      const bTime = bInstalled ? new Date(bInstalled.last_accessed).getTime() : 0
+      return bTime - aTime
+    })
   const availableModules = modules.filter((module) => !isModuleInstalled(module.id))
 
   const filteredModules = availableModules.filter((module) => matchesFilters(module))
+
+  // Unified, relevance-ranked search across ALL modules (active + inactive). When a
+  // search term is present we show this instead of the Active/Available split so the
+  // single most relevant life hack is recommended first regardless of install state.
+  const isSearching = searchTerm.trim().length > 0
+  const queryTokens = tokenizeQuery(searchTerm)
+  const searchResults = isSearching
+    ? modules
+        .filter((module) => {
+          const matchesCategory = selectedCategory === 'All' || module.category === selectedCategory
+          const matchesComplexity =
+            selectedComplexity === 'All' || module.complexity === selectedComplexity
+          return matchesCategory && matchesComplexity
+        })
+        .map((module) => ({ module, score: scoreModule(module, searchTerm, queryTokens) }))
+        .filter((entry) => entry.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.module)
+    : []
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -458,6 +769,115 @@ export default function ModulesPage() {
       default:
         return 'text-gray-600 bg-gray-100'
     }
+  }
+
+  // Card used in search results: adapts to whether the module is already installed
+  // so the user can Open active modules or Install inactive ones from one ranked list.
+  const renderSearchCard = (module: (typeof modules)[number]) => {
+    const installed = isModuleInstalled(module.id)
+    return (
+      <div
+        key={module.id}
+        className={`rounded-lg p-6 hover:shadow-lg transition-shadow ${
+          installed ? 'bg-green-50 border-2 border-green-200' : 'bg-white border border-gray-200'
+        }`}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div
+              className={`p-2 rounded-lg ${
+                installed ? 'bg-green-100 text-green-600' : 'bg-blue-50 text-blue-600'
+              }`}
+            >
+              {module.icon}
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">{module.title}</h3>
+              <p className="text-sm text-gray-500">{module.category}</p>
+            </div>
+          </div>
+          <span
+            className={`px-2 py-1 text-xs font-medium rounded-full border ${
+              installed
+                ? 'bg-green-100 text-green-800 border-green-200'
+                : getStatusColor(module.status)
+            }`}
+          >
+            {installed ? 'Active' : module.status}
+          </span>
+        </div>
+
+        <p className="text-gray-600 mb-4">{module.description}</p>
+
+        <div className="flex items-center justify-between mb-4">
+          <span
+            className={`px-2 py-1 text-xs font-medium rounded-full ${getComplexityColor(module.complexity)}`}
+          >
+            {module.complexity}
+          </span>
+          <span className="text-xs text-gray-500">{module.features.length} features</span>
+        </div>
+
+        <div className="mb-4">
+          <div className="flex flex-wrap gap-1">
+            {module.features.map((feature, index) => (
+              <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                {feature}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex space-x-2">
+          {installed ? (
+            <>
+              <Link
+                href={`/modules/${module.id}`}
+                onClick={() => handleModuleAccess(module.id)}
+                className="flex-1"
+              >
+                <button className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium">
+                  Open
+                </button>
+              </Link>
+              <button
+                onClick={() => handleUninstallModule(module.id)}
+                disabled={actionLoading === module.id}
+                className="px-3 py-2 border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors text-sm font-medium disabled:opacity-50"
+              >
+                {actionLoading === module.id ? (
+                  <div className="animate-spin h-4 w-4 border-2 border-red-600 border-t-transparent rounded-full" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => handleInstallModule(module.id)}
+                disabled={actionLoading === module.id}
+                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
+              >
+                {actionLoading === module.id ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                    Installing...
+                  </div>
+                ) : (
+                  'Install'
+                )}
+              </button>
+              {module.status === 'premium' && (
+                <button className="px-3 py-2 border border-purple-300 text-purple-600 rounded-md hover:bg-purple-50 transition-colors text-sm font-medium">
+                  <Star className="h-4 w-4" />
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
@@ -544,7 +964,7 @@ export default function ModulesPage() {
         </div>
 
         {/* Active Life Hacks Section */}
-        {activeModules.length > 0 && (
+        {!isSearching && activeModules.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold text-gray-900 flex items-center">
@@ -702,99 +1122,132 @@ export default function ModulesPage() {
           </div>
         )}
 
-        {/* Available Life Hacks Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-              <Plus className="h-6 w-6 mr-2 text-blue-600" />
-              Available Life Hacks ({filteredModules.length})
-            </h2>
-            <p className="text-sm text-gray-500">
-              Install new life hacks to enhance your experience
-            </p>
+        {/* Search Results — relevance-ranked across all (active + inactive) life hacks */}
+        {isSearching && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                <Search className="h-6 w-6 mr-2 text-blue-600" />
+                Search results ({searchResults.length})
+              </h2>
+              <p className="text-sm text-gray-500">Most relevant life hacks first</p>
+            </div>
+            {searchResults.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {searchResults.map((module) => renderSearchCard(module))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-gray-400 mb-4">
+                  <Search className="h-12 w-12 mx-auto" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No life hacks found</h3>
+                <p className="text-gray-500">
+                  Try different keywords — search looks across every life hack and what it&apos;s
+                  for.
+                </p>
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
-        {/* Modules Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredModules.map((module) => (
-            <div
-              key={module.id}
-              className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-blue-50 rounded-lg text-blue-600">{module.icon}</div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{module.title}</h3>
-                    <p className="text-sm text-gray-500">{module.category}</p>
+        {/* Available Life Hacks Section */}
+        {!isSearching && (
+          <>
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <Plus className="h-6 w-6 mr-2 text-blue-600" />
+                  Available Life Hacks ({filteredModules.length})
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Install new life hacks to enhance your experience
+                </p>
+              </div>
+            </div>
+
+            {/* Modules Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredModules.map((module) => (
+                <div
+                  key={module.id}
+                  className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-blue-50 rounded-lg text-blue-600">{module.icon}</div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{module.title}</h3>
+                        <p className="text-sm text-gray-500">{module.category}</p>
+                      </div>
+                    </div>
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(module.status)}`}
+                    >
+                      {module.status}
+                    </span>
+                  </div>
+
+                  <p className="text-gray-600 mb-4">{module.description}</p>
+
+                  <div className="flex items-center justify-between mb-4">
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${getComplexityColor(module.complexity)}`}
+                    >
+                      {module.complexity}
+                    </span>
+                    <span className="text-xs text-gray-500">{module.features.length} features</span>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Features:</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {module.features.map((feature, index) => (
+                        <span
+                          key={index}
+                          className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded"
+                        >
+                          {feature}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleInstallModule(module.id)}
+                      disabled={actionLoading === module.id}
+                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
+                    >
+                      {actionLoading === module.id ? (
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                          Installing...
+                        </div>
+                      ) : (
+                        'Install'
+                      )}
+                    </button>
+                    {module.status === 'premium' && (
+                      <button className="px-3 py-2 border border-purple-300 text-purple-600 rounded-md hover:bg-purple-50 transition-colors text-sm font-medium">
+                        <Star className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
-                <span
-                  className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(module.status)}`}
-                >
-                  {module.status}
-                </span>
-              </div>
+              ))}
+            </div>
 
-              <p className="text-gray-600 mb-4">{module.description}</p>
-
-              <div className="flex items-center justify-between mb-4">
-                <span
-                  className={`px-2 py-1 text-xs font-medium rounded-full ${getComplexityColor(module.complexity)}`}
-                >
-                  {module.complexity}
-                </span>
-                <span className="text-xs text-gray-500">{module.features.length} features</span>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Features:</h4>
-                <div className="flex flex-wrap gap-1">
-                  {module.features.map((feature, index) => (
-                    <span
-                      key={index}
-                      className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded"
-                    >
-                      {feature}
-                    </span>
-                  ))}
+            {filteredModules.length === 0 && (
+              <div className="text-center py-12">
+                <div className="text-gray-400 mb-4">
+                  <Search className="h-12 w-12 mx-auto" />
                 </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No life hacks found</h3>
+                <p className="text-gray-500">Try adjusting your search or filter criteria</p>
               </div>
-
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handleInstallModule(module.id)}
-                  disabled={actionLoading === module.id}
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
-                >
-                  {actionLoading === module.id ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-                      Installing...
-                    </div>
-                  ) : (
-                    'Install'
-                  )}
-                </button>
-                {module.status === 'premium' && (
-                  <button className="px-3 py-2 border border-purple-300 text-purple-600 rounded-md hover:bg-purple-50 transition-colors text-sm font-medium">
-                    <Star className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {filteredModules.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              <Search className="h-12 w-12 mx-auto" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No life hacks found</h3>
-            <p className="text-gray-500">Try adjusting your search or filter criteria</p>
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>
