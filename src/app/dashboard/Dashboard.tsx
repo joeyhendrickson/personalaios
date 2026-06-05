@@ -65,6 +65,7 @@ import { WeeklyTrophyStar } from '@/components/dashboard/weekly-trophy-star'
 import { Task, Goal, Habit, Priority } from '@/types'
 import { DeletedPriorities } from '@/components/priorities/deleted-priorities'
 import TrialStatusBanner from '@/components/trial/trial-status-banner'
+import { VisionSection } from '@/components/dashboard/vision-section'
 import { useActivityTracking } from '@/hooks/use-activity-tracking'
 import { useAdminAuth } from '@/hooks/use-admin-auth'
 import { useGuardedAsync } from '@/hooks/use-guarded-async'
@@ -1766,6 +1767,9 @@ export default function Dashboard() {
       {trialUser && <TrialStatusBanner email={trialUser.email} />}
 
       <div className="container mx-auto px-6 pt-8 pb-24">
+        {/* Vision statement (from Dream Catcher; editable & AI-updatable) */}
+        <VisionSection />
+
         {/* Main Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {/* Daily Points Chart */}

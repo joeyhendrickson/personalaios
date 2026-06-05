@@ -326,7 +326,7 @@ Thank you!`
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
             {isExpiredTrial
               ? 'Choose a plan below to continue using Life Stacks and keep your data.'
-              : 'Direct your life and build your focus with our AI-driven Life Stacks platform. Start your transformation with the plan that is right for you.'}
+              : 'Build your focus and productivity with Life Stacks.'}
           </p>
         </div>
 
@@ -401,7 +401,7 @@ Thank you!`
                 </li>
                 <li className="flex items-center">
                   <Check className="h-5 w-5 text-blue-500 mr-3" />
-                  <span>Exclusive Life Hacks & Business Hacks</span>
+                  <span>Exclusive Life Hacks</span>
                 </li>
                 <li className="flex items-center">
                   <Check className="h-5 w-5 text-blue-500 mr-3" />
@@ -451,19 +451,19 @@ Thank you!`
                 </li>
                 <li className="flex items-center">
                   <Check className="h-5 w-5 text-yellow-500 mr-3" />
-                  <span>1-on-1 and Group Coaching</span>
+                  <span>1-on-1 Coach</span>
                 </li>
                 <li className="flex items-center">
                   <Check className="h-5 w-5 text-yellow-500 mr-3" />
-                  <span>Custom Goal Setting</span>
+                  <span>Goal Review</span>
                 </li>
                 <li className="flex items-center">
                   <Check className="h-5 w-5 text-yellow-500 mr-3" />
-                  <span>Personalized Strategies</span>
+                  <span>Personalized Support</span>
                 </li>
                 <li className="flex items-center">
                   <Check className="h-5 w-5 text-yellow-500 mr-3" />
-                  <span>Launch Your Own Lifehack</span>
+                  <span>Create Your Own LifeHack</span>
                 </li>
               </ul>
               <Button

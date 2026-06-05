@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { commitProposal, type CommitContext } from '@/lib/assistant/commit-proposal'
 import type { ActionProposalRow } from '@/lib/assistant/proposal-schemas'
 import { generateOnboardingPlan, type SeedGoal } from '@/lib/dream-catcher/generate-onboarding-plan'
+import { computeGoalsSignature } from '@/lib/vision/goals-signature'
 
 const HIERARCHY_ORDER = { create_goal: 0, create_project: 1, create_task: 2 } as const
 
@@ -129,6 +130,29 @@ export async function POST(request: NextRequest) {
         })
         if (habitError) errors.push(`habit "${habit.title}": ${habitError.message}`)
         else counts.habits_added++
+      }
+    }
+
+    // 4b) Persist the vision statement (aligned to the goals we just created),
+    //     so it shows at the top of the dashboard right away.
+    if (vision_statement && vision_statement.trim().length > 0) {
+      try {
+        const { data: currentGoals } = await supabase
+          .from('goals')
+          .select('title, status')
+          .eq('user_id', user.id)
+        await supabase.from('user_vision').upsert(
+          {
+            user_id: user.id,
+            vision_statement: vision_statement.trim().slice(0, 2000),
+            goals_signature: computeGoalsSignature(currentGoals || []),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        )
+      } catch (visionErr) {
+        // Non-fatal: don't block onboarding if the user_vision table isn't migrated yet.
+        console.error('Failed to persist vision during autofill:', visionErr)
       }
     }
 

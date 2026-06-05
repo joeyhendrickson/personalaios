@@ -78,7 +78,7 @@ export async function sendTrialExpiryWarning(email: string, name: string, daysRe
               <h3 style="color: white; margin-bottom: 15px;">Standard Plan includes:</h3>
               <ul style="color: #ccc; line-height: 1.6;">
                 <li>Full access to all features</li>
-                <li>Exclusive Life Hacks & Business Hacks</li>
+                <li>Exclusive Life Hacks</li>
                 <li>AI-powered insights</li>
                 <li>Progress tracking</li>
                 <li>Monthly meeting access</li>

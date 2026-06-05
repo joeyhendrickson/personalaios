@@ -85,7 +85,7 @@ export default function PayPalCheckout() {
               </li>
               <li className="flex items-center">
                 <span className="text-green-500 mr-2">✓</span>
-                Exclusive Life Hacks & Business Hacks
+                Exclusive Life Hacks
               </li>
               <li className="flex items-center">
                 <span className="text-green-500 mr-2">✓</span>

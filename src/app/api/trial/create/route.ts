@@ -48,21 +48,40 @@ export async function POST(request: Request) {
     }
 
     // Create trial subscription record
-    const { data: trialRecord, error: trialError } = await supabase
+    const baseRecord = {
+      email: email,
+      name: name || email.split('@')[0],
+      plan_type: plan_type || 'basic',
+      trial_start: new Date().toISOString(),
+      trial_end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+      status: 'active',
+      will_convert_to: 'basic',
+      conversion_price: 20.0,
+    }
+
+    let { data: trialRecord, error: trialError } = await supabase
       .from('trial_subscriptions')
-      .insert({
-        email: email,
-        name: name || email.split('@')[0],
-        plan_type: plan_type || 'basic',
-        trial_start: new Date().toISOString(),
-        trial_end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
-        status: 'active',
-        will_convert_to: 'basic',
-        conversion_price: 20.0,
-        user_id: userId, // Link to the user account if provided
-      })
+      // Link to the user account when provided.
+      .insert(userId ? { ...baseRecord, user_id: userId } : baseRecord)
       .select()
       .single()
+
+    // Some deployments created trial_subscriptions without a user_id column.
+    // If that's the case, retry without it so trial creation still succeeds.
+    if (
+      trialError &&
+      userId &&
+      (trialError.code === 'PGRST204' || /user_id/i.test(trialError.message || ''))
+    ) {
+      console.warn(
+        'trial_subscriptions.user_id missing — retrying without user_id. Apply migration 068.'
+      )
+      ;({ data: trialRecord, error: trialError } = await supabase
+        .from('trial_subscriptions')
+        .insert(baseRecord)
+        .select()
+        .single())
+    }
 
     if (trialError) {
       console.error('Error creating trial subscription:', trialError)

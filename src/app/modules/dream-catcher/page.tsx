@@ -24,6 +24,7 @@ import {
   Mic,
   Volume2,
   VolumeX,
+  Shield,
 } from 'lucide-react'
 
 interface ChatMessage {
@@ -90,6 +91,7 @@ function DreamCatcherModuleContent() {
   const [personalityQuestionIndex, setPersonalityQuestionIndex] = useState(0)
   const [showResults, setShowResults] = useState(false)
   const [showExitWarning, setShowExitWarning] = useState(false)
+  const [exitHasProgress, setExitHasProgress] = useState(false)
   const [isAutofilling, setIsAutofilling] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true)
@@ -783,19 +785,17 @@ function DreamCatcherModuleContent() {
   }
 
   const handleExit = () => {
-    // Check if user has made progress (has messages beyond welcome)
+    // Always prompt on exit so we can offer the Fear Catcher as an alternative path.
+    // Track whether there's unsaved progress to show the right warning copy.
     const hasProgress = messages.length > 1 || Object.keys(assessmentData).length > 0
+    setExitHasProgress(hasProgress)
+    setShowExitWarning(true)
+  }
 
-    if (hasProgress) {
-      setShowExitWarning(true)
-    } else {
-      // No progress, safe to exit
-      if (isNewUser) {
-        void leaveToDashboardAsNewUser()
-      } else {
-        router.push('/modules')
-      }
-    }
+  // Offer the Fear Catcher as a different way in: name fears → goals → dashboard.
+  const goToFearCatcher = () => {
+    setShowExitWarning(false)
+    router.push(`/modules/fear-catcher${isNewUser ? '?newUser=true' : ''}`)
   }
 
   // New users who bail out before setting up their dashboard get marked 'skipped'
@@ -1753,31 +1753,54 @@ function DreamCatcherModuleContent() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
               <div className="flex items-start space-x-4 mb-4">
-                <div className="p-2 bg-red-100 rounded-full">
-                  <AlertTriangle className="h-6 w-6 text-red-600" />
+                <div className="p-2 bg-indigo-100 rounded-full">
+                  {exitHasProgress ? (
+                    <AlertTriangle className="h-6 w-6 text-red-600" />
+                  ) : (
+                    <Shield className="h-6 w-6 text-indigo-600" />
+                  )}
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {isNewUser ? 'Exit Dream Catcher?' : 'Exit Without Saving?'}
+                    {exitHasProgress ? 'Leaving Dream Catcher?' : 'Before you go…'}
                   </h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    {isNewUser
-                      ? "If you exit now without saving, you'll lose your progress. Click 'Save Progress' in the header to save your current progress before exiting."
-                      : "If you exit now without saving, you'll lose your progress. Click 'Save Progress' in the header to save your current progress before exiting."}
+                  <p className="text-sm text-gray-600 mb-3">
+                    {exitHasProgress
+                      ? "If you leave now without saving, you'll lose your progress. Use 'Save Progress' in the header first if you'd like to keep it."
+                      : "Not feeling the Dream Catcher journey right now? That's okay."}
                   </p>
-                  <div className="flex space-x-3">
+                  <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 mb-4">
+                    <p className="text-sm font-medium text-indigo-900 flex items-center mb-1">
+                      <Shield className="h-4 w-4 mr-2" />
+                      Try the Fear Catcher instead
+                    </p>
+                    <p className="text-xs text-indigo-700">
+                      Name what you&apos;re afraid of, and we&apos;ll turn facing those fears into
+                      benefits and goals you can add straight to your dashboard.
+                    </p>
+                  </div>
+                  <div className="flex flex-col space-y-2">
                     <button
-                      onClick={() => setShowExitWarning(false)}
-                      className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                      onClick={goToFearCatcher}
+                      className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-colors font-medium flex items-center justify-center space-x-2"
                     >
-                      Continue Journey
+                      <Shield className="h-4 w-4" />
+                      <span>Explore My Fears</span>
                     </button>
-                    <button
-                      onClick={confirmExit}
-                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-                    >
-                      Exit Anyway
-                    </button>
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={() => setShowExitWarning(false)}
+                        className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                      >
+                        Continue Journey
+                      </button>
+                      <button
+                        onClick={confirmExit}
+                        className="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                      >
+                        {isNewUser ? 'Skip to Dashboard' : 'Exit'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

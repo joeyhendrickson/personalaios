@@ -40,76 +40,88 @@ export async function POST(request: Request) {
       })
     }
 
-    // Create the user with Supabase Auth - DISABLE email confirmation for trial users
-    console.log('[Trial Signup API] Calling supabase.auth.signUp with email confirmation disabled')
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name: name || email.split('@')[0],
-        },
-        // Don't send email confirmation for trial users
-        emailRedirectTo: undefined,
-      },
-    })
+    // Create the trial user as ALREADY CONFIRMED via the service-role admin API so
+    // they get an immediate session (no "Confirm your signup" email, no login wall).
+    const displayName = name || email.split('@')[0]
+    let createdUserId: string | null = null
+    let adminPathFailed = false
 
-    if (authError) {
-      console.error('[Trial Signup API] Supabase auth error:', authError)
-      console.error('[Trial Signup API] Error details:', JSON.stringify(authError, null, 2))
+    try {
+      const { createAdminClient } = await import('@/lib/supabaseAdmin')
+      const admin = createAdminClient()
+      console.log('[Trial Signup API] Creating pre-confirmed user via admin API')
+      const { data: created, error: createErr } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { name: displayName },
+      })
 
-      // If user already exists in auth, return success
-      if (authError.message.includes('already registered')) {
-        console.log('[Trial Signup API] User already exists, returning success')
-        return NextResponse.json({
-          success: true,
-          user: {
-            email: email,
-          },
-          existing: true,
-        })
+      if (createErr) {
+        // Already-registered is fine — we'll just sign them in below.
+        if (/registered|already exists|exists/i.test(createErr.message)) {
+          console.log('[Trial Signup API] User already exists in auth, will sign in')
+        } else {
+          throw createErr
+        }
+      } else {
+        createdUserId = created.user?.id ?? null
+        console.log('[Trial Signup API] Pre-confirmed user created:', createdUserId)
       }
-
-      console.error('[Trial Signup API] Returning auth error to client:', authError.message)
-      return NextResponse.json({ error: authError.message }, { status: 400 })
+    } catch (adminErr) {
+      // Service role key missing/misconfigured — fall back to normal signUp.
+      console.error('[Trial Signup API] Admin createUser failed, falling back to signUp:', adminErr)
+      adminPathFailed = true
     }
 
-    if (!authData.user) {
-      console.error('[Trial Signup API] No user data returned from Supabase')
+    if (adminPathFailed) {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name: displayName } },
+      })
+      if (authError && !/already registered/i.test(authError.message)) {
+        console.error('[Trial Signup API] Fallback signUp error:', authError.message)
+        return NextResponse.json({ error: authError.message }, { status: 400 })
+      }
+      createdUserId = authData?.user?.id ?? createdUserId
+    }
+
+    // Establish a session on the cookie-based client so the browser is logged in
+    // and the create-account page can route straight into Dream Catcher.
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    if (signInError) {
+      console.error('[Trial Signup API] Sign-in after creation failed:', signInError.message)
+    }
+
+    const sessionData = signInData?.session ?? null
+    const finalUserId = createdUserId || signInData?.user?.id || null
+    const finalEmail = signInData?.user?.email || email
+
+    if (!finalUserId) {
+      console.error('[Trial Signup API] No user id available after creation')
       return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
     }
 
-    console.log('[Trial Signup API] User created in auth:', authData.user.id)
+    console.log('[Trial Signup API] User ready:', finalUserId)
 
-    // If no session was returned, manually sign in the user
-    let sessionData = authData.session
-    if (!sessionData) {
-      console.log('[Trial Signup API] No session returned, manually signing in user')
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (signInError) {
-        console.error('[Trial Signup API] Error signing in user after creation:', signInError)
-      } else {
-        console.log('[Trial Signup API] User signed in successfully')
-        sessionData = signInData.session
-      }
-    }
-
-    // Create profile record
+    // Create profile record (idempotent)
     console.log('[Trial Signup API] Creating profile record')
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: authData.user.id,
-      email: authData.user.email,
-      name: name || email.split('@')[0],
-    })
+    const { error: profileError } = await supabase.from('profiles').upsert(
+      {
+        id: finalUserId,
+        email: finalEmail,
+        name: displayName,
+      },
+      { onConflict: 'id' }
+    )
 
     if (profileError) {
       console.error('[Trial Signup API] Error creating profile:', profileError)
-      // Don't fail the signup if profile creation fails, just log it
-      // The user account is already created in auth
+      // Don't fail the signup if profile creation fails, just log it.
     } else {
       console.log('[Trial Signup API] Profile created successfully')
     }
@@ -124,7 +136,7 @@ export async function POST(request: Request) {
       const { error: analyticsError } = await serviceSupabase
         .from('user_analytics_summary')
         .insert({
-          user_id: authData.user.id,
+          user_id: finalUserId,
           first_visit: new Date().toISOString(),
         })
 
@@ -136,9 +148,9 @@ export async function POST(request: Request) {
 
       // Log signup activity
       const { error: activityError } = await serviceSupabase.from('user_activity_logs').insert({
-        user_id: authData.user.id,
+        user_id: finalUserId,
         activity_type: 'login',
-        activity_data: { signup: true, email: authData.user.email, trial_signup: true },
+        activity_data: { signup: true, email: finalEmail, trial_signup: true },
       })
 
       if (activityError) {
@@ -155,8 +167,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       user: {
-        id: authData.user.id,
-        email: authData.user.email,
+        id: finalUserId,
+        email: finalEmail,
       },
       // Return the session data for immediate sign-in
       session: sessionData,
