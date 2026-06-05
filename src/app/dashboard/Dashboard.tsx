@@ -1601,20 +1601,7 @@ export default function Dashboard() {
             <div className="flex items-center space-x-6">
               <div className="flex items-center space-x-4">
                 <img src="/LifeStacks-logo.png" alt="Life Stacks" className="h-40 w-auto" />
-                <div>
-                  <p className="text-sm text-gray-600 hidden sm:flex items-center">
-                    <Calendar className="h-4 w-4 mr-1" />
-                    {currentWeek ? (
-                      <>
-                        Week of {new Date(currentWeek.week_start).toLocaleDateString()} -{' '}
-                        {new Date(currentWeek.week_end).toLocaleDateString()}
-                      </>
-                    ) : (
-                      'Loading...'
-                    )}
-                  </p>
-                  {user && <p className="text-xs text-gray-500 mt-1">Welcome, {user.email}</p>}
-                </div>
+                <div>{user && <p className="text-xs text-gray-500">Welcome, {user.email}</p>}</div>
               </div>
             </div>
             <div className="relative">
