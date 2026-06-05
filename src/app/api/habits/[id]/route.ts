@@ -28,15 +28,31 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const { data: habit, error: habitError } = await supabase
       .from('daily_habits')
-      .update(validatedData)
+      .update({ ...validatedData, updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('user_id', user.id)
       .select()
-      .single()
+      .maybeSingle()
 
     if (habitError) {
       console.error('Error updating habit:', habitError)
-      return NextResponse.json({ error: 'Failed to update habit' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Failed to update habit', details: habitError.message, code: habitError.code },
+        { status: 500 }
+      )
+    }
+
+    // No row returned means the update matched nothing the user can write to
+    // (missing row or a missing/incorrect RLS UPDATE policy).
+    if (!habit) {
+      return NextResponse.json(
+        {
+          error: 'Habit could not be updated',
+          details:
+            'No matching habit was updated. Apply migration 063 if this persists (RLS update policy).',
+        },
+        { status: 404 }
+      )
     }
 
     return NextResponse.json({ habit }, { status: 200 })

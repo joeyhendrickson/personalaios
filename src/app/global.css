@@ -55,3 +55,82 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }
+
+/* ---------------------------------------------------------------------------
+ * Dark-mode remaps for hardcoded utility classes.
+ * Much of the app uses literal light colors (bg-white, text-gray-900, light
+ * gradients) instead of theme tokens. These overrides repaint those neutral
+ * surfaces for dark mode without touching intentional accent colors
+ * (bg-green-500, bg-blue-500, etc.). Token-based components adapt on their own.
+ * ------------------------------------------------------------------------- */
+
+/* Neutral backgrounds */
+.dark .bg-white {
+  background-color: hsl(var(--card));
+}
+.dark .bg-white\/70 {
+  background-color: hsl(var(--card) / 0.7);
+}
+.dark .bg-white\/80 {
+  background-color: hsl(var(--card) / 0.8);
+}
+.dark .bg-white\/90 {
+  background-color: hsl(var(--card) / 0.9);
+}
+.dark .bg-gray-50,
+.dark .bg-gray-100 {
+  background-color: hsl(var(--muted));
+}
+.dark .bg-gray-200 {
+  background-color: hsl(240 3.7% 22%);
+}
+
+/* Neutral text */
+.dark .text-black,
+.dark .text-gray-900,
+.dark .text-gray-800 {
+  color: hsl(var(--foreground));
+}
+.dark .text-gray-700 {
+  color: hsl(0 0% 83%);
+}
+.dark .text-gray-600,
+.dark .text-gray-500,
+.dark .text-gray-400 {
+  color: hsl(var(--muted-foreground));
+}
+
+/* Neutral borders */
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300 {
+  border-color: hsl(var(--border));
+}
+
+/* Light gradients used as page/section backgrounds */
+.dark .from-gray-50,
+.dark .from-blue-50 {
+  --tw-gradient-from: hsl(var(--background)) var(--tw-gradient-from-position);
+  --tw-gradient-to: hsl(var(--background) / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+.dark .to-blue-50,
+.dark .to-gray-50 {
+  --tw-gradient-to: hsl(var(--background)) var(--tw-gradient-to-position);
+}
+.dark .to-gray-100 {
+  --tw-gradient-to: hsl(var(--muted)) var(--tw-gradient-to-position);
+}
+
+/* Form controls (many inputs rely on the browser default white background) */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: hsl(var(--muted-foreground));
+}

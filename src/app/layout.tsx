@@ -4,6 +4,7 @@ import './global.css'
 import { AuthProvider } from '@/contexts/auth-context'
 import { ChatProvider } from '@/components/chat/chat-provider'
 import { LanguageProvider } from '@/contexts/language-context'
+import { ThemeProvider } from '@/contexts/theme-context'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { DevModeBanner } from '@/components/dev-mode-banner'
 
@@ -28,16 +29,26 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Apply the saved theme before paint to avoid a flash of light mode. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('lifestacks-theme');if(t==='dark'){document.documentElement.classList.add('dark')}}catch(e){}`,
+          }}
+        />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ErrorBoundary>
           <AuthProvider>
-            <LanguageProvider>
-              <ChatProvider>
-                <DevModeBanner />
-                {children}
-              </ChatProvider>
-            </LanguageProvider>
+            <ThemeProvider>
+              <LanguageProvider>
+                <ChatProvider>
+                  <DevModeBanner />
+                  {children}
+                </ChatProvider>
+              </LanguageProvider>
+            </ThemeProvider>
           </AuthProvider>
         </ErrorBoundary>
       </body>

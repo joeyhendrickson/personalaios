@@ -47,6 +47,7 @@ import WorkoutPlanModal from '@/components/fitness-tracker/WorkoutPlanModal'
 import BiometricsSection, {
   type FitnessBiometricRow,
 } from '@/components/fitness-tracker/BiometricsSection'
+import BiometricsOverview from '@/components/fitness-tracker/BiometricsOverview'
 import FitnessProgressPanel from '@/components/fitness-tracker/FitnessProgressPanel'
 
 interface DashboardGoal {
@@ -1070,6 +1071,8 @@ export default function FitnessTrackerModule() {
                 latestFitbitOptIn={!!biometrics[0]?.fitbit_opt_in}
                 onAfterSave={loadFitnessData}
               />
+
+              <BiometricsOverview biometrics={biometrics} />
 
               <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-6">

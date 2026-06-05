@@ -82,9 +82,10 @@ export default function HabitsSection() {
         setEditingHabit(null)
         setFormData({ title: '', description: '', points_per_completion: '25' })
       } else {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({}))
         console.error('Error saving habit:', errorData)
-        alert('Failed to save habit. Please try again.')
+        const detail = errorData?.details ? `\n\n${errorData.details}` : ''
+        alert(`${errorData?.error || 'Failed to save habit. Please try again.'}${detail}`)
       }
     } catch (error) {
       console.error('Error saving habit:', error)

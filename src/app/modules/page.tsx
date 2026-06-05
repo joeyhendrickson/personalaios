@@ -169,16 +169,6 @@ const modules: Module[] = [
     complexity: 'advanced',
   },
   {
-    id: 'relationship-intel',
-    title: 'Relationship Intel',
-    description: 'One grounded next move per person from your messages, notes, and goals.',
-    category: 'Social',
-    icon: <Sparkles className="h-8 w-8" />,
-    status: 'available',
-    features: ['Suggested next move', 'Explainable scores', 'Weekly review', 'Goal links'],
-    complexity: 'beginner',
-  },
-  {
     id: 'calendar-ai',
     title: 'Calendar AI',
     description: 'AI-powered calendar management with smart scheduling and optimization.',
@@ -213,16 +203,6 @@ const modules: Module[] = [
       'Habit Building',
     ],
     complexity: 'intermediate',
-  },
-  {
-    id: 'habit-master',
-    title: 'Habit Master',
-    description: 'Advanced habit tracking and optimization with behavioral insights.',
-    category: 'Productivity',
-    icon: <Star className="h-8 w-8" />,
-    status: 'available',
-    features: ['Habit Tracking', 'Behavioral Analysis', 'Optimization Tips', 'Streak Management'],
-    complexity: 'beginner',
   },
   {
     id: 'dream-catcher',
@@ -640,8 +620,8 @@ export default function ModulesPage() {
           </div>
         )}
 
-        {/* Business Hacks Section */}
-        {businessApps.length > 0 && (
+        {/* Business Hacks Section (temporarily hidden from user visibility) */}
+        {false && businessApps.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold text-gray-900 flex items-center">

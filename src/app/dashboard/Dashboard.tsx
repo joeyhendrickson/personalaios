@@ -42,6 +42,7 @@ import { ChatInterface } from '@/components/chat/chat-interface'
 import { useAuth } from '@/contexts/auth-context'
 import { useLanguage } from '@/contexts/language-context'
 import { LanguageToggle } from '@/components/ui/language-toggle'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { Slider } from '@/components/ui/slider'
 import { AccomplishmentsHistory } from '@/components/accomplishments/accomplishments-history'
 import ManualPriorityForm from '@/components/priorities/manual-priority-form'
@@ -59,6 +60,8 @@ import {
   resolveLinkedGoalTitle,
 } from '@/components/projects/project-goal-link-select'
 import { WeeklyProgressReportModal } from '@/components/dashboard/weekly-progress-report-modal'
+import { Leaderboard } from '@/components/dashboard/leaderboard'
+import { WeeklyTrophyStar } from '@/components/dashboard/weekly-trophy-star'
 import { Task, Goal, Habit, Priority } from '@/types'
 import { DeletedPriorities } from '@/components/priorities/deleted-priorities'
 import TrialStatusBanner from '@/components/trial/trial-status-banner'
@@ -1874,7 +1877,10 @@ export default function Dashboard() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-medium text-black">{t('radial.weeklyProgress')}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-black">{t('radial.weeklyProgress')}</p>
+                    <WeeklyTrophyStar />
+                  </div>
                   <p className="text-2xl font-bold text-black">
                     {totalCurrentPoints}/{totalTargetPoints}
                   </p>
@@ -1968,6 +1974,7 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <div className="flex items-center space-x-3">
+                  <ThemeToggle />
                   <LanguageToggle />
                   <Eye className="h-6 w-6 text-blue-400" />
                 </div>
@@ -2002,6 +2009,11 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Leaderboard */}
+        <div className="mb-8">
+          <Leaderboard currentUserId={user?.id} />
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">

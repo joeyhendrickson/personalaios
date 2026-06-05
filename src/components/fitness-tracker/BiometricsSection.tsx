@@ -19,11 +19,14 @@ export type FitnessBiometricRow = {
   blood_pressure_systolic?: number | null
   blood_pressure_diastolic?: number | null
   resting_heart_rate?: number | null
+  steps?: number | null
   stress_level_1_10?: number | null
   energy_level_self_1_10?: number | null
   contextual_energy_level_1_10?: number | null
   iphone_summary_image_url?: string | null
   fitbit_opt_in?: boolean | null
+  source?: string | null
+  notes?: string | null
 }
 
 type HealthPreferences = {
