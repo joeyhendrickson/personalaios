@@ -15,6 +15,7 @@ import {
 import type { FitnessBiometricRow } from './BiometricsSection'
 import { computeContextualEnergyLevel } from '@/lib/fitness/contextual-energy'
 import { energyModeFromScore } from '@/lib/fitness/adapt-workout-structure'
+import { isGoogleHealthRow, pickLatestBiometricsDisplay } from '@/lib/fitness/normalize-biometrics'
 
 function contextualFor(row: FitnessBiometricRow): { score: number; rationale: string[] } {
   const computed = computeContextualEnergyLevel({
@@ -72,7 +73,10 @@ function Metric(props: { icon: React.ReactNode; label: string; value: string; ac
 export default function BiometricsOverview(props: { biometrics: FitnessBiometricRow[] }) {
   const { biometrics } = props
 
-  const latest = biometrics[0] ?? null
+  const { latest, latestGoogle, latestManual } = useMemo(
+    () => pickLatestBiometricsDisplay(biometrics),
+    [biometrics]
+  )
   const latestMeta = useMemo(() => (latest ? contextualFor(latest) : null), [latest])
 
   if (!latest) {
@@ -96,7 +100,7 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
   // Weekly summary of Google Health data (last 7 days, auto-synced rows only).
   const weekStart = Date.now() - 7 * 24 * 60 * 60 * 1000
   const weekRows = biometrics.filter(
-    (r) => r.source === 'google_health' && new Date(r.recorded_at).getTime() >= weekStart
+    (r) => isGoogleHealthRow(r) && new Date(r.recorded_at).getTime() >= weekStart
   )
   const avg = (vals: number[]) =>
     vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null
@@ -128,12 +132,12 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${
-                latest.source === 'google_health'
+                isGoogleHealthRow(latest)
                   ? 'bg-blue-100 text-blue-800'
                   : 'bg-gray-100 text-gray-700'
               }`}
             >
-              {latest.source === 'google_health' ? (
+              {isGoogleHealthRow(latest) ? (
                 <Watch className="h-3 w-3" />
               ) : (
                 <PencilLine className="h-3 w-3" />
@@ -146,6 +150,17 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
             </span>
           </div>
         </div>
+
+        {latestGoogle &&
+          latestManual &&
+          new Date(latestManual.recorded_at).getTime() >
+            new Date(latestGoogle.recorded_at).getTime() && (
+            <p className="mb-4 text-xs text-gray-500">
+              Wearable metrics from your latest Google Health sync (
+              {new Date(latestGoogle.recorded_at).toLocaleString()}). Stress and energy reflect your
+              most recent manual entry.
+            </p>
+          )}
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           <Metric
@@ -299,7 +314,7 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
                     <td className="py-2 pr-3">
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          row.source === 'google_health'
+                          isGoogleHealthRow(row)
                             ? 'bg-blue-100 text-blue-800'
                             : 'bg-gray-100 text-gray-700'
                         }`}

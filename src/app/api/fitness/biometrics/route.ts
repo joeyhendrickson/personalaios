@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { computeContextualEnergyLevel } from '@/lib/fitness/contextual-energy'
+import { normalizeBiometricRow } from '@/lib/fitness/normalize-biometrics'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
@@ -31,7 +34,18 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ biometrics: data || [] })
+    return NextResponse.json(
+      {
+        biometrics: (data || []).map((row) =>
+          normalizeBiometricRow(row as Record<string, unknown>)
+        ),
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+        },
+      }
+    )
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Failed to fetch biometrics' },

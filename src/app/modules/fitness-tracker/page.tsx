@@ -450,6 +450,22 @@ export default function FitnessTrackerModule() {
     }
   }
 
+  const refreshBiometrics = async (synced?: FitnessBiometricRow[]) => {
+    if (synced?.length) {
+      setBiometrics(synced)
+      return
+    }
+    try {
+      const res = await fetch(`/api/fitness/biometrics?_=${Date.now()}`, { cache: 'no-store' })
+      if (res.ok) {
+        const bio = await res.json()
+        setBiometrics(bio.biometrics || [])
+      }
+    } catch (error) {
+      console.error('Error refreshing biometrics:', error)
+    }
+  }
+
   const saveDietPreferences = async () => {
     setSavingDietPrefs(true)
     try {
@@ -1549,7 +1565,7 @@ export default function FitnessTrackerModule() {
             <div className="space-y-6">
               <BiometricsSection
                 latestFitbitOptIn={!!biometrics[0]?.fitbit_opt_in}
-                onAfterSave={loadFitnessData}
+                onAfterSave={(synced) => refreshBiometrics(synced)}
               />
 
               <BiometricsOverview biometrics={biometrics} />

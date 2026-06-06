@@ -26,6 +26,7 @@ export type FitnessBiometricRow = {
   iphone_summary_image_url?: string | null
   fitbit_opt_in?: boolean | null
   source?: string | null
+  sync_date?: string | null
   notes?: string | null
 }
 
@@ -47,7 +48,7 @@ type HealthStatus = {
 
 export default function BiometricsSection(props: {
   latestFitbitOptIn?: boolean
-  onAfterSave: () => void | Promise<void>
+  onAfterSave: (biometrics?: FitnessBiometricRow[]) => void | Promise<void>
 }) {
   const { onAfterSave } = props
 
@@ -90,10 +91,11 @@ export default function BiometricsSection(props: {
       const res = await fetch('/api/fitness/google-health/sync', { method: 'POST' })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setConnectError(json?.error || 'Sync failed')
+        setConnectError([json?.error, json?.details].filter(Boolean).join(': ') || 'Sync failed')
       } else {
         setConnectMessage(json?.message || 'Synced from Google Health.')
-        await onAfterSave()
+        const synced = Array.isArray(json?.biometrics) ? json.biometrics : undefined
+        await onAfterSave(synced)
       }
     } catch {
       setConnectError('Sync failed. Please try again.')
