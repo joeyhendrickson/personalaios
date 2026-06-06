@@ -47,6 +47,20 @@ export default function HomePage() {
   const [resetEmailSent, setResetEmailSent] = useState(false)
   const [resetError, setResetError] = useState('')
 
+  // Supabase email confirmation defaults to the Site URL (this page) and appends
+  // the auth tokens in the URL hash. Forward them to the dedicated handler so the
+  // session is established and the user is routed (instead of landing here).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const hash = window.location.hash
+    const search = window.location.search
+    if (hash.includes('access_token=')) {
+      window.location.replace('/auth/confirm' + hash)
+    } else if (/[?&]code=/.test(search) && /[?&]type=/.test(search)) {
+      window.location.replace('/auth/confirm' + search)
+    }
+  }, [])
+
   const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsProcessing(true)

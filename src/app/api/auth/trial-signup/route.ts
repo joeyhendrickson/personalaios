@@ -75,10 +75,14 @@ export async function POST(request: Request) {
     }
 
     if (adminPathFailed) {
+      const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || ''
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { name: displayName } },
+        options: {
+          data: { name: displayName },
+          emailRedirectTo: origin ? `${origin}/auth/confirm` : undefined,
+        },
       })
       if (authError && !/already registered/i.test(authError.message)) {
         console.error('[Trial Signup API] Fallback signUp error:', authError.message)
