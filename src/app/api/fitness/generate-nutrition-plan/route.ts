@@ -46,30 +46,54 @@ export async function POST(request: NextRequest) {
     )
 
     // Save nutrition plan to database
-    const { data: savedPlan, error: saveError } = await supabase
-      .from('nutrition_plans')
-      .insert({
-        user_id: user.id,
-        plan_name: nutritionPlan.plan_name,
-        plan_type: nutritionPlan.plan_type,
-        diet_type: diet_type,
-        diet_modifications: diet_modifications || [],
-        daily_calories: nutritionPlan.daily_calories,
-        protein_grams: nutritionPlan.protein_grams,
-        carbs_grams: nutritionPlan.carbs_grams,
-        fat_grams: nutritionPlan.fat_grams,
-        fiber_grams: nutritionPlan.fiber_grams,
-        water_liters: nutritionPlan.water_liters,
-        meal_frequency: nutritionPlan.meal_frequency,
-        description: nutritionPlan.description,
-        is_ai_generated: true,
-      })
-      .select()
-      .single()
+    const fullRecord: Record<string, unknown> = {
+      user_id: user.id,
+      plan_name: nutritionPlan.plan_name,
+      plan_type: nutritionPlan.plan_type,
+      diet_type: diet_type,
+      diet_modifications: diet_modifications || [],
+      daily_calories: nutritionPlan.daily_calories,
+      protein_grams: nutritionPlan.protein_grams,
+      carbs_grams: nutritionPlan.carbs_grams,
+      fat_grams: nutritionPlan.fat_grams,
+      fiber_grams: nutritionPlan.fiber_grams,
+      water_liters: nutritionPlan.water_liters,
+      meal_frequency: nutritionPlan.meal_frequency,
+      description: nutritionPlan.description,
+      meal_plan: nutritionPlan.meal_plan,
+      shopping_list: nutritionPlan.shopping_list,
+      recommendations: nutritionPlan.recommendations,
+      is_ai_generated: true,
+    }
 
-    if (saveError) {
-      console.error('Error saving nutrition plan:', saveError)
-      return NextResponse.json({ error: 'Failed to save nutrition plan' }, { status: 500 })
+    // Columns added later (meal_plan/shopping_list/recommendations/diet_*) may not
+    // exist yet — progressively strip optional columns and retry so saving works.
+    const optionalColumns = [
+      'meal_plan',
+      'shopping_list',
+      'recommendations',
+      'diet_type',
+      'diet_modifications',
+    ]
+    let saveRes = await supabase.from('nutrition_plans').insert(fullRecord).select().single()
+    let attempt = 0
+    while (saveRes.error && attempt < optionalColumns.length) {
+      const m = (saveRes.error.message || '').toLowerCase()
+      const isColumnError = saveRes.error.code === 'PGRST204' || m.includes('column')
+      if (!isColumnError) break
+      const reduced = { ...fullRecord }
+      for (const c of optionalColumns.slice(0, attempt + 1)) delete reduced[c]
+      saveRes = await supabase.from('nutrition_plans').insert(reduced).select().single()
+      attempt++
+    }
+
+    const savedPlan = saveRes.data
+    if (saveRes.error || !savedPlan) {
+      console.error('Error saving nutrition plan:', saveRes.error)
+      return NextResponse.json(
+        { error: 'Failed to save nutrition plan', details: saveRes.error?.message },
+        { status: 500 }
+      )
     }
 
     // Log activity
@@ -87,7 +111,16 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      nutrition_plan: savedPlan,
+      // Always return the full plan content so the UI renders it even when the
+      // JSONB columns aren't present in this environment yet.
+      nutrition_plan: {
+        ...savedPlan,
+        diet_type: savedPlan.diet_type ?? diet_type ?? null,
+        diet_modifications: savedPlan.diet_modifications ?? diet_modifications ?? [],
+        meal_plan: savedPlan.meal_plan ?? nutritionPlan.meal_plan ?? null,
+        shopping_list: savedPlan.shopping_list ?? nutritionPlan.shopping_list ?? null,
+        recommendations: savedPlan.recommendations ?? nutritionPlan.recommendations ?? null,
+      },
       meal_plan: nutritionPlan.meal_plan,
       shopping_list: nutritionPlan.shopping_list,
       recommendations: nutritionPlan.recommendations,
@@ -145,6 +178,7 @@ async function generateNutritionPlanWithAI(
     type: p.photo_type,
     target_areas: p.target_areas,
     body_type_goal: p.body_type_goal,
+    ai_assessment: p?.analysis_data?.analysis_text || undefined,
   }))
 
   const prompt = `

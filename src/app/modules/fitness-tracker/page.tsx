@@ -50,6 +50,7 @@ import BiometricsSection, {
 import BiometricsOverview from '@/components/fitness-tracker/BiometricsOverview'
 import FitnessProgressPanel from '@/components/fitness-tracker/FitnessProgressPanel'
 import StrengthGrowthChart from '@/components/fitness-tracker/StrengthGrowthChart'
+import PlanActionSuggestions from '@/components/fitness-tracker/PlanActionSuggestions'
 
 interface DashboardGoal {
   id?: string
@@ -128,6 +129,7 @@ interface WorkoutPlan {
   }
   is_active: boolean
   is_ai_generated: boolean
+  created_at?: string
 }
 
 interface NutritionPlan {
@@ -141,8 +143,12 @@ interface NutritionPlan {
   carbs_grams?: number
   fat_grams?: number
   description?: string
+  meal_plan?: any
+  shopping_list?: any
+  recommendations?: any
   is_active: boolean
   is_ai_generated: boolean
+  created_at?: string
 }
 
 export default function FitnessTrackerModule() {
@@ -175,6 +181,8 @@ export default function FitnessTrackerModule() {
   const [editingStat, setEditingStat] = useState<FitnessStat | null>(null)
   const [showEditStatForm, setShowEditStatForm] = useState(false)
   const [showStrengthGrowth, setShowStrengthGrowth] = useState(false)
+  const [editingNutritionPlan, setEditingNutritionPlan] = useState<NutritionPlan | null>(null)
+  const [expandedPhotoId, setExpandedPhotoId] = useState<string | null>(null)
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null)
   const [showExerciseModal, setShowExerciseModal] = useState(false)
   const [dashboardGoals, setDashboardGoals] = useState<DashboardGoal[]>([])
@@ -495,6 +503,59 @@ export default function FitnessTrackerModule() {
     }
   }
 
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!confirm('Delete this photo? This cannot be undone.')) return
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/fitness/upload-photo?id=${encodeURIComponent(photoId)}`, {
+        method: 'DELETE',
+      })
+      if (response.ok) {
+        setBodyPhotos((prev) => prev.filter((p) => p.id !== photoId))
+        setSuccessMessage('Photo deleted.')
+        setTimeout(() => setSuccessMessage(''), 3000)
+      } else {
+        const j = await response.json().catch(() => ({}))
+        setErrorMessage(`Failed to delete photo: ${j.details || j.error || 'Unknown error'}`)
+        setTimeout(() => setErrorMessage(''), 6000)
+      }
+    } catch (error) {
+      setErrorMessage(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setTimeout(() => setErrorMessage(''), 5000)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUpdateNutritionPlan = async (planData: Partial<NutritionPlan> & { id: string }) => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/fitness/nutrition-plans', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(planData),
+      })
+      if (response.ok) {
+        const updated = await response.json()
+        setNutritionPlans((prev) =>
+          prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p))
+        )
+        setEditingNutritionPlan(null)
+        setSuccessMessage('Nutrition plan updated!')
+        setTimeout(() => setSuccessMessage(''), 3000)
+      } else {
+        const j = await response.json().catch(() => ({}))
+        setErrorMessage(`Failed to update plan: ${j.details || j.error || 'Unknown error'}`)
+        setTimeout(() => setErrorMessage(''), 6000)
+      }
+    } catch (error) {
+      setErrorMessage(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setTimeout(() => setErrorMessage(''), 5000)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleGoalSubmit = async (goalData: any) => {
     setIsLoading(true)
     const isEdit = !!editingGoal
@@ -706,6 +767,7 @@ export default function FitnessTrackerModule() {
           body_type_goal: selectedBodyType,
           dashboard_goals: dashboardGoals,
           latest_biometrics: biometrics[0] ?? null,
+          body_photos: bodyPhotos,
         }),
       })
 
@@ -1041,8 +1103,26 @@ export default function FitnessTrackerModule() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {bodyPhotos.map((photo) => (
                       <div key={photo.id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="aspect-square bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
-                          <ImageIcon className="h-12 w-12 text-gray-400" />
+                        <div className="relative aspect-square bg-gray-100 rounded-lg mb-4 overflow-hidden">
+                          {photo.photo_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={photo.photo_url}
+                              alt={`${photo.photo_type} body photo`}
+                              className="absolute inset-0 h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <ImageIcon className="h-12 w-12 text-gray-400" />
+                            </div>
+                          )}
+                          <button
+                            onClick={() => handleDeletePhoto(photo.id)}
+                            title="Delete photo"
+                            className="absolute top-2 right-2 inline-flex items-center justify-center rounded-full bg-white/90 p-1.5 text-red-600 shadow hover:bg-white hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
@@ -1069,6 +1149,31 @@ export default function FitnessTrackerModule() {
                                 </span>
                               ))}
                             </div>
+                          )}
+
+                          {photo.analysis_data?.analysis_text ? (
+                            <div className="pt-2">
+                              <button
+                                onClick={() =>
+                                  setExpandedPhotoId(expandedPhotoId === photo.id ? null : photo.id)
+                                }
+                                className="inline-flex items-center text-xs font-medium text-green-700 hover:text-green-800"
+                              >
+                                <Zap className="h-3.5 w-3.5 mr-1" />
+                                {expandedPhotoId === photo.id
+                                  ? 'Hide AI analysis'
+                                  : 'View AI analysis'}
+                              </button>
+                              {expandedPhotoId === photo.id && (
+                                <div className="mt-2 rounded-lg bg-green-50 border border-green-100 p-3 text-xs text-gray-700 whitespace-pre-wrap max-h-72 overflow-y-auto">
+                                  {photo.analysis_data.analysis_text}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="pt-1 text-xs text-gray-400 italic">
+                              AI analysis unavailable for this photo.
+                            </p>
                           )}
                         </div>
                       </div>
@@ -1450,7 +1555,7 @@ export default function FitnessTrackerModule() {
                     className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                   >
                     <Zap className="h-4 w-4 mr-2" />
-                    Generate AI Plan
+                    Generate Workout Plan
                   </button>
                 </div>
 
@@ -1502,10 +1607,16 @@ export default function FitnessTrackerModule() {
                               {plan.difficulty_level}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-600 capitalize mb-3">
+                          <p className="text-sm text-gray-600 capitalize mb-1">
                             {plan.plan_type} · {plan.duration_weeks} weeks ·{' '}
                             {plan.frequency_per_week}x/week
                           </p>
+                          {plan.created_at && (
+                            <p className="text-xs text-gray-400 mb-3 flex items-center">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Generated {new Date(plan.created_at).toLocaleString()}
+                            </p>
+                          )}
                           {plan.description && (
                             <p className="text-sm text-gray-500 line-clamp-2 mb-3">
                               {plan.description}
@@ -1677,7 +1788,7 @@ export default function FitnessTrackerModule() {
                     ) : (
                       <Zap className="h-4 w-4 mr-2" />
                     )}
-                    Generate AI Nutrition Plan
+                    Generate Nutrition Plan
                   </button>
                 </div>
               </div>
@@ -1712,12 +1823,27 @@ export default function FitnessTrackerModule() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {nutritionPlans.map((plan) => (
                       <div key={plan.id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-1">
                           <h4 className="font-medium text-gray-900">{plan.plan_name}</h4>
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded capitalize">
-                            {plan.plan_type.replace('_', ' ')}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded capitalize">
+                              {plan.plan_type.replace('_', ' ')}
+                            </span>
+                            <button
+                              onClick={() => setEditingNutritionPlan(plan)}
+                              title="Edit plan"
+                              className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
+                        {plan.created_at && (
+                          <p className="text-xs text-gray-400 mb-2 flex items-center">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Generated {new Date(plan.created_at).toLocaleString()}
+                          </p>
+                        )}
                         {plan.diet_type && (
                           <div className="mb-2">
                             <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
@@ -1896,6 +2022,21 @@ export default function FitnessTrackerModule() {
                             )}
                           </div>
                         )}
+
+                        <PlanActionSuggestions
+                          planType="nutrition"
+                          plan={{
+                            plan_name: plan.plan_name,
+                            plan_type: plan.plan_type,
+                            diet_type: plan.diet_type,
+                            daily_calories: plan.daily_calories,
+                            protein_grams: plan.protein_grams,
+                            carbs_grams: plan.carbs_grams,
+                            fat_grams: plan.fat_grams,
+                            meal_frequency: (plan as any).meal_frequency,
+                            description: plan.description,
+                          }}
+                        />
                       </div>
                     ))}
                   </div>
@@ -2535,6 +2676,141 @@ export default function FitnessTrackerModule() {
                 >
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Save New Entry
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Nutrition Plan Modal */}
+      {editingNutritionPlan && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Edit Nutrition Plan</h3>
+              <button
+                onClick={() => setEditingNutritionPlan(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                const fd = new FormData(e.target as HTMLFormElement)
+                handleUpdateNutritionPlan({
+                  id: editingNutritionPlan.id,
+                  plan_name: (fd.get('plan_name') as string) || editingNutritionPlan.plan_name,
+                  plan_type: (fd.get('plan_type') as string) || editingNutritionPlan.plan_type,
+                  daily_calories: fd.get('daily_calories')
+                    ? parseInt(fd.get('daily_calories') as string, 10)
+                    : undefined,
+                  protein_grams: fd.get('protein_grams')
+                    ? parseInt(fd.get('protein_grams') as string, 10)
+                    : undefined,
+                  carbs_grams: fd.get('carbs_grams')
+                    ? parseInt(fd.get('carbs_grams') as string, 10)
+                    : undefined,
+                  fat_grams: fd.get('fat_grams')
+                    ? parseInt(fd.get('fat_grams') as string, 10)
+                    : undefined,
+                  description: (fd.get('description') as string) || undefined,
+                })
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Plan Name</label>
+                <input
+                  name="plan_name"
+                  defaultValue={editingNutritionPlan.plan_name}
+                  required
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Plan Type</label>
+                <select
+                  name="plan_type"
+                  defaultValue={editingNutritionPlan.plan_type}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="weight_loss">Weight loss</option>
+                  <option value="muscle_gain">Muscle gain</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="performance">Performance</option>
+                  <option value="medical">Medical</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Daily Calories
+                  </label>
+                  <input
+                    type="number"
+                    name="daily_calories"
+                    defaultValue={editingNutritionPlan.daily_calories ?? ''}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Protein (g)
+                  </label>
+                  <input
+                    type="number"
+                    name="protein_grams"
+                    defaultValue={editingNutritionPlan.protein_grams ?? ''}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Carbs (g)</label>
+                  <input
+                    type="number"
+                    name="carbs_grams"
+                    defaultValue={editingNutritionPlan.carbs_grams ?? ''}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Fat (g)</label>
+                  <input
+                    type="number"
+                    name="fat_grams"
+                    defaultValue={editingNutritionPlan.fat_grams ?? ''}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea
+                  name="description"
+                  rows={4}
+                  defaultValue={editingNutritionPlan.description || ''}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingNutritionPlan(null)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center"
+                >
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Save Changes
                 </button>
               </div>
             </form>

@@ -86,7 +86,13 @@ export async function POST(request: NextRequest) {
     let analysisData = null
     if (env.OPENAI_API_KEY && env.OPENAI_API_KEY.trim() !== '') {
       try {
-        analysisData = await generateBodyAnalysis(photo, targetAreas, bodyTypeGoal)
+        analysisData = await generateBodyAnalysis(
+          photo,
+          targetAreas,
+          bodyTypeGoal,
+          heightInches,
+          weightLbs
+        )
       } catch (analysisError) {
         console.error('Error generating body analysis:', analysisError)
         // Continue without analysis if AI fails
@@ -177,27 +183,124 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function generateBodyAnalysis(photo: File, targetAreas: string[], bodyTypeGoal: string) {
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    if (!id) {
+      return NextResponse.json({ error: 'Photo ID is required' }, { status: 400 })
+    }
+
+    // Load the photo so we can remove its storage object and re-assign primary.
+    const { data: photo } = await supabase
+      .from('body_photos')
+      .select('id, photo_url, is_primary')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
+
+    const { error: deleteError } = await supabase
+      .from('body_photos')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (deleteError) {
+      console.error('Error deleting body photo:', deleteError)
+      return NextResponse.json(
+        { error: 'Failed to delete photo', details: deleteError.message },
+        { status: 500 }
+      )
+    }
+
+    // Best-effort removal of the stored file (path is after /body-photos/).
+    if (photo?.photo_url) {
+      try {
+        const marker = '/body-photos/'
+        const idx = photo.photo_url.indexOf(marker)
+        if (idx !== -1) {
+          const path = photo.photo_url.slice(idx + marker.length)
+          await supabase.storage.from('body-photos').remove([path])
+        }
+      } catch (e) {
+        console.error('Non-fatal: could not remove storage object:', e)
+      }
+    }
+
+    // If we removed the primary photo, promote the most recent remaining one.
+    if (photo?.is_primary) {
+      const { data: remaining } = await supabase
+        .from('body_photos')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('uploaded_at', { ascending: false })
+        .limit(1)
+      if (remaining && remaining.length > 0) {
+        await supabase.from('body_photos').update({ is_primary: true }).eq('id', remaining[0].id)
+      }
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error in body photo DELETE:', error)
+    return NextResponse.json(
+      {
+        error: 'Failed to delete photo',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
+  }
+}
+
+async function generateBodyAnalysis(
+  photo: File,
+  targetAreas: string[],
+  bodyTypeGoal: string,
+  heightInches?: number,
+  weightLbs?: number
+) {
   // Convert photo to base64 for AI analysis
   const arrayBuffer = await photo.arrayBuffer()
   const base64 = Buffer.from(arrayBuffer).toString('base64')
   const mimeType = photo.type
 
   const prompt = `
-Analyze this body photo and provide fitness recommendations based on the following:
+You are a supportive, realistic fitness coach. Analyze this body photo together with the
+user's details and write a clear summary of their CURRENT state and what FUTURE GROWTH could
+look like if they stay consistent.
 
-TARGET AREAS: ${targetAreas.join(', ')}
-DESIRED BODY TYPE: ${bodyTypeGoal}
+USER DETAILS:
+- Target areas of improvement: ${targetAreas.length ? targetAreas.join(', ') : 'not specified'}
+- Desired body type: ${bodyTypeGoal || 'not specified'}
+- Height: ${heightInches ? `${heightInches} inches` : 'not provided'}
+- Weight: ${weightLbs ? `${weightLbs} lbs` : 'not provided'}
 
-Please provide:
-1. Current body composition assessment
-2. Target areas that need focus
-3. Recommended workout approach
-4. Nutrition recommendations
-5. Timeline expectations
-6. Specific exercises for target areas
+Write the response in this exact markdown-style structure with these headings:
 
-Be encouraging and realistic in your assessment. Focus on actionable advice.
+## Current State
+A 2-4 sentence honest, encouraging assessment of current body composition, posture, and the
+target areas, based on the photo and details.
+
+## Future Growth Outlook
+A 2-4 sentence description of realistically what their physique could look like in 8-16 weeks
+of consistent training and nutrition aligned to their desired body type, plus the key levers
+(training focus, nutrition, recovery) that will drive that change.
+
+## Focus Areas
+A short bullet list (3-5 bullets) of the most impactful things to prioritize.
+
+Be specific and motivating. This is coaching guidance, not medical advice.
 `
 
   const { text: analysis } = await generateText({
@@ -224,6 +327,8 @@ Be encouraging and realistic in your assessment. Focus on actionable advice.
     analysis_text: analysis,
     target_areas: targetAreas,
     body_type_goal: bodyTypeGoal,
+    height_inches: heightInches ?? null,
+    weight_lbs: weightLbs ?? null,
     generated_at: new Date().toISOString(),
   }
 }

@@ -28,7 +28,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { goals, stats, target_areas, body_type_goal, dashboard_goals, latest_biometrics } = body
+    const {
+      goals,
+      stats,
+      target_areas,
+      body_type_goal,
+      dashboard_goals,
+      latest_biometrics,
+      body_photos,
+    } = body
 
     console.log(`Generating workout plan for user: ${user.id}`)
     console.log(
@@ -54,32 +62,50 @@ export async function POST(request: NextRequest) {
       body_type_goal,
       exercises || [],
       dashboard_goals || [],
-      latest_biometrics || null
+      latest_biometrics || null,
+      body_photos || []
     )
 
     // Save workout plan to database
-    const { data: savedPlan, error: saveError } = await supabase
-      .from('workout_plans')
-      .insert({
-        user_id: user.id,
-        plan_name: workoutPlan.plan_name,
-        plan_type: workoutPlan.plan_type,
-        difficulty_level: workoutPlan.difficulty_level,
-        duration_weeks: workoutPlan.duration_weeks,
-        frequency_per_week: workoutPlan.frequency_per_week,
-        target_areas: workoutPlan.target_areas,
-        goals_supported: workoutPlan.goals_supported,
-        description: workoutPlan.description,
-        weekly_structure: workoutPlan.weekly_structure,
-        progression_strategy: workoutPlan.progression_strategy,
-        is_ai_generated: true,
-      })
-      .select()
-      .single()
+    const fullRecord = {
+      user_id: user.id,
+      plan_name: workoutPlan.plan_name,
+      plan_type: workoutPlan.plan_type,
+      difficulty_level: workoutPlan.difficulty_level,
+      duration_weeks: workoutPlan.duration_weeks,
+      frequency_per_week: workoutPlan.frequency_per_week,
+      target_areas: workoutPlan.target_areas,
+      goals_supported: workoutPlan.goals_supported,
+      description: workoutPlan.description,
+      weekly_structure: workoutPlan.weekly_structure,
+      progression_strategy: workoutPlan.progression_strategy,
+      is_ai_generated: true,
+    }
 
-    if (saveError) {
-      console.error('Error saving workout plan:', saveError)
-      return NextResponse.json({ error: 'Failed to save workout plan' }, { status: 500 })
+    let saveRes = await supabase.from('workout_plans').insert(fullRecord).select().single()
+
+    // weekly_structure / progression_strategy columns may not exist yet
+    // (pre-migration 072) — retry without them so generation still works.
+    if (saveRes.error) {
+      const m = (saveRes.error.message || '').toLowerCase()
+      if (
+        saveRes.error.code === 'PGRST204' ||
+        m.includes('weekly_structure') ||
+        m.includes('progression_strategy') ||
+        m.includes('column')
+      ) {
+        const { weekly_structure: _ws, progression_strategy: _ps, ...rest } = fullRecord
+        saveRes = await supabase.from('workout_plans').insert(rest).select().single()
+      }
+    }
+
+    const savedPlan = saveRes.data
+    if (saveRes.error || !savedPlan) {
+      console.error('Error saving workout plan:', saveRes.error)
+      return NextResponse.json(
+        { error: 'Failed to save workout plan', details: saveRes.error?.message },
+        { status: 500 }
+      )
     }
 
     // Save workout plan exercises
@@ -123,7 +149,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      workout_plan: savedPlan,
+      // Ensure the client always has the full structure to render even if the
+      // JSONB columns aren't present yet in this environment.
+      workout_plan: {
+        ...savedPlan,
+        weekly_structure: savedPlan.weekly_structure ?? workoutPlan.weekly_structure ?? null,
+        progression_strategy:
+          savedPlan.progression_strategy ?? workoutPlan.progression_strategy ?? null,
+      },
       exercises: workoutPlan.exercises || [],
       recommendations: workoutPlan.recommendations,
     })
@@ -158,7 +191,8 @@ async function generateWorkoutPlanWithAI(
   bodyTypeGoal: string,
   availableExercises: any[],
   dashboardGoals: any[] = [],
-  latestBiometrics: any | null = null
+  latestBiometrics: any | null = null,
+  bodyPhotos: any[] = []
 ) {
   // Prepare data for AI
   const goalsData = goals.map((g) => ({
@@ -201,6 +235,20 @@ async function generateWorkoutPlanWithAI(
         )
       : 'None provided'
 
+  const bodyAnalysisSummary =
+    bodyPhotos && bodyPhotos.length > 0
+      ? bodyPhotos
+          .slice(0, 3)
+          .map((p: any, i: number) => {
+            const a = p?.analysis_data
+            const text = a?.analysis_text ? `\nAI assessment: ${a.analysis_text}` : ''
+            return `Photo ${i + 1} (${p?.photo_type || 'photo'}): target areas ${
+              (p?.target_areas || []).join(', ') || 'n/a'
+            }; desired body type ${p?.body_type_goal || 'n/a'}${text}`
+          })
+          .join('\n\n')
+      : 'No body photos provided.'
+
   const biometricsSummary = latestBiometrics
     ? `Latest biometrics snapshot (use to bias recovery and session intensity, not medical advice):
 Sleep (hours): ${latestBiometrics.sleep_hours ?? 'n/a'}
@@ -226,6 +274,9 @@ ${JSON.stringify(statsData, null, 2)}
 
 BIOMETRICS / RECOVERY CONTEXT:
 ${biometricsSummary}
+
+BODY ANALYSIS (from uploaded photos and AI assessment — use to prioritize muscle groups and target areas):
+${bodyAnalysisSummary}
 
 TARGET AREAS: ${targetAreas.join(', ')}
 DESIRED BODY TYPE: ${bodyTypeGoal}
