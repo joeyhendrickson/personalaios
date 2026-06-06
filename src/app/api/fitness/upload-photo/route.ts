@@ -93,26 +93,44 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Save photo record to database
-    const { data: photoRecord, error: dbError } = await supabase
+    // Save photo record to database.
+    const baseRecord = {
+      user_id: user.id,
+      photo_url: publicUrl,
+      photo_type: photoType,
+      target_areas: targetAreas,
+      body_type_goal: bodyTypeGoal,
+      analysis_data: analysisData,
+      is_primary: false, // Will be set to true if this is the first photo
+    }
+
+    let insertRes = await supabase
       .from('body_photos')
-      .insert({
-        user_id: user.id,
-        photo_url: publicUrl,
-        photo_type: photoType,
-        height_inches: heightInches,
-        weight_lbs: weightLbs,
-        target_areas: targetAreas,
-        body_type_goal: bodyTypeGoal,
-        analysis_data: analysisData,
-        is_primary: false, // Will be set to true if this is the first photo
-      })
+      .insert({ ...baseRecord, height_inches: heightInches, weight_lbs: weightLbs })
       .select()
       .single()
 
-    if (dbError) {
-      console.error('Error saving photo record:', dbError)
-      return NextResponse.json({ error: 'Failed to save photo record' }, { status: 500 })
+    // The height_inches/weight_lbs columns may not exist yet (pre-migration).
+    // Retry without them so the upload still succeeds.
+    if (insertRes.error) {
+      const m = (insertRes.error.message || '').toLowerCase()
+      if (
+        insertRes.error.code === 'PGRST204' ||
+        m.includes('height_inches') ||
+        m.includes('weight_lbs') ||
+        m.includes('column')
+      ) {
+        insertRes = await supabase.from('body_photos').insert(baseRecord).select().single()
+      }
+    }
+
+    const photoRecord = insertRes.data
+    if (insertRes.error || !photoRecord) {
+      console.error('Error saving photo record:', insertRes.error)
+      return NextResponse.json(
+        { error: 'Failed to save photo record', details: insertRes.error?.message },
+        { status: 500 }
+      )
     }
 
     // Set as primary if it's the first photo
