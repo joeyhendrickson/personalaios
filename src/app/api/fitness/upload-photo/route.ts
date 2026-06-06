@@ -37,23 +37,50 @@ export async function POST(request: NextRequest) {
       `Photo type: ${photoType}, Target areas: ${targetAreas.join(', ')}, Body type goal: ${bodyTypeGoal}, Height: ${heightInches}", Weight: ${weightLbs} lbs`
     )
 
-    // Upload photo to Supabase Storage
-    const fileExt = photo.name.split('.').pop()
+    // Upload photo to Supabase Storage.
+    const BUCKET = 'body-photos'
+    const fileExt = (photo.name.split('.').pop() || 'jpg').toLowerCase()
     const fileName = `${user.id}/${Date.now()}.${fileExt}`
+    const contentType = photo.type || 'image/jpeg'
+    const fileBuffer = Buffer.from(await photo.arrayBuffer())
 
-    const { error: uploadError } = await supabase.storage
-      .from('body-photos')
-      .upload(fileName, photo)
+    const uploadWith = (client: typeof supabase) =>
+      client.storage.from(BUCKET).upload(fileName, fileBuffer, { contentType, upsert: false })
+
+    let { error: uploadError } = await uploadWith(supabase)
+
+    // Self-heal: if the bucket is missing or storage RLS blocks the user client,
+    // use the service-role client to create the bucket and retry the upload.
+    if (uploadError) {
+      const msg = (uploadError.message || '').toLowerCase()
+      const bucketMissing = msg.includes('bucket not found') || msg.includes('not found')
+      try {
+        const { createAdminClient } = await import('@/lib/supabaseAdmin')
+        const admin = createAdminClient()
+        if (bucketMissing) {
+          await admin.storage
+            .createBucket(BUCKET, { public: true, fileSizeLimit: 15 * 1024 * 1024 })
+            .catch(() => {})
+        }
+        const retry = await uploadWith(admin as unknown as typeof supabase)
+        uploadError = retry.error
+      } catch (adminErr) {
+        console.error('[fitness upload] admin fallback failed:', adminErr)
+      }
+    }
 
     if (uploadError) {
       console.error('Error uploading photo:', uploadError)
-      return NextResponse.json({ error: 'Failed to upload photo' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Failed to upload photo', details: uploadError.message },
+        { status: 500 }
+      )
     }
 
     // Get public URL
     const {
       data: { publicUrl },
-    } = supabase.storage.from('body-photos').getPublicUrl(fileName)
+    } = supabase.storage.from(BUCKET).getPublicUrl(fileName)
 
     // Generate AI analysis if OpenAI is configured
     let analysisData = null

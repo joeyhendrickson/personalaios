@@ -462,7 +462,9 @@ export default function FitnessTrackerModule() {
       })
 
       if (response.ok) {
-        const newPhoto = await response.json()
+        const data = await response.json()
+        // The API returns { success, photo, analysis }; older callers expected the row directly.
+        const newPhoto = data?.photo ?? data
         setBodyPhotos((prev) => [...prev, newPhoto])
         setShowImageUpload(false)
         setSelectedTargetAreas([])
@@ -470,11 +472,19 @@ export default function FitnessTrackerModule() {
         setSuccessMessage('Photo uploaded successfully!')
         setTimeout(() => setSuccessMessage(''), 3000)
       } else {
-        setErrorMessage('Failed to upload photo. Please try again.')
-        setTimeout(() => setErrorMessage(''), 5000)
+        const j = await response.json().catch(() => ({}))
+        const detail = j?.details ? `: ${j.details}` : ''
+        setErrorMessage(`${j?.error || 'Failed to upload photo. Please try again.'}${detail}`)
+        setTimeout(() => setErrorMessage(''), 6000)
       }
     } catch (error) {
       console.error('Error uploading photo:', error)
+      setErrorMessage(
+        error instanceof Error
+          ? `Failed to upload photo: ${error.message}`
+          : 'Failed to upload photo.'
+      )
+      setTimeout(() => setErrorMessage(''), 6000)
     } finally {
       setIsLoading(false)
     }
@@ -912,13 +922,17 @@ export default function FitnessTrackerModule() {
                     <Camera className="h-5 w-5 mr-2 text-green-600" />
                     Body Analysis
                   </h3>
-                  <button
-                    onClick={() => setShowImageUpload(true)}
-                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Upload Photo
-                  </button>
+                  {/* Only show the header upload button when photos exist; the empty
+                      state already has its own "Upload Your First Photo" button. */}
+                  {bodyPhotos.length > 0 && (
+                    <button
+                      onClick={() => setShowImageUpload(true)}
+                      className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Upload Photo
+                    </button>
+                  )}
                 </div>
 
                 {bodyPhotos.length === 0 ? (
