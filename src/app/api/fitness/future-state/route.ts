@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { env } from '@/lib/env'
-import OpenAI, { toFile } from 'openai'
+import OpenAI from 'openai'
+import { toOpenAiImageFile } from '@/lib/fitness/prepare-image-for-openai'
 
 // Image generation can take a while; allow a generous timeout.
 export const runtime = 'nodejs'
@@ -133,45 +134,116 @@ Keep it natural and realistic for the timeframe (no exaggerated or cartoonish bo
 
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY })
 
-    // Convert reference photos into uploadable files for the edit request.
-    const files = []
+    async function loadPhotoBytes(photoUrl: string): Promise<Buffer | null> {
+      try {
+        const res = await fetch(photoUrl, { cache: 'no-store' })
+        if (res.ok) {
+          const buf = Buffer.from(await res.arrayBuffer())
+          if (buf.length > 0) return buf
+        }
+      } catch {
+        // try storage fallback below
+      }
+
+      try {
+        const marker = `/${BUCKET}/`
+        const idx = photoUrl.indexOf(marker)
+        if (idx === -1) return null
+        const path = decodeURIComponent(photoUrl.slice(idx + marker.length).split('?')[0])
+        const { data, error } = await supabase.storage.from(BUCKET).download(path)
+        if (!error && data) {
+          return Buffer.from(await data.arrayBuffer())
+        }
+      } catch {
+        // non-fatal
+      }
+      return null
+    }
+
+    // Use the most recent readable photo, normalized to PNG for images.edit.
+    let referenceFile: Awaited<ReturnType<typeof toOpenAiImageFile>> | null = null
+    let sourcePhotoId: string | null = null
+    const loadErrors: string[] = []
+
     for (const p of photos) {
       try {
-        const res = await fetch(p.photo_url)
-        if (!res.ok) continue
-        const buf = Buffer.from(await res.arrayBuffer())
-        const ext = (p.photo_url.split('.').pop() || 'jpg').split('?')[0].toLowerCase()
-        const type = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg'
-        files.push(await toFile(buf, `ref-${p.id}.${ext}`, { type }))
-      } catch {
-        // skip unreadable photo
+        const raw = await loadPhotoBytes(p.photo_url)
+        if (!raw) {
+          loadErrors.push(`Could not download photo ${p.id}`)
+          continue
+        }
+        referenceFile = await toOpenAiImageFile(raw, `reference-${p.id}.png`)
+        sourcePhotoId = p.id
+        break
+      } catch (err) {
+        loadErrors.push(
+          err instanceof Error ? err.message : `Could not prepare photo ${p.id} for generation`
+        )
       }
     }
 
-    if (files.length === 0) {
+    if (!referenceFile) {
       return NextResponse.json(
-        { error: 'Could not read your body photos to generate a future state.' },
+        {
+          error: 'Could not read your body photos to generate a future state.',
+          details: loadErrors[0] || 'Upload a JPG, PNG, or HEIC body photo and try again.',
+        },
         { status: 400 }
       )
     }
 
     let b64: string | undefined
+    let lastEditError: string | null = null
     try {
       const result = await openai.images.edit({
         model: IMAGE_MODEL,
-        image: files,
+        image: referenceFile,
         prompt,
         size: '1024x1536',
         quality: 'medium',
         input_fidelity: 'high',
       })
       b64 = result.data?.[0]?.b64_json
-    } catch (e: any) {
-      console.error('Future state image generation failed:', e?.message || e)
+    } catch (e: unknown) {
+      lastEditError =
+        e instanceof Error ? e.message : 'The image model could not generate a result.'
+      console.error('Future state image generation failed:', lastEditError)
+    }
+
+    // If the primary photo fails, try the next recent uploads one at a time.
+    if (!b64 && photos.length > 1) {
+      for (const p of photos) {
+        if (p.id === sourcePhotoId) continue
+        try {
+          const raw = await loadPhotoBytes(p.photo_url)
+          if (!raw) continue
+          const altFile = await toOpenAiImageFile(raw, `reference-${p.id}.png`)
+          const result = await openai.images.edit({
+            model: IMAGE_MODEL,
+            image: altFile,
+            prompt,
+            size: '1024x1536',
+            quality: 'medium',
+            input_fidelity: 'high',
+          })
+          b64 = result.data?.[0]?.b64_json
+          if (b64) {
+            sourcePhotoId = p.id
+            break
+          }
+        } catch (e: unknown) {
+          lastEditError = e instanceof Error ? e.message : lastEditError
+        }
+      }
+    }
+
+    if (!b64) {
       return NextResponse.json(
         {
           error: 'Image generation failed',
-          details: e?.message || 'The image model could not generate a result.',
+          details:
+            lastEditError ||
+            'The image model could not process your photo. Try uploading a clear front-facing JPG or PNG.',
         },
         { status: 502 }
       )
@@ -251,7 +323,7 @@ Keep it natural and realistic for the timeframe (no exaggerated or cartoonish bo
       user_id: user.id,
       activity_type: 'fitness_future_state_generated',
       description: `Generated ${timeframe}-month future-state projection`,
-      metadata: { timeframe_months: timeframe, source_count: files.length },
+      metadata: { timeframe_months: timeframe, source_photo_id: sourcePhotoId },
     })
 
     return NextResponse.json({ success: true, future_state: insertRes.data })
