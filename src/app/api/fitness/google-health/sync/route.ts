@@ -1,11 +1,25 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getValidHealthAccessToken } from '@/lib/fitness/provider-connection'
+import {
+  getValidHealthAccessToken,
+  type FitnessProviderConnection,
+} from '@/lib/fitness/provider-connection'
 import { fetchDailySteps, fetchSleepMinutes, fetchRestingHeartRate } from '@/lib/google-health'
 import { computeContextualEnergyLevel } from '@/lib/fitness/contextual-energy'
 import { normalizeBiometricRow } from '@/lib/fitness/normalize-biometrics'
 
 export const dynamic = 'force-dynamic'
+
+function toNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function toInt(value: unknown): number | null {
+  const n = toNumber(value)
+  return n === null ? null : Math.round(n)
+}
 
 function isMissingColumnError(error: { message?: string } | null): boolean {
   const msg = (error?.message || '').toLowerCase()
@@ -148,7 +162,7 @@ export async function POST() {
     if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     let accessToken: string
-    let connection
+    let connection: FitnessProviderConnection
     try {
       const result = await getValidHealthAccessToken(supabase, user.id)
       accessToken = result.accessToken
@@ -174,6 +188,9 @@ export async function POST() {
     let daysImported = 0
     let daysFailed = 0
     let lastWriteError: string | null = null
+    let sleepDays = 0
+    let rhrDays = 0
+    let stepsDays = 0
     let latestImported: {
       sleepHours: number | null
       restingHeartRate: number | null
@@ -204,13 +221,29 @@ export async function POST() {
         if (typeof s === 'number' && s >= 0) steps = s
       }
 
-      if (sleepHours === null && restingHeartRate === null && steps === null) continue
+      const { data: existingRow } = await db
+        .from('fitness_biometrics')
+        .select('sleep_hours, resting_heart_rate, steps')
+        .eq('user_id', user.id)
+        .eq('source', 'google_health')
+        .eq('sync_date', syncDate)
+        .maybeSingle()
+
+      const mergedSleep = sleepHours ?? toNumber(existingRow?.sleep_hours)
+      const mergedRhr = restingHeartRate ?? toInt(existingRow?.resting_heart_rate)
+      const mergedSteps = steps ?? toInt(existingRow?.steps)
+
+      if (mergedSleep === null && mergedRhr === null && mergedSteps === null) continue
+
+      if (sleepHours !== null) sleepDays++
+      if (restingHeartRate !== null) rhrDays++
+      if (steps !== null) stepsDays++
 
       const { contextual_energy_level_1_10 } = computeContextualEnergyLevel({
-        sleep_hours: sleepHours,
+        sleep_hours: mergedSleep,
         blood_pressure_systolic: null,
         blood_pressure_diastolic: null,
-        resting_heart_rate: restingHeartRate,
+        resting_heart_rate: mergedRhr,
         stress_level_1_10: null,
         energy_level_self_1_10: null,
       })
@@ -219,9 +252,9 @@ export async function POST() {
       const recordedAt = i === 0 ? now : new Date(startOfDay.getTime() + 12 * 60 * 60 * 1000)
 
       const row: BiometricWriteRow = {
-        sleep_hours: sleepHours,
-        resting_heart_rate: restingHeartRate,
-        steps,
+        sleep_hours: mergedSleep,
+        resting_heart_rate: mergedRhr,
+        steps: mergedSteps,
         contextual_energy_level_1_10,
         source: 'google_health',
         fitbit_opt_in: true,
@@ -238,8 +271,25 @@ export async function POST() {
 
       daysImported++
       if (i === 0 || latestImported === null) {
-        latestImported = { sleepHours, restingHeartRate, steps, contextual_energy_level_1_10 }
+        latestImported = {
+          sleepHours: mergedSleep,
+          restingHeartRate: mergedRhr,
+          steps: mergedSteps,
+          contextual_energy_level_1_10,
+        }
       }
+    }
+
+    function buildSyncMessage() {
+      const parts: string[] = []
+      if (connection.import_sleep && sleepDays > 0) parts.push(`sleep (${sleepDays} days)`)
+      if (connection.import_resting_heart_rate && rhrDays > 0)
+        parts.push(`resting HR (${rhrDays} days)`)
+      if (connection.import_steps && stepsDays > 0) parts.push(`steps (${stepsDays} days)`)
+      if (parts.length === 0) {
+        return `Synced ${daysImported} day${daysImported === 1 ? '' : 's'} from Google Health, but no wearable metrics were returned for this period.`
+      }
+      return `Synced ${daysImported} day${daysImported === 1 ? '' : 's'} from Google Health: ${parts.join(', ')}.`
     }
 
     const syncStamp = new Date().toISOString()
@@ -295,7 +345,17 @@ export async function POST() {
       daysFailed,
       imported: latestImported,
       biometrics: fresh.biometrics,
-      message: `Synced ${daysImported} day${daysImported === 1 ? '' : 's'} from Google Health.`,
+      syncSummary: {
+        sleepDays,
+        rhrDays,
+        stepsDays,
+        metricsEnabled: {
+          sleep: connection.import_sleep,
+          restingHeartRate: connection.import_resting_heart_rate,
+          steps: connection.import_steps,
+        },
+      },
+      message: buildSyncMessage(),
     })
   } catch (e) {
     return NextResponse.json(
