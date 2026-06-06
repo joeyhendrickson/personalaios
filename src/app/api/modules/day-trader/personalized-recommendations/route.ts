@@ -185,8 +185,9 @@ Return ONLY a valid JSON array of 5 stock recommendations with this exact struct
           content: profileText,
         },
       ],
-      temperature: 0.7,
-      max_tokens: 1500,
+      // gpt-5 models only support the default temperature and use
+      // max_completion_tokens (not max_tokens) on Chat Completions.
+      max_completion_tokens: 1500,
     })
 
     await logAfterOpenAIRestCall({

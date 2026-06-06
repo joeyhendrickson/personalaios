@@ -226,7 +226,8 @@ Provide REALISTIC and ACHIEVABLE trade recommendations based on the actual patte
           content: prompt,
         },
       ],
-      temperature: 0.2,
+      // NOTE: gpt-5 models only support the default temperature via Chat Completions.
+      // Passing a custom temperature returns a 400 and breaks this endpoint.
     })
 
     await logAfterOpenAIRestCall({
