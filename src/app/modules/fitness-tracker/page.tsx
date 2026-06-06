@@ -847,9 +847,7 @@ export default function FitnessTrackerModule() {
                   <Activity className="h-8 w-8 mr-3 text-green-600" />
                   Fitness Tracker
                 </h1>
-                <p className="text-sm text-gray-600">
-                  Track your fitness journey with AI-powered analysis and personalized plans
-                </p>
+                <p className="text-sm text-gray-600">Track your fitness journey</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -1965,7 +1963,9 @@ export default function FitnessTrackerModule() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Target Areas</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Target Areas of Improvement
+                </label>
                 <div className="grid grid-cols-3 gap-2">
                   {targetAreas.map((area) => (
                     <label key={area} className="flex items-center">
