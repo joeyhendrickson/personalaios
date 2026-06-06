@@ -156,7 +156,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Goal ID is required' }, { status: 400 })
     }
 
-    const { data: goal, error } = await supabase
+    let updateRes = await supabase
       .from('fitness_goals')
       .update(updates)
       .eq('id', id)
@@ -164,9 +164,33 @@ export async function PUT(request: NextRequest) {
       .select()
       .single()
 
-    if (error) {
-      console.error('Error updating fitness goal:', error)
-      return NextResponse.json({ error: 'Failed to update goal' }, { status: 500 })
+    // The completed_at column may not exist yet (pre-migration). If so, retry
+    // without it so editing/archiving still works.
+    if (updateRes.error && 'completed_at' in updates) {
+      const m = (updateRes.error.message || '').toLowerCase()
+      if (
+        updateRes.error.code === 'PGRST204' ||
+        m.includes('completed_at') ||
+        m.includes('column')
+      ) {
+        const { completed_at: _omit, ...rest } = updates
+        updateRes = await supabase
+          .from('fitness_goals')
+          .update(rest)
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .select()
+          .single()
+      }
+    }
+
+    const goal = updateRes.data
+    if (updateRes.error || !goal) {
+      console.error('Error updating fitness goal:', updateRes.error)
+      return NextResponse.json(
+        { error: 'Failed to update goal', details: updateRes.error?.message },
+        { status: 500 }
+      )
     }
 
     // Log activity

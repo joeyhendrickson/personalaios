@@ -49,6 +49,7 @@ import BiometricsSection, {
 } from '@/components/fitness-tracker/BiometricsSection'
 import BiometricsOverview from '@/components/fitness-tracker/BiometricsOverview'
 import FitnessProgressPanel from '@/components/fitness-tracker/FitnessProgressPanel'
+import StrengthGrowthChart from '@/components/fitness-tracker/StrengthGrowthChart'
 
 interface DashboardGoal {
   id?: string
@@ -82,6 +83,7 @@ interface FitnessGoal {
   priority_level: string
   description?: string
   is_active: boolean
+  completed_at?: string | null
 }
 
 interface FitnessStat {
@@ -155,6 +157,8 @@ export default function FitnessTrackerModule() {
   const [isLoading, setIsLoading] = useState(false)
   const [showImageUpload, setShowImageUpload] = useState(false)
   const [showGoalForm, setShowGoalForm] = useState(false)
+  const [editingGoal, setEditingGoal] = useState<FitnessGoal | null>(null)
+  const [goalsView, setGoalsView] = useState<'active' | 'completed'>('active')
   const [showStatsForm, setShowStatsForm] = useState(false)
   const [selectedTargetAreas, setSelectedTargetAreas] = useState<string[]>([])
   const [selectedBodyType, setSelectedBodyType] = useState<string>('')
@@ -170,6 +174,7 @@ export default function FitnessTrackerModule() {
   const [weightLbs, setWeightLbs] = useState<string>('')
   const [editingStat, setEditingStat] = useState<FitnessStat | null>(null)
   const [showEditStatForm, setShowEditStatForm] = useState(false)
+  const [showStrengthGrowth, setShowStrengthGrowth] = useState(false)
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null)
   const [showExerciseModal, setShowExerciseModal] = useState(false)
   const [dashboardGoals, setDashboardGoals] = useState<DashboardGoal[]>([])
@@ -492,29 +497,104 @@ export default function FitnessTrackerModule() {
 
   const handleGoalSubmit = async (goalData: any) => {
     setIsLoading(true)
+    const isEdit = !!editingGoal
     try {
       const response = await fetch('/api/fitness/goals', {
-        method: 'POST',
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(goalData),
+        body: JSON.stringify(isEdit ? { id: editingGoal!.id, ...goalData } : goalData),
       })
 
       if (response.ok) {
-        const newGoal = await response.json()
-        setFitnessGoals((prev) => [...prev, newGoal])
+        const savedGoal = await response.json()
+        setFitnessGoals((prev) =>
+          isEdit ? prev.map((g) => (g.id === savedGoal.id ? savedGoal : g)) : [...prev, savedGoal]
+        )
         setShowGoalForm(false)
-        setSuccessMessage('Fitness goal created successfully!')
+        setEditingGoal(null)
+        setSuccessMessage(isEdit ? 'Fitness goal updated!' : 'Fitness goal created successfully!')
         setTimeout(() => setSuccessMessage(''), 3000)
       } else {
         const errorData = await response.json()
-        console.error('Goal creation error:', errorData)
+        console.error('Goal save error:', errorData)
         setErrorMessage(
-          `Failed to create goal: ${errorData.details || errorData.error || 'Unknown error'}`
+          `Failed to ${isEdit ? 'update' : 'create'} goal: ${errorData.details || errorData.error || 'Unknown error'}`
         )
         setTimeout(() => setErrorMessage(''), 8000)
       }
     } catch (error) {
-      console.error('Error creating goal:', error)
+      console.error('Error saving goal:', error)
+      setErrorMessage(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setTimeout(() => setErrorMessage(''), 5000)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const openEditGoal = (goal: FitnessGoal) => {
+    setEditingGoal(goal)
+    setShowGoalForm(true)
+  }
+
+  const closeGoalForm = () => {
+    setShowGoalForm(false)
+    setEditingGoal(null)
+  }
+
+  // Patch a goal via the API and reflect the change locally.
+  const patchGoal = async (id: string, updates: Record<string, unknown>, successMsg: string) => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/fitness/goals', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...updates }),
+      })
+      if (response.ok) {
+        const updated = await response.json()
+        setFitnessGoals((prev) => prev.map((g) => (g.id === id ? { ...g, ...updated } : g)))
+        setSuccessMessage(successMsg)
+        setTimeout(() => setSuccessMessage(''), 3000)
+      } else {
+        const err = await response.json().catch(() => ({}))
+        setErrorMessage(`Failed to update goal: ${err.details || err.error || 'Unknown error'}`)
+        setTimeout(() => setErrorMessage(''), 6000)
+      }
+    } catch (error) {
+      setErrorMessage(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setTimeout(() => setErrorMessage(''), 5000)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleCompleteGoal = (goal: FitnessGoal) =>
+    patchGoal(
+      goal.id,
+      { completed_at: new Date().toISOString(), is_active: false },
+      'Goal marked complete! 🎉'
+    )
+
+  const handleReopenGoal = (goal: FitnessGoal) =>
+    patchGoal(goal.id, { completed_at: null, is_active: true }, 'Goal moved back to active.')
+
+  const handleDeleteGoal = async (goal: FitnessGoal) => {
+    if (!confirm('Delete this fitness goal? This cannot be undone.')) return
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/fitness/goals?id=${encodeURIComponent(goal.id)}`, {
+        method: 'DELETE',
+      })
+      if (response.ok) {
+        setFitnessGoals((prev) => prev.filter((g) => g.id !== goal.id))
+        setSuccessMessage('Goal deleted.')
+        setTimeout(() => setSuccessMessage(''), 3000)
+      } else {
+        const err = await response.json().catch(() => ({}))
+        setErrorMessage(`Failed to delete goal: ${err.details || err.error || 'Unknown error'}`)
+        setTimeout(() => setErrorMessage(''), 6000)
+      }
+    } catch (error) {
       setErrorMessage(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setTimeout(() => setErrorMessage(''), 5000)
     } finally {
@@ -556,25 +636,29 @@ export default function FitnessTrackerModule() {
   const handleUpdateStat = async (updatedStat: any) => {
     setIsLoading(true)
     try {
+      // Log a NEW dated entry instead of overwriting the old one, so the
+      // previous value stays in the log and we can chart growth over time.
+      const { id: _id, ...fields } = updatedStat
       const response = await fetch('/api/fitness/stats', {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedStat),
+        body: JSON.stringify({ stats: [fields] }),
       })
 
       if (response.ok) {
-        const updated = await response.json()
-        setFitnessStats((prev) => prev.map((stat) => (stat.id === updated.id ? updated : stat)))
+        const created = await response.json()
+        const newStats = Array.isArray(created) ? created : []
+        setFitnessStats((prev) => [...newStats, ...prev])
         setShowEditStatForm(false)
         setEditingStat(null)
-        setSuccessMessage('Stat updated successfully!')
-        setTimeout(() => setSuccessMessage(''), 3000)
+        setSuccessMessage('New measurement logged. Previous entries are kept to track growth.')
+        setTimeout(() => setSuccessMessage(''), 3500)
       } else {
-        setErrorMessage('Failed to update stat. Please try again.')
+        setErrorMessage('Failed to log update. Please try again.')
         setTimeout(() => setErrorMessage(''), 5000)
       }
     } catch (error) {
-      console.error('Error updating stat:', error)
+      console.error('Error logging stat update:', error)
     } finally {
       setIsLoading(false)
     }
@@ -884,7 +968,10 @@ export default function FitnessTrackerModule() {
                     Upload Body Photo
                   </button>
                   <button
-                    onClick={() => setShowGoalForm(true)}
+                    onClick={() => {
+                      setEditingGoal(null)
+                      setShowGoalForm(true)
+                    }}
                     className="w-full text-left p-2 text-sm hover:bg-gray-50 rounded flex items-center"
                   >
                     <Target className="h-4 w-4 mr-2" />
@@ -995,88 +1082,208 @@ export default function FitnessTrackerModule() {
           )}
 
           {/* Goals Tab */}
-          {activeTab === 'goals' && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold flex items-center">
-                    <Target className="h-5 w-5 mr-2 text-green-600" />
-                    Fitness Goals
-                  </h3>
-                  <button
-                    onClick={() => setShowGoalForm(true)}
-                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Goal
-                  </button>
-                </div>
+          {activeTab === 'goals' &&
+            (() => {
+              const activeGoals = fitnessGoals.filter((g) => !g.completed_at)
+              const completedGoals = fitnessGoals.filter((g) => !!g.completed_at)
 
-                {fitnessGoals.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h4 className="text-lg font-medium text-gray-900 mb-2">No fitness goals set</h4>
-                    <p className="text-gray-600 mb-4">
-                      Set your first fitness goal to start tracking your progress
-                    </p>
-                    <button
-                      onClick={() => setShowGoalForm(true)}
-                      className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                    >
-                      <Target className="h-4 w-4 mr-2" />
-                      Set Your First Goal
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {fitnessGoals.map((goal) => (
-                      <div key={goal.id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-gray-900 capitalize">
-                            {goal.goal_type.replace('_', ' ')}
-                          </h4>
+              const priorityBadge = (level: string) =>
+                level === 'high'
+                  ? 'bg-red-100 text-red-800'
+                  : level === 'medium'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-green-100 text-green-800'
+
+              const renderGoalCard = (goal: FitnessGoal) => {
+                const completed = !!goal.completed_at
+                return (
+                  <div
+                    key={goal.id}
+                    className={`rounded-lg p-4 border ${
+                      completed ? 'border-green-200 bg-green-50/40' : 'border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-gray-900 capitalize flex items-center">
+                        {completed && <CheckCircle className="h-4 w-4 mr-2 text-green-600" />}
+                        {goal.goal_type.replace(/_/g, ' ')}
+                      </h4>
+                      <span
+                        className={`text-xs px-2 py-1 rounded ${
+                          completed
+                            ? 'bg-green-100 text-green-800'
+                            : priorityBadge(goal.priority_level)
+                        }`}
+                      >
+                        {completed ? 'Completed' : goal.priority_level}
+                      </span>
+                    </div>
+                    {goal.target_weight && (
+                      <p className="text-sm text-gray-600 mb-2">
+                        Target Weight: {goal.target_weight} lbs
+                      </p>
+                    )}
+                    {goal.target_areas.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {goal.target_areas.map((area) => (
                           <span
-                            className={`text-xs px-2 py-1 rounded ${
-                              goal.priority_level === 'high'
-                                ? 'bg-red-100 text-red-800'
-                                : goal.priority_level === 'medium'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : 'bg-green-100 text-green-800'
-                            }`}
+                            key={area}
+                            className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"
                           >
-                            {goal.priority_level}
+                            {area}
                           </span>
-                        </div>
-                        {goal.target_weight && (
-                          <p className="text-sm text-gray-600 mb-2">
-                            Target Weight: {goal.target_weight} lbs
+                        ))}
+                      </div>
+                    )}
+                    {goal.description && (
+                      <p className="text-sm text-gray-600 mb-2 italic">"{goal.description}"</p>
+                    )}
+                    {completed ? (
+                      <p className="text-xs text-green-700 mb-3">
+                        Completed on {new Date(goal.completed_at as string).toLocaleDateString()}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-500 mb-3">
+                        Timeline: {goal.timeline_weeks} weeks
+                      </p>
+                    )}
+
+                    <div
+                      className={`flex flex-wrap gap-2 pt-2 border-t ${
+                        completed ? 'border-green-100' : 'border-gray-100'
+                      }`}
+                    >
+                      {completed ? (
+                        <button
+                          onClick={() => handleReopenGoal(goal)}
+                          disabled={isLoading}
+                          className="inline-flex items-center px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          <RotateCcw className="h-4 w-4 mr-1.5" />
+                          Reopen
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => openEditGoal(goal)}
+                            disabled={isLoading}
+                            className="inline-flex items-center px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            <Edit className="h-4 w-4 mr-1.5" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleCompleteGoal(goal)}
+                            disabled={isLoading}
+                            className="inline-flex items-center px-3 py-1.5 text-sm rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1.5" />
+                            Complete
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => handleDeleteGoal(goal)}
+                        disabled={isLoading}
+                        className="inline-flex items-center px-3 py-1.5 text-sm rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        title="Delete goal"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="space-y-6">
+                  <div className="bg-white rounded-lg border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <Target className="h-5 w-5 mr-2 text-green-600" />
+                        Fitness Goals
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setEditingGoal(null)
+                          setShowGoalForm(true)
+                        }}
+                        className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Goal
+                      </button>
+                    </div>
+
+                    {/* Active / Completed sub-tabs */}
+                    <div className="flex gap-1 mb-6 border-b border-gray-200">
+                      <button
+                        onClick={() => setGoalsView('active')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                          goalsView === 'active'
+                            ? 'border-green-600 text-green-700'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        Active ({activeGoals.length})
+                      </button>
+                      <button
+                        onClick={() => setGoalsView('completed')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                          goalsView === 'completed'
+                            ? 'border-green-600 text-green-700'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        Completed ({completedGoals.length})
+                      </button>
+                    </div>
+
+                    {goalsView === 'active' ? (
+                      activeGoals.length === 0 ? (
+                        <div className="text-center py-12">
+                          <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                          <h4 className="text-lg font-medium text-gray-900 mb-2">
+                            No active fitness goals
+                          </h4>
+                          <p className="text-gray-600 mb-4">
+                            Set a fitness goal to start tracking your progress
                           </p>
-                        )}
-                        {goal.target_areas.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            {goal.target_areas.map((area) => (
-                              <span
-                                key={area}
-                                className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"
-                              >
-                                {area}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {goal.description && (
-                          <p className="text-sm text-gray-600 mb-2 italic">"{goal.description}"</p>
-                        )}
-                        <p className="text-sm text-gray-500">
-                          Timeline: {goal.timeline_weeks} weeks
+                          <button
+                            onClick={() => {
+                              setEditingGoal(null)
+                              setShowGoalForm(true)
+                            }}
+                            className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                          >
+                            <Target className="h-4 w-4 mr-2" />
+                            Set Your First Goal
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {activeGoals.map(renderGoalCard)}
+                        </div>
+                      )
+                    ) : completedGoals.length === 0 ? (
+                      <div className="text-center py-12">
+                        <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <h4 className="text-lg font-medium text-gray-900 mb-2">
+                          No completed goals yet
+                        </h4>
+                        <p className="text-gray-600">
+                          When you complete an active goal, it will be saved here.
                         </p>
                       </div>
-                    ))}
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {completedGoals.map(renderGoalCard)}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
-          )}
+                </div>
+              )
+            })()}
 
           {/* Stats Tab */}
           {activeTab === 'stats' && (
@@ -1185,7 +1392,7 @@ export default function FitnessTrackerModule() {
                                   <button
                                     onClick={() => handleEditStat(stat)}
                                     className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
-                                    title="Edit stat"
+                                    title="Log an updated measurement (keeps history)"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </button>
@@ -1200,6 +1407,28 @@ export default function FitnessTrackerModule() {
                               </div>
                             ))}
                           </div>
+
+                          {statType.type === 'strength' && (
+                            <div className="mt-4 border-t border-gray-200 pt-4">
+                              <button
+                                onClick={() => setShowStrengthGrowth((prev) => !prev)}
+                                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                              >
+                                <TrendingUp className="h-4 w-4 mr-2" />
+                                {showStrengthGrowth ? 'Hide Growth' : 'Track Growth'}
+                              </button>
+
+                              {showStrengthGrowth && (
+                                <div className="mt-4">
+                                  <p className="text-sm text-gray-600 mb-3">
+                                    Each strength exercise is plotted over time — every saved update
+                                    adds a point so you can see your progress trend.
+                                  </p>
+                                  <StrengthGrowthChart stats={typeStats} />
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )
                     })}
@@ -1848,16 +2077,16 @@ export default function FitnessTrackerModule() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Set Fitness Goal</h3>
-              <button
-                onClick={() => setShowGoalForm(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
+              <h3 className="text-lg font-semibold">
+                {editingGoal ? 'Edit Fitness Goal' : 'Set Fitness Goal'}
+              </h3>
+              <button onClick={closeGoalForm} className="text-gray-400 hover:text-gray-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <form
+              key={editingGoal?.id || 'new'}
               onSubmit={(e) => {
                 e.preventDefault()
                 const formData = new FormData(e.target as HTMLFormElement)
@@ -1885,6 +2114,7 @@ export default function FitnessTrackerModule() {
                 <select
                   name="goal_type"
                   required
+                  defaultValue={editingGoal?.goal_type || ''}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                 >
                   <option value="">Select goal type</option>
@@ -1904,6 +2134,7 @@ export default function FitnessTrackerModule() {
                   <input
                     type="number"
                     name="current_weight"
+                    defaultValue={editingGoal?.current_weight ?? ''}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
                     placeholder="150"
                   />
@@ -1915,6 +2146,7 @@ export default function FitnessTrackerModule() {
                   <input
                     type="number"
                     name="target_weight"
+                    defaultValue={editingGoal?.target_weight ?? ''}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
                     placeholder="140"
                   />
@@ -1926,7 +2158,13 @@ export default function FitnessTrackerModule() {
                 <div className="grid grid-cols-3 gap-2">
                   {targetAreas.map((area) => (
                     <label key={area} className="flex items-center">
-                      <input type="checkbox" name="target_areas" value={area} className="mr-2" />
+                      <input
+                        type="checkbox"
+                        name="target_areas"
+                        value={area}
+                        defaultChecked={editingGoal?.target_areas?.includes(area)}
+                        className="mr-2"
+                      />
                       <span className="text-sm">{area}</span>
                     </label>
                   ))}
@@ -1941,7 +2179,7 @@ export default function FitnessTrackerModule() {
                   <input
                     type="number"
                     name="timeline_weeks"
-                    defaultValue={12}
+                    defaultValue={editingGoal?.timeline_weeks ?? 12}
                     min={1}
                     max={52}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
@@ -1951,6 +2189,7 @@ export default function FitnessTrackerModule() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
                   <select
                     name="priority_level"
+                    defaultValue={editingGoal?.priority_level || 'medium'}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   >
                     <option value="low">Low</option>
@@ -1967,6 +2206,7 @@ export default function FitnessTrackerModule() {
                 <textarea
                   name="description"
                   rows={3}
+                  defaultValue={editingGoal?.description || ''}
                   placeholder="Describe your specific fitness goals, motivations, and any special considerations..."
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
@@ -1978,7 +2218,7 @@ export default function FitnessTrackerModule() {
               <div className="flex space-x-3">
                 <button
                   type="button"
-                  onClick={() => setShowGoalForm(false)}
+                  onClick={closeGoalForm}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                   Cancel
@@ -1989,7 +2229,7 @@ export default function FitnessTrackerModule() {
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center"
                 >
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Create Goal
+                  {editingGoal ? 'Save Changes' : 'Create Goal'}
                 </button>
               </div>
             </form>
@@ -2147,8 +2387,8 @@ export default function FitnessTrackerModule() {
       {showEditStatForm && editingStat && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-lg mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Edit Fitness Stat</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">Update Measurement</h3>
               <button
                 onClick={() => {
                   setShowEditStatForm(false)
@@ -2159,6 +2399,10 @@ export default function FitnessTrackerModule() {
                 <X className="h-5 w-5" />
               </button>
             </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Logs a new dated entry. Your previous entry stays in the log so you can track growth
+              over time.
+            </p>
 
             <form
               onSubmit={(e) => {
@@ -2290,7 +2534,7 @@ export default function FitnessTrackerModule() {
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
                 >
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Update Stat
+                  Save New Entry
                 </button>
               </div>
             </form>

@@ -93,6 +93,29 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
   const fmt = (v: number | null | undefined, suffix = '') =>
     typeof v === 'number' ? `${v}${suffix}` : '—'
 
+  // Weekly summary of Google Health data (last 7 days, auto-synced rows only).
+  const weekStart = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const weekRows = biometrics.filter(
+    (r) => r.source === 'google_health' && new Date(r.recorded_at).getTime() >= weekStart
+  )
+  const avg = (vals: number[]) =>
+    vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null
+  const sleepVals = weekRows
+    .map((r) => r.sleep_hours)
+    .filter((v): v is number => typeof v === 'number')
+  const rhrVals = weekRows
+    .map((r) => r.resting_heart_rate)
+    .filter((v): v is number => typeof v === 'number')
+  const stepVals = weekRows.map((r) => r.steps).filter((v): v is number => typeof v === 'number')
+  const weekSummary = {
+    days: weekRows.length,
+    avgSleep: avg(sleepVals),
+    avgRhr: avg(rhrVals),
+    totalSteps: stepVals.reduce((a, b) => a + b, 0),
+    avgSteps: avg(stepVals),
+  }
+  const round1 = (v: number | null) => (v === null ? '—' : `${Math.round(v * 10) / 10}`)
+
   return (
     <div className="space-y-6">
       {/* Latest reading */}
@@ -168,6 +191,47 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
           />
         </div>
       </div>
+
+      {/* This week from Google Health */}
+      {weekSummary.days > 0 && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <Watch className="h-5 w-5 text-blue-600" />
+              This week from Google Health
+            </h3>
+            <span className="text-xs text-gray-500">
+              {weekSummary.days} day{weekSummary.days === 1 ? '' : 's'} synced (last 7 days)
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Metric
+              icon={<Moon className="h-3.5 w-3.5" />}
+              label="Avg sleep"
+              value={weekSummary.avgSleep === null ? '—' : `${round1(weekSummary.avgSleep)}h`}
+            />
+            <Metric
+              icon={<Heart className="h-3.5 w-3.5" />}
+              label="Avg resting HR"
+              value={weekSummary.avgRhr === null ? '—' : `${Math.round(weekSummary.avgRhr)} bpm`}
+            />
+            <Metric
+              icon={<Footprints className="h-3.5 w-3.5" />}
+              label="Total steps"
+              value={weekSummary.totalSteps > 0 ? weekSummary.totalSteps.toLocaleString() : '—'}
+            />
+            <Metric
+              icon={<Footprints className="h-3.5 w-3.5" />}
+              label="Avg steps/day"
+              value={
+                weekSummary.avgSteps === null
+                  ? '—'
+                  : Math.round(weekSummary.avgSteps).toLocaleString()
+              }
+            />
+          </div>
+        </div>
+      )}
 
       {/* Adapted routine for today */}
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-6">

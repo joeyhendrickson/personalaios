@@ -52,9 +52,6 @@ export default function BiometricsSection(props: {
   const { onAfterSave } = props
 
   const [sleepHours, setSleepHours] = useState('')
-  const [bpSys, setBpSys] = useState('')
-  const [bpDia, setBpDia] = useState('')
-  const [rhr, setRhr] = useState('')
   const [stress, setStress] = useState('')
   const [energySelf, setEnergySelf] = useState('')
   const [notes, setNotes] = useState('')
@@ -228,9 +225,6 @@ export default function BiometricsSection(props: {
 
       const body: Record<string, unknown> = {
         sleep_hours: sleepHours === '' ? null : Number(sleepHours),
-        blood_pressure_systolic: bpSys === '' ? null : parseInt(bpSys, 10),
-        blood_pressure_diastolic: bpDia === '' ? null : parseInt(bpDia, 10),
-        resting_heart_rate: rhr === '' ? null : parseInt(rhr, 10),
         stress_level_1_10: stress === '' ? null : Number(stress),
         energy_level_self_1_10: energySelf === '' ? null : Number(energySelf),
         iphone_summary_image_url: iphoneSummaryImageUrl,
@@ -249,9 +243,6 @@ export default function BiometricsSection(props: {
       }
 
       setSleepHours('')
-      setBpSys('')
-      setBpDia('')
-      setRhr('')
       setStress('')
       setEnergySelf('')
       setNotes('')
@@ -287,8 +278,8 @@ export default function BiometricsSection(props: {
                 </p>
                 <p className="text-sm text-gray-600 mt-0.5">
                   Connect Google Health (sign in with your Google account) to sync sleep, resting
-                  heart rate, and steps from your Fitbit or Google device automatically. Blood
-                  pressure and stress stay manual.
+                  heart rate, and steps from your Fitbit or Google device automatically. Stress and
+                  energy stay manual.
                 </p>
               </div>
               <button
@@ -471,36 +462,6 @@ export default function BiometricsSection(props: {
             />
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">Blood pressure (systolic)</span>
-            <input
-              type="number"
-              value={bpSys}
-              onChange={(e) => setBpSys(e.target.value)}
-              className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              placeholder="mmHg"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-gray-700">Blood pressure (diastolic)</span>
-            <input
-              type="number"
-              value={bpDia}
-              onChange={(e) => setBpDia(e.target.value)}
-              className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              placeholder="mmHg"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-gray-700">Resting heart rate</span>
-            <input
-              type="number"
-              value={rhr}
-              onChange={(e) => setRhr(e.target.value)}
-              className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              placeholder="bpm"
-            />
-          </label>
-          <label className="block">
             <span className="text-sm font-medium text-gray-700">Stress (1–10)</span>
             <input
               type="number"
@@ -526,7 +487,7 @@ export default function BiometricsSection(props: {
 
         <div>
           <span className="text-sm font-medium text-gray-700 block mb-1">
-            iPhone Fitness summary (screenshot, optional)
+            Upload Biometrics Screenshot (Google Health, Fitness App, etc.)
           </span>
           <label className="flex items-center gap-2 cursor-pointer text-sm text-green-700 hover:text-green-800">
             <Upload className="h-4 w-4" />
@@ -572,7 +533,7 @@ export default function BiometricsSection(props: {
                 Saving…
               </>
             ) : (
-              'Save biometrics'
+              'Manual Update'
             )}
           </button>
         </div>
