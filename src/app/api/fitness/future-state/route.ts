@@ -1,0 +1,321 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { env } from '@/lib/env'
+import OpenAI, { toFile } from 'openai'
+
+// Image generation can take a while; allow a generous timeout.
+export const runtime = 'nodejs'
+export const maxDuration = 300
+
+const IMAGE_MODEL = 'gpt-image-1.5'
+const BUCKET = 'body-photos'
+const ALLOWED_TIMEFRAMES = [3, 6, 9, 12]
+
+export async function GET() {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { data, error } = await supabase
+      .from('fitness_future_states')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      // Table may not exist yet (pre-migration) — treat as empty.
+      if (error.code === '42P01') return NextResponse.json([])
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    return NextResponse.json(data || [])
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'Failed to fetch future states' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    if (!env.OPENAI_API_KEY || env.OPENAI_API_KEY.trim() === '') {
+      return NextResponse.json(
+        { error: 'OpenAI API key not configured', details: 'Add OPENAI_API_KEY to environment.' },
+        { status: 500 }
+      )
+    }
+
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const body = await request.json().catch(() => ({}))
+    const timeframe = ALLOWED_TIMEFRAMES.includes(Number(body?.timeframe_months))
+      ? Number(body.timeframe_months)
+      : 6
+
+    // Most recent 1-5 body photos to use as visual references.
+    const { data: photos, error: photosError } = await supabase
+      .from('body_photos')
+      .select('id, photo_url, photo_type, target_areas, body_type_goal')
+      .eq('user_id', user.id)
+      .order('uploaded_at', { ascending: false })
+      .limit(5)
+
+    if (photosError) {
+      return NextResponse.json({ error: 'Failed to load body photos' }, { status: 500 })
+    }
+    if (!photos || photos.length === 0) {
+      return NextResponse.json(
+        { error: 'Upload at least one body photo before generating a future state.' },
+        { status: 400 }
+      )
+    }
+
+    // Latest workout & nutrition plans for context.
+    const [{ data: workout }, { data: nutrition }] = await Promise.all([
+      supabase
+        .from('workout_plans')
+        .select(
+          'plan_name, plan_type, difficulty_level, frequency_per_week, target_areas, description'
+        )
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('nutrition_plans')
+        .select('plan_name, plan_type, diet_type, daily_calories, protein_grams, description')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ])
+
+    const targetAreas = Array.from(
+      new Set(photos.flatMap((p) => (Array.isArray(p.target_areas) ? p.target_areas : [])))
+    )
+    const bodyTypeGoal = photos.find((p) => p.body_type_goal)?.body_type_goal || 'lean and healthy'
+
+    const workoutSummary = workout
+      ? `Workout plan "${workout.plan_name}" (${workout.plan_type}, ${workout.frequency_per_week}x/week, ${workout.difficulty_level}). ${workout.description || ''}`
+      : 'A consistent, progressive resistance + cardio routine.'
+    const nutritionSummary = nutrition
+      ? `Nutrition plan "${nutrition.plan_name}" (${nutrition.plan_type}${nutrition.diet_type ? `, ${nutrition.diet_type}` : ''}, ~${nutrition.daily_calories || 'balanced'} kcal/day, ${nutrition.protein_grams || 'adequate'}g protein). ${nutrition.description || ''}`
+      : 'A balanced, high-protein, whole-food nutrition plan.'
+
+    const prompt = `Create a realistic, photorealistic progress projection of THIS SAME PERSON showing how their physique could realistically look after ${timeframe} months of consistent training and nutrition.
+
+Preserve the person's identity, face, skin tone, hair, gender, age, and the general pose, framing, background, and lighting of the reference photo(s). Do NOT change who they are.
+
+Show a realistic, achievable ${timeframe}-month transformation: ${
+      timeframe <= 3
+        ? 'subtle but visible improvements'
+        : timeframe <= 6
+          ? 'clearly noticeable improvements'
+          : 'substantial, well-developed improvements'
+    } in muscle tone, posture, and reduced excess body fat, especially in these target areas: ${
+      targetAreas.length ? targetAreas.join(', ') : 'overall physique'
+    }. Aim for a "${bodyTypeGoal}" look.
+
+This reflects following:
+- ${workoutSummary}
+- ${nutritionSummary}
+
+Keep it natural and realistic for the timeframe (no exaggerated or cartoonish bodybuilder proportions). Tasteful, same clothing style as the reference. This is a fitness motivation visualization.`
+
+    const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY })
+
+    // Convert reference photos into uploadable files for the edit request.
+    const files = []
+    for (const p of photos) {
+      try {
+        const res = await fetch(p.photo_url)
+        if (!res.ok) continue
+        const buf = Buffer.from(await res.arrayBuffer())
+        const ext = (p.photo_url.split('.').pop() || 'jpg').split('?')[0].toLowerCase()
+        const type = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg'
+        files.push(await toFile(buf, `ref-${p.id}.${ext}`, { type }))
+      } catch {
+        // skip unreadable photo
+      }
+    }
+
+    if (files.length === 0) {
+      return NextResponse.json(
+        { error: 'Could not read your body photos to generate a future state.' },
+        { status: 400 }
+      )
+    }
+
+    let b64: string | undefined
+    try {
+      const result = await openai.images.edit({
+        model: IMAGE_MODEL,
+        image: files,
+        prompt,
+        size: '1024x1536',
+        quality: 'medium',
+        input_fidelity: 'high',
+      })
+      b64 = result.data?.[0]?.b64_json
+    } catch (e: any) {
+      console.error('Future state image generation failed:', e?.message || e)
+      return NextResponse.json(
+        {
+          error: 'Image generation failed',
+          details: e?.message || 'The image model could not generate a result.',
+        },
+        { status: 502 }
+      )
+    }
+
+    if (!b64) {
+      return NextResponse.json(
+        { error: 'No image was generated. Please try again.' },
+        { status: 502 }
+      )
+    }
+
+    // Upload the generated image to storage.
+    const imageBuffer = Buffer.from(b64, 'base64')
+    const fileName = `${user.id}/future/${timeframe}m-${Date.now()}.png`
+
+    const uploadWith = (client: typeof supabase) =>
+      client.storage.from(BUCKET).upload(fileName, imageBuffer, {
+        contentType: 'image/png',
+        upsert: false,
+      })
+
+    let { error: uploadError } = await uploadWith(supabase)
+    if (uploadError) {
+      try {
+        const { createAdminClient } = await import('@/lib/supabaseAdmin')
+        const admin = createAdminClient()
+        const msg = (uploadError.message || '').toLowerCase()
+        if (msg.includes('not found')) {
+          await admin.storage
+            .createBucket(BUCKET, { public: true, fileSizeLimit: 15 * 1024 * 1024 })
+            .catch(() => {})
+        }
+        const retry = await uploadWith(admin as unknown as typeof supabase)
+        uploadError = retry.error
+      } catch (adminErr) {
+        console.error('[future-state] admin upload fallback failed:', adminErr)
+      }
+    }
+
+    if (uploadError) {
+      return NextResponse.json(
+        { error: 'Failed to store generated image', details: uploadError.message },
+        { status: 500 }
+      )
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(BUCKET).getPublicUrl(fileName)
+
+    // Persist the record (resilient if the table isn't migrated yet).
+    const record = {
+      user_id: user.id,
+      image_url: publicUrl,
+      timeframe_months: timeframe,
+      source_photo_ids: photos.map((p) => p.id),
+      prompt,
+    }
+    const insertRes = await supabase.from('fitness_future_states').insert(record).select().single()
+
+    if (insertRes.error) {
+      // Still return the image so the user sees a result even pre-migration.
+      console.error('Error saving future state record:', insertRes.error)
+      return NextResponse.json({
+        success: true,
+        future_state: {
+          id: `temp-${Date.now()}`,
+          ...record,
+          created_at: new Date().toISOString(),
+        },
+        warning: 'Generated, but could not be saved (run migration 073).',
+      })
+    }
+
+    await supabase.from('activity_logs').insert({
+      user_id: user.id,
+      activity_type: 'fitness_future_state_generated',
+      description: `Generated ${timeframe}-month future-state projection`,
+      metadata: { timeframe_months: timeframe, source_count: files.length },
+    })
+
+    return NextResponse.json({ success: true, future_state: insertRes.data })
+  } catch (e) {
+    return NextResponse.json(
+      {
+        error: 'Failed to generate future state',
+        details: e instanceof Error ? e.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+
+    const { data: row } = await supabase
+      .from('fitness_future_states')
+      .select('image_url')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
+
+    const { error } = await supabase
+      .from('fitness_future_states')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) {
+      return NextResponse.json(
+        { error: 'Failed to delete', details: error.message },
+        { status: 500 }
+      )
+    }
+
+    if (row?.image_url) {
+      try {
+        const marker = `/${BUCKET}/`
+        const idx = row.image_url.indexOf(marker)
+        if (idx !== -1) {
+          await supabase.storage.from(BUCKET).remove([row.image_url.slice(idx + marker.length)])
+        }
+      } catch {
+        // non-fatal
+      }
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'Failed to delete future state' },
+      { status: 500 }
+    )
+  }
+}

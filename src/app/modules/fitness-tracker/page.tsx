@@ -42,6 +42,7 @@ import {
   Ruler,
   Droplets,
   Flame,
+  Sparkles,
 } from 'lucide-react'
 import WorkoutPlanModal from '@/components/fitness-tracker/WorkoutPlanModal'
 import BiometricsSection, {
@@ -85,6 +86,14 @@ interface FitnessGoal {
   description?: string
   is_active: boolean
   completed_at?: string | null
+}
+
+interface FutureState {
+  id: string
+  image_url: string
+  timeframe_months: number
+  source_photo_ids?: string[]
+  created_at: string
 }
 
 interface FitnessStat {
@@ -183,6 +192,9 @@ export default function FitnessTrackerModule() {
   const [showStrengthGrowth, setShowStrengthGrowth] = useState(false)
   const [editingNutritionPlan, setEditingNutritionPlan] = useState<NutritionPlan | null>(null)
   const [expandedPhotoId, setExpandedPhotoId] = useState<string | null>(null)
+  const [futureStates, setFutureStates] = useState<FutureState[]>([])
+  const [futureTimeframe, setFutureTimeframe] = useState<number>(6)
+  const [generatingFuture, setGeneratingFuture] = useState(false)
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null)
   const [showExerciseModal, setShowExerciseModal] = useState(false)
   const [dashboardGoals, setDashboardGoals] = useState<DashboardGoal[]>([])
@@ -373,6 +385,7 @@ export default function FitnessTrackerModule() {
         nutritionPrefsRes,
         dashboardGoalsRes,
         biometricsRes,
+        futureStatesRes,
       ] = await Promise.all([
         fetch('/api/fitness/body-photos'),
         fetch('/api/fitness/goals'),
@@ -382,6 +395,7 @@ export default function FitnessTrackerModule() {
         fetch('/api/fitness/nutrition-preferences'),
         fetch('/api/goals'),
         fetch('/api/fitness/biometrics'),
+        fetch('/api/fitness/future-state'),
       ])
 
       // Check for table existence errors
@@ -408,6 +422,10 @@ export default function FitnessTrackerModule() {
       if (biometricsRes.ok) {
         const bio = await biometricsRes.json()
         setBiometrics(bio.biometrics || [])
+      }
+      if (futureStatesRes.ok) {
+        const fs = await futureStatesRes.json()
+        setFutureStates(Array.isArray(fs) ? fs : [])
       }
 
       if (nutritionPrefsRes.ok) {
@@ -524,6 +542,59 @@ export default function FitnessTrackerModule() {
       setTimeout(() => setErrorMessage(''), 5000)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const generateFutureState = async () => {
+    if (bodyPhotos.length === 0) {
+      setErrorMessage('Upload at least one body photo first.')
+      setTimeout(() => setErrorMessage(''), 5000)
+      return
+    }
+    setGeneratingFuture(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+    try {
+      const response = await fetch('/api/fitness/future-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeframe_months: futureTimeframe }),
+      })
+      const json = await response.json().catch(() => ({}))
+      if (response.ok && json.future_state) {
+        setFutureStates((prev) => [json.future_state, ...prev])
+        setSuccessMessage(json.warning || `Your ${futureTimeframe}-month future state is ready!`)
+        setTimeout(() => setSuccessMessage(''), 5000)
+      } else {
+        setErrorMessage(
+          `Failed to generate future state: ${json.details || json.error || 'Unknown error'}`
+        )
+        setTimeout(() => setErrorMessage(''), 8000)
+      }
+    } catch (error) {
+      setErrorMessage(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setTimeout(() => setErrorMessage(''), 5000)
+    } finally {
+      setGeneratingFuture(false)
+    }
+  }
+
+  const handleDeleteFutureState = async (id: string) => {
+    if (!confirm('Delete this future-state image?')) return
+    try {
+      const response = await fetch(`/api/fitness/future-state?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      })
+      if (response.ok) {
+        setFutureStates((prev) => prev.filter((f) => f.id !== id))
+      } else {
+        const j = await response.json().catch(() => ({}))
+        setErrorMessage(`Failed to delete: ${j.details || j.error || 'Unknown error'}`)
+        setTimeout(() => setErrorMessage(''), 6000)
+      }
+    } catch (error) {
+      setErrorMessage(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setTimeout(() => setErrorMessage(''), 5000)
     }
   }
 
@@ -1175,6 +1246,91 @@ export default function FitnessTrackerModule() {
                               AI analysis unavailable for this photo.
                             </p>
                           )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Future State */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                  <h3 className="text-lg font-semibold flex items-center">
+                    <Sparkles className="h-5 w-5 mr-2 text-purple-600" />
+                    Future State
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={futureTimeframe}
+                      onChange={(e) => setFutureTimeframe(parseInt(e.target.value, 10))}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value={3}>3 months</option>
+                      <option value={6}>6 months</option>
+                      <option value={9}>9 months</option>
+                      <option value={12}>12 months</option>
+                    </select>
+                    <button
+                      onClick={generateFutureState}
+                      disabled={generatingFuture || bodyPhotos.length === 0}
+                      className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      {generatingFuture ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 mr-2" />
+                      )}
+                      {generatingFuture ? 'Generating…' : 'Generate Future State'}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Uses your most recent photos plus your prescribed workout and nutrition plans to
+                  project a realistic, improved physique if you stay consistent. Motivational
+                  visualization — not a guarantee.
+                </p>
+
+                {generatingFuture && (
+                  <div className="mb-4 rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-800">
+                    Generating your {futureTimeframe}-month projection — this can take up to a
+                    minute.
+                  </div>
+                )}
+
+                {bodyPhotos.length === 0 ? (
+                  <div className="text-center py-8 text-sm text-gray-500">
+                    Upload a body photo above to unlock your Future State projection.
+                  </div>
+                ) : futureStates.length === 0 ? (
+                  <div className="text-center py-8 text-sm text-gray-500">
+                    No future-state images yet. Pick a timeframe and generate one.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {futureStates.map((fs) => (
+                      <div key={fs.id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="relative aspect-[2/3] bg-gray-100 rounded-lg mb-3 overflow-hidden">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={fs.image_url}
+                            alt={`Projected physique in ${fs.timeframe_months} months`}
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
+                          <span className="absolute top-2 left-2 rounded-full bg-purple-600/90 px-2 py-0.5 text-xs font-medium text-white">
+                            +{fs.timeframe_months} months
+                          </span>
+                          <button
+                            onClick={() => handleDeleteFutureState(fs.id)}
+                            title="Delete image"
+                            className="absolute top-2 right-2 inline-flex items-center justify-center rounded-full bg-white/90 p-1.5 text-red-600 shadow hover:bg-white hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="text-xs text-gray-500 flex items-center">
+                          <Clock className="h-3 w-3 mr-1" />
+                          {new Date(fs.created_at).toLocaleString()}
                         </div>
                       </div>
                     ))}
