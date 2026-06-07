@@ -125,6 +125,7 @@ function civilDayRange(date: Date) {
       },
     },
     windowSizeDays: 1,
+    dataSourceFamily: 'users/me/dataSourceFamilies/all-sources',
   }
 }
 
@@ -200,11 +201,8 @@ export async function fetchSleepMinutes(accessToken: string, date: Date): Promis
     if (!points.length) return null
 
     const mains = points.filter((p) => p?.sleep?.metadata?.main)
-    const chosen = mains.length ? mains : points
-    const minutes = chosen.reduce(
-      (acc, p) => acc + Number(p?.sleep?.summary?.minutesAsleep ?? 0),
-      0
-    )
+    const chosen = mains.length ? [mains[mains.length - 1]] : [points[points.length - 1]]
+    const minutes = Number(chosen[0]?.sleep?.summary?.minutesAsleep ?? 0)
     return minutes > 0 ? minutes : null
   } catch {
     return null
@@ -244,11 +242,33 @@ export async function fetchRestingHeartRate(
   const day = ymd(date)
   const nextDay = nextYmd(date)
 
+  const listFilters = [
+    `daily_resting_heart_rate.date >= "${day}" AND daily_resting_heart_rate.date < "${nextDay}"`,
+    `daily_resting_heart_rate.date = "${day}"`,
+  ]
+
+  for (const expr of listFilters) {
+    try {
+      const filter = encodeURIComponent(expr)
+      const url = `${HEALTH_BASE}/users/me/dataTypes/daily-resting-heart-rate/dataPoints?filter=${filter}&pageSize=10`
+      const { data } = await axios.get(url, { headers: authHeaders(accessToken) })
+      const points: Array<Record<string, unknown>> = data?.dataPoints ?? []
+      for (let i = points.length - 1; i >= 0; i--) {
+        const bpm = restingHeartRateFromPoint(points[i])
+        if (bpm !== null) return bpm
+      }
+    } catch {
+      // try next filter shape
+    }
+  }
+
   try {
     const filter = encodeURIComponent(
       `daily_resting_heart_rate.date >= "${day}" AND daily_resting_heart_rate.date < "${nextDay}"`
     )
-    const url = `${HEALTH_BASE}/users/me/dataTypes/daily-resting-heart-rate/dataPoints?filter=${filter}`
+    const url =
+      `${HEALTH_BASE}/users/me/dataTypes/daily-resting-heart-rate/dataPoints:reconcile` +
+      `?filter=${filter}&pageSize=10`
     const { data } = await axios.get(url, { headers: authHeaders(accessToken) })
     const points: Array<Record<string, unknown>> = data?.dataPoints ?? []
     for (let i = points.length - 1; i >= 0; i--) {

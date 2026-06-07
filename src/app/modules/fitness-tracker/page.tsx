@@ -999,12 +999,6 @@ export default function FitnessTrackerModule() {
                 <p className="text-sm text-gray-600">Track your fitness journey</p>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <Zap className="h-4 w-4 text-green-600" />
-                <span>AI-Powered</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>

@@ -28,18 +28,6 @@ function isMissingColumnError(error: { message?: string } | null): boolean {
   )
 }
 
-function isUpsertFallbackError(error: { message?: string; code?: string } | null): boolean {
-  if (!error) return false
-  if (isMissingColumnError(error)) return true
-  const msg = (error.message || '').toLowerCase()
-  return (
-    msg.includes('on conflict') ||
-    msg.includes('no unique') ||
-    msg.includes('unique constraint') ||
-    error.code === '42P10'
-  )
-}
-
 function ymd(date: Date): string {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
@@ -60,81 +48,64 @@ type BiometricWriteRow = {
 
 type WriteClient = Awaited<ReturnType<typeof createClient>>
 
+function buildWritePayloads(userId: string, syncDate: string, row: BiometricWriteRow) {
+  const full: Record<string, unknown> = {
+    user_id: userId,
+    ...row,
+    sync_date: syncDate,
+    source: 'google_health',
+    fitbit_opt_in: true,
+  }
+  const { steps: _steps, ...withoutSteps } = full
+  return [full, withoutSteps]
+}
+
 async function upsertGoogleHealthDay(
   db: WriteClient,
   userId: string,
   syncDate: string,
   row: BiometricWriteRow
 ): Promise<{ ok: boolean; id?: string; error?: string }> {
-  const payloads: Record<string, unknown>[] = [
-    { user_id: userId, ...row, sync_date: syncDate },
-    { user_id: userId, ...row },
-    (() => {
-      const { source: _s, steps: _st, sync_date: _sd, ...rest } = row
-      return { user_id: userId, ...rest, sync_date: syncDate }
-    })(),
-    (() => {
-      const { source: _s, steps: _st, sync_date: _sd, ...rest } = row
-      return { user_id: userId, ...rest }
-    })(),
-  ]
+  const payloads = buildWritePayloads(userId, syncDate, row)
 
-  // Prefer stable per-day upsert when sync_date column exists.
-  for (const payload of payloads) {
-    const { data, error } = await db
-      .from('fitness_biometrics')
-      .upsert(payload, { onConflict: 'user_id,sync_date,source' })
-      .select('id')
-      .maybeSingle()
-
-    if (!error && data?.id) return { ok: true, id: data.id }
-    if (error && !isUpsertFallbackError(error)) {
-      return { ok: false, error: error.message }
-    }
-  }
-
-  // Fallback: find today's google_health row by sync_date or recorded_at window.
-  let existingId: string | undefined
-
-  const bySyncDate = await db
+  // Match any existing row for this calendar day (including prior manual-tagged syncs).
+  const { data: existing, error: findError } = await db
     .from('fitness_biometrics')
     .select('id')
     .eq('user_id', userId)
-    .eq('source', 'google_health')
     .eq('sync_date', syncDate)
+    .order('recorded_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
-  if (!bySyncDate.error && bySyncDate.data?.id) {
-    existingId = bySyncDate.data.id
-  } else if (isMissingColumnError(bySyncDate.error)) {
-    const dayStart = new Date(`${syncDate}T00:00:00`)
-    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
-    const byWindow = await db
-      .from('fitness_biometrics')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('source', 'google_health')
-      .gte('recorded_at', dayStart.toISOString())
-      .lt('recorded_at', dayEnd.toISOString())
-      .order('recorded_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (!byWindow.error) existingId = byWindow.data?.id
+  if (findError && !isMissingColumnError(findError)) {
+    return { ok: false, error: findError.message }
   }
 
-  for (const payload of payloads) {
-    const op = existingId
-      ? db.from('fitness_biometrics').update(payload).eq('id', existingId)
+  const write = async (payload: Record<string, unknown>) => {
+    const op = existing?.id
+      ? db.from('fitness_biometrics').update(payload).eq('id', existing.id)
       : db.from('fitness_biometrics').insert(payload)
-
-    const { data, error } = await op.select('id').maybeSingle()
-    if (!error && data?.id) return { ok: true, id: data.id }
-    if (error && !isUpsertFallbackError(error)) {
-      return { ok: false, error: error.message }
-    }
+    return op.select('id').maybeSingle()
   }
 
-  return { ok: false, error: 'Could not save synced biometrics row' }
+  let lastError: string | null = null
+  for (const payload of payloads) {
+    const { data, error } = await write(payload)
+    if (!error && data?.id) return { ok: true, id: data.id }
+    if (error && isMissingColumnError(error)) {
+      lastError = error.message
+      continue
+    }
+    if (error) return { ok: false, error: error.message }
+  }
+
+  return {
+    ok: false,
+    error:
+      lastError ||
+      'Could not save synced biometrics row. Run migration 075_fitness_biometrics_steps.sql.',
+  }
 }
 
 async function fetchUserBiometrics(db: WriteClient, userId: string) {
@@ -225,8 +196,9 @@ export async function POST() {
         .from('fitness_biometrics')
         .select('sleep_hours, resting_heart_rate, steps')
         .eq('user_id', user.id)
-        .eq('source', 'google_health')
         .eq('sync_date', syncDate)
+        .order('recorded_at', { ascending: false })
+        .limit(1)
         .maybeSingle()
 
       const mergedSleep = sleepHours ?? toNumber(existingRow?.sleep_hours)
