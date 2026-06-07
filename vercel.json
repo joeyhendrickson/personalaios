@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/biometrics-daily-snapshot",
-      "schedule": "59 23 * * *"
-    }
-  ]
-}

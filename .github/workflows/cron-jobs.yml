@@ -1,0 +1,30 @@
+name: Scheduled cron jobs
+
+on:
+  schedule:
+    # Biometrics energy snapshot — hourly (checks user local 11pm hour in handler)
+    - cron: '59 * * * *'
+    # Trial expiry check — twice daily (replaces vercel-cron.json)
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
+
+jobs:
+  biometrics-daily-snapshot:
+    if: github.event.schedule == '59 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run biometrics daily snapshot
+        run: |
+          curl -fsS -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://lifestacks.ai/api/cron/biometrics-daily-snapshot"
+
+  check-trials:
+    if: github.event.schedule == '0 */12 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run trial check cron
+        run: |
+          curl -fsS -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/check-trials"
