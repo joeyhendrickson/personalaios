@@ -79,7 +79,10 @@ export async function POST(request: NextRequest) {
 
     if (goalError) {
       console.error('Error creating budget goal:', goalError)
-      return NextResponse.json({ error: 'Failed to create budget goal' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Failed to create budget goal', details: goalError.message },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ goal }, { status: 201 })
