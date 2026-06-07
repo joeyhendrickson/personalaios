@@ -85,7 +85,8 @@ const modules: Module[] = [
   {
     id: 'budget-optimizer',
     title: 'Budget Advisor',
-    description: 'AI-powered budget analysis and spending optimization recommendations.',
+    description:
+      'Budget, income, and spending visibility, analysis, optimization, and recommendations',
     category: 'Finance',
     icon: <DollarSign className="h-8 w-8" />,
     status: 'available',
@@ -120,7 +121,8 @@ const modules: Module[] = [
   {
     id: 'fitness-tracker',
     title: 'Fitness Tracker',
-    description: 'Comprehensive fitness tracking with AI-powered workout recommendations.',
+    description:
+      'Comprehensive fitness tracking with recommended workout and nutrition plan based on your daily biometrics, energy level, and stress level',
     category: 'Health',
     icon: <Activity className="h-8 w-8" />,
     status: 'available',
@@ -130,7 +132,8 @@ const modules: Module[] = [
   {
     id: 'relationship-manager',
     title: 'Relationship Manager',
-    description: 'Track and optimize personal and professional relationships.',
+    description:
+      'Consider how current friendships align with your goals, projects, tasks, and gain ideas for greater outreach and connection into your relationships',
     category: 'Social',
     icon: <Users className="h-8 w-8" />,
     status: 'available',
@@ -146,7 +149,7 @@ const modules: Module[] = [
     id: 'dating-manager',
     title: 'Dating Management',
     description:
-      'Evaluate potential partners against the life you want — qualities, photos, connection, and date ideas.',
+      'Evaluate potential partners based on the life you are stacking and building — comparative analysis and date ideas to support your relationship alignment',
     category: 'Social',
     icon: <Heart className="h-8 w-8" />,
     status: 'available',
@@ -162,7 +165,7 @@ const modules: Module[] = [
     id: 'calendar-ai',
     title: 'Lifestacks Calendar',
     description:
-      'Connect Google Calendar and let AI schedule your tasks and habits into open time slots.',
+      'Connect Google Calendar and give LifeStacks a slot to schedule critical tasks and habits you select',
     category: 'Productivity',
     icon: <Calendar className="h-8 w-8" />,
     status: 'available',
@@ -172,7 +175,7 @@ const modules: Module[] = [
   {
     id: 'analytics-dashboard',
     title: 'Productivity Analyst',
-    description: 'Comprehensive analytics and insights for all your life metrics.',
+    description: 'Comprehensive view of your LifeStacks metrics.',
     category: 'Analytics',
     icon: <BarChart3 className="h-8 w-8" />,
     status: 'premium',
@@ -183,7 +186,7 @@ const modules: Module[] = [
     id: 'focus-enhancer',
     title: 'Focus Enhancer',
     description:
-      'AI-powered screen time analysis and therapeutic conversations to improve digital wellness.',
+      'Accountability and therapeutic conversations to advise how your phone app time matches up with your life goals',
     category: 'Wellness',
     icon: <Brain className="h-8 w-8" />,
     status: 'available',
@@ -199,7 +202,7 @@ const modules: Module[] = [
     id: 'dream-catcher',
     title: 'Dream Catcher',
     description:
-      'AI-powered personality and personal assessment to discover your true dreams, create your vision, and generate actionable goals.',
+      'A conversational, personal assessment to discover your desires, dreams, create your vision, and generate actionable goals you can move towards.',
     category: 'Wellness',
     icon: <Sparkles className="h-8 w-8" />,
     status: 'available',
@@ -215,7 +218,7 @@ const modules: Module[] = [
   {
     id: 'narrative-integration',
     title: 'I Am Present',
-    description: 'Make peace with the past',
+    description: 'Make peace with the past and reduce blocks to your productivity and wellbeing',
     category: 'Wellness',
     icon: <Sparkles className="h-8 w-8" />,
     status: 'available',
@@ -235,7 +238,7 @@ const modules: Module[] = [
     id: 'rewards-self-care',
     title: 'Rewards & Self-Care',
     description:
-      'Redeem points for rewards, explore partner offers, and set personal milestones for self-care.',
+      'Trade your points in for the personal rewards you determine that enhance your enjoyment and self-care',
     category: 'Wellness',
     icon: <Gift className="h-8 w-8" />,
     status: 'available',
@@ -1161,7 +1164,8 @@ export default function ModulesPage() {
                   Available Life Hacks ({filteredModules.length})
                 </h2>
                 <p className="text-sm text-gray-500">
-                  Install new life hacks to enhance your experience
+                  Install new life hacks as tools to help you complete your projects and reach your
+                  goals.
                 </p>
               </div>
             </div>

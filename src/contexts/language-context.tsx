@@ -182,8 +182,8 @@ const translations = {
     'actions.addGoal': 'Add Goal',
 
     // Modules/Life Hacks
-    'modules.title': 'Life Hacks & Business Tools',
-    'modules.subtitle': 'Powerful productivity and improvement tools',
+    'modules.title': 'Life Hacks',
+    'modules.subtitle': 'Powerful tools to complete your projects and goals',
     'modules.searchPlaceholder': 'Search modules...',
     'modules.complexityFilter': 'Filter by complexity',
     'modules.complexity.all': 'All',

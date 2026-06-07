@@ -1,17 +1,8 @@
 {
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install --legacy-peer-deps",
-  "framework": "nextjs",
-  "regions": ["iad1"],
   "crons": [
     {
-      "path": "/api/admin/refresh-catalog",
-      "schedule": "0 0 */3 * *"
-    },
-    {
-      "path": "/api/cron/refresh-ai-context",
-      "schedule": "0 3 * * *"
+      "path": "/api/cron/biometrics-daily-snapshot",
+      "schedule": "59 * * * *"
     }
   ]
 }

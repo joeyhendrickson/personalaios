@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   Footprints,
@@ -11,11 +11,25 @@ import {
   Clock,
   Watch,
   PencilLine,
+  TrendingUp,
+  Loader2,
 } from 'lucide-react'
 import type { FitnessBiometricRow } from './BiometricsSection'
 import { computeContextualEnergyLevel } from '@/lib/fitness/contextual-energy'
 import { energyModeFromScore } from '@/lib/fitness/adapt-workout-structure'
 import { isGoogleHealthRow, pickLatestBiometricsDisplay } from '@/lib/fitness/normalize-biometrics'
+
+type EnergyHistoryEntry = {
+  id: string
+  log_date: string
+  self_energy_level: number
+  stress_level: number
+  sleep_hours: number | null
+  resting_heart_rate: number | null
+  steps: number | null
+  adjustments_applied: string[]
+  recorded_at: string
+}
 
 function contextualFor(row: FitnessBiometricRow): { score: number; rationale: string[] } {
   const computed = computeContextualEnergyLevel({
@@ -52,8 +66,18 @@ const MODE_COPY: Record<'low' | 'standard' | 'high', { label: string; detail: st
 
 function sourceLabel(source?: string | null): string {
   if (source === 'google_health') return 'Google Health'
+  if (source === 'daily_snapshot') return 'Daily snapshot'
   if (source === 'manual' || !source) return 'Manual'
   return source
+}
+
+function formatLogDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 function Metric(props: { icon: React.ReactNode; label: string; value: string; accent?: string }) {
@@ -72,6 +96,9 @@ function Metric(props: { icon: React.ReactNode; label: string; value: string; ac
 
 export default function BiometricsOverview(props: { biometrics: FitnessBiometricRow[] }) {
   const { biometrics } = props
+  const [energyHistory, setEnergyHistory] = useState<EnergyHistoryEntry[]>([])
+  const [todayEnergy, setTodayEnergy] = useState<EnergyHistoryEntry | null>(null)
+  const [energyLoading, setEnergyLoading] = useState(true)
 
   const { latest, latestGoogle, latestManual } = useMemo(
     () => pickLatestBiometricsDisplay(biometrics),
@@ -79,17 +106,52 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
   )
   const latestMeta = useMemo(() => (latest ? contextualFor(latest) : null), [latest])
 
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setEnergyLoading(true)
+      try {
+        const res = await fetch('/api/fitness/energy-history')
+        if (!res.ok) return
+        const data = await res.json()
+        if (cancelled) return
+        setTodayEnergy(data.today ?? data.live ?? null)
+        const rows: EnergyHistoryEntry[] = [
+          ...(data.today ? [data.today] : data.live ? [data.live] : []),
+          ...(data.history ?? []),
+        ]
+        const seen = new Set<string>()
+        setEnergyHistory(
+          rows.filter((r) => {
+            if (seen.has(r.log_date)) return false
+            seen.add(r.log_date)
+            return true
+          })
+        )
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled) setEnergyLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [biometrics])
+
   if (!latest) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-sm text-gray-600">
         <Activity className="mx-auto mb-3 h-10 w-10 text-gray-400" />
-        Connect Google Health or log your biometrics above to see your latest readings, a
-        timestamped history, and your adapted routine for today.
+        Connect Google Health or log your biometrics above to see your latest readings, energy
+        history, and your adapted routine for today.
       </div>
     )
   }
 
-  const score = latestMeta?.score ?? 5
+  const computedEnergy = todayEnergy?.self_energy_level
+  const computedStress = todayEnergy?.stress_level
+  const score = computedEnergy ?? latestMeta?.score ?? 5
   const mode = energyModeFromScore(score)
   const modeCopy = MODE_COPY[mode]
   const recent = biometrics.slice(0, 14)
@@ -97,7 +159,6 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
   const fmt = (v: number | null | undefined, suffix = '') =>
     typeof v === 'number' ? `${v}${suffix}` : '—'
 
-  // Weekly summary of Google Health data (last 7 days, auto-synced rows only).
   const weekStart = Date.now() - 7 * 24 * 60 * 60 * 1000
   const weekRows = biometrics.filter(
     (r) => isGoogleHealthRow(r) && new Date(r.recorded_at).getTime() >= weekStart
@@ -120,9 +181,10 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
   }
   const round1 = (v: number | null) => (v === null ? '—' : `${Math.round(v * 10) / 10}`)
 
+  const energyLogRows = energyHistory.slice(0, 14)
+
   return (
     <div className="space-y-6">
-      {/* Latest reading */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
@@ -157,8 +219,8 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
             new Date(latestGoogle.recorded_at).getTime() && (
             <p className="mb-4 text-xs text-gray-500">
               Wearable metrics from your latest Google Health sync (
-              {new Date(latestGoogle.recorded_at).toLocaleString()}). Stress and energy reflect your
-              most recent manual entry.
+              {new Date(latestGoogle.recorded_at).toLocaleString()}). Stress and energy are computed
+              from your sleep, activity, habits, and LifeStacks module usage.
             </p>
           )}
 
@@ -191,12 +253,14 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
           <Metric
             icon={<Zap className="h-3.5 w-3.5" />}
             label="Stress"
-            value={fmt(latest.stress_level_1_10, '/10')}
+            value={fmt(computedStress, '/10')}
+            accent="text-orange-900"
           />
           <Metric
             icon={<Zap className="h-3.5 w-3.5" />}
             label="Self energy"
-            value={fmt(latest.energy_level_self_1_10, '/10')}
+            value={fmt(computedEnergy, '/10')}
+            accent="text-green-900"
           />
           <Metric
             icon={<Activity className="h-3.5 w-3.5" />}
@@ -207,7 +271,87 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
         </div>
       </div>
 
-      {/* This week from Google Health */}
+      {/* Energy history log */}
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50/30 p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+            <TrendingUp className="h-5 w-5 text-emerald-700" />
+            Energy history log
+          </h3>
+          <span className="text-xs text-gray-500">
+            Auto-saved daily at 11:59 PM in your timezone
+          </span>
+        </div>
+
+        {energyLoading ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading energy history…
+          </div>
+        ) : energyLogRows.length === 0 ? (
+          <p className="text-sm text-gray-600">
+            No daily snapshots yet. Scores are computed from Google Health data, LifeStacks points,
+            habits, and module activity. Your first end-of-day log appears after tonight&apos;s
+            11:59 PM snapshot.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr className="border-b border-emerald-200 text-left text-xs uppercase tracking-wide text-gray-500">
+                  <th className="py-2 pr-3 font-medium">Date</th>
+                  <th className="py-2 pr-3 font-medium">Sleep</th>
+                  <th className="py-2 pr-3 font-medium">RHR</th>
+                  <th className="py-2 pr-3 font-medium">Steps</th>
+                  <th className="py-2 pr-3 font-medium">Self energy</th>
+                  <th className="py-2 pr-3 font-medium">Stress</th>
+                  <th className="py-2 pr-3 font-medium">Factors</th>
+                </tr>
+              </thead>
+              <tbody>
+                {energyLogRows.map((row) => (
+                  <tr
+                    key={row.id + row.log_date}
+                    className="border-b border-emerald-100 text-gray-700"
+                  >
+                    <td className="py-2 pr-3 whitespace-nowrap font-medium">
+                      {formatLogDate(row.log_date)}
+                    </td>
+                    <td className="py-2 pr-3">{fmt(row.sleep_hours, 'h')}</td>
+                    <td className="py-2 pr-3">{fmt(row.resting_heart_rate)}</td>
+                    <td className="py-2 pr-3">
+                      {typeof row.steps === 'number' ? row.steps.toLocaleString() : '—'}
+                    </td>
+                    <td className="py-2 pr-3 font-medium text-green-900">
+                      {row.self_energy_level}/10
+                    </td>
+                    <td className="py-2 pr-3 font-medium text-orange-900">{row.stress_level}/10</td>
+                    <td className="py-2 pr-3 text-xs text-gray-500">
+                      {row.adjustments_applied.length > 0
+                        ? `${row.adjustments_applied.length} applied`
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {todayEnergy && todayEnergy.adjustments_applied.length > 0 && (
+          <details className="mt-4">
+            <summary className="cursor-pointer text-xs font-medium text-emerald-800">
+              Today&apos;s score factors ({todayEnergy.adjustments_applied.length})
+            </summary>
+            <ul className="mt-2 list-inside list-disc space-y-0.5 text-xs text-gray-600">
+              {todayEnergy.adjustments_applied.map((line, i) => (
+                <li key={i}>{line.replace(/_/g, ' ')}</li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
+
       {weekSummary.days > 0 && (
         <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -248,7 +392,6 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
         </div>
       )}
 
-      {/* Adapted routine for today */}
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-6">
         <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
           <Zap className="h-5 w-5 text-amber-700" />
@@ -271,10 +414,10 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
           </span>
         </div>
         <p className="mt-3 text-sm text-amber-950">{modeCopy.detail}</p>
-        {latestMeta && latestMeta.rationale.length > 0 && (
+        {todayEnergy && todayEnergy.adjustments_applied.length > 0 && (
           <ul className="mt-3 list-inside list-disc space-y-0.5 text-xs text-gray-600">
-            {latestMeta.rationale.map((line, i) => (
-              <li key={i}>{line}</li>
+            {todayEnergy.adjustments_applied.slice(0, 5).map((line, i) => (
+              <li key={i}>{line.replace(/_/g, ' ')}</li>
             ))}
           </ul>
         )}
@@ -284,7 +427,6 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
         </p>
       </div>
 
-      {/* Timestamped log history */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
           <Clock className="h-5 w-5 text-gray-500" />
@@ -316,7 +458,9 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                           isGoogleHealthRow(row)
                             ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-700'
+                            : row.source === 'daily_snapshot'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-gray-100 text-gray-700'
                         }`}
                       >
                         {sourceLabel(row.source)}

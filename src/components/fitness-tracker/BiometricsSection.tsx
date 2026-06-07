@@ -52,7 +52,6 @@ export default function BiometricsSection(props: {
 }) {
   const { onAfterSave } = props
 
-  const [sleepHours, setSleepHours] = useState('')
   const [stress, setStress] = useState('')
   const [energySelf, setEnergySelf] = useState('')
   const [notes, setNotes] = useState('')
@@ -226,7 +225,6 @@ export default function BiometricsSection(props: {
       }
 
       const body: Record<string, unknown> = {
-        sleep_hours: sleepHours === '' ? null : Number(sleepHours),
         stress_level_1_10: stress === '' ? null : Number(stress),
         energy_level_self_1_10: energySelf === '' ? null : Number(energySelf),
         iphone_summary_image_url: iphoneSummaryImageUrl,
@@ -244,7 +242,6 @@ export default function BiometricsSection(props: {
         throw new Error(j?.error || j?.details || 'Failed to save biometrics')
       }
 
-      setSleepHours('')
       setStress('')
       setEnergySelf('')
       setNotes('')
@@ -264,8 +261,9 @@ export default function BiometricsSection(props: {
         Biometrics
       </h3>
       <p className="text-sm text-gray-600 mb-4">
-        Log sleep, vitals, stress, and energy. We combine these into a contextual energy score to
-        adapt your workout recommendations (coaching only — not medical advice).
+        Log stress and energy. Sleep, steps, and resting HR come from Google Health sync. We combine
+        these into a contextual energy score to adapt your workout recommendations (coaching only —
+        not medical advice).
       </p>
 
       {/* Wearable connection */}
@@ -449,20 +447,7 @@ export default function BiometricsSection(props: {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <label className="block">
-            <span className="text-sm font-medium text-gray-700">Sleep last night (hours)</span>
-            <input
-              type="number"
-              step="0.25"
-              min={0}
-              max={24}
-              value={sleepHours}
-              onChange={(e) => setSleepHours(e.target.value)}
-              className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              placeholder="e.g. 7.5"
-            />
-          </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="block">
             <span className="text-sm font-medium text-gray-700">Stress (1–10)</span>
             <input
