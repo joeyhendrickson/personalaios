@@ -988,6 +988,37 @@ export default function FitnessTrackerModule() {
     }
   }
 
+  const deleteNutritionPlan = async (planId: string) => {
+    if (!confirm('Are you sure you want to delete this nutrition plan?')) {
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/fitness/nutrition-plans?id=${planId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        setNutritionPlans((prev) => prev.filter((plan) => plan.id !== planId))
+        if (editingNutritionPlan?.id === planId) {
+          setEditingNutritionPlan(null)
+        }
+        setSuccessMessage('Nutrition plan deleted successfully!')
+        setTimeout(() => setSuccessMessage(''), 3000)
+      } else {
+        setErrorMessage('Failed to delete nutrition plan. Please try again.')
+        setTimeout(() => setErrorMessage(''), 5000)
+      }
+    } catch (error) {
+      console.error('Error deleting nutrition plan:', error)
+      setErrorMessage('Failed to delete nutrition plan. Please try again.')
+      setTimeout(() => setErrorMessage(''), 5000)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleExerciseClick = (exerciseName: string) => {
     setSelectedExercise(exerciseName)
     setShowExerciseModal(true)
@@ -995,8 +1026,8 @@ export default function FitnessTrackerModule() {
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'body-analysis', label: 'Body Analysis', icon: Camera },
     { id: 'goals', label: 'Goals', icon: Target },
+    { id: 'body-analysis', label: 'Body Analysis', icon: Camera },
     { id: 'stats', label: 'Current Stats', icon: Activity },
     { id: 'workouts', label: 'Workouts', icon: Dumbbell },
     { id: 'nutrition', label: 'Nutrition', icon: Utensils },
@@ -1600,7 +1631,12 @@ export default function FitnessTrackerModule() {
                 onAfterSave={(synced) => refreshBiometrics(synced)}
               />
 
-              <BiometricsOverview biometrics={biometrics} />
+              <BiometricsOverview
+                biometrics={biometrics}
+                onBiometricDeleted={(id) =>
+                  setBiometrics((prev) => prev.filter((row) => row.id !== id))
+                }
+              />
 
               <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -1616,26 +1652,6 @@ export default function FitnessTrackerModule() {
                     Log Stats
                   </button>
                 </div>
-
-                {biometrics[0] &&
-                  typeof biometrics[0].contextual_energy_level_1_10 === 'number' && (
-                    <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-gray-800">
-                      <span className="font-semibold text-amber-950">
-                        Latest contextual energy:{' '}
-                      </span>
-                      {biometrics[0].contextual_energy_level_1_10}/10
-                      {typeof biometrics[0].energy_level_self_1_10 === 'number' && (
-                        <span className="text-gray-700">
-                          {' '}
-                          (you rated {biometrics[0].energy_level_self_1_10}/10)
-                        </span>
-                      )}
-                      <span className="text-gray-600">
-                        {' '}
-                        · {new Date(biometrics[0].recorded_at).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
 
                 {fitnessStats.length === 0 ? (
                   <div className="text-center py-12">
@@ -1685,16 +1701,6 @@ export default function FitnessTrackerModule() {
                                     {new Date(stat.recorded_at).toLocaleString()}
                                   </p>
                                 </div>
-                                <div className="text-center px-2 py-1 rounded bg-white border border-amber-100 min-w-[5.5rem]">
-                                  <p className="text-[10px] uppercase tracking-wide text-gray-500">
-                                    Energy
-                                  </p>
-                                  <p className="text-sm font-semibold text-amber-900">
-                                    {typeof biometrics[0]?.contextual_energy_level_1_10 === 'number'
-                                      ? `${biometrics[0].contextual_energy_level_1_10}/10`
-                                      : '—'}
-                                  </p>
-                                </div>
                                 <div className="flex space-x-1">
                                   <button
                                     onClick={() => handleEditStat(stat)}
@@ -1728,8 +1734,8 @@ export default function FitnessTrackerModule() {
                               {showStrengthGrowth && (
                                 <div className="mt-4">
                                   <p className="text-sm text-gray-600 mb-3">
-                                    Each strength exercise is plotted over time — every saved update
-                                    adds a point so you can see your progress trend.
+                                    Each strength exercise is plotted as % change from its first
+                                    logged value, so reps and weight can be compared on one chart.
                                   </p>
                                   <StrengthGrowthChart stats={typeStats} />
                                 </div>
@@ -1929,17 +1935,17 @@ export default function FitnessTrackerModule() {
                 {/* Diet description panel (appears when diet selected) */}
                 {selectedDietType && (
                   <div className="mt-5">
-                    <div className="border border-green-200 bg-green-50 rounded-lg p-4">
+                    <div className="border border-green-200 bg-green-50 module-info-panel rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <div className="text-sm font-semibold text-gray-900">
+                        <div className="module-info-panel-title text-sm font-semibold text-gray-900">
                           Foods typically included (
                           {dietTypes.find((d) => d.value === selectedDietType)?.label})
                         </div>
-                        <div className="text-xs text-gray-600">
+                        <div className="module-info-panel-subtitle text-xs text-gray-600">
                           Use this as a guide, not a rulebook.
                         </div>
                       </div>
-                      <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                      <div className="module-info-panel-body text-sm text-gray-700 whitespace-pre-wrap">
                         {selectedDietLongDescription ||
                           dietTypes.find((d) => d.value === selectedDietType)?.description ||
                           'Select a diet above to see a fuller guide to typical foods.'}
@@ -2039,6 +2045,14 @@ export default function FitnessTrackerModule() {
                               className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
                             >
                               <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteNutritionPlan(plan.id)}
+                              title="Delete plan"
+                              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </div>

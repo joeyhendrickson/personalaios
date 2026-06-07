@@ -12,6 +12,7 @@ interface SliderProps {
   step?: number
   disabled?: boolean
   className?: string
+  style?: React.CSSProperties
 }
 
 const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
@@ -25,6 +26,7 @@ const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
       step = 1,
       disabled = false,
       className,
+      style,
       ...props
     },
     ref
@@ -68,6 +70,8 @@ const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
             className
           )}
           style={{
+            ...style,
+            ['--slider-pct' as string]: `${value}%`,
             background: `linear-gradient(to right, #000000 0%, #000000 ${value}%, #e5e7eb ${value}%, #e5e7eb 100%)`,
           }}
           {...props}

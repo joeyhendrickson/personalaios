@@ -144,3 +144,45 @@ function clamp(n: unknown): number | null {
   if (Number.isNaN(x)) return null
   return Math.max(1, Math.min(10, x))
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const id = new URL(request.url).searchParams.get('id')
+    if (!id) {
+      return NextResponse.json({ error: 'Biometric row ID is required' }, { status: 400 })
+    }
+
+    const { error } = await supabase
+      .from('fitness_biometrics')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    await supabase.from('activity_logs').insert({
+      user_id: user.id,
+      activity_type: 'fitness_biometrics_deleted',
+      description: 'Removed a biometrics log entry',
+      metadata: { biometric_id: id },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'Failed to delete biometrics entry' },
+      { status: 500 }
+    )
+  }
+}

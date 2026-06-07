@@ -45,7 +45,7 @@ export function ProjectCardContent({
             <span className="shrink-0 text-2xl leading-none" aria-hidden>
               {getProjectCategoryEmoji(category)}
             </span>
-            <h3 className="min-w-0 flex-1 break-words font-semibold leading-snug text-gray-900">
+            <h3 className="min-w-0 flex-1 break-words font-semibold leading-snug text-gray-900 dark:text-white">
               {title}
             </h3>
           </div>
@@ -59,12 +59,14 @@ export function ProjectCardContent({
         {badges ? <div className="flex min-w-0 flex-wrap items-center gap-2">{badges}</div> : null}
 
         <div className="min-w-0 w-full space-y-2">
-          <p className="w-full text-sm leading-relaxed text-gray-600">{displayDescription}</p>
+          <p className="w-full text-sm leading-relaxed text-gray-600 dark:text-white/75">
+            {displayDescription}
+          </p>
           {shouldTruncate && onToggleExpand ? (
             <button
               type="button"
               onClick={onToggleExpand}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-[hsl(43_80%_62%)] dark:hover:text-[hsl(43_76%_52%)]"
             >
               {expanded ? (
                 <>

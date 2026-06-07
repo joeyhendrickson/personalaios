@@ -3,6 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
 import { env } from '@/lib/env'
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import {
+  normalizeNutritionPlanType,
+  parseAiJsonResponse,
+} from '@/lib/fitness/normalize-nutrition-plan'
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,11 +49,13 @@ export async function POST(request: NextRequest) {
       zipcode
     )
 
+    const planType = normalizeNutritionPlanType(nutritionPlan.plan_type, goals || [])
+
     // Save nutrition plan to database
     const fullRecord: Record<string, unknown> = {
       user_id: user.id,
       plan_name: nutritionPlan.plan_name,
-      plan_type: nutritionPlan.plan_type,
+      plan_type: planType,
       diet_type: diet_type,
       diet_modifications: diet_modifications || [],
       daily_calories: nutritionPlan.daily_calories,
@@ -102,7 +108,7 @@ export async function POST(request: NextRequest) {
       activity_type: 'nutrition_plan_generated',
       description: `Generated AI nutrition plan: ${nutritionPlan.plan_name}`,
       metadata: {
-        plan_type: nutritionPlan.plan_type,
+        plan_type: planType,
         daily_calories: nutritionPlan.daily_calories,
         protein_grams: nutritionPlan.protein_grams,
         meal_frequency: nutritionPlan.meal_frequency,
@@ -219,7 +225,7 @@ Create a comprehensive nutrition plan that includes:
 Format your response as JSON with this structure:
 {
   "plan_name": "Descriptive name for the plan",
-  "plan_type": "weight_loss/muscle_gain/maintenance/performance/medical",
+  "plan_type": "weight_loss",
   "daily_calories": 2000,
   "protein_grams": 150,
   "carbs_grams": 200,
@@ -277,7 +283,7 @@ Format your response as JSON with this structure:
   }
 }
 
-Be realistic about calorie needs based on goals and current stats. Focus on whole foods and balanced nutrition. Consider the user's fitness goals and body composition targets.
+Choose plan_type as exactly one of: weight_loss, muscle_gain, maintenance, performance, medical.
 `
 
   const { text: aiResponse } = await generateText({
@@ -298,7 +304,7 @@ Be realistic about calorie needs based on goals and current stats. Focus on whol
 
   let parsedResponse
   try {
-    parsedResponse = JSON.parse(aiResponse)
+    parsedResponse = parseAiJsonResponse(aiResponse) as Record<string, unknown>
   } catch {
     // If JSON parsing fails, create a basic plan
     parsedResponse = {
@@ -416,6 +422,8 @@ Be realistic about calorie needs based on goals and current stats. Focus on whol
       },
     }
   }
+
+  parsedResponse.plan_type = normalizeNutritionPlanType(parsedResponse.plan_type, goals)
 
   return parsedResponse
 }

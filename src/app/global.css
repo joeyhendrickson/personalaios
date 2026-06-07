@@ -57,6 +57,8 @@
   --chart-3: 0 0% 75%;
   --chart-4: 43 40% 28%;
   --chart-5: 0 0% 45%;
+  /* Matches Add Project: bg-black hover:bg-gray-800 */
+  --button-hover: 215 28% 17%;
 }
 
 * {
@@ -170,8 +172,13 @@ body {
 .dark .bg-blue-50\/40,
 .dark .bg-emerald-50,
 .dark .bg-emerald-50\/30,
+.dark .bg-green-50,
+.dark .bg-green-50\/40,
+.dark .bg-green-100,
+.dark .bg-green-200,
 .dark .bg-yellow-50,
-.dark .bg-yellow-100 {
+.dark .bg-yellow-100,
+.dark .bg-yellow-200 {
   background-color: hsl(43 28% 10%);
 }
 
@@ -180,9 +187,16 @@ body {
 .dark .border-amber-300,
 .dark .border-blue-200,
 .dark .border-emerald-200,
+.dark .border-green-100,
+.dark .border-green-200,
+.dark .border-green-400,
 .dark .border-yellow-200,
 .dark .border-yellow-400 {
   border-color: hsl(43 35% 28%);
+}
+
+.dark .border-green-600 {
+  border-color: hsl(43 76% 52% / 0.55);
 }
 
 .dark .text-amber-600,
@@ -197,6 +211,9 @@ body {
 .dark .text-blue-800,
 .dark .text-emerald-700,
 .dark .text-emerald-800,
+.dark .text-green-600,
+.dark .text-green-700,
+.dark .text-green-800,
 .dark .text-yellow-600,
 .dark .text-yellow-700,
 .dark .text-yellow-800 {
@@ -207,14 +224,256 @@ body {
   color: hsl(0 0% 100%);
 }
 
+/* Red accents (delete actions, warnings) */
+.dark .bg-red-50,
+.dark .bg-red-100,
+.dark .bg-red-200 {
+  background-color: hsl(0 50% 10%);
+}
+
+.dark .border-red-200,
+.dark .border-red-300,
+.dark .border-red-400 {
+  border-color: hsl(0 72% 45% / 0.45);
+}
+
+.dark .text-red-600,
+.dark .text-red-700,
+.dark .text-red-800 {
+  color: hsl(0 72% 62%);
+}
+
+/* Purple panels → gold tint in dark theme */
+.dark .bg-purple-50,
+.dark .bg-purple-100 {
+  background-color: hsl(43 28% 10%);
+}
+
+.dark .border-purple-200,
+.dark .border-purple-300 {
+  border-color: hsl(43 35% 28%);
+}
+
+.dark .text-purple-600,
+.dark .text-purple-700,
+.dark .text-purple-800 {
+  color: hsl(43 80% 62%);
+}
+
+.dark .hover\:bg-green-50:hover,
+.dark .hover\:bg-green-100:hover,
+.dark .hover\:bg-green-200:hover,
+.dark .hover\:bg-red-50:hover,
+.dark .hover\:bg-purple-50:hover,
+.dark .hover\:bg-blue-50:hover,
+.dark .hover\:bg-blue-100:hover,
+.dark .hover\:bg-orange-200:hover,
+.dark .hover\:bg-amber-50\/50:hover {
+  background-color: hsl(43 20% 12%);
+}
+
 .dark .hover\:bg-gray-50:hover,
 .dark .hover\:bg-gray-100:hover {
   background-color: hsl(43 20% 12%);
 }
 
-.dark .hover\:bg-amber-100:hover,
-.dark .hover\:bg-amber-200:hover {
-  background-color: hsl(43 30% 16%);
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-gray-50:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-gray-100:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-gray-700:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-gray-800:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-accent:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-primary\/90:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-secondary\/80:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-destructive\/90:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-muted\/60:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-muted\/80:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-purple-700:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-purple-100:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-purple-50:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-amber-700:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-amber-100:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-amber-200:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-blue-700:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-blue-100:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-blue-50:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-green-700:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-green-600:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-red-50:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-red-200:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-orange-200:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-yellow-700:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-white:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-white\/60:hover,
+.dark
+  :is(
+    button,
+    input[type='submit'],
+    input[type='button'],
+    input[type='reset']
+  ).hover\:bg-white\/70:hover {
+  background-color: hsl(var(--button-hover)) !important;
 }
 
 /* Focus rings: gold instead of blue */
@@ -226,4 +485,372 @@ body {
 .dark ::selection {
   background-color: hsl(43 76% 52% / 0.35);
   color: hsl(0 0% 100%);
+}
+
+/* Project cards — black surface, gold borders/accents, white text, red delete */
+.dark .project-card {
+  background-color: hsl(0 0% 0%) !important;
+  border-color: hsl(43 76% 52% / 0.45) !important;
+}
+.dark .project-card:hover {
+  border-color: hsl(43 76% 52% / 0.85) !important;
+  box-shadow: 0 0 0 1px hsl(43 76% 52% / 0.2);
+}
+
+.dark .project-card .project-category-badge {
+  background-color: transparent !important;
+  border-color: hsl(43 76% 52%) !important;
+  color: hsl(43 80% 65%) !important;
+}
+
+.dark .project-card .project-goal-badge {
+  background-color: transparent !important;
+  border-color: hsl(0 0% 100% / 0.35) !important;
+  color: hsl(0 0% 100%) !important;
+}
+
+.dark .project-card .project-linked-goal-badge {
+  background-color: transparent !important;
+  border-color: hsl(0 72% 55% / 0.55) !important;
+  color: hsl(0 72% 62%) !important;
+}
+
+.dark .project-card .project-complete-btn {
+  color: hsl(43 80% 62%) !important;
+}
+.dark .project-card .project-complete-btn:hover {
+  color: hsl(43 76% 52%) !important;
+}
+
+.dark .project-card .project-delete-btn {
+  color: hsl(0 72% 55%) !important;
+}
+.dark .project-card .project-delete-btn:hover {
+  color: hsl(0 72% 65%) !important;
+}
+
+.dark .project-card .project-drag-handle {
+  color: hsl(43 76% 52% / 0.7) !important;
+}
+.dark .project-card .project-drag-handle:hover {
+  background-color: hsl(var(--button-hover)) !important;
+  color: hsl(43 80% 62%) !important;
+}
+
+.dark .project-card .project-view-details:hover {
+  background-color: hsl(var(--button-hover)) !important;
+  color: hsl(43 80% 62%) !important;
+}
+
+.dark .project-progress-slider input[type='range'] {
+  background: linear-gradient(
+    to right,
+    hsl(43 76% 52%) 0%,
+    hsl(43 76% 52%) var(--slider-pct, 0%),
+    hsl(0 0% 18%) var(--slider-pct, 0%),
+    hsl(0 0% 18%) 100%
+  ) !important;
+}
+.dark .project-progress-slider input[type='range']::-webkit-slider-thumb {
+  background: hsl(43 76% 52%) !important;
+  border-color: hsl(0 0% 100%) !important;
+}
+.dark .project-progress-slider input[type='range']::-moz-range-thumb {
+  background: hsl(43 76% 52%) !important;
+  border-color: hsl(0 0% 100%) !important;
+}
+.dark .project-card .project-progress-fill {
+  background-color: hsl(43 76% 52%) !important;
+}
+
+.dark .dashboard-cascade-section {
+  background-color: hsl(0 0% 0%) !important;
+  border-color: hsl(43 76% 52% / 0.35) !important;
+}
+.dark .dashboard-cascade-section .dashboard-cascade-header:hover {
+  background-color: hsl(43 15% 6%) !important;
+}
+
+/* Vision section — solid black surface, gold accents, legible white text */
+.dark .vision-section {
+  background: hsl(0 0% 0%) !important;
+  background-image: none !important;
+  border-color: hsl(43 76% 52% / 0.45) !important;
+}
+
+.dark .vision-section .vision-section-icon-wrap {
+  background-color: hsl(43 18% 8%) !important;
+  border: 1px solid hsl(43 76% 52% / 0.35);
+}
+
+.dark .vision-section .vision-section-icon,
+.dark .vision-section .vision-edit-btn,
+.dark .vision-section .vision-text-btn {
+  color: hsl(43 80% 62%) !important;
+}
+
+.dark .vision-section .vision-edit-btn:hover,
+.dark .vision-section .vision-text-btn:hover {
+  color: hsl(43 76% 52%) !important;
+}
+
+.dark .vision-section .vision-section-title,
+.dark .vision-section .vision-section-body {
+  color: hsl(0 0% 100%) !important;
+}
+
+.dark .vision-section .vision-section-subtitle,
+.dark .vision-section .vision-section-muted {
+  color: hsl(0 0% 72%) !important;
+}
+
+.dark .vision-section .vision-update-banner {
+  background-color: hsl(43 14% 8%) !important;
+  border-color: hsl(43 76% 52% / 0.45) !important;
+}
+
+.dark .vision-section .vision-update-banner-text {
+  color: hsl(43 80% 65%) !important;
+}
+
+.dark .vision-section .vision-primary-btn {
+  background-color: hsl(43 76% 52%) !important;
+  color: hsl(0 0% 0%) !important;
+}
+
+.dark .vision-section .vision-primary-btn:hover {
+  background-color: hsl(var(--button-hover)) !important;
+}
+
+.dark .vision-section .vision-secondary-btn:hover {
+  background-color: hsl(var(--button-hover)) !important;
+  border-color: hsl(43 76% 52% / 0.45) !important;
+}
+
+.dark .vision-section .vision-textarea {
+  background-color: hsl(0 0% 6%) !important;
+  color: hsl(0 0% 100%) !important;
+  border-color: hsl(43 76% 52% / 0.35) !important;
+}
+
+.dark .vision-section .vision-textarea:focus {
+  --tw-ring-color: hsl(43 76% 52%);
+}
+
+.dark .vision-section .vision-error {
+  background-color: hsl(0 50% 8%) !important;
+  border-color: hsl(0 72% 45% / 0.55) !important;
+  color: hsl(0 72% 68%) !important;
+}
+
+.dark .vision-section .vision-secondary-btn {
+  background-color: transparent !important;
+  border-color: hsl(0 0% 100% / 0.35) !important;
+  color: hsl(0 0% 100%) !important;
+}
+
+.dark .vision-section .vision-text-btn:hover {
+  background-color: hsl(var(--button-hover)) !important;
+}
+
+/* Task cards — match project card dark palette */
+.dark .task-card {
+  background-color: hsl(0 0% 0%) !important;
+  border-color: hsl(43 76% 52% / 0.45) !important;
+}
+.dark .task-card:hover {
+  border-color: hsl(43 76% 52% / 0.85) !important;
+  box-shadow: 0 0 0 1px hsl(43 76% 52% / 0.2);
+}
+
+.dark .task-card .task-card-title {
+  color: hsl(0 0% 100%) !important;
+}
+.dark .task-card .task-card-title.line-through {
+  color: hsl(0 0% 55%) !important;
+}
+
+.dark .task-card .task-card-description {
+  color: hsl(0 0% 78%) !important;
+}
+
+.dark .task-card .task-linked-project {
+  color: hsl(0 72% 62%) !important;
+}
+
+.dark .task-card .task-points-badge {
+  background-color: transparent !important;
+  border-color: hsl(43 76% 52%) !important;
+  color: hsl(43 80% 65%) !important;
+}
+
+.dark .task-card .task-edit-btn,
+.dark .task-card .task-convert-btn,
+.dark .task-card .task-move-top:not(:disabled) {
+  color: hsl(43 80% 62%) !important;
+}
+.dark .task-card .task-edit-btn:hover,
+.dark .task-card .task-convert-btn:hover,
+.dark .task-card .task-move-top:not(:disabled):hover {
+  color: hsl(43 76% 52%) !important;
+  background-color: hsl(var(--button-hover)) !important;
+  border-color: hsl(43 76% 52% / 0.45) !important;
+}
+
+.dark .task-card .task-delete-btn {
+  color: hsl(0 72% 55%) !important;
+}
+.dark .task-card .task-delete-btn:hover {
+  color: hsl(0 72% 65%) !important;
+  background-color: hsl(var(--button-hover)) !important;
+}
+
+.dark .task-card .task-priority-row {
+  border-color: hsl(43 76% 52% / 0.25) !important;
+}
+
+.dark .task-card .task-priority-label {
+  color: hsl(0 0% 62%) !important;
+}
+
+.dark .task-card .task-priority-btn {
+  background-color: transparent !important;
+  border-color: hsl(0 0% 100% / 0.25) !important;
+  color: hsl(0 0% 78%) !important;
+}
+.dark .task-card .task-priority-btn:hover {
+  border-color: hsl(43 76% 52% / 0.45) !important;
+  background-color: hsl(var(--button-hover)) !important;
+}
+
+.dark .task-card .task-priority-btn-active-high {
+  background-color: hsl(0 50% 10%) !important;
+  border-color: hsl(0 72% 55% / 0.55) !important;
+  color: hsl(0 72% 68%) !important;
+}
+
+.dark .task-card .task-priority-btn-active-med {
+  background-color: hsl(43 20% 10%) !important;
+  border-color: hsl(43 76% 52% / 0.55) !important;
+  color: hsl(43 80% 65%) !important;
+}
+
+.dark .task-card .task-priority-btn-active-low {
+  background-color: hsl(0 0% 8%) !important;
+  border-color: hsl(0 0% 100% / 0.35) !important;
+  color: hsl(0 0% 100%) !important;
+}
+
+.dark .task-card .task-checkbox:not(.border-green-500) {
+  border-color: hsl(43 76% 52% / 0.55) !important;
+  background-color: transparent !important;
+}
+.dark .task-card .task-checkbox:not(.border-green-500):hover {
+  border-color: hsl(43 76% 52%) !important;
+  background-color: hsl(var(--button-hover)) !important;
+}
+
+.dark .task-card .task-checkbox.border-green-500 {
+  border-color: hsl(43 76% 52%) !important;
+  background-color: hsl(43 76% 52%) !important;
+}
+
+/* Accomplishment cards — subtle gold tint + left accent (distinct from solid-black project/task cards) */
+.dark .accomplishment-card {
+  background-color: hsl(43 14% 6%) !important;
+  border-color: hsl(43 76% 52% / 0.28) !important;
+  border-left: 3px solid hsl(43 76% 52% / 0.8) !important;
+}
+.dark .accomplishment-card:hover {
+  background-color: hsl(43 16% 9%) !important;
+  border-color: hsl(43 76% 52% / 0.42) !important;
+  border-left-color: hsl(43 76% 52%) !important;
+}
+
+.dark .accomplishment-card .accomplishment-title {
+  color: hsl(0 0% 100%) !important;
+}
+
+.dark .accomplishment-card .accomplishment-time {
+  color: hsl(0 0% 68%) !important;
+}
+
+.dark .accomplishment-card .accomplishment-points {
+  background-color: hsl(43 18% 10%) !important;
+  border-color: hsl(43 76% 52% / 0.5) !important;
+  color: hsl(43 80% 65%) !important;
+}
+
+.dark .accomplishment-card-detail .accomplishment-icon-wrap {
+  background-color: hsl(43 16% 10%) !important;
+  border: 1px solid hsl(43 76% 52% / 0.35);
+}
+
+.dark .accomplishments-view-all {
+  color: hsl(43 80% 62%) !important;
+}
+.dark .accomplishments-view-all:hover {
+  color: hsl(43 76% 52%) !important;
+  background-color: hsl(var(--button-hover)) !important;
+}
+
+/* Life Hacks hub — module listing cards */
+.dark .life-hack-card {
+  background-color: hsl(0 0% 0%) !important;
+  border: 1px solid hsl(43 76% 52% / 0.45) !important;
+}
+
+.dark .life-hack-card-active {
+  border-width: 2px !important;
+  border-color: hsl(43 76% 52% / 0.65) !important;
+}
+
+.dark .life-hack-card-icon {
+  background-color: hsl(43 18% 8%) !important;
+  color: hsl(43 80% 62%) !important;
+  border: 1px solid hsl(43 76% 52% / 0.35);
+}
+
+.dark .life-hack-card-title {
+  color: hsl(0 0% 100%) !important;
+}
+
+.dark .life-hack-badge-active {
+  background-color: hsl(43 18% 10%) !important;
+  border: 1px solid hsl(43 76% 52% / 0.5) !important;
+  color: hsl(43 80% 65%) !important;
+}
+
+/* Life Hacks modules — primary action buttons (black + gold border) */
+.dark button.bg-green-600,
+.dark button.bg-blue-600,
+.dark button.bg-purple-600,
+.dark button.bg-orange-600,
+.dark button.bg-yellow-600 {
+  background-color: hsl(0 0% 0%) !important;
+  color: hsl(0 0% 100%) !important;
+  border: 1px solid hsl(43 76% 52% / 0.45) !important;
+}
+
+/* Info / diet guide panels inside life hack modules */
+.dark .module-info-panel {
+  background-color: hsl(43 18% 8%) !important;
+  border-color: hsl(43 76% 52% / 0.35) !important;
+}
+
+.dark .module-info-panel .module-info-panel-title {
+  color: hsl(0 0% 100%) !important;
+}
+
+.dark .module-info-panel .module-info-panel-body,
+.dark .module-info-panel .module-info-panel-subtitle {
+  color: hsl(0 0% 78%) !important;
+}
+
+/* All buttons: same hover as Add Project (gray-800) */
+.dark
+  :is(button, input[type='submit'], input[type='button'], input[type='reset']):hover:not(
+    :disabled
+  ) {
+  background-color: hsl(var(--button-hover)) !important;
 }

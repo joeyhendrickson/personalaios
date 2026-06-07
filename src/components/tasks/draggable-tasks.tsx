@@ -93,13 +93,13 @@ function TaskItem({
       onClick={() => onSetPriority(task.id, p)}
       disabled={isReordering}
       aria-pressed={current === p}
-      className={`px-2 py-1 text-xs font-medium rounded-md border transition-colors disabled:opacity-50 ${
+      className={`task-priority-btn px-2 py-1 text-xs font-medium rounded-md border transition-colors disabled:opacity-50 ${
         current === p
           ? p === 'high'
-            ? 'border-red-300 bg-red-50 text-red-800'
+            ? 'task-priority-btn-active-high border-red-300 bg-red-50 text-red-800'
             : p === 'medium'
-              ? 'border-amber-300 bg-amber-50 text-amber-900'
-              : 'border-slate-300 bg-slate-100 text-slate-800'
+              ? 'task-priority-btn-active-med border-amber-300 bg-amber-50 text-amber-900'
+              : 'task-priority-btn-active-low border-slate-300 bg-slate-100 text-slate-800'
           : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
       }`}
     >
@@ -109,66 +109,66 @@ function TaskItem({
 
   return (
     <div
-      className={`bg-white/50 rounded-lg p-4 border transition-all duration-200 hover:shadow-sm ${
+      className={`task-card rounded-lg border p-4 transition-all duration-200 hover:shadow-sm ${
         task.status === 'completed'
           ? 'border-green-200 bg-green-50/50'
-          : 'border-gray-200 hover:border-blue-200'
+          : 'border-gray-200 bg-white/50 hover:border-blue-200'
       } ${isReordering ? 'opacity-50' : ''}`}
     >
       <div className="flex items-start gap-3">
         <button
           onClick={() => onToggleTask(task.id)}
-          className={`w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-all duration-200 flex-shrink-0 ${
+          className={`task-checkbox mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 transition-all duration-200 ${
             task.status === 'completed'
-              ? 'bg-green-500 border-green-500 hover:bg-green-600'
+              ? 'border-green-500 bg-green-500 hover:bg-green-600'
               : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
           }`}
         >
           {task.status === 'completed' && <CheckCircle className="h-3 w-3 text-white" />}
         </button>
 
-        <div className="flex-1 min-w-0 space-y-3">
+        <div className="min-w-0 flex-1 space-y-3">
           <div className="min-w-0">
             <h4
-              className={`w-full font-medium text-left break-words ${
+              className={`task-card-title w-full break-words text-left font-medium ${
                 task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
               }`}
             >
               {task.title}
             </h4>
-            <p className="w-full text-sm text-gray-600 mt-1 text-left leading-relaxed break-words">
+            <p className="task-card-description mt-1 w-full break-words text-left text-sm leading-relaxed text-gray-600">
               {task.description || 'No description'}
             </p>
             {task.weekly_goal?.title && (
-              <p className="w-full text-xs text-blue-600 mt-1 text-left break-words">
+              <p className="task-linked-project mt-1 w-full break-words text-left text-xs text-blue-600">
                 📋 {task.weekly_goal.title}
               </p>
             )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-700">
-              <Star className="h-3 w-3 mr-1" />
+            <span className="task-points-badge inline-flex items-center rounded-full border bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
+              <Star className="mr-1 h-3 w-3" />
               {task.points_value || 0}
             </span>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => onEditTask(task)}
-                className="text-gray-500 hover:text-gray-700 touch-manipulation"
+                className="task-edit-btn touch-manipulation text-gray-500 hover:text-gray-700"
                 title="Edit Task"
               >
                 <Settings className="h-4 w-4" />
               </button>
               <button
                 onClick={() => onConvertToGoal(task)}
-                className="text-blue-500 hover:text-blue-700 touch-manipulation"
+                className="task-convert-btn touch-manipulation text-blue-500 hover:text-blue-700"
                 title="Convert to Goal"
               >
                 <Target className="h-4 w-4" />
               </button>
               <button
                 onClick={() => onDeleteTask(task.id)}
-                className="text-red-500 hover:text-red-700 touch-manipulation"
+                className="task-delete-btn touch-manipulation text-red-500 hover:text-red-700"
                 title="Delete Task"
               >
                 <Trash2 className="h-4 w-4" />
@@ -176,16 +176,18 @@ function TaskItem({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-2">
-            <span className="text-[10px] uppercase tracking-wide text-gray-500">Priority</span>
+          <div className="task-priority-row flex flex-wrap items-center gap-2 border-t border-gray-100 pt-2">
+            <span className="task-priority-label text-[10px] uppercase tracking-wide text-gray-500">
+              Priority
+            </span>
             <div className="flex flex-wrap items-center gap-1">
               <button
                 type="button"
                 onClick={() => onMoveToTop(task.id)}
                 disabled={index === 0 || isReordering}
-                className={`p-1 rounded-md border transition-colors touch-manipulation ${
+                className={`task-move-top touch-manipulation rounded-md border p-1 transition-colors ${
                   index === 0 || isReordering
-                    ? 'border-transparent text-gray-300 cursor-not-allowed'
+                    ? 'cursor-not-allowed border-transparent text-gray-300'
                     : 'border-gray-200 text-gray-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700'
                 }`}
                 title="Move to top"

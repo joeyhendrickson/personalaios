@@ -43,7 +43,7 @@ function SortableProjectCard({
   const dragHandle = (
     <button
       type="button"
-      className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 cursor-grab active:cursor-grabbing touch-none"
+      className="project-drag-handle rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 cursor-grab active:cursor-grabbing touch-none"
       aria-label="Drag to reorder project"
       {...attributes}
       {...listeners}

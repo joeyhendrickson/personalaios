@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       try {
         const { data: currentGoals } = await supabase
           .from('goals')
-          .select('title, status')
+          .select('id, title, status')
           .eq('user_id', user.id)
         await supabase.from('user_vision').upsert(
           {

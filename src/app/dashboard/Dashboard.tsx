@@ -233,18 +233,18 @@ const CascadingSection = ({
 }: CascadingSectionProps) => {
   return (
     <div
-      className={`bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg ${className}`}
+      className={`dashboard-cascade-section bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg ${className}`}
     >
       {/* Title Row - Double Click to Toggle */}
       <div
-        className="p-6 pb-4 cursor-pointer select-none hover:bg-gray-50/50 transition-colors duration-200"
+        className="dashboard-cascade-header p-6 pb-4 cursor-pointer select-none hover:bg-gray-50/50 transition-colors duration-200"
         onDoubleClick={onToggle}
         title="Double-click to expand/collapse"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             {icon}
-            <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">{title}</h2>
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-xs text-gray-500">{t('actions.doubleClickToCascade')}</span>
@@ -2650,7 +2650,7 @@ export default function Dashboard() {
                           return (
                             <div
                               key={goal.id}
-                              className="w-full min-w-0 rounded-xl border border-green-200 bg-green-50 p-4 transition-all duration-200 hover:shadow-md sm:p-6"
+                              className="project-card w-full min-w-0 rounded-xl border border-green-200 bg-green-50 p-4 transition-all duration-200 hover:shadow-md sm:p-6"
                             >
                               <ProjectCardContent
                                 category={(goal as any).category}
@@ -2666,10 +2666,10 @@ export default function Dashboard() {
                                 viewDetailsLabel={t('projects.viewDetails')}
                                 badges={
                                   <>
-                                    <span className="inline-flex items-center rounded-full border border-green-200 px-2.5 py-0.5 text-xs font-semibold capitalize text-green-700">
+                                    <span className="project-category-badge inline-flex items-center rounded-full border border-green-200 px-2.5 py-0.5 text-xs font-semibold capitalize text-green-700">
                                       {(goal as any).category}
                                     </span>
-                                    <span className="inline-flex items-center rounded-full border border-green-200 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                                    <span className="project-goal-badge inline-flex items-center rounded-full border border-green-200 px-2.5 py-0.5 text-xs font-semibold text-green-700">
                                       Completed
                                     </span>
                                   </>
@@ -2681,9 +2681,9 @@ export default function Dashboard() {
                                     <span>Progress</span>
                                     <span>100%</span>
                                   </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-white/15">
                                     <div
-                                      className="bg-green-500 h-2 rounded-full"
+                                      className="project-progress-fill bg-green-500 h-2 rounded-full"
                                       style={{ width: '100%' }}
                                     ></div>
                                   </div>
@@ -2748,7 +2748,7 @@ export default function Dashboard() {
                               other: '#6B7280',
                             }
                             return (
-                              <div className="w-full min-w-0 rounded-xl border border-gray-200 bg-white/50 p-4 transition-all duration-200 hover:shadow-md sm:p-6">
+                              <div className="project-card w-full min-w-0 rounded-xl border border-gray-200 bg-white/50 p-4 transition-all duration-200 hover:shadow-md sm:p-6">
                                 <ProjectCardContent
                                   category={(goal as any).category}
                                   title={(goal as any).title}
@@ -2767,7 +2767,7 @@ export default function Dashboard() {
                                       <button
                                         type="button"
                                         onClick={() => convertGoalToTask(goal)}
-                                        className="text-green-500 hover:text-green-700 touch-manipulation"
+                                        className="project-complete-btn text-green-500 hover:text-green-700 touch-manipulation"
                                         title="Convert to Task"
                                       >
                                         <CheckCircle className="h-4 w-4" />
@@ -2775,7 +2775,7 @@ export default function Dashboard() {
                                       <button
                                         type="button"
                                         onClick={() => deleteGoal(goal.id)}
-                                        className="text-red-500 hover:text-red-700 touch-manipulation"
+                                        className="project-delete-btn text-red-500 hover:text-red-700 touch-manipulation"
                                         title="Delete Goal"
                                       >
                                         <Trash2 className="h-4 w-4" />
@@ -2784,12 +2784,12 @@ export default function Dashboard() {
                                   }
                                   badges={
                                     <>
-                                      <span className="inline-flex items-center rounded-full border border-blue-200 px-2.5 py-0.5 text-xs font-semibold capitalize text-blue-700">
+                                      <span className="project-category-badge inline-flex items-center rounded-full border border-blue-200 px-2.5 py-0.5 text-xs font-semibold capitalize text-blue-700">
                                         {(goal as any).category}
                                       </span>
                                       {linkedGoalTitle ? (
                                         <span
-                                          className="inline-flex max-w-full items-center rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-800"
+                                          className="project-linked-goal-badge inline-flex max-w-full items-center rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-800"
                                           title={`Linked goal: ${linkedGoalTitle}`}
                                         >
                                           <span className="truncate">🎯 {linkedGoalTitle}</span>
@@ -2816,7 +2816,7 @@ export default function Dashboard() {
                                   </div>
 
                                   {/* Interactive Progress Slider */}
-                                  <div className="space-y-2">
+                                  <div className="space-y-2 project-progress-slider">
                                     <div className="flex items-center justify-between text-xs text-gray-500">
                                       <span>Progress</span>
                                       <span>{goalProgress}%</span>
@@ -2851,7 +2851,7 @@ export default function Dashboard() {
                                     </span>
                                     <button
                                       onClick={() => openEditGoal(goal)}
-                                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 rounded-md px-3 text-xs"
+                                      className="project-view-details inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 rounded-md px-3 text-xs dark:text-white"
                                     >
                                       {t('projects.viewDetails')}{' '}
                                       <ChevronRight className="h-3 w-3 ml-1" />
@@ -2924,25 +2924,25 @@ export default function Dashboard() {
                         completedTasks.map((task) => (
                           <div
                             key={task.id}
-                            className="bg-green-50 rounded-lg p-4 border border-green-200 transition-all duration-200"
+                            className="task-card rounded-lg border border-green-200 bg-green-50 p-4 transition-all duration-200"
                           >
                             <div className="flex items-start gap-3">
-                              <div className="flex-shrink-0 mt-1">
-                                <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                                  <CheckCircle className="w-3 h-3 text-white" />
+                              <div className="mt-1 shrink-0">
+                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500">
+                                  <CheckCircle className="h-3 w-3 text-white" />
                                 </div>
                               </div>
-                              <div className="flex-1 min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <div className="flex items-start justify-between gap-2">
-                                  <h3 className="min-w-0 flex-1 break-words font-medium text-gray-900 line-through">
+                                  <h3 className="task-card-title min-w-0 flex-1 break-words font-medium text-gray-900 line-through">
                                     {task.title}
                                   </h3>
-                                  <span className="inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-green-200 text-green-700">
+                                  <span className="task-points-badge inline-flex shrink-0 items-center rounded-full border border-green-200 px-2.5 py-0.5 text-xs font-semibold text-green-700">
                                     Completed
                                   </span>
                                 </div>
                                 {task.description && (
-                                  <p className="w-full text-sm text-gray-600 mt-1 line-through break-words">
+                                  <p className="task-card-description mt-1 w-full break-words text-sm text-gray-600 line-through">
                                     {task.description}
                                   </p>
                                 )}
@@ -3033,7 +3033,7 @@ export default function Dashboard() {
                   <p className="text-sm text-gray-600 mb-4">{t('accomplishments.description')}</p>
                   <button
                     onClick={() => setShowAccomplishmentsHistory(true)}
-                    className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    className="accomplishments-view-all text-xs font-medium text-blue-600 hover:text-blue-800"
                   >
                     {t('common.view')} {t('common.all')}
                   </button>
@@ -3127,19 +3127,19 @@ export default function Dashboard() {
                         return (
                           <div
                             key={(accomplishment as any).id}
-                            className="flex items-center space-x-3 p-3 bg-white/50 rounded-lg border border-gray-200 hover:bg-white/70 transition-colors"
+                            className="accomplishment-card flex items-center space-x-3 rounded-lg border border-gray-200 bg-white/50 p-3 transition-colors hover:bg-white/70"
                           >
                             <span className="text-lg">{getIcon()}</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 text-sm truncate">
+                            <div className="min-w-0 flex-1">
+                              <p className="accomplishment-title truncate text-sm font-medium text-gray-900">
                                 {getTitle() as any}
                               </p>
-                              <p className="text-xs text-gray-600">
+                              <p className="accomplishment-time text-xs text-gray-600">
                                 {getTimeAgo((accomplishment as any).created_at)}
                               </p>
                             </div>
-                            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-green-100 text-green-700">
-                              <Star className="h-3 w-3 mr-1" />+{(accomplishment as any).points}
+                            <span className="accomplishment-points inline-flex items-center rounded-full border bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2">
+                              <Star className="mr-1 h-3 w-3" />+{(accomplishment as any).points}
                             </span>
                           </div>
                         )

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { normalizeNutritionPlanType } from '@/lib/fitness/normalize-nutrition-plan'
 
 export async function GET() {
   try {
@@ -70,14 +71,15 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`Creating nutrition plan for user: ${user.id}`)
-    console.log(`Plan: ${plan_name}, Type: ${plan_type}, Calories: ${daily_calories}`)
+    const normalizedPlanType = normalizeNutritionPlanType(plan_type)
+    console.log(`Plan: ${plan_name}, Type: ${normalizedPlanType}, Calories: ${daily_calories}`)
 
     const { data: plan, error } = await supabase
       .from('nutrition_plans')
       .insert({
         user_id: user.id,
         plan_name,
-        plan_type,
+        plan_type: normalizedPlanType,
         diet_type,
         diet_modifications: diet_modifications || [],
         daily_calories,
@@ -104,7 +106,7 @@ export async function POST(request: NextRequest) {
       activity_type: 'nutrition_plan_created',
       description: `Created nutrition plan: ${plan_name}`,
       metadata: {
-        plan_type,
+        plan_type: normalizedPlanType,
         daily_calories,
         meal_frequency: meal_frequency || 3,
       },
@@ -140,6 +142,10 @@ export async function PUT(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: 'Plan ID is required' }, { status: 400 })
+    }
+
+    if (typeof updates.plan_type === 'string') {
+      updates.plan_type = normalizeNutritionPlanType(updates.plan_type)
     }
 
     const { data: plan, error } = await supabase

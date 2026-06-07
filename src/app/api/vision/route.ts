@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { computeGoalsSignature } from '@/lib/vision/goals-signature'
+import {
+  computeGoalsSignature,
+  goalsHaveNewAdditionsSinceSignature,
+} from '@/lib/vision/goals-signature'
 
 async function loadGoalsSignature(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
 ) {
-  const { data: goals } = await supabase.from('goals').select('title, status').eq('user_id', userId)
+  const { data: goals } = await supabase
+    .from('goals')
+    .select('id, title, status')
+    .eq('user_id', userId)
   const activeGoals = (goals || []).filter((g) => (g.status || '').toLowerCase() !== 'completed')
   return {
     signature: computeGoalsSignature(goals || []),
+    goals: goals || [],
     hasGoals: (goals || []).length > 0,
     activeGoalCount: activeGoals.length,
   }
@@ -29,18 +36,31 @@ export async function GET() {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  const { signature, hasGoals, activeGoalCount } = await loadGoalsSignature(supabase, user.id)
+  const { signature, goals, hasGoals, activeGoalCount } = await loadGoalsSignature(
+    supabase,
+    user.id
+  )
 
   const visionStatement = row?.vision_statement?.trim() || ''
-  const storedSignature = row?.goals_signature ?? null
+  let storedSignature = row?.goals_signature ?? null
 
-  // Recommend an AI update only when there's a saved vision AND the goals have
-  // changed since it was last aligned (and there are goals to align to).
+  // Migrate legacy title-based signatures to goal-id snapshots (no update prompt).
+  if (
+    storedSignature &&
+    storedSignature.includes('|') &&
+    visionStatement.length > 0 &&
+    signature.length > 0
+  ) {
+    await supabase.from('user_vision').update({ goals_signature: signature }).eq('user_id', user.id)
+    storedSignature = signature
+  }
+
+  // Recommend an update only when a new goal was added since the vision was aligned.
   const needsUpdate =
     visionStatement.length > 0 &&
     hasGoals &&
     storedSignature !== null &&
-    storedSignature !== signature
+    goalsHaveNewAdditionsSinceSignature(storedSignature, goals)
 
   return NextResponse.json({
     vision_statement: visionStatement,

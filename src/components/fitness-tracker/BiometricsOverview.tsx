@@ -14,6 +14,7 @@ import {
   Loader2,
   X,
   Info,
+  Minus,
 } from 'lucide-react'
 import type { FitnessBiometricRow } from './BiometricsSection'
 import { computeContextualEnergyLevel } from '@/lib/fitness/contextual-energy'
@@ -77,6 +78,10 @@ function sourceLabel(source?: string | null): string {
   return source
 }
 
+function isAutomatedBiometricLogRow(row: FitnessBiometricRow): boolean {
+  return row.source === 'google_health' || row.source === 'daily_snapshot'
+}
+
 function formatLogDate(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number)
   return new Date(y, m - 1, d).toLocaleDateString(undefined, {
@@ -130,12 +135,17 @@ function ClickableScoreMetric(props: {
   )
 }
 
-export default function BiometricsOverview(props: { biometrics: FitnessBiometricRow[] }) {
-  const { biometrics } = props
+export default function BiometricsOverview(props: {
+  biometrics: FitnessBiometricRow[]
+  onBiometricDeleted?: (id: string) => void
+}) {
+  const { biometrics, onBiometricDeleted } = props
   const [energyHistory, setEnergyHistory] = useState<EnergyHistoryEntry[]>([])
   const [todayEnergy, setTodayEnergy] = useState<EnergyHistoryEntry | null>(null)
   const [energyLoading, setEnergyLoading] = useState(true)
   const [scoreReason, setScoreReason] = useState<'stress' | 'energy' | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState('')
 
   const { latest, latestGoogle } = useMemo(
     () => pickLatestBiometricsDisplay(biometrics),
@@ -143,6 +153,38 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
   )
   const latestMeta = useMemo(() => (latest ? contextualFor(latest) : null), [latest])
   const weekSummary = useMemo(() => summarizeWeeklyGoogleHealth(biometrics, 7), [biometrics])
+  const automatedBiometrics = useMemo(
+    () => biometrics.filter(isAutomatedBiometricLogRow),
+    [biometrics]
+  )
+  const logHistory = useMemo(() => automatedBiometrics.slice(0, 14), [automatedBiometrics])
+
+  const handleDeleteLogRow = async (row: FitnessBiometricRow) => {
+    if (
+      !confirm(
+        'Remove this log entry? Weekly averages and latest biometrics will update to reflect the remaining data.'
+      )
+    ) {
+      return
+    }
+
+    setDeletingId(row.id)
+    setDeleteError('')
+    try {
+      const res = await fetch(`/api/fitness/biometrics?id=${encodeURIComponent(row.id)}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j.details || j.error || 'Failed to delete entry')
+      }
+      onBiometricDeleted?.(row.id)
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete entry')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -194,7 +236,6 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
   const score = computedEnergy ?? latestMeta?.score ?? 5
   const mode = energyModeFromScore(score)
   const modeCopy = MODE_COPY[mode]
-  const recent = biometrics.slice(0, 14)
 
   const fmt = (v: number | null | undefined, suffix = '') =>
     typeof v === 'number' ? `${v}${suffix}` : '—'
@@ -368,7 +409,7 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
               <Watch className="h-5 w-5 text-blue-600" />
-              This week from Google Health
+              Weekly Average
             </h3>
             <span className="text-xs text-gray-500">
               {weekSummary.nightsWithSleep} night{weekSummary.nightsWithSleep === 1 ? '' : 's'} with
@@ -444,61 +485,89 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
           <Clock className="h-5 w-5 text-gray-500" />
           Biometrics log history
         </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
-                <th className="py-2 pr-3 font-medium">When</th>
-                <th className="py-2 pr-3 font-medium">Source</th>
-                <th className="py-2 pr-3 font-medium">Sleep</th>
-                <th className="py-2 pr-3 font-medium">RHR</th>
-                <th className="py-2 pr-3 font-medium">Steps</th>
-                <th className="py-2 pr-3 font-medium">BP</th>
-                <th className="py-2 pr-3 font-medium">Energy</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recent.map((row) => {
-                const ctx = contextualFor(row).score
-                return (
-                  <tr key={row.id} className="border-b border-gray-100 text-gray-700">
-                    <td className="py-2 pr-3 whitespace-nowrap">
-                      {new Date(row.recorded_at).toLocaleString()}
-                    </td>
-                    <td className="py-2 pr-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          isGoogleHealthRow(row)
-                            ? 'bg-blue-100 text-blue-800'
-                            : row.source === 'daily_snapshot'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {sourceLabel(row.source)}
-                      </span>
-                    </td>
-                    <td className="py-2 pr-3">{fmt(row.sleep_hours, 'h')}</td>
-                    <td className="py-2 pr-3">{fmt(row.resting_heart_rate)}</td>
-                    <td className="py-2 pr-3">
-                      {typeof row.steps === 'number' ? row.steps.toLocaleString() : '—'}
-                    </td>
-                    <td className="py-2 pr-3">
-                      {typeof row.blood_pressure_systolic === 'number' &&
-                      typeof row.blood_pressure_diastolic === 'number'
-                        ? `${row.blood_pressure_systolic}/${row.blood_pressure_diastolic}`
-                        : '—'}
-                    </td>
-                    <td className="py-2 pr-3 font-medium text-amber-900">{ctx}/10</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-        {biometrics.length > recent.length && (
+        {logHistory.length === 0 ? (
+          <p className="text-sm text-gray-600">
+            No synced entries yet. Connect Google Health above to start building your log.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
+                  <th className="py-2 pr-3 font-medium">When</th>
+                  <th className="py-2 pr-3 font-medium">Source</th>
+                  <th className="py-2 pr-3 font-medium">Sleep</th>
+                  <th className="py-2 pr-3 font-medium">RHR</th>
+                  <th className="py-2 pr-3 font-medium">Steps</th>
+                  <th className="py-2 pr-3 font-medium">BP</th>
+                  <th className="py-2 pr-3 font-medium">Energy</th>
+                  <th className="py-2 pl-3 font-medium w-10" aria-label="Remove entry" />
+                </tr>
+              </thead>
+              <tbody>
+                {logHistory.map((row) => {
+                  const ctx = contextualFor(row).score
+                  return (
+                    <tr key={row.id} className="border-b border-gray-100 text-gray-700">
+                      <td className="py-2 pr-3 whitespace-nowrap">
+                        {new Date(row.recorded_at).toLocaleString()}
+                      </td>
+                      <td className="py-2 pr-3">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            isGoogleHealthRow(row)
+                              ? 'bg-blue-100 text-blue-800'
+                              : row.source === 'daily_snapshot'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {sourceLabel(row.source)}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3">{fmt(row.sleep_hours, 'h')}</td>
+                      <td className="py-2 pr-3">{fmt(row.resting_heart_rate)}</td>
+                      <td className="py-2 pr-3">
+                        {typeof row.steps === 'number' ? row.steps.toLocaleString() : '—'}
+                      </td>
+                      <td className="py-2 pr-3">
+                        {typeof row.blood_pressure_systolic === 'number' &&
+                        typeof row.blood_pressure_diastolic === 'number'
+                          ? `${row.blood_pressure_systolic}/${row.blood_pressure_diastolic}`
+                          : '—'}
+                      </td>
+                      <td className="py-2 pr-3 font-medium text-amber-900">{ctx}/10</td>
+                      <td className="py-2 pl-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteLogRow(row)}
+                          disabled={deletingId === row.id}
+                          title="Remove incorrect entry"
+                          aria-label="Remove log entry"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {deletingId === row.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Minus className="h-4 w-4 stroke-[2.5]" />
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {deleteError && (
+          <p className="mt-3 text-sm text-red-600" role="alert">
+            {deleteError}
+          </p>
+        )}
+        {automatedBiometrics.length > logHistory.length && (
           <p className="mt-3 text-xs text-gray-500">
-            Showing the {recent.length} most recent entries.
+            Showing the {logHistory.length} most recent synced entries.
           </p>
         )}
       </div>

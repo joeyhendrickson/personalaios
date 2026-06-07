@@ -781,28 +781,32 @@ export default function ModulesPage() {
     return (
       <div
         key={module.id}
-        className={`rounded-lg p-6 hover:shadow-lg transition-shadow ${
-          installed ? 'bg-green-50 border-2 border-green-200' : 'bg-white border border-gray-200'
+        className={`life-hack-card rounded-lg p-6 hover:shadow-lg transition-shadow ${
+          installed
+            ? 'life-hack-card-active bg-green-50 border-2 border-green-200'
+            : 'bg-white border border-gray-200'
         }`}
       >
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-3">
             <div
-              className={`p-2 rounded-lg ${
+              className={`life-hack-card-icon p-2 rounded-lg ${
                 installed ? 'bg-green-100 text-green-600' : 'bg-blue-50 text-blue-600'
               }`}
             >
               {module.icon}
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">{module.title}</h3>
+              <h3 className="life-hack-card-title text-lg font-semibold text-gray-900">
+                {module.title}
+              </h3>
               <p className="text-sm text-gray-500">{module.category}</p>
             </div>
           </div>
           <span
             className={`px-2 py-1 text-xs font-medium rounded-full border ${
               installed
-                ? 'bg-green-100 text-green-800 border-green-200'
+                ? 'life-hack-badge-active bg-green-100 text-green-800 border-green-200'
                 : getStatusColor(module.status)
             }`}
           >
@@ -895,7 +899,7 @@ export default function ModulesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 life-hacks-page">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-6 py-6">
@@ -982,19 +986,21 @@ export default function ModulesPage() {
                 return (
                   <div
                     key={module.id}
-                    className="bg-green-50 border-2 border-green-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
+                    className="life-hack-card life-hack-card-active bg-green-50 border-2 border-green-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-green-100 rounded-lg text-green-600">
+                        <div className="life-hack-card-icon p-2 bg-green-100 rounded-lg text-green-600">
                           {module.icon}
                         </div>
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-900">{module.title}</h3>
+                          <h3 className="life-hack-card-title text-lg font-semibold text-gray-900">
+                            {module.title}
+                          </h3>
                           <p className="text-sm text-gray-500">{module.category}</p>
                         </div>
                       </div>
-                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 border border-green-200">
+                      <span className="life-hack-badge-active px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 border border-green-200">
                         Active
                       </span>
                     </div>
@@ -1175,13 +1181,17 @@ export default function ModulesPage() {
               {filteredModules.map((module) => (
                 <div
                   key={module.id}
-                  className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+                  className="life-hack-card bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-blue-50 rounded-lg text-blue-600">{module.icon}</div>
+                      <div className="life-hack-card-icon p-2 bg-blue-50 rounded-lg text-blue-600">
+                        {module.icon}
+                      </div>
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{module.title}</h3>
+                        <h3 className="life-hack-card-title text-lg font-semibold text-gray-900">
+                          {module.title}
+                        </h3>
                         <p className="text-sm text-gray-500">{module.category}</p>
                       </div>
                     </div>

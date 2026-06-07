@@ -272,30 +272,34 @@ export function AccomplishmentsHistory() {
           filteredAccomplishments.map((accomplishment) => (
             <div
               key={accomplishment.id}
-              className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow"
+              className="accomplishment-card accomplishment-card-detail rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-sm"
             >
               <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                <div className="shrink-0">
+                  <div className="accomplishment-icon-wrap flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
                     <span className="text-xl">{getIcon(accomplishment)}</span>
                   </div>
                 </div>
 
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-medium text-gray-900">{getTitle(accomplishment)}</h4>
-                      <p className="text-sm text-gray-600 mt-1">{accomplishment.description}</p>
+                      <h4 className="accomplishment-title font-medium text-gray-900">
+                        {getTitle(accomplishment)}
+                      </h4>
+                      <p className="accomplishment-time mt-1 text-sm text-gray-600">
+                        {accomplishment.description}
+                      </p>
                     </div>
                     <div className="text-right">
-                      <span className="inline-flex items-center rounded-full bg-green-100 text-green-800 px-3 py-1 text-sm font-medium">
-                        <Star className="h-4 w-4 mr-1" />+{accomplishment.points}
+                      <span className="accomplishment-points inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+                        <Star className="mr-1 h-4 w-4" />+{accomplishment.points}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
+                  <div className="mt-3 flex items-center justify-between">
+                    <div className="accomplishment-time flex items-center space-x-4 text-sm text-gray-500">
                       <span className="inline-flex items-center">
                         <Target className="h-4 w-4 mr-1" />
                         {getTypeLabel(accomplishment)}
