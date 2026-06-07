@@ -3,6 +3,9 @@
 @tailwind utilities;
 
 :root {
+  --gold: 43 76% 52%;
+  --gold-foreground: 0 0% 0%;
+  --gold-muted: 43 45% 38%;
   --background: 0 0% 100%;
   --foreground: 240 10% 3.9%;
   --card: 0 0% 100%;
@@ -26,25 +29,34 @@
 }
 
 .dark {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 3.9%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 240 9% 9%;
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
-  --accent: 240 3.7% 15.9%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 240 4.9% 83.9%;
+  /* LifeStacks dark theme: black, white, gold */
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 6%;
+  --card-foreground: 0 0% 100%;
+  --popover: 0 0% 6%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 43 76% 52%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 62%;
+  --accent: 43 35% 14%;
+  --accent-foreground: 43 80% 68%;
+  --destructive: 0 62.8% 40%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 43 18% 22%;
+  --input: 0 0% 10%;
+  --ring: 43 76% 52%;
+  --gold: 43 76% 52%;
+  --gold-foreground: 0 0% 0%;
+  --gold-muted: 43 45% 38%;
+  --chart-1: 43 76% 52%;
+  --chart-2: 43 60% 42%;
+  --chart-3: 0 0% 75%;
+  --chart-4: 43 40% 28%;
+  --chart-5: 0 0% 45%;
 }
 
 * {
@@ -82,7 +94,7 @@ body {
   background-color: hsl(var(--muted));
 }
 .dark .bg-gray-200 {
-  background-color: hsl(240 3.7% 22%);
+  background-color: hsl(0 0% 14%);
 }
 
 /* Neutral text */
@@ -92,7 +104,7 @@ body {
   color: hsl(var(--foreground));
 }
 .dark .text-gray-700 {
-  color: hsl(0 0% 83%);
+  color: hsl(0 0% 88%);
 }
 .dark .text-gray-600,
 .dark .text-gray-500,
@@ -109,17 +121,28 @@ body {
 
 /* Light gradients used as page/section backgrounds */
 .dark .from-gray-50,
-.dark .from-blue-50 {
+.dark .from-blue-50,
+.dark .from-amber-50,
+.dark .from-yellow-50 {
   --tw-gradient-from: hsl(var(--background)) var(--tw-gradient-from-position);
   --tw-gradient-to: hsl(var(--background) / 0) var(--tw-gradient-to-position);
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
 .dark .to-blue-50,
-.dark .to-gray-50 {
+.dark .to-gray-50,
+.dark .to-amber-50,
+.dark .to-yellow-50,
+.dark .to-orange-50 {
   --tw-gradient-to: hsl(var(--background)) var(--tw-gradient-to-position);
 }
 .dark .to-gray-100 {
   --tw-gradient-to: hsl(var(--muted)) var(--tw-gradient-to-position);
+}
+.dark .from-yellow-50.to-yellow-100,
+.dark .from-amber-50.to-orange-50 {
+  --tw-gradient-from: hsl(43 28% 10%) var(--tw-gradient-from-position);
+  --tw-gradient-to: hsl(43 22% 8%) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
 
 /* Form controls (many inputs rely on the browser default white background) */
@@ -133,4 +156,74 @@ body {
 .dark input::placeholder,
 .dark textarea::placeholder {
   color: hsl(var(--muted-foreground));
+}
+
+/* Gold-accent tinted sections (remap light blue/amber/emerald panels) */
+.dark .bg-amber-50,
+.dark .bg-amber-50\/30,
+.dark .bg-amber-50\/40,
+.dark .bg-amber-50\/70,
+.dark .bg-amber-100,
+.dark .bg-amber-200,
+.dark .bg-blue-100,
+.dark .bg-blue-50,
+.dark .bg-blue-50\/40,
+.dark .bg-emerald-50,
+.dark .bg-emerald-50\/30,
+.dark .bg-yellow-50,
+.dark .bg-yellow-100 {
+  background-color: hsl(43 28% 10%);
+}
+
+.dark .border-amber-100,
+.dark .border-amber-200,
+.dark .border-amber-300,
+.dark .border-blue-200,
+.dark .border-emerald-200,
+.dark .border-yellow-200,
+.dark .border-yellow-400 {
+  border-color: hsl(43 35% 28%);
+}
+
+.dark .text-amber-600,
+.dark .text-amber-700,
+.dark .text-amber-800,
+.dark .text-amber-900,
+.dark .text-amber-950,
+.dark .text-blue-400,
+.dark .text-blue-500,
+.dark .text-blue-600,
+.dark .text-blue-700,
+.dark .text-blue-800,
+.dark .text-emerald-700,
+.dark .text-emerald-800,
+.dark .text-yellow-600,
+.dark .text-yellow-700,
+.dark .text-yellow-800 {
+  color: hsl(43 80% 62%);
+}
+
+.dark .text-green-900 {
+  color: hsl(0 0% 100%);
+}
+
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover {
+  background-color: hsl(43 20% 12%);
+}
+
+.dark .hover\:bg-amber-100:hover,
+.dark .hover\:bg-amber-200:hover {
+  background-color: hsl(43 30% 16%);
+}
+
+/* Focus rings: gold instead of blue */
+.dark .focus\:ring-blue-500,
+.dark .focus-visible\:ring-blue-500 {
+  --tw-ring-color: hsl(var(--gold));
+}
+
+.dark ::selection {
+  background-color: hsl(43 76% 52% / 0.35);
+  color: hsl(0 0% 100%);
 }
