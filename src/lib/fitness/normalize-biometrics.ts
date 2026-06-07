@@ -30,6 +30,75 @@ export function isGoogleHealthRow(row: FitnessBiometricRow): boolean {
   return row.source === 'google_health' || Boolean(row.sync_date)
 }
 
+function localYmd(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+/** Ignore legacy/sync bugs that stored multi-night or invalid sleep totals. */
+const PLAUSIBLE_SLEEP_HOURS_MAX = 16
+
+export type WeeklyGoogleHealthSummary = {
+  days: number
+  nightsWithSleep: number
+  avgSleep: number | null
+  avgRhr: number | null
+  totalSteps: number
+  avgSteps: number | null
+}
+
+/**
+ * One row per sync_date (latest recorded_at wins), last N calendar days, google_health only.
+ */
+export function summarizeWeeklyGoogleHealth(
+  rows: FitnessBiometricRow[],
+  daysBack = 7
+): WeeklyGoogleHealthSummary {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const start = new Date(today)
+  start.setDate(today.getDate() - (daysBack - 1))
+  const startStr = localYmd(start)
+
+  const byDate = new Map<string, FitnessBiometricRow>()
+  for (const row of rows) {
+    if (row.source !== 'google_health' || !row.sync_date) continue
+    if (row.sync_date < startStr) continue
+    const prev = byDate.get(row.sync_date)
+    if (!prev || new Date(row.recorded_at).getTime() > new Date(prev.recorded_at).getTime()) {
+      byDate.set(row.sync_date, row)
+    }
+  }
+
+  const daily = [...byDate.values()].sort((a, b) =>
+    (b.sync_date || '').localeCompare(a.sync_date || '')
+  )
+
+  const sleepVals = daily
+    .map((r) => r.sleep_hours)
+    .filter((v): v is number => typeof v === 'number' && v > 0 && v <= PLAUSIBLE_SLEEP_HOURS_MAX)
+  const rhrVals = daily
+    .map((r) => r.resting_heart_rate)
+    .filter((v): v is number => typeof v === 'number' && v > 0)
+  const stepVals = daily
+    .map((r) => r.steps)
+    .filter((v): v is number => typeof v === 'number' && v >= 0)
+
+  const avg = (vals: number[]) =>
+    vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null
+
+  return {
+    days: daily.length,
+    nightsWithSleep: sleepVals.length,
+    avgSleep: avg(sleepVals),
+    avgRhr: avg(rhrVals),
+    totalSteps: stepVals.reduce((a, b) => a + b, 0),
+    avgSteps: avg(stepVals),
+  }
+}
+
 /** Best recent value for each wearable field across synced Google Health rows. */
 export function buildGoogleHealthSnapshot(rows: FitnessBiometricRow[]): FitnessBiometricRow | null {
   const googleRows = rows.filter(isGoogleHealthRow)
@@ -84,30 +153,6 @@ export function pickLatestBiometricsDisplay(rows: FitnessBiometricRow[]): {
     return { latest: sorted[0] ?? null, latestGoogle: null, latestManual }
   }
 
-  if (!latestManual) {
-    return { latest: latestGoogle, latestGoogle, latestManual: null }
-  }
-
-  const manualNewer =
-    new Date(latestManual.recorded_at).getTime() > new Date(latestGoogle.recorded_at).getTime()
-
-  if (!manualNewer) {
-    return { latest: latestGoogle, latestGoogle, latestManual }
-  }
-
-  // Manual stress/energy may be newer; still surface synced wearable metrics.
-  return {
-    latest: {
-      ...latestManual,
-      sleep_hours: latestManual.sleep_hours ?? latestGoogle.sleep_hours,
-      resting_heart_rate: latestManual.resting_heart_rate ?? latestGoogle.resting_heart_rate,
-      steps: latestManual.steps ?? latestGoogle.steps,
-      contextual_energy_level_1_10:
-        latestManual.stress_level_1_10 != null || latestManual.energy_level_self_1_10 != null
-          ? latestManual.contextual_energy_level_1_10
-          : latestGoogle.contextual_energy_level_1_10,
-    },
-    latestGoogle,
-    latestManual,
-  }
+  // Google Health sync always wins for latest wearable readings; stress/energy come from computed scores.
+  return { latest: latestGoogle, latestGoogle, latestManual }
 }

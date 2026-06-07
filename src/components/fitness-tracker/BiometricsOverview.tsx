@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   Footprints,
-  Gauge,
   Heart,
   Moon,
   Zap,
@@ -13,11 +12,18 @@ import {
   PencilLine,
   TrendingUp,
   Loader2,
+  X,
+  Info,
 } from 'lucide-react'
 import type { FitnessBiometricRow } from './BiometricsSection'
 import { computeContextualEnergyLevel } from '@/lib/fitness/contextual-energy'
 import { energyModeFromScore } from '@/lib/fitness/adapt-workout-structure'
-import { isGoogleHealthRow, pickLatestBiometricsDisplay } from '@/lib/fitness/normalize-biometrics'
+import {
+  isGoogleHealthRow,
+  pickLatestBiometricsDisplay,
+  summarizeWeeklyGoogleHealth,
+} from '@/lib/fitness/normalize-biometrics'
+import { formatScoreFactors } from '@/lib/fitness/energy-stress-labels'
 
 type EnergyHistoryEntry = {
   id: string
@@ -94,24 +100,58 @@ function Metric(props: { icon: React.ReactNode; label: string; value: string; ac
   )
 }
 
+function ClickableScoreMetric(props: {
+  icon: React.ReactNode
+  label: string
+  value: string
+  accent?: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      title={`How was ${props.label.toLowerCase()} calculated?`}
+      className="rounded-lg border border-gray-200 bg-white p-3 text-left transition-colors hover:border-amber-300 hover:bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+    >
+      <div className="flex items-center justify-between gap-1">
+        <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">
+          {props.icon}
+          {props.label}
+        </div>
+        <Info className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+      </div>
+      <p
+        className={`mt-1 text-lg font-semibold underline decoration-dotted underline-offset-4 ${props.accent || 'text-gray-900'}`}
+      >
+        {props.value}
+      </p>
+    </button>
+  )
+}
+
 export default function BiometricsOverview(props: { biometrics: FitnessBiometricRow[] }) {
   const { biometrics } = props
   const [energyHistory, setEnergyHistory] = useState<EnergyHistoryEntry[]>([])
   const [todayEnergy, setTodayEnergy] = useState<EnergyHistoryEntry | null>(null)
   const [energyLoading, setEnergyLoading] = useState(true)
+  const [scoreReason, setScoreReason] = useState<'stress' | 'energy' | null>(null)
 
-  const { latest, latestGoogle, latestManual } = useMemo(
+  const { latest, latestGoogle } = useMemo(
     () => pickLatestBiometricsDisplay(biometrics),
     [biometrics]
   )
   const latestMeta = useMemo(() => (latest ? contextualFor(latest) : null), [latest])
+  const weekSummary = useMemo(() => summarizeWeeklyGoogleHealth(biometrics, 7), [biometrics])
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       setEnergyLoading(true)
       try {
-        const res = await fetch('/api/fitness/energy-history')
+        const res = await fetch(`/api/fitness/energy-history?_=${Date.now()}`, {
+          cache: 'no-store',
+        })
         if (!res.ok) return
         const data = await res.json()
         if (cancelled) return
@@ -159,29 +199,10 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
   const fmt = (v: number | null | undefined, suffix = '') =>
     typeof v === 'number' ? `${v}${suffix}` : '—'
 
-  const weekStart = Date.now() - 7 * 24 * 60 * 60 * 1000
-  const weekRows = biometrics.filter(
-    (r) => isGoogleHealthRow(r) && new Date(r.recorded_at).getTime() >= weekStart
-  )
-  const avg = (vals: number[]) =>
-    vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null
-  const sleepVals = weekRows
-    .map((r) => r.sleep_hours)
-    .filter((v): v is number => typeof v === 'number')
-  const rhrVals = weekRows
-    .map((r) => r.resting_heart_rate)
-    .filter((v): v is number => typeof v === 'number')
-  const stepVals = weekRows.map((r) => r.steps).filter((v): v is number => typeof v === 'number')
-  const weekSummary = {
-    days: weekRows.length,
-    avgSleep: avg(sleepVals),
-    avgRhr: avg(rhrVals),
-    totalSteps: stepVals.reduce((a, b) => a + b, 0),
-    avgSteps: avg(stepVals),
-  }
   const round1 = (v: number | null) => (v === null ? '—' : `${Math.round(v * 10) / 10}`)
 
   const energyLogRows = energyHistory.slice(0, 14)
+  const scoreFactors = todayEnergy ? formatScoreFactors(todayEnergy.adjustments_applied) : []
 
   return (
     <div className="space-y-6">
@@ -213,16 +234,14 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
           </div>
         </div>
 
-        {latestGoogle &&
-          latestManual &&
-          new Date(latestManual.recorded_at).getTime() >
-            new Date(latestGoogle.recorded_at).getTime() && (
-            <p className="mb-4 text-xs text-gray-500">
-              Wearable metrics from your latest Google Health sync (
-              {new Date(latestGoogle.recorded_at).toLocaleString()}). Stress and energy are computed
-              from your sleep, activity, habits, and LifeStacks module usage.
-            </p>
-          )}
+        {latestGoogle && (
+          <p className="mb-4 text-xs text-gray-500">
+            Wearable metrics from Google Health (
+            {new Date(latestGoogle.recorded_at).toLocaleString()}). Stress and self energy are
+            computed from sleep, activity, habits, and LifeStacks usage — tap either score for
+            details.
+          </p>
+        )}
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           <Metric
@@ -240,27 +259,19 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
             label="Steps"
             value={typeof latest.steps === 'number' ? latest.steps.toLocaleString() : '—'}
           />
-          <Metric
-            icon={<Gauge className="h-3.5 w-3.5" />}
-            label="Blood pressure"
-            value={
-              typeof latest.blood_pressure_systolic === 'number' &&
-              typeof latest.blood_pressure_diastolic === 'number'
-                ? `${latest.blood_pressure_systolic}/${latest.blood_pressure_diastolic}`
-                : '—'
-            }
-          />
-          <Metric
+          <ClickableScoreMetric
             icon={<Zap className="h-3.5 w-3.5" />}
             label="Stress"
             value={fmt(computedStress, '/10')}
             accent="text-orange-900"
+            onClick={() => setScoreReason('stress')}
           />
-          <Metric
+          <ClickableScoreMetric
             icon={<Zap className="h-3.5 w-3.5" />}
             label="Self energy"
             value={fmt(computedEnergy, '/10')}
             accent="text-green-900"
+            onClick={() => setScoreReason('energy')}
           />
           <Metric
             icon={<Activity className="h-3.5 w-3.5" />}
@@ -360,7 +371,8 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
               This week from Google Health
             </h3>
             <span className="text-xs text-gray-500">
-              {weekSummary.days} day{weekSummary.days === 1 ? '' : 's'} synced (last 7 days)
+              {weekSummary.nightsWithSleep} night{weekSummary.nightsWithSleep === 1 ? '' : 's'} with
+              sleep · {weekSummary.days} day{weekSummary.days === 1 ? '' : 's'} synced
             </span>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -490,6 +502,62 @@ export default function BiometricsOverview(props: { biometrics: FitnessBiometric
           </p>
         )}
       </div>
+
+      {scoreReason && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="score-reason-title"
+          onClick={() => setScoreReason(null)}
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl border border-gray-200 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h4 id="score-reason-title" className="text-lg font-semibold text-gray-900">
+                  {scoreReason === 'stress' ? 'Stress level' : 'Self energy level'}
+                </h4>
+                <p className="mt-1 text-2xl font-bold text-amber-900">
+                  {scoreReason === 'stress'
+                    ? fmt(computedStress, '/10')
+                    : fmt(computedEnergy, '/10')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setScoreReason(null)}
+                className="rounded-lg p-1 text-gray-500 hover:bg-gray-100"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mb-3 text-sm text-gray-600">
+              Calculated from your Google Health data, LifeStacks points, habits, and module
+              activity today. Final scores are clamped between 1 and 10.
+            </p>
+            {scoreFactors.length > 0 ? (
+              <ul className="space-y-2 text-sm text-gray-700">
+                {scoreFactors.map((factor, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                    <span>{factor}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500">
+                {energyLoading
+                  ? 'Loading score details…'
+                  : 'No detailed factors available yet. Sync Google Health or check back after more activity today.'}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

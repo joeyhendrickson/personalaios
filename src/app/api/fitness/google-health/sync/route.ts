@@ -55,6 +55,13 @@ function buildWritePayloads(userId: string, syncDate: string, row: BiometricWrit
     sync_date: syncDate,
     source: 'google_health',
     fitbit_opt_in: true,
+    // Sync replaces any manual or stale values for this day.
+    stress_level_1_10: null,
+    energy_level_self_1_10: null,
+    blood_pressure_systolic: null,
+    blood_pressure_diastolic: null,
+    notes: null,
+    iphone_summary_image_url: null,
   }
   const { steps: _steps, ...withoutSteps } = full
   return [full, withoutSteps]
@@ -201,9 +208,12 @@ export async function POST() {
         .limit(1)
         .maybeSingle()
 
-      const mergedSleep = sleepHours ?? toNumber(existingRow?.sleep_hours)
-      const mergedRhr = restingHeartRate ?? toInt(existingRow?.resting_heart_rate)
-      const mergedSteps = steps ?? toInt(existingRow?.steps)
+      // Enabled imports: fresh API values override manual/cached data (null if API returned nothing).
+      const mergedSleep = connection.import_sleep ? sleepHours : toNumber(existingRow?.sleep_hours)
+      const mergedRhr = connection.import_resting_heart_rate
+        ? restingHeartRate
+        : toInt(existingRow?.resting_heart_rate)
+      const mergedSteps = connection.import_steps ? steps : toInt(existingRow?.steps)
 
       if (mergedSleep === null && mergedRhr === null && mergedSteps === null) continue
 

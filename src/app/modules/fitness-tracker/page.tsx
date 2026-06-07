@@ -43,6 +43,7 @@ import {
   Droplets,
   Flame,
   Sparkles,
+  Download,
 } from 'lucide-react'
 import WorkoutPlanModal from '@/components/fitness-tracker/WorkoutPlanModal'
 import BiometricsSection, {
@@ -453,7 +454,6 @@ export default function FitnessTrackerModule() {
   const refreshBiometrics = async (synced?: FitnessBiometricRow[]) => {
     if (synced?.length) {
       setBiometrics(synced)
-      return
     }
     try {
       const res = await fetch(`/api/fitness/biometrics?_=${Date.now()}`, { cache: 'no-store' })
@@ -592,6 +592,31 @@ export default function FitnessTrackerModule() {
       setTimeout(() => setErrorMessage(''), 5000)
     } finally {
       setGeneratingFuture(false)
+    }
+  }
+
+  const handleSaveFutureState = async (fs: FutureState) => {
+    const ext = fs.image_url.toLowerCase().includes('.png') ? 'png' : 'jpg'
+    const filename = `lifestacks-future-${fs.timeframe_months}mo-${new Date(fs.created_at).toISOString().slice(0, 10)}.${ext}`
+    try {
+      const response = await fetch(fs.image_url)
+      if (!response.ok) throw new Error('Could not fetch image')
+      const blob = await response.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = filename
+      link.rel = 'noopener'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(objectUrl)
+      setSuccessMessage('Future state image saved to your downloads.')
+      setTimeout(() => setSuccessMessage(''), 4000)
+    } catch {
+      window.open(fs.image_url, '_blank', 'noopener,noreferrer')
+      setSuccessMessage('Opened image in a new tab — use your browser to save it.')
+      setTimeout(() => setSuccessMessage(''), 5000)
     }
   }
 
@@ -1338,9 +1363,22 @@ export default function FitnessTrackerModule() {
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
-                        <div className="text-xs text-gray-500 flex items-center">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {new Date(fs.created_at).toLocaleString()}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs text-gray-500 flex items-center min-w-0">
+                            <Clock className="h-3 w-3 mr-1 shrink-0" />
+                            <span className="truncate">
+                              {new Date(fs.created_at).toLocaleString()}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveFutureState(fs)}
+                            title="Save image"
+                            className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-xs font-medium text-purple-800 hover:bg-purple-100"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Save
+                          </button>
                         </div>
                       </div>
                     ))}

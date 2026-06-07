@@ -52,9 +52,6 @@ export default function BiometricsSection(props: {
 }) {
   const { onAfterSave } = props
 
-  const [stress, setStress] = useState('')
-  const [energySelf, setEnergySelf] = useState('')
-  const [notes, setNotes] = useState('')
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [localError, setLocalError] = useState('')
@@ -87,7 +84,10 @@ export default function BiometricsSection(props: {
     setConnectError('')
     setConnectMessage('')
     try {
-      const res = await fetch('/api/fitness/google-health/sync', { method: 'POST' })
+      const res = await fetch('/api/fitness/google-health/sync', {
+        method: 'POST',
+        cache: 'no-store',
+      })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
         setConnectError([json?.error, json?.details].filter(Boolean).join(': ') || 'Sync failed')
@@ -225,11 +225,8 @@ export default function BiometricsSection(props: {
       }
 
       const body: Record<string, unknown> = {
-        stress_level_1_10: stress === '' ? null : Number(stress),
-        energy_level_self_1_10: energySelf === '' ? null : Number(energySelf),
         iphone_summary_image_url: iphoneSummaryImageUrl,
         fitbit_opt_in: !!health?.connected,
-        notes: notes.trim() || null,
       }
 
       const res = await fetch('/api/fitness/biometrics', {
@@ -242,9 +239,6 @@ export default function BiometricsSection(props: {
         throw new Error(j?.error || j?.details || 'Failed to save biometrics')
       }
 
-      setStress('')
-      setEnergySelf('')
-      setNotes('')
       setScreenshotFile(null)
       await onAfterSave()
     } catch (err) {
@@ -261,9 +255,9 @@ export default function BiometricsSection(props: {
         Biometrics
       </h3>
       <p className="text-sm text-gray-600 mb-4">
-        Log stress and energy. Sleep, steps, and resting HR come from Google Health sync. We combine
-        these into a contextual energy score to adapt your workout recommendations (coaching only —
-        not medical advice).
+        Connect Google Health to sync sleep, steps, and resting HR. Stress and self energy are
+        computed automatically to adapt your workout recommendations (coaching only — not medical
+        advice).
       </p>
 
       {/* Wearable connection */}
@@ -278,8 +272,7 @@ export default function BiometricsSection(props: {
                 </p>
                 <p className="text-sm text-gray-600 mt-0.5">
                   Connect Google Health (sign in with your Google account) to sync sleep, resting
-                  heart rate, and steps from your Fitbit or Google device automatically. Stress and
-                  energy stay manual.
+                  heart rate, and steps from your Fitbit or Google device automatically.
                 </p>
               </div>
               <button
@@ -447,31 +440,6 @@ export default function BiometricsSection(props: {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <label className="block">
-            <span className="text-sm font-medium text-gray-700">Stress (1–10)</span>
-            <input
-              type="number"
-              min={1}
-              max={10}
-              value={stress}
-              onChange={(e) => setStress(e.target.value)}
-              className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-gray-700">Energy right now (1–10)</span>
-            <input
-              type="number"
-              min={1}
-              max={10}
-              value={energySelf}
-              onChange={(e) => setEnergySelf(e.target.value)}
-              className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            />
-          </label>
-        </div>
-
         <div>
           <span className="text-sm font-medium text-gray-700 block mb-1">
             Upload Biometrics Screenshot (Google Health, Fitness App, etc.)
@@ -487,20 +455,9 @@ export default function BiometricsSection(props: {
             />
           </label>
           <p className="text-xs text-gray-500 mt-1">
-            Stored securely for your records; contextual energy still uses the numeric fields above.
+            Stored securely for your records alongside your synced biometrics.
           </p>
         </div>
-
-        <label className="block">
-          <span className="text-sm font-medium text-gray-700">Notes (optional)</span>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-            className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            placeholder="Anything else about recovery or how you feel…"
-          />
-        </label>
 
         {localError && (
           <p className="text-sm text-red-600" role="alert">
