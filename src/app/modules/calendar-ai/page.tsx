@@ -272,7 +272,7 @@ export default function LifestacksCalendarPage() {
                 Lifestacks Calendar
               </h1>
               <p className="text-sm text-gray-600">
-                Let AI schedule your tasks and habits into your Google Calendar.
+                Let Lifestacks recommend tasks and habits to schedule into your Google Calendar.
               </p>
             </div>
           </div>
@@ -283,11 +283,48 @@ export default function LifestacksCalendarPage() {
         {/* Connection */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-3">Google Calendar</h2>
-          {status?.configured === false ? (
-            <p className="text-sm text-amber-700">
-              Google Calendar isn&apos;t configured on the server yet.
+          {status === null ? (
+            <p className="text-sm text-gray-500 inline-flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Checking calendar connection…
             </p>
-          ) : status?.connected ? (
+          ) : status.configured === false ? (
+            <div className="space-y-3 text-sm text-gray-700">
+              <p className="text-amber-700 font-medium">
+                Google Calendar isn&apos;t configured on the server yet.
+              </p>
+              <p>
+                Yes — you need a Google Cloud OAuth client. Add these to{' '}
+                <code className="text-xs bg-gray-100 px-1 rounded">.env.local</code>, restart the
+                dev server, then try again:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-gray-600">
+                <li>
+                  <code className="text-xs">GOOGLE_CLIENT_ID</code> and{' '}
+                  <code className="text-xs">GOOGLE_CLIENT_SECRET</code> (or{' '}
+                  <code className="text-xs">GOOGLE_CALENDAR_*</code> equivalents)
+                </li>
+                <li>
+                  <code className="text-xs">NEXT_PUBLIC_SITE_URL</code> — e.g.{' '}
+                  <code className="text-xs">http://localhost:3000</code>
+                </li>
+                <li>
+                  In Google Cloud: enable <strong>Google Calendar API</strong>, configure OAuth
+                  consent screen, and add redirect URI{' '}
+                  <code className="text-xs break-all">
+                    {typeof window !== 'undefined'
+                      ? window.location.origin
+                      : 'http://localhost:3000'}
+                    /api/calendar/callback
+                  </code>
+                </li>
+                <li>
+                  Run Supabase migration{' '}
+                  <code className="text-xs">065_create_calendar_integration.sql</code>
+                </li>
+              </ul>
+            </div>
+          ) : status.connected ? (
             <div className="flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-700">
                 <CheckCircle2 className="h-4 w-4" />
@@ -305,7 +342,7 @@ export default function LifestacksCalendarPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {status?.status === 'needs_reauth' && (
+              {status.status === 'needs_reauth' && (
                 <p className="inline-flex items-center gap-1.5 text-sm text-amber-700">
                   <AlertTriangle className="h-4 w-4" /> Reconnect needed
                 </p>
@@ -333,7 +370,9 @@ export default function LifestacksCalendarPage() {
 
         {/* Scheduling window */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">When can AI schedule items?</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">
+            When can Lifestacks schedule items?
+          </h2>
           <p className="text-sm text-gray-600 mb-4">
             Choose the daily window and days the AI may place recommendations.
           </p>
@@ -394,8 +433,8 @@ export default function LifestacksCalendarPage() {
 
         {/* Recommendations */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">AI recommendations</h2>
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">Schedule Items</h2>
             <Button
               onClick={generate}
               disabled={generating}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { effectiveTransactionAmount } from '@/lib/budget/transaction-overrides'
 
 export async function GET(request: NextRequest) {
   try {
@@ -177,12 +178,21 @@ export async function GET(request: NextRequest) {
     // Fetch excluded transaction IDs (user has chosen to hide these, e.g. duplicates)
     let excludedIds = new Set<string>()
     if (transactionIds.length > 0) {
-      const { data: exclusions } = await supabase
+      const { data: exclusions, error: exclusionsError } = await supabase
         .from('transaction_exclusions')
         .select('transaction_id')
         .eq('user_id', user.id)
         .in('transaction_id', transactionIds)
-      excludedIds = new Set((exclusions || []).map((e) => e.transaction_id))
+      if (!exclusionsError) {
+        excludedIds = new Set((exclusions || []).map((e) => e.transaction_id))
+      } else if (
+        exclusionsError.code === '42P01' ||
+        exclusionsError.message?.includes('transaction_exclusions')
+      ) {
+        console.warn(
+          'transaction_exclusions table missing; run migration 077 in Supabase SQL Editor'
+        )
+      }
     }
 
     // Filter out excluded transactions
@@ -190,20 +200,32 @@ export async function GET(request: NextRequest) {
 
     // Fetch type overrides and flags for visible transactions
     const visibleIds = visibleTransactions.map((t) => t.id)
-    let overridesMap: Record<string, 'income' | 'expense' | 'transfer'> = {}
+    let overridesMap: Record<
+      string,
+      { type_override: 'income' | 'expense' | 'transfer' | null; amount_override: number | null }
+    > = {}
     let flaggedIds = new Set<string>()
     if (visibleIds.length > 0) {
       const overridesRes = await supabase
         .from('transaction_type_overrides')
-        .select('transaction_id, type_override')
+        .select('transaction_id, type_override, amount_override')
         .eq('user_id', user.id)
         .in('transaction_id', visibleIds)
       overridesMap = (overridesRes.data || []).reduce(
         (acc, row) => {
-          acc[row.transaction_id] = row.type_override as 'income' | 'expense' | 'transfer'
+          acc[row.transaction_id] = {
+            type_override: (row.type_override as 'income' | 'expense' | 'transfer') ?? null,
+            amount_override: row.amount_override != null ? Number(row.amount_override) : null,
+          }
           return acc
         },
-        {} as Record<string, 'income' | 'expense' | 'transfer'>
+        {} as Record<
+          string,
+          {
+            type_override: 'income' | 'expense' | 'transfer' | null
+            amount_override: number | null
+          }
+        >
       )
       const flagsRes = await supabase
         .from('transaction_flags')
@@ -219,9 +241,16 @@ export async function GET(request: NextRequest) {
     // Enrich visible transactions with bank account info, type override, and flag status
     const enrichedTransactions = visibleTransactions.map((transaction) => {
       const account = bankAccounts.find((a) => a.id === transaction.bank_account_id)
+      const override = overridesMap[transaction.id]
+      const sourceAmount = Number(transaction.amount)
+      const amountOverride = override?.amount_override ?? null
+      const effectiveAmount = effectiveTransactionAmount(sourceAmount, amountOverride)
       return {
         ...transaction,
-        type_override: overridesMap[transaction.id] ?? null,
+        source_amount: sourceAmount,
+        amount: effectiveAmount,
+        amount_override: amountOverride,
+        type_override: override?.type_override ?? null,
         is_flagged: flaggedIds.has(transaction.id),
         bank_accounts: account
           ? {

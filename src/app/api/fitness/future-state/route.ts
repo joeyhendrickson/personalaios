@@ -12,7 +12,52 @@ const IMAGE_MODEL = 'gpt-image-1.5'
 const BUCKET = 'body-photos'
 const ALLOWED_TIMEFRAMES = [3, 6, 9, 12]
 
-export async function GET() {
+type FutureStateRecord = {
+  user_id: string
+  image_url: string
+  timeframe_months: number
+  source_photo_ids: string[]
+  prompt?: string
+}
+
+async function insertFutureStateRecord(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  record: FutureStateRecord
+) {
+  let insertRes = await supabase.from('fitness_future_states').insert(record).select().single()
+
+  if (insertRes.error) {
+    const code = insertRes.error.code
+    const message = (insertRes.error.message || '').toLowerCase()
+
+    if (code === '42P01' || message.includes('does not exist')) {
+      return { data: null, error: insertRes.error, missingTable: true as const }
+    }
+
+    try {
+      const { createAdminClient } = await import('@/lib/supabaseAdmin')
+      const admin = createAdminClient()
+      insertRes = await admin.from('fitness_future_states').insert(record).select().single()
+    } catch (adminErr) {
+      console.error('[future-state] admin insert fallback failed:', adminErr)
+    }
+  }
+
+  return {
+    data: insertRes.data,
+    error: insertRes.error,
+    missingTable: false as const,
+  }
+}
+
+function storagePathFromPublicUrl(imageUrl: string): string | null {
+  const marker = `/${BUCKET}/`
+  const idx = imageUrl.indexOf(marker)
+  if (idx === -1) return null
+  return decodeURIComponent(imageUrl.slice(idx + marker.length).split('?')[0])
+}
+
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
     const {
@@ -20,6 +65,55 @@ export async function GET() {
       error: authError,
     } = await supabase.auth.getUser()
     if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { searchParams } = new URL(request.url)
+    const downloadId = searchParams.get('download')
+
+    if (downloadId) {
+      const { data: row, error } = await supabase
+        .from('fitness_future_states')
+        .select('image_url, timeframe_months, created_at')
+        .eq('id', downloadId)
+        .eq('user_id', user.id)
+        .single()
+
+      if (error || !row?.image_url) {
+        return NextResponse.json({ error: 'Future state not found' }, { status: 404 })
+      }
+
+      const path = storagePathFromPublicUrl(row.image_url)
+      let buffer: Buffer | null = null
+
+      if (path) {
+        const { data, error: downloadError } = await supabase.storage.from(BUCKET).download(path)
+        if (!downloadError && data) {
+          buffer = Buffer.from(await data.arrayBuffer())
+        }
+      }
+
+      if (!buffer) {
+        try {
+          const res = await fetch(row.image_url, { cache: 'no-store' })
+          if (res.ok) buffer = Buffer.from(await res.arrayBuffer())
+        } catch {
+          // fall through
+        }
+      }
+
+      if (!buffer) {
+        return NextResponse.json({ error: 'Could not load image' }, { status: 404 })
+      }
+
+      const date = new Date(row.created_at).toISOString().slice(0, 10)
+      const filename = `lifestacks-future-${row.timeframe_months}mo-${date}.png`
+      return new NextResponse(new Uint8Array(buffer), {
+        headers: {
+          'Content-Type': 'image/png',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Cache-Control': 'private, no-store',
+        },
+      })
+    }
 
     const { data, error } = await supabase
       .from('fitness_future_states')
@@ -295,19 +389,20 @@ Keep it natural and realistic for the timeframe (no exaggerated or cartoonish bo
       data: { publicUrl },
     } = supabase.storage.from(BUCKET).getPublicUrl(fileName)
 
-    // Persist the record (resilient if the table isn't migrated yet).
-    const record = {
+    const record: FutureStateRecord = {
       user_id: user.id,
       image_url: publicUrl,
       timeframe_months: timeframe,
       source_photo_ids: photos.map((p) => p.id),
       prompt,
     }
-    const insertRes = await supabase.from('fitness_future_states').insert(record).select().single()
+    const insertResult = await insertFutureStateRecord(supabase, record)
 
-    if (insertRes.error) {
-      // Still return the image so the user sees a result even pre-migration.
-      console.error('Error saving future state record:', insertRes.error)
+    if (insertResult.error || !insertResult.data) {
+      console.error('Error saving future state record:', insertResult.error)
+      const warning = insertResult.missingTable
+        ? 'Generated, but not saved to your gallery yet — click Save to keep it after running migration 073.'
+        : 'Generated, but could not be saved to your gallery — click Save to retry.'
       return NextResponse.json({
         success: true,
         future_state: {
@@ -315,7 +410,7 @@ Keep it natural and realistic for the timeframe (no exaggerated or cartoonish bo
           ...record,
           created_at: new Date().toISOString(),
         },
-        warning: 'Generated, but could not be saved (run migration 073).',
+        warning,
       })
     }
 
@@ -326,13 +421,96 @@ Keep it natural and realistic for the timeframe (no exaggerated or cartoonish bo
       metadata: { timeframe_months: timeframe, source_photo_id: sourcePhotoId },
     })
 
-    return NextResponse.json({ success: true, future_state: insertRes.data })
+    return NextResponse.json({ success: true, future_state: insertResult.data })
   } catch (e) {
     return NextResponse.json(
       {
         error: 'Failed to generate future state',
         details: e instanceof Error ? e.message : 'Unknown error',
       },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const body = await request.json().catch(() => ({}))
+    const imageUrl = typeof body?.image_url === 'string' ? body.image_url.trim() : ''
+    const timeframe = ALLOWED_TIMEFRAMES.includes(Number(body?.timeframe_months))
+      ? Number(body.timeframe_months)
+      : null
+    const requestedId = typeof body?.id === 'string' ? body.id : null
+
+    if (!imageUrl || timeframe == null) {
+      return NextResponse.json(
+        { error: 'image_url and timeframe_months are required' },
+        { status: 400 }
+      )
+    }
+
+    if (requestedId && !requestedId.startsWith('temp-')) {
+      const { data: existing } = await supabase
+        .from('fitness_future_states')
+        .select('*')
+        .eq('id', requestedId)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (existing) {
+        return NextResponse.json({ success: true, future_state: existing, already_saved: true })
+      }
+    }
+
+    const { data: existingByUrl } = await supabase
+      .from('fitness_future_states')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('image_url', imageUrl)
+      .maybeSingle()
+
+    if (existingByUrl) {
+      return NextResponse.json({ success: true, future_state: existingByUrl, already_saved: true })
+    }
+
+    const sourcePhotoIds = Array.isArray(body?.source_photo_ids)
+      ? body.source_photo_ids.filter((id: unknown) => typeof id === 'string')
+      : []
+
+    const record: FutureStateRecord = {
+      user_id: user.id,
+      image_url: imageUrl,
+      timeframe_months: timeframe,
+      source_photo_ids: sourcePhotoIds,
+      prompt: typeof body?.prompt === 'string' ? body.prompt : undefined,
+    }
+
+    const insertResult = await insertFutureStateRecord(supabase, record)
+    if (insertResult.error || !insertResult.data) {
+      const details = insertResult.missingTable
+        ? 'Run migration 073_fitness_future_states.sql in Supabase, then try again.'
+        : insertResult.error?.message || 'Could not save future state'
+      return NextResponse.json({ error: 'Failed to save future state', details }, { status: 500 })
+    }
+
+    await supabase.from('activity_logs').insert({
+      user_id: user.id,
+      activity_type: 'fitness_future_state_saved',
+      description: `Saved ${timeframe}-month future-state projection`,
+      metadata: { timeframe_months: timeframe, future_state_id: insertResult.data.id },
+    })
+
+    return NextResponse.json({ success: true, future_state: insertResult.data })
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'Failed to save future state' },
       { status: 500 }
     )
   }

@@ -1647,7 +1647,9 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-6">
               <div className="flex items-center space-x-4">
-                <img src="/LifeStacks-logo.png" alt="Life Stacks" className="h-40 w-auto" />
+                <div className="lifestacks-logo">
+                  <img src="/LifeStacks-logo.png" alt="Life Stacks" className="h-40 w-auto" />
+                </div>
                 <div>{user && <p className="text-xs text-gray-500">Welcome, {user.email}</p>}</div>
               </div>
             </div>

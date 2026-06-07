@@ -26,7 +26,11 @@ import {
   TrendingDown,
   Activity,
   Zap,
+  Lock,
 } from 'lucide-react'
+
+const PROFIT_ADVISOR_UNLOCK_KEY = 'market-advisor-profit-advisor-unlocked'
+const PROFIT_ADVISOR_PASSWORD = 'ProUser'
 
 interface InformationSource {
   id: string
@@ -202,10 +206,36 @@ export default function DayTraderModule() {
   const [profitGoal, setProfitGoal] = useState('')
   const [timeframeDays, setTimeframeDays] = useState('')
   const [showProfitAdvisor, setShowProfitAdvisor] = useState(false)
+  const [profitAdvisorUnlocked, setProfitAdvisorUnlocked] = useState(false)
+  const [profitAdvisorPasswordInput, setProfitAdvisorPasswordInput] = useState('')
+  const [profitAdvisorPasswordError, setProfitAdvisorPasswordError] = useState('')
   const [showPatternLookbackModal, setShowPatternLookbackModal] = useState(false)
   const [patternLookbackDays, setPatternLookbackDays] = useState(5)
   const [patternLookbackInput, setPatternLookbackInput] = useState('5')
   const [patternLookbackDaysUsed, setPatternLookbackDaysUsed] = useState<number | null>(null)
+
+  useEffect(() => {
+    try {
+      setProfitAdvisorUnlocked(localStorage.getItem(PROFIT_ADVISOR_UNLOCK_KEY) === 'true')
+    } catch {
+      // ignore storage errors
+    }
+  }, [])
+
+  const unlockProfitAdvisor = () => {
+    if (profitAdvisorPasswordInput === PROFIT_ADVISOR_PASSWORD) {
+      setProfitAdvisorUnlocked(true)
+      setProfitAdvisorPasswordError('')
+      setProfitAdvisorPasswordInput('')
+      try {
+        localStorage.setItem(PROFIT_ADVISOR_UNLOCK_KEY, 'true')
+      } catch {
+        // ignore storage errors
+      }
+      return
+    }
+    setProfitAdvisorPasswordError('Incorrect password')
+  }
 
   const investorTypes = [
     {
@@ -554,6 +584,11 @@ export default function DayTraderModule() {
   }
 
   const generateProfitAdvisor = async () => {
+    if (!profitAdvisorUnlocked) {
+      alert('Enter the ProUser password to unlock Profit Advisor.')
+      return
+    }
+
     if (!config.stockSymbol || !profitGoal || !timeframeDays) {
       alert('Please enter stock symbol, profit goal, and timeframe first')
       return
@@ -943,83 +978,123 @@ export default function DayTraderModule() {
                 </div>
               </div>
 
-              {/* Profit Advisor Configuration */}
+              {/* Profit Advisor — password gated */}
               <div className="mb-6">
                 <h3 className="text-lg font-semibold mb-4 flex items-center">
                   <Target className="h-5 w-5 mr-2" />
                   Profit Advisor
                 </h3>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <div className="flex items-start">
-                    <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
-                    <div>
-                      <h4 className="font-semibold text-blue-800 mb-1">Prerequisites</h4>
-                      <p className="text-sm text-blue-700">
-                        Complete both "Detect Trading Patterns" and "Generate Prediction" before
-                        using Profit Advisor.
+
+                {!profitAdvisorUnlocked ? (
+                  <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <div className="flex items-start gap-3 mb-4">
+                      <Lock className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-gray-600">
+                        Profit Advisor is locked. Enter the password to unlock advanced trade
+                        recommendations.
                       </p>
                     </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Profit Goal ($)
-                    </label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                      <input
-                        type="number"
-                        min="1"
-                        max="1000000"
-                        value={profitGoal}
-                        onChange={(e) => setProfitGoal(e.target.value)}
-                        disabled={!isEditing}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50"
-                        placeholder="e.g., 1000"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Timeframe (Days)
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
                     <input
-                      type="number"
-                      min="1"
-                      max="30"
-                      value={timeframeDays}
-                      onChange={(e) => setTimeframeDays(e.target.value)}
-                      disabled={!isEditing}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50"
-                      placeholder="e.g., 2"
+                      type="password"
+                      value={profitAdvisorPasswordInput}
+                      onChange={(e) => {
+                        setProfitAdvisorPasswordInput(e.target.value)
+                        if (profitAdvisorPasswordError) setProfitAdvisorPasswordError('')
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') unlockProfitAdvisor()
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
+                      placeholder="Enter password"
+                      autoComplete="off"
                     />
+                    {profitAdvisorPasswordError && (
+                      <p className="text-sm text-red-600 mb-2">{profitAdvisorPasswordError}</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={unlockProfitAdvisor}
+                      className="w-full px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 text-sm font-medium"
+                    >
+                      Unlock Profit Advisor
+                    </button>
                   </div>
-
-                  <button
-                    onClick={generateProfitAdvisor}
-                    disabled={
-                      isAnalyzing ||
-                      !config.stockSymbol ||
-                      !profitGoal ||
-                      !timeframeDays ||
-                      !patterns.length ||
-                      !prediction
-                    }
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Target className="h-5 w-5" />
-                    <span>Generate Profit Advisor</span>
-                  </button>
-
-                  {(!patterns.length || !prediction) && (
-                    <div className="text-xs text-gray-500 text-center">
-                      Complete pattern analysis and prediction first
+                ) : (
+                  <>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                      <div className="flex items-start">
+                        <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+                        <div>
+                          <h4 className="font-semibold text-blue-800 mb-1">Prerequisites</h4>
+                          <p className="text-sm text-blue-700">
+                            Complete both &quot;Detect Trading Patterns&quot; and &quot;Generate
+                            Prediction&quot; before using Profit Advisor.
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Profit Goal ($)
+                        </label>
+                        <div className="relative">
+                          <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                          <input
+                            type="number"
+                            min="1"
+                            max="1000000"
+                            value={profitGoal}
+                            onChange={(e) => setProfitGoal(e.target.value)}
+                            disabled={!isEditing}
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50"
+                            placeholder="e.g., 1000"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Timeframe (Days)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="30"
+                          value={timeframeDays}
+                          onChange={(e) => setTimeframeDays(e.target.value)}
+                          disabled={!isEditing}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50"
+                          placeholder="e.g., 2"
+                        />
+                      </div>
+
+                      <button
+                        onClick={generateProfitAdvisor}
+                        disabled={
+                          isAnalyzing ||
+                          !config.stockSymbol ||
+                          !profitGoal ||
+                          !timeframeDays ||
+                          !patterns.length ||
+                          !prediction
+                        }
+                        className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Target className="h-5 w-5" />
+                        <span>Generate Profit Advisor</span>
+                      </button>
+
+                      {(!patterns.length || !prediction) && (
+                        <div className="text-xs text-gray-500 text-center">
+                          Complete pattern analysis and prediction first
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -1566,7 +1641,7 @@ export default function DayTraderModule() {
               )}
 
               {/* Profit Advisor */}
-              {showProfitAdvisor && profitAdvisor && (
+              {profitAdvisorUnlocked && showProfitAdvisor && profitAdvisor && (
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <h3 className="text-xl font-semibold mb-4 flex items-center">
                     <Target className="h-5 w-5 mr-2" />

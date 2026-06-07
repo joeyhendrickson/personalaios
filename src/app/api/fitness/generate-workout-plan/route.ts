@@ -3,6 +3,15 @@ import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
 import { env } from '@/lib/env'
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import {
+  flattenWeeklyStructureToExercises,
+  normalizeDifficultyLevel,
+  normalizeWeeklyStructureKeys,
+  normalizeWorkoutPlanType,
+  parseAiJsonResponse,
+  resolveExerciseId,
+  resolveWorkoutPlanWeeklyStructure,
+} from '@/lib/fitness/normalize-workout-plan'
 
 export async function POST(request: NextRequest) {
   try {
@@ -108,28 +117,53 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Save workout plan exercises
-    if (workoutPlan.exercises && workoutPlan.exercises.length > 0) {
-      const exerciseInserts = workoutPlan.exercises.map((exercise: any) => ({
-        workout_plan_id: savedPlan.id,
-        exercise_id: exercise.exercise_id,
-        day_of_week: exercise.day_of_week,
-        week_number: exercise.week_number,
-        sets: exercise.sets,
-        reps: exercise.reps,
-        weight_suggestion: exercise.weight_suggestion,
-        rest_seconds: exercise.rest_seconds,
-        order_index: exercise.order_index,
-        notes: exercise.notes,
-      }))
+    const exerciseInserts = (workoutPlan.exercises || [])
+      .map((exercise: any) => {
+        const exerciseId = resolveExerciseId(
+          exercise.exercise_id,
+          exercise.exercise_name,
+          exercises || []
+        )
+        if (!exerciseId || !exercise.day_of_week) return null
+        return {
+          workout_plan_id: savedPlan.id,
+          exercise_id: exerciseId,
+          day_of_week: exercise.day_of_week,
+          week_number: exercise.week_number ?? 1,
+          sets: exercise.sets ?? 3,
+          reps: exercise.reps ?? '8-12',
+          weight_suggestion: exercise.weight_suggestion ?? null,
+          rest_seconds: exercise.rest_seconds ?? 60,
+          order_index: exercise.order_index ?? 1,
+          notes: exercise.notes,
+        }
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null)
 
+    if (exerciseInserts.length > 0) {
       const { error: exercisesSaveError } = await supabase
         .from('workout_plan_exercises')
         .insert(exerciseInserts)
 
       if (exercisesSaveError) {
         console.error('Error saving workout plan exercises:', exercisesSaveError)
-        // Continue even if exercises fail to save
+      }
+    }
+
+    // Persist weekly_structure if the first insert omitted JSONB columns.
+    if (workoutPlan.weekly_structure && !savedPlan.weekly_structure) {
+      const { data: updatedPlan } = await supabase
+        .from('workout_plans')
+        .update({
+          weekly_structure: workoutPlan.weekly_structure,
+          progression_strategy: workoutPlan.progression_strategy ?? null,
+        })
+        .eq('id', savedPlan.id)
+        .select()
+        .single()
+      if (updatedPlan) {
+        savedPlan.weekly_structure = updatedPlan.weekly_structure
+        savedPlan.progression_strategy = updatedPlan.progression_strategy
       }
     }
 
@@ -149,11 +183,28 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      // Ensure the client always has the full structure to render even if the
-      // JSONB columns aren't present yet in this environment.
       workout_plan: {
         ...savedPlan,
-        weekly_structure: savedPlan.weekly_structure ?? workoutPlan.weekly_structure ?? null,
+        weekly_structure: resolveWorkoutPlanWeeklyStructure({
+          ...savedPlan,
+          weekly_structure: savedPlan.weekly_structure ?? workoutPlan.weekly_structure ?? null,
+          workout_plan_exercises: exerciseInserts.map((row) => ({
+            day_of_week: row.day_of_week,
+            sets: row.sets,
+            reps: row.reps,
+            weight_suggestion: row.weight_suggestion,
+            rest_seconds: row.rest_seconds,
+            order_index: row.order_index,
+            notes: row.notes,
+            exercise_id: row.exercise_id,
+            exercises: {
+              name:
+                workoutPlan.exercises?.find(
+                  (ex: { exercise_id: string }) => ex.exercise_id === row.exercise_id
+                )?.exercise_name ?? null,
+            },
+          })),
+        }),
         progression_strategy:
           savedPlan.progression_strategy ?? workoutPlan.progression_strategy ?? null,
       },
@@ -415,29 +466,98 @@ IMPORTANT REQUIREMENTS:
     temperature: 0.7,
   })
 
-  let parsedResponse
+  let parsedResponse: Record<string, unknown>
   try {
-    parsedResponse = JSON.parse(aiResponse)
+    parsedResponse = parseAiJsonResponse(aiResponse) as Record<string, unknown>
   } catch {
-    // If JSON parsing fails, create a basic plan
-    parsedResponse = {
-      plan_name: 'Personalized Fitness Plan',
-      plan_type: 'hybrid',
-      difficulty_level: 'beginner',
-      duration_weeks: 8,
-      frequency_per_week: 3,
-      target_areas: targetAreas,
-      goals_supported: goals.map((g) => g.goal_type),
-      description: 'A personalized workout plan based on your goals and current fitness level.',
-      exercises: [],
-      recommendations: {
-        progression: 'Gradually increase weight or reps each week',
-        recovery: 'Take at least one rest day between workout days',
-        nutrition: 'Focus on protein intake and hydration',
-        tips: 'Listen to your body and adjust as needed',
-      },
-    }
+    throw new Error('AI returned invalid JSON for the workout plan')
   }
 
-  return parsedResponse
+  const weeklyStructure = normalizeWeeklyStructureKeys(parsedResponse.weekly_structure)
+  const normalizedExercises =
+    Array.isArray(parsedResponse.exercises) && parsedResponse.exercises.length > 0
+      ? (parsedResponse.exercises as Array<Record<string, unknown>>)
+          .map((exercise, index) => {
+            const exerciseId = resolveExerciseId(
+              typeof exercise.exercise_id === 'string' ? exercise.exercise_id : null,
+              typeof exercise.exercise_name === 'string'
+                ? exercise.exercise_name
+                : typeof exercise.name === 'string'
+                  ? exercise.name
+                  : null,
+              availableExercises
+            )
+            if (!exerciseId || typeof exercise.day_of_week !== 'number') return null
+            return {
+              exercise_id: exerciseId,
+              exercise_name:
+                typeof exercise.exercise_name === 'string'
+                  ? exercise.exercise_name
+                  : typeof exercise.name === 'string'
+                    ? exercise.name
+                    : availableExercises.find((e) => e.id === exerciseId)?.name || 'Exercise',
+              day_of_week: exercise.day_of_week,
+              week_number: typeof exercise.week_number === 'number' ? exercise.week_number : 1,
+              sets: typeof exercise.sets === 'number' ? exercise.sets : 3,
+              reps: typeof exercise.reps === 'string' ? exercise.reps : '8-12',
+              weight_suggestion:
+                typeof exercise.weight_suggestion === 'number' ? exercise.weight_suggestion : null,
+              rest_seconds: typeof exercise.rest_seconds === 'number' ? exercise.rest_seconds : 60,
+              order_index:
+                typeof exercise.order_index === 'number' ? exercise.order_index : index + 1,
+              notes: typeof exercise.notes === 'string' ? exercise.notes : undefined,
+            }
+          })
+          .filter(Boolean)
+      : flattenWeeklyStructureToExercises(weeklyStructure, availableExercises).map((row) => ({
+          ...row,
+          exercise_name:
+            availableExercises.find((e) => e.id === row.exercise_id)?.name || 'Exercise',
+        }))
+
+  return {
+    plan_name:
+      typeof parsedResponse.plan_name === 'string'
+        ? parsedResponse.plan_name
+        : 'Personalized Fitness Plan',
+    plan_type: normalizeWorkoutPlanType(parsedResponse.plan_type),
+    difficulty_level: normalizeDifficultyLevel(parsedResponse.difficulty_level),
+    duration_weeks:
+      typeof parsedResponse.duration_weeks === 'number'
+        ? Math.min(16, Math.max(4, parsedResponse.duration_weeks))
+        : 8,
+    frequency_per_week:
+      typeof parsedResponse.frequency_per_week === 'number'
+        ? Math.min(6, Math.max(3, parsedResponse.frequency_per_week))
+        : 4,
+    target_areas: Array.isArray(parsedResponse.target_areas)
+      ? parsedResponse.target_areas
+      : targetAreas,
+    goals_supported: Array.isArray(parsedResponse.goals_supported)
+      ? parsedResponse.goals_supported
+      : goals.map((g) => g.goal_type),
+    description:
+      typeof parsedResponse.description === 'string'
+        ? parsedResponse.description
+        : 'A personalized workout plan based on your goals and current fitness level.',
+    weekly_structure: weeklyStructure,
+    progression_strategy:
+      parsedResponse.progression_strategy &&
+      typeof parsedResponse.progression_strategy === 'object' &&
+      !Array.isArray(parsedResponse.progression_strategy)
+        ? (parsedResponse.progression_strategy as Record<string, string>)
+        : undefined,
+    exercises: normalizedExercises,
+    recommendations:
+      parsedResponse.recommendations &&
+      typeof parsedResponse.recommendations === 'object' &&
+      !Array.isArray(parsedResponse.recommendations)
+        ? parsedResponse.recommendations
+        : {
+            progression: 'Gradually increase weight or reps each week',
+            recovery: 'Take at least one rest day between workout days',
+            nutrition: 'Focus on protein intake and hydration',
+            tips: 'Listen to your body and adjust as needed',
+          },
+  }
 }

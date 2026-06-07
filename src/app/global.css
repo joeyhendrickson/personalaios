@@ -70,6 +70,22 @@ body {
   color: hsl(var(--foreground));
 }
 
+/* LifeStacks logo — dark mode: black tile, inverted white mark */
+.lifestacks-logo {
+  display: inline-flex;
+  align-items: center;
+}
+
+.dark .lifestacks-logo {
+  background-color: hsl(0 0% 0%);
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.625rem;
+}
+
+.dark .lifestacks-logo img {
+  filter: invert(1);
+}
+
 /* ---------------------------------------------------------------------------
  * Dark-mode remaps for hardcoded utility classes.
  * Much of the app uses literal light colors (bg-white, text-gray-900, light

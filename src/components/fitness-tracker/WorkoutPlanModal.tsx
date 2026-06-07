@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   X,
   Calendar,
@@ -13,10 +13,15 @@ import {
 } from 'lucide-react'
 import {
   adaptWeeklyStructure,
-  energyModeFromScore,
+  adaptationModeFromReadiness,
+  trainingDaysFromStructure,
   type WeeklyStructure,
 } from '@/lib/fitness/adapt-workout-structure'
 import { computeContextualEnergyLevel } from '@/lib/fitness/contextual-energy'
+import {
+  resolveWorkoutPlanWeeklyStructure,
+  type PlanExerciseRow,
+} from '@/lib/fitness/normalize-workout-plan'
 
 type WorkoutPlan = {
   id: string
@@ -30,6 +35,7 @@ type WorkoutPlan = {
   description?: string
   weekly_structure?: WeeklyStructure
   progression_strategy?: Record<string, string>
+  workout_plan_exercises?: PlanExerciseRow[]
 }
 
 type FitnessGoal = {
@@ -64,6 +70,26 @@ type BiometricRow = {
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
 
+function formatWeight(w: number | null | undefined): string | null {
+  if (w == null || w <= 0) return null
+  return `${w} lbs`
+}
+
+function exerciseDetailLine(ex: {
+  sets: number
+  reps: string
+  rest_seconds?: number
+  weight_suggestion?: number | null
+}): string {
+  const weight = formatWeight(ex.weight_suggestion)
+  const parts = [
+    weight,
+    `${ex.sets} sets × ${ex.reps}`,
+    ex.rest_seconds ? `${ex.rest_seconds}s rest` : null,
+  ].filter(Boolean)
+  return parts.join(' · ')
+}
+
 export default function WorkoutPlanModal(props: {
   plan: WorkoutPlan | null
   open: boolean
@@ -88,7 +114,14 @@ export default function WorkoutPlanModal(props: {
   } = props
 
   const [weekIndex, setWeekIndex] = useState(0)
-  const [showAdapted, setShowAdapted] = useState(true)
+  const [showAdapted, setShowAdapted] = useState(false)
+
+  useEffect(() => {
+    if (open && plan) {
+      setShowAdapted(false)
+      setWeekIndex(0)
+    }
+  }, [open, plan?.id])
 
   const energyMeta = useMemo(() => {
     const computed = latestBiometric
@@ -106,24 +139,40 @@ export default function WorkoutPlanModal(props: {
     return {
       contextual,
       self: latestBiometric?.energy_level_self_1_10 ?? null,
+      stress: latestBiometric?.stress_level_1_10 ?? null,
       rationale: computed.rationale,
     }
   }, [latestBiometric])
 
-  const mode = energyModeFromScore(energyMeta.contextual)
+  const mode = adaptationModeFromReadiness(energyMeta.contextual, energyMeta.stress)
+
+  const baseStructure = useMemo(() => {
+    if (!plan) return {} as WeeklyStructure
+    return resolveWorkoutPlanWeeklyStructure(plan)
+  }, [plan])
+
+  const readiness = useMemo(
+    () => ({
+      contextualEnergy: energyMeta.contextual,
+      stressLevel: energyMeta.stress,
+    }),
+    [energyMeta.contextual, energyMeta.stress]
+  )
 
   const displayStructure = useMemo(() => {
-    if (!plan?.weekly_structure) return {}
-    const ws = plan.weekly_structure as WeeklyStructure
-    if (!showAdapted) return ws
-    return adaptWeeklyStructure(ws, mode)
-  }, [plan?.weekly_structure, showAdapted, mode])
+    if (!showAdapted) return baseStructure
+    return adaptWeeklyStructure(baseStructure, mode, readiness)
+  }, [baseStructure, showAdapted, mode, readiness])
 
   const workoutDays = useMemo(() => {
-    const ws = plan?.weekly_structure as WeeklyStructure | undefined
-    if (!ws) return []
-    return DAYS.filter((d) => (ws[d]?.exercises?.length || 0) > 0)
-  }, [plan?.weekly_structure])
+    if (showAdapted) {
+      return DAYS.filter((d) => (displayStructure[d]?.exercises?.length || 0) > 0)
+    }
+    return DAYS.filter((d) => (baseStructure[d]?.exercises?.length || 0) > 0)
+  }, [showAdapted, displayStructure, baseStructure])
+
+  const adaptedFrequency = trainingDaysFromStructure(displayStructure).length
+  const baseFrequency = trainingDaysFromStructure(baseStructure).length
 
   if (!open || !plan) return null
 
@@ -197,21 +246,29 @@ export default function WorkoutPlanModal(props: {
             </div>
           </div>
 
-          {/* Energy & adaptation */}
+          {/* Plan view: base (default) vs adapted for today's stress & energy */}
           <div className="border border-amber-200 bg-amber-50 rounded-lg p-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
               <div>
                 <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                   <Activity className="h-4 w-4 text-amber-700" />
-                  Contextual energy (today’s coaching estimate)
+                  Today&apos;s readiness (stress &amp; energy)
                 </h3>
-                <p className="text-2xl font-bold text-amber-900 mt-1">
-                  {energyMeta.contextual}
-                  <span className="text-sm font-normal text-gray-600"> / 10</span>
-                </p>
+                <div className="flex flex-wrap gap-4 mt-2">
+                  <p className="text-2xl font-bold text-amber-900">
+                    {energyMeta.contextual}
+                    <span className="text-sm font-normal text-gray-600"> / 10 energy</span>
+                  </p>
+                  {energyMeta.stress !== null && (
+                    <p className="text-2xl font-bold text-amber-900">
+                      {energyMeta.stress}
+                      <span className="text-sm font-normal text-gray-600"> / 10 stress</span>
+                    </p>
+                  )}
+                </div>
                 {energyMeta.self !== null && (
-                  <p className="text-xs text-gray-600">
-                    Your self-report: {energyMeta.self}/10 · Mode:{' '}
+                  <p className="text-xs text-gray-600 mt-1">
+                    Self-reported energy: {energyMeta.self}/10 · Adaptation mode:{' '}
                     <span className="font-medium capitalize">{mode}</span>
                   </p>
                 )}
@@ -223,18 +280,44 @@ export default function WorkoutPlanModal(props: {
                   </ul>
                 )}
               </div>
-              <div className="flex flex-wrap gap-2 items-center">
-                <button
-                  type="button"
-                  onClick={() => setShowAdapted((v) => !v)}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium border ${
-                    showAdapted
-                      ? 'bg-amber-600 text-white border-amber-600'
-                      : 'bg-white text-gray-800 border-gray-300'
-                  }`}
+              <div className="flex flex-col gap-2 shrink-0">
+                <div
+                  className="inline-flex rounded-lg border border-gray-300 overflow-hidden"
+                  role="tablist"
+                  aria-label="Workout plan view"
                 >
-                  {showAdapted ? 'Showing: adapted load' : 'Showing: base plan'}
-                </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={!showAdapted}
+                    onClick={() => setShowAdapted(false)}
+                    className={`px-4 py-2 text-sm font-medium border-r border-gray-300 ${
+                      !showAdapted
+                        ? 'bg-green-600 text-white'
+                        : 'bg-white text-gray-800 hover:bg-gray-50'
+                    }`}
+                  >
+                    Base plan
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={showAdapted}
+                    onClick={() => setShowAdapted(true)}
+                    className={`px-4 py-2 text-sm font-medium ${
+                      showAdapted
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-white text-gray-800 hover:bg-gray-50'
+                    }`}
+                  >
+                    Adapted plan
+                  </button>
+                </div>
+                <p className="text-xs text-gray-600 max-w-xs">
+                  {showAdapted
+                    ? 'Volume and rest adjusted from your current stress and energy levels.'
+                    : 'Full prescribed plan — switch to Adapted plan when you want today’s tailored load.'}
+                </p>
                 {energyMeta.contextual <= 4 && (
                   <button
                     type="button"
@@ -250,14 +333,13 @@ export default function WorkoutPlanModal(props: {
                 )}
               </div>
             </div>
-            {energyMeta.contextual <= 4 && (
+            {showAdapted && energyMeta.contextual <= 4 && (
               <p className="text-sm text-amber-900 mt-3">
-                Lower energy today — the adapted view trims volume slightly to reduce burnout. Visit{' '}
-                <strong>Nutrition</strong> to align meals with sustained energy for your dashboard
-                goals.
+                Lower energy or higher stress — adapted view trims volume slightly to reduce
+                burnout. Visit <strong>Nutrition</strong> to align meals with recovery.
               </p>
             )}
-            {energyMeta.contextual >= 8 && mode === 'high' && (
+            {showAdapted && energyMeta.contextual >= 8 && mode === 'high' && (
               <p className="text-sm text-amber-900 mt-3">
                 Higher capacity today — adapted view adds a modest bump where it supports your
                 goals. Still prioritize form and recovery days as written in the plan.
@@ -288,12 +370,28 @@ export default function WorkoutPlanModal(props: {
               ))}
             </div>
             <div className="flex flex-wrap gap-2 text-xs text-gray-600 mb-2">
-              <span className="font-medium text-gray-800">Training days this template:</span>
-              {workoutDays.map((d) => (
-                <span key={d} className="px-2 py-1 bg-green-100 text-green-900 rounded capitalize">
-                  {d.slice(0, 3)}
+              <span className="font-medium text-gray-800">
+                {showAdapted ? 'Adapted training days:' : 'Training days this template:'}
+              </span>
+              {workoutDays.length > 0 ? (
+                workoutDays.map((d) => (
+                  <span
+                    key={d}
+                    className={`px-2 py-1 rounded capitalize ${
+                      showAdapted ? 'bg-amber-100 text-amber-900' : 'bg-green-100 text-green-900'
+                    }`}
+                  >
+                    {d.slice(0, 3)}
+                  </span>
+                ))
+              ) : (
+                <span className="text-gray-500 italic">No sessions (recovery week)</span>
+              )}
+              {showAdapted && adaptedFrequency !== baseFrequency && (
+                <span className="text-amber-800 font-medium">
+                  ({baseFrequency}x/week → {adaptedFrequency}x/week)
                 </span>
-              ))}
+              )}
             </div>
           </div>
 
@@ -301,7 +399,8 @@ export default function WorkoutPlanModal(props: {
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-gray-900">
-                Weekly routine — Week {weekIndex + 1} of {weeks}
+                {showAdapted ? 'Adapted weekly routine' : 'Base weekly routine'} — Week{' '}
+                {weekIndex + 1} of {weeks}
               </h3>
               <div className="flex gap-1">
                 <button
@@ -327,14 +426,30 @@ export default function WorkoutPlanModal(props: {
                 {plan.description}
               </p>
             )}
+            {baseFrequency === 0 && (
+              <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                This plan has no saved weekly exercises yet. Generate a new plan or run migration{' '}
+                <code className="text-xs">072_fitness_plan_content.sql</code> in Supabase, then
+                regenerate.
+              </p>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {DAYS.map((day) => {
                 const block = displayStructure[day]
+                const baseBlock = baseStructure[day]
                 const exercises = block?.exercises || []
+                const baseHadWorkout = (baseBlock?.exercises?.length || 0) > 0
+                const skippedForRecovery = showAdapted && baseHadWorkout && exercises.length === 0
                 return (
                   <div
-                    key={day}
-                    className="border border-gray-200 rounded-lg p-3 bg-gray-50 min-h-[140px]"
+                    key={`${showAdapted ? 'adapted' : 'base'}-${day}`}
+                    className={`border rounded-lg p-3 min-h-[140px] ${
+                      showAdapted
+                        ? skippedForRecovery
+                          ? 'border-amber-300 bg-amber-50/80'
+                          : 'border-amber-200 bg-amber-50/40'
+                        : 'border-gray-200 bg-gray-50'
+                    }`}
                   >
                     <div className="font-semibold text-gray-800 capitalize mb-2 text-sm border-b border-gray-200 pb-1">
                       {day.slice(0, 3)}
@@ -343,31 +458,87 @@ export default function WorkoutPlanModal(props: {
                           {block.focus}
                         </span>
                       ) : null}
+                      {block?.duration_minutes ? (
+                        <span className="block text-xs font-normal text-gray-500">
+                          {block.duration_minutes} min
+                          {showAdapted &&
+                          baseBlock?.duration_minutes &&
+                          block.duration_minutes !== baseBlock.duration_minutes ? (
+                            <span className="text-amber-700 ml-1">
+                              (base {baseBlock.duration_minutes} min)
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : null}
                     </div>
+                    {block?.adapted_note && showAdapted && (
+                      <p className="text-xs text-amber-800 mb-2 italic">{block.adapted_note}</p>
+                    )}
                     {exercises.length > 0 ? (
                       <div className="space-y-2">
-                        {exercises.map((ex: any, idx: number) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            className="w-full text-left text-xs bg-white p-2 rounded border hover:bg-green-50"
-                            onClick={() => onExerciseClick(ex.exercise_name)}
-                          >
-                            <div className="font-medium text-gray-900">{ex.exercise_name}</div>
-                            <div className="text-gray-600">
-                              {ex.sets} sets × {ex.reps}
-                              {ex.rest_seconds ? ` · ${ex.rest_seconds}s rest` : ''}
-                            </div>
-                          </button>
-                        ))}
+                        {exercises.map((ex, idx) => {
+                          const baseEx = baseBlock?.exercises?.find(
+                            (b) => b.exercise_name === ex.exercise_name
+                          )
+                          return (
+                            <button
+                              key={`${ex.exercise_name}-${idx}`}
+                              type="button"
+                              className={`w-full text-left text-xs p-2 rounded border hover:bg-green-50 ${
+                                showAdapted ? 'bg-amber-50/60 border-amber-200' : 'bg-white'
+                              }`}
+                              onClick={() => onExerciseClick(ex.exercise_name)}
+                            >
+                              <div className="font-medium text-gray-900">{ex.exercise_name}</div>
+                              <div className="text-gray-700">{exerciseDetailLine(ex)}</div>
+                              {showAdapted && baseEx && (
+                                <div className="text-[11px] text-amber-800 mt-1 space-x-2">
+                                  {baseEx.sets !== ex.sets && (
+                                    <span>
+                                      Sets {baseEx.sets} → {ex.sets}
+                                    </span>
+                                  )}
+                                  {baseEx.weight_suggestion &&
+                                    ex.weight_suggestion &&
+                                    baseEx.weight_suggestion !== ex.weight_suggestion && (
+                                      <span>
+                                        Weight {formatWeight(baseEx.weight_suggestion)} →{' '}
+                                        {formatWeight(ex.weight_suggestion)}
+                                      </span>
+                                    )}
+                                  {baseEx.reps !== ex.reps && (
+                                    <span>
+                                      Reps {baseEx.reps} → {ex.reps}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </button>
+                          )
+                        })}
+                        {showAdapted &&
+                          baseBlock?.exercises &&
+                          baseBlock.exercises.length > exercises.length && (
+                            <p className="text-[11px] text-amber-800 italic px-1">
+                              Removed from today:{' '}
+                              {baseBlock.exercises
+                                .filter(
+                                  (b) => !exercises.some((e) => e.exercise_name === b.exercise_name)
+                                )
+                                .map((e) => e.exercise_name)
+                                .join(', ')}
+                            </p>
+                          )}
                       </div>
                     ) : (
                       <p className="text-xs text-gray-500 italic pt-2">
-                        {day === 'sunday'
-                          ? 'Rest / recovery'
-                          : day === 'saturday'
-                            ? 'Optional cardio or active recovery'
-                            : 'Rest day'}
+                        {skippedForRecovery
+                          ? 'Rest / recovery (session skipped in adapted plan)'
+                          : day === 'sunday'
+                            ? 'Rest / recovery'
+                            : day === 'saturday'
+                              ? 'Optional cardio or active recovery'
+                              : 'Rest day'}
                       </p>
                     )}
                   </div>

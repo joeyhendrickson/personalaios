@@ -177,16 +177,10 @@ export default function SigninStreakTrophies() {
                 return (
                   <div
                     key={userTrophy.id}
-                    className="bg-white rounded-lg p-4 shadow-sm border-2 border-orange-200"
-                    style={{
-                      background: userTrophy.signin_streak_trophies.background_gradient,
-                    }}
+                    className="bg-white rounded-lg p-4 shadow-sm border border-gray-200"
                   >
                     <div className="flex items-start gap-3">
-                      <div
-                        className="p-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: userTrophy.signin_streak_trophies.color + '40' }}
-                      >
+                      <div className="p-2 rounded-full flex-shrink-0 bg-gray-100">
                         <TrophyIcon
                           className="h-6 w-6"
                           style={{ color: userTrophy.signin_streak_trophies.color }}
@@ -203,7 +197,14 @@ export default function SigninStreakTrophies() {
                           "{userTrophy.signin_streak_trophies.reflection_message}"
                         </p>
                         <div className="flex items-center justify-between mt-2">
-                          <Badge variant="outline" className="text-xs">
+                          <Badge
+                            variant="outline"
+                            className="text-xs font-medium"
+                            style={{
+                              borderColor: userTrophy.signin_streak_trophies.color,
+                              color: userTrophy.signin_streak_trophies.color,
+                            }}
+                          >
                             {userTrophy.signin_streak_trophies.streak_days_required} day streak
                           </Badge>
                           <span className="text-xs text-gray-400">

@@ -3,6 +3,16 @@ import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
 import { env } from '@/lib/env'
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import {
+  filterModuleRecommendations,
+  formatLifeHacksForCoachPrompt,
+  installedModuleIds,
+} from '@/lib/life-hacks/catalog'
+import {
+  formatCoachWorkContext,
+  isTaskCompleted,
+  partitionUserDataForCoach,
+} from '@/lib/life-coach/partition-user-data'
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,25 +49,29 @@ export async function POST(request: NextRequest) {
 
     // Fetch comprehensive user data
     const userData = await fetchComprehensiveUserData(supabase, user.id)
+    const coachContext = partitionUserDataForCoach(userData)
     console.log('Comprehensive user data fetched:', {
       goals: userData.goals.length,
+      activeGoals: coachContext.activeGoals.length,
       projects: userData.projects.length,
+      activeProjects: coachContext.activeProjects.length,
       tasks: userData.tasks.length,
+      openTasks: coachContext.openTasks.length,
       habits: userData.habits.length,
       education: userData.education.length,
       priorities: userData.priorities.length,
-      points: userData.points,
+      points: userData.points.length,
       weeks: userData.weeks.length,
     })
 
     // Analyze user personality and patterns
-    const personalityAnalysis = await analyzeUserPersonality(userData)
+    const personalityAnalysis = await analyzeUserPersonality(coachContext)
     console.log('Personality analysis completed:', personalityAnalysis.summary)
 
     // Generate personalized response
     const response = await generateLifeCoachResponse(
       message,
-      userData,
+      coachContext,
       personalityAnalysis,
       conversation_history
     )
@@ -204,23 +218,25 @@ async function analyzeUserPersonality(userData: any) {
     summary: '',
   }
 
-  // Analyze goals
-  if (userData.goals.length > 0) {
-    const goalCategories = userData.goals.map((g: any) => g.category).filter(Boolean) as string[]
+  // Analyze goals (active only — completed goals are past wins)
+  if (userData.activeGoals.length > 0) {
+    const goalCategories = userData.activeGoals
+      .map((g: any) => g.category || g.goal_type)
+      .filter(Boolean) as string[]
     analysis.preferred_categories = [...new Set(goalCategories)]
 
-    if (userData.goals.length > 10) {
+    if (userData.activeGoals.length > 10) {
       analysis.personality_traits.push('highly_goal_oriented')
       analysis.goal_orientation = 'high'
-    } else if (userData.goals.length > 5) {
+    } else if (userData.activeGoals.length > 5) {
       analysis.personality_traits.push('goal_oriented')
       analysis.goal_orientation = 'balanced'
     }
   }
 
-  // Analyze tasks
+  // Analyze open tasks (completion rate uses all tasks for historical accuracy)
   if (userData.tasks.length > 0) {
-    const completedTasks = userData.tasks.filter((t: any) => t.is_completed).length
+    const completedTasks = userData.tasks.filter((t: any) => isTaskCompleted(t)).length
     analysis.task_completion_rate = completedTasks / userData.tasks.length
 
     if (analysis.task_completion_rate > 0.8) {
@@ -267,8 +283,12 @@ async function analyzeUserPersonality(userData: any) {
     analysis.strengths.push('Track record of accomplishments')
   }
 
+  if (userData.completedProjects.length > 0 || userData.closedGoals.length > 0) {
+    analysis.strengths.push('Track record of finishing goals and projects')
+  }
+
   // Generate summary
-  analysis.summary = `User shows ${analysis.productivity_level} productivity with ${analysis.goal_orientation} goal orientation. Key traits: ${analysis.personality_traits.join(', ')}. Strengths: ${analysis.strengths.join(', ')}.`
+  analysis.summary = `User shows ${analysis.productivity_level} productivity with ${analysis.goal_orientation} goal orientation (${userData.activeGoals.length} active goals, ${userData.openTasks.length} open tasks). Key traits: ${analysis.personality_traits.join(', ')}. Strengths: ${analysis.strengths.join(', ')}.`
 
   return analysis
 }
@@ -302,14 +322,15 @@ Use this profile information to provide more personalized coaching. Reference th
 USER DATA ANALYSIS:
 ${JSON.stringify(
   {
-    goals: userData.goals.length,
-    projects: userData.projects.length,
-    tasks: userData.tasks.length,
+    active_goals: userData.activeGoals.length,
+    closed_goals: userData.closedGoals.length,
+    active_projects: userData.activeProjects.length,
+    completed_projects: userData.completedProjects.length,
+    open_tasks: userData.openTasks.length,
+    completed_tasks: userData.completedTasks.length,
     habits: userData.habits.length,
-    education: userData.education.length,
-    priorities: userData.priorities.length,
-    points: userData.points.length,
-    weeks: userData.weeks.length,
+    active_education: userData.activeEducation.length,
+    active_priorities: userData.activePriorities.length,
     accomplishments: userData.accomplishments.length,
     activeModules: userData.activeModules.length,
   },
@@ -323,40 +344,12 @@ ${userData.activeModules.map((m: any) => `- ${m.module_id} (last accessed: ${new
 PERSONALITY ANALYSIS:
 ${JSON.stringify(personalityAnalysis, null, 2)}
 
-RECENT GOALS:
-${userData.goals
-  .slice(0, 5)
-  .map((g: any) => `- ${g.title} (${g.category})`)
-  .join('\n')}
-
-RECENT PROJECTS:
-${userData.projects
-  .slice(0, 5)
-  .map((p: any) => `- ${p.title} (${p.status})`)
-  .join('\n')}
-
-RECENT TASKS:
-${userData.tasks
-  .slice(0, 10)
-  .map((t: any) => `- ${t.title} (${t.is_completed ? 'Completed' : 'Pending'})`)
-  .join('\n')}
+${formatCoachWorkContext(userData)}
 
 CURRENT HABITS:
 ${userData.habits
   .slice(0, 5)
   .map((h: any) => `- ${h.name} (${h.frequency})`)
-  .join('\n')}
-
-EDUCATION ITEMS:
-${userData.education
-  .slice(0, 5)
-  .map((e: any) => `- ${e.title} (${e.status})`)
-  .join('\n')}
-
-CURRENT PRIORITIES:
-${userData.priorities
-  .slice(0, 5)
-  .map((p: any) => `- ${p.title} (${p.priority_type})`)
   .join('\n')}
 
 RECENT ACCOMPLISHMENTS:
@@ -390,30 +383,18 @@ USER'S CURRENT MESSAGE:
 INSTRUCTIONS:
 1. Provide a warm, encouraging, and personalized response
 2. Acknowledge their progress and strengths based on their data
-3. Offer specific, actionable advice tailored to their personality and goals
+3. Offer specific, actionable advice tailored to their personality and **active** goals, projects, and open tasks
 4. Suggest relevant modules that could help them achieve their objectives
 5. Be positive about their use of the Personal AI OS system
-6. Reference their specific goals, projects, or habits when relevant
+6. Reference **active** goals, projects, or habits when relevant — not completed/closed items unless celebrating a win
 7. Keep the tone conversational and supportive
 8. When the user has gratitude journal entries, reference what they are thankful for to reinforce positivity, connect gratitudes to their goals and progress, and track emotional patterns over time
+9. Never recommend next steps for completed goals, completed projects, or completed tasks
 
-AVAILABLE MODULES TO RECOMMEND (Only recommend modules that are NOT already active):
-- Market Advisor: For financial growth and investment learning
-- Budget Advisor: For financial management and spending optimization
-- Life Coach: For personalized coaching and motivation
-- Fitness Tracker: For health and wellness goals
-- Time Blocker: For productivity and time management
-- Relationship Manager: For personal and professional relationship tracking
-- Mood Tracker: For mental health and emotional well-being
-- Energy Optimizer: For energy management and performance
-- Lifestacks Calendar: For scheduling tasks and habits into Google Calendar
-- Productivity Analyst: For comprehensive data visualization and insights
-- Focus Enhancer: For advanced focus tracking and concentration optimization
-- Stress Manager: For stress level tracking and management techniques
-- Creativity Boost: For AI-powered brainstorming and idea generation
-- Gratitude Journal: For nightly gratitude practice, mood tracking, and building a thankfulness habit
+AVAILABLE LIFE HACKS TO RECOMMEND (Only recommend modules from this list that are NOT already installed — use the exact title shown):
+${formatLifeHacksForCoachPrompt(installedModuleIds(userData.activeModules))}
 
-IMPORTANT: Only recommend modules that the user has NOT already installed. Check the ACTIVE MODULES list above before making recommendations.
+IMPORTANT: Only recommend Life Hacks from the list above. Do not invent modules. Check the ACTIVE MODULES list before recommending. Never recommend "Life Coach" (the user is already here).
 
 Format your response as JSON with this structure:
 {
@@ -454,7 +435,7 @@ Remember: Be genuinely helpful, acknowledge their efforts, and provide specific 
       {
         role: 'system',
         content:
-          "You are an expert Life Coach with access to comprehensive user data. Provide personalized, positive, and actionable advice based on the user's goals, habits, and progress. Always be encouraging and specific in your recommendations.",
+          "You are an expert Life Coach with access to comprehensive user data. Provide personalized, positive, and actionable advice based on the user's active goals, open tasks, and habits. Completed or closed items are past wins — celebrate them briefly but never assign new work on them. Always be encouraging and specific in your recommendations.",
       },
       {
         role: 'user',
@@ -478,9 +459,9 @@ Remember: Be genuinely helpful, acknowledge their efforts, and provide specific 
       },
       module_recommendations: [
         {
-          module: 'Goal Achiever',
-          reason: 'Based on your goal-oriented nature',
-          connection: 'Would help you achieve your current objectives more effectively',
+          module: 'Gratitude Journal',
+          reason: 'Builds a nightly gratitude habit with mood awareness',
+          connection: 'Supports emotional wellbeing alongside your current goals',
         },
       ],
       actionable_advice: [
@@ -497,6 +478,12 @@ Remember: Be genuinely helpful, acknowledge their efforts, and provide specific 
       },
     }
   }
+
+  const installed = installedModuleIds(userData.activeModules)
+  parsedResponse.module_recommendations = filterModuleRecommendations(
+    parsedResponse.module_recommendations,
+    installed
+  )
 
   return parsedResponse
 }

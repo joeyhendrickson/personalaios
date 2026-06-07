@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { resolveWorkoutPlanWeeklyStructure } from '@/lib/fitness/normalize-workout-plan'
 
 export async function GET() {
   try {
@@ -32,7 +33,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch workout plans' }, { status: 500 })
     }
 
-    return NextResponse.json(plans || [])
+    const enriched = (plans || []).map((plan) => ({
+      ...plan,
+      weekly_structure: resolveWorkoutPlanWeeklyStructure(plan),
+    }))
+
+    return NextResponse.json(enriched)
   } catch (error) {
     console.error('Error in workout plans GET:', error)
     return NextResponse.json(

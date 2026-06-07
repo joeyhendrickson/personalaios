@@ -240,40 +240,40 @@ export default function DisciplineTrophies() {
                           key={trophy.id}
                           className={`relative p-4 rounded-lg border-2 transition-all duration-300 ${
                             isEarned
-                              ? 'border-yellow-400 bg-gradient-to-br from-yellow-50 to-yellow-100 shadow-lg'
+                              ? 'border-gray-200 bg-white shadow-sm'
                               : progress > 0
-                                ? 'border-gray-300 bg-gradient-to-br from-gray-50 to-gray-100'
+                                ? 'border-gray-300 bg-gray-50'
                                 : 'border-gray-200 bg-gray-50 opacity-60'
                           }`}
-                          style={{
-                            background: isEarned ? trophy.background_gradient : undefined,
-                          }}
                         >
                           <div className="text-center">
                             <div
-                              className={`mx-auto mb-2 ${isEarned ? 'text-yellow-600' : 'text-gray-400'}`}
+                              className={`mx-auto mb-2 ${isEarned ? '' : 'text-gray-400'}`}
+                              style={isEarned ? { color: trophy.color } : undefined}
                             >
                               <IconComponent className="h-8 w-8" />
                             </div>
                             <h4
                               className={`text-xs font-medium mb-1 ${
-                                isEarned ? 'text-yellow-800' : 'text-gray-600'
+                                isEarned ? 'text-gray-900' : 'text-gray-600'
                               }`}
                             >
                               {trophy.name}
                             </h4>
                             <p
-                              className={`text-xs ${
-                                isEarned ? 'text-yellow-700' : 'text-gray-500'
-                              }`}
+                              className={`text-xs ${isEarned ? 'text-gray-600' : 'text-gray-500'}`}
                             >
                               {trophy.habit_count_required} completions
                             </p>
                             {isEarned && (
                               <div className="mt-2">
                                 <Badge
-                                  variant="secondary"
-                                  className="bg-yellow-200 text-yellow-800 text-xs"
+                                  variant="outline"
+                                  className="text-xs font-medium"
+                                  style={{
+                                    borderColor: trophy.color,
+                                    color: trophy.color,
+                                  }}
                                 >
                                   Earned
                                 </Badge>
@@ -287,15 +287,15 @@ export default function DisciplineTrophies() {
 
                   {/* Reflection messages for earned trophies */}
                   {earnedTrophies.length > 0 && (
-                    <div className="mt-6 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
-                      <h4 className="font-medium text-yellow-800 mb-3">Wisdom Gained</h4>
+                    <div className="mt-6 p-4 bg-white rounded-lg border border-gray-200">
+                      <h4 className="font-medium text-gray-800 mb-3">Wisdom Gained</h4>
                       <div className="space-y-2">
                         {earnedTrophies.map((earnedTrophy) => (
                           <div key={earnedTrophy.id} className="text-sm">
-                            <p className="font-medium text-yellow-700">
+                            <p className="font-medium text-gray-800">
                               {earnedTrophy.discipline_trophies.name}:
                             </p>
-                            <p className="text-yellow-600 italic">
+                            <p className="text-gray-600 italic">
                               "{earnedTrophy.discipline_trophies.reflection_message}"
                             </p>
                           </div>

@@ -33,7 +33,10 @@ import {
   PieChart,
   Volume2,
   VolumeX,
+  ShoppingCart,
+  Users,
 } from 'lucide-react'
+import { resolveLifeHackModule, type ResolvedModuleRecommendation } from '@/lib/life-hacks/catalog'
 
 interface ChatMessage {
   id: string
@@ -49,6 +52,8 @@ interface ChatMessage {
     module: string
     reason: string
     connection: string
+    module_id?: string
+    href?: string
   }>
   actionable_advice?: Array<{
     action: string
@@ -68,54 +73,72 @@ interface PersonalityInsights {
   growth_areas: string[]
 }
 
-interface ModuleRecommendation {
-  module: string
-  reason: string
-  connection: string
+interface ModuleRecommendation extends ResolvedModuleRecommendation {
   icon: React.ReactNode
   category: string
 }
 
-const moduleIcons: Record<string, React.ReactNode> = {
-  'Market Advisor': <TrendingUp className="h-5 w-5" />,
-  'Budget Advisor': <DollarSign className="h-5 w-5" />,
-  'Fitness Tracker': <Activity className="h-5 w-5" />,
-  'Time Blocker': <Clock className="h-5 w-5" />,
-  'Learning Tracker': <BookOpen className="h-5 w-5" />,
-  'Habit Master': <Target className="h-5 w-5" />,
-  'Mood Tracker': <Heart className="h-5 w-5" />,
-  'Energy Optimizer': <Zap className="h-5 w-5" />,
-  'Goal Achiever': <Star className="h-5 w-5" />,
-  'Calendar AI': <Calendar className="h-5 w-5" />,
-  'Lifestacks Calendar': <Calendar className="h-5 w-5" />,
-  'Productivity Analyst': <BarChart3 className="h-5 w-5" />,
-  'Sleep Optimizer': <Clock className="h-5 w-5" />,
-  'Focus Enhancer': <Target className="h-5 w-5" />,
-  'Stress Manager': <Heart className="h-5 w-5" />,
-  'Creativity Boost': <Lightbulb className="h-5 w-5" />,
-  'System Optimizer': <Settings className="h-5 w-5" />,
-  'Security Monitor': <Shield className="h-5 w-5" />,
+const moduleIconsById: Record<string, React.ReactNode> = {
+  'day-trader': <TrendingUp className="h-5 w-5" />,
+  'budget-optimizer': <DollarSign className="h-5 w-5" />,
+  'grocery-optimizer': <ShoppingCart className="h-5 w-5" />,
+  'fitness-tracker': <Activity className="h-5 w-5" />,
+  'relationship-manager': <Users className="h-5 w-5" />,
+  'dating-manager': <Heart className="h-5 w-5" />,
+  'calendar-ai': <Calendar className="h-5 w-5" />,
+  'analytics-dashboard': <BarChart3 className="h-5 w-5" />,
+  'focus-enhancer': <Target className="h-5 w-5" />,
+  'dream-catcher': <Lightbulb className="h-5 w-5" />,
+  'narrative-integration': <Sparkles className="h-5 w-5" />,
+  'rewards-self-care': <Star className="h-5 w-5" />,
+  'gratitude-journal': <Heart className="h-5 w-5" />,
 }
 
-const moduleCategories: Record<string, string> = {
-  'Market Advisor': 'Finance',
-  'Budget Advisor': 'Finance',
-  'Fitness Tracker': 'Health',
-  'Time Blocker': 'Productivity',
-  'Learning Tracker': 'Education',
-  'Habit Master': 'Productivity',
-  'Mood Tracker': 'Health',
-  'Energy Optimizer': 'Health',
-  'Goal Achiever': 'Productivity',
-  'Calendar AI': 'Productivity',
-  'Lifestacks Calendar': 'Productivity',
-  'Productivity Analyst': 'Analytics',
-  'Sleep Optimizer': 'Health',
-  'Focus Enhancer': 'Productivity',
-  'Stress Manager': 'Health',
-  'Creativity Boost': 'Productivity',
-  'System Optimizer': 'Technical',
-  'Security Monitor': 'Security',
+const moduleCategoriesById: Record<string, string> = {
+  'day-trader': 'Finance',
+  'budget-optimizer': 'Finance',
+  'grocery-optimizer': 'Finance',
+  'fitness-tracker': 'Health',
+  'relationship-manager': 'Social',
+  'dating-manager': 'Social',
+  'calendar-ai': 'Productivity',
+  'analytics-dashboard': 'Analytics',
+  'focus-enhancer': 'Wellness',
+  'dream-catcher': 'Wellness',
+  'narrative-integration': 'Wellness',
+  'rewards-self-care': 'Wellness',
+  'gratitude-journal': 'Wellness',
+}
+
+function normalizeModuleRecommendation(rec: {
+  module: string
+  reason: string
+  connection: string
+  module_id?: string
+  href?: string
+}): ModuleRecommendation | null {
+  if (rec.module_id && rec.href) {
+    return {
+      ...rec,
+      module_id: rec.module_id,
+      href: rec.href,
+      icon: moduleIconsById[rec.module_id] || <Lightbulb className="h-5 w-5" />,
+      category: moduleCategoriesById[rec.module_id] || 'General',
+    }
+  }
+
+  const resolved = resolveLifeHackModule(rec.module)
+  if (!resolved || resolved.id === 'ai-coach') return null
+
+  return {
+    module: resolved.title,
+    reason: rec.reason,
+    connection: rec.connection,
+    module_id: resolved.id,
+    href: `/modules/${resolved.id}`,
+    icon: moduleIconsById[resolved.id] || <Lightbulb className="h-5 w-5" />,
+    category: moduleCategoriesById[resolved.id] || resolved.category,
+  }
 }
 
 export default function AICoachModule() {
@@ -455,12 +478,10 @@ export default function AICoachModule() {
     messages.forEach((message) => {
       if (message.module_recommendations) {
         message.module_recommendations.forEach((rec) => {
-          if (!recommendations.find((r) => r.module === rec.module)) {
-            recommendations.push({
-              ...rec,
-              icon: moduleIcons[rec.module] || <Lightbulb className="h-5 w-5" />,
-              category: moduleCategories[rec.module] || 'General',
-            })
+          const normalized = normalizeModuleRecommendation(rec)
+          if (!normalized) return
+          if (!recommendations.find((r) => r.module_id === normalized.module_id)) {
+            recommendations.push(normalized)
           }
         })
       }
@@ -667,18 +688,26 @@ export default function AICoachModule() {
                               Recommended Modules
                             </h4>
                             <div className="space-y-2">
-                              {message.module_recommendations.map((rec, index) => (
-                                <div key={index} className="bg-white rounded p-2">
-                                  <div className="flex items-center space-x-2 mb-1">
-                                    {moduleIcons[rec.module] || <Lightbulb className="h-4 w-4" />}
-                                    <span className="font-medium text-sm">{rec.module}</span>
-                                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                                      {moduleCategories[rec.module] || 'General'}
-                                    </span>
+                              {message.module_recommendations
+                                .map((rec) => normalizeModuleRecommendation(rec))
+                                .filter(Boolean)
+                                .map((rec, index) => (
+                                  <div key={index} className="bg-white rounded p-2">
+                                    <div className="flex items-center space-x-2 mb-1">
+                                      {rec!.icon}
+                                      <Link
+                                        href={rec!.href}
+                                        className="font-medium text-sm text-blue-700 hover:underline"
+                                      >
+                                        {rec!.module}
+                                      </Link>
+                                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                        {rec!.category}
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-gray-600">{rec!.reason}</p>
                                   </div>
-                                  <p className="text-xs text-gray-600">{rec.reason}</p>
-                                </div>
-                              ))}
+                                ))}
                             </div>
                           </div>
                         )}
@@ -835,7 +864,12 @@ export default function AICoachModule() {
                         <div key={index} className="p-2 bg-gray-50 rounded">
                           <div className="flex items-center space-x-2 mb-1">
                             {rec.icon}
-                            <span className="text-sm font-medium">{rec.module}</span>
+                            <Link
+                              href={rec.href}
+                              className="text-sm font-medium text-blue-700 hover:underline"
+                            >
+                              {rec.module}
+                            </Link>
                           </div>
                           <p className="text-xs text-gray-600">{rec.reason}</p>
                         </div>

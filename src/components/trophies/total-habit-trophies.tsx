@@ -161,17 +161,10 @@ export default function TotalHabitTrophies() {
               {userTrophies.map((userTrophy) => (
                 <div
                   key={userTrophy.id}
-                  className="bg-white rounded-lg p-4 shadow-sm border-2"
-                  style={{ borderColor: userTrophy.total_habit_trophies.color + '40' }}
+                  className="bg-white rounded-lg p-4 shadow-sm border border-gray-200"
                 >
                   <div className="flex items-start gap-3">
-                    <div
-                      className="p-3 rounded-full flex-shrink-0"
-                      style={{
-                        backgroundColor: userTrophy.total_habit_trophies.color + '20',
-                        border: `2px solid ${userTrophy.total_habit_trophies.color}40`,
-                      }}
-                    >
+                    <div className="p-3 rounded-full flex-shrink-0 bg-gray-100">
                       <Trophy
                         className="h-6 w-6"
                         style={{ color: userTrophy.total_habit_trophies.color }}

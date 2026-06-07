@@ -71,8 +71,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
       console.error('Error excluding transaction:', insertError)
       const hint =
-        insertError.code === '42P01' || insertError.message?.includes('relation')
-          ? 'Run migration 035: Supabase SQL Editor → paste and run supabase/migrations/035_create_transaction_exclusions.sql'
+        insertError.code === '42P01' || insertError.message?.includes('transaction_exclusions')
+          ? 'Run migration 077 in Supabase SQL Editor: supabase/migrations/077_ensure_transaction_exclusions.sql'
           : undefined
       return NextResponse.json(
         {

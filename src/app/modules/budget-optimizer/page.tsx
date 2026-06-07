@@ -98,9 +98,22 @@ interface ExpectedExpense {
   updated_at: string
 }
 
+interface PotentialItem {
+  id: string
+  category: string
+  amount: number
+  months_out: 1 | 2 | 3
+  notes: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 interface Transaction {
   id: string
   amount: number
+  source_amount?: number
+  amount_override?: number | null
   date: string
   name: string
   merchant_name: string
@@ -716,6 +729,8 @@ export default function BudgetOptimizerModule() {
   const [manualAccounts, setManualAccounts] = useState<ManualAccount[]>([])
   const [expectedIncome, setExpectedIncome] = useState<ExpectedIncome[]>([])
   const [expectedExpenses, setExpectedExpenses] = useState<ExpectedExpense[]>([])
+  const [potentialIncome, setPotentialIncome] = useState<PotentialItem[]>([])
+  const [potentialExpenses, setPotentialExpenses] = useState<PotentialItem[]>([])
   const [allDashboardGoals, setAllDashboardGoals] = useState<
     Array<{
       id: string
@@ -762,6 +777,18 @@ export default function BudgetOptimizerModule() {
   const [showBudgetReductionGoalModal, setShowBudgetReductionGoalModal] = useState(false)
   const [showTransactionRulesModal, setShowTransactionRulesModal] = useState(false)
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null)
+  const [amountEditInput, setAmountEditInput] = useState('')
+
+  useEffect(() => {
+    if (!selectedTransactionId) {
+      setAmountEditInput('')
+      return
+    }
+    const selected = transactions.find((t) => t.id === selectedTransactionId)
+    if (selected) {
+      setAmountEditInput(String(selected.amount))
+    }
+  }, [selectedTransactionId, transactions])
   const [flaggedTransactions, setFlaggedTransactions] = useState<Transaction[]>([])
   const [showFlaggedSection, setShowFlaggedSection] = useState(false)
   const [transactionRules, setTransactionRules] = useState<TransactionRule[]>([])
@@ -835,6 +862,22 @@ export default function BudgetOptimizerModule() {
   })
   const [showExpenseModal, setShowExpenseModal] = useState(false)
   const [editingExpense, setEditingExpense] = useState<ExpectedExpense | null>(null)
+  const [showPotentialIncomeModal, setShowPotentialIncomeModal] = useState(false)
+  const [showPotentialExpenseModal, setShowPotentialExpenseModal] = useState(false)
+  const [editingPotentialIncome, setEditingPotentialIncome] = useState<PotentialItem | null>(null)
+  const [editingPotentialExpense, setEditingPotentialExpense] = useState<PotentialItem | null>(null)
+  const [potentialIncomeForm, setPotentialIncomeForm] = useState({
+    category: '',
+    amount: '',
+    months_out: 1 as 1 | 2 | 3,
+    notes: '',
+  })
+  const [potentialExpenseForm, setPotentialExpenseForm] = useState({
+    category: '',
+    amount: '',
+    months_out: 1 as 1 | 2 | 3,
+    notes: '',
+  })
   const [expenseForm, setExpenseForm] = useState({
     category: '',
     amount: '',
@@ -894,6 +937,8 @@ export default function BudgetOptimizerModule() {
     loadManualAccounts()
     loadExpectedIncome()
     loadExpectedExpenses()
+    loadPotentialIncome()
+    loadPotentialExpenses()
     loadGoals()
     loadTransactionRules()
   }, [])
@@ -1665,8 +1710,18 @@ export default function BudgetOptimizerModule() {
         body: JSON.stringify({ type_override: typeOverride }),
       })
       if (response.ok) {
+        const data = await response.json()
         setTransactions((prev) =>
-          prev.map((t) => (t.id === transactionId ? { ...t, type_override: typeOverride } : t))
+          prev.map((t) =>
+            t.id === transactionId
+              ? {
+                  ...t,
+                  type_override: typeOverride,
+                  amount_override:
+                    data.amount_override !== undefined ? data.amount_override : t.amount_override,
+                }
+              : t
+          )
         )
         setSelectedTransactionId(null)
       } else {
@@ -1680,6 +1735,66 @@ export default function BudgetOptimizerModule() {
       console.error('Error setting transaction type override:', error)
       alert('Failed to update transaction type')
     }
+  }
+
+  const setTransactionAmountOverride = async (
+    transactionId: string,
+    amountOverride: number | null
+  ) => {
+    try {
+      const response = await fetch(`/api/budget/transactions/${transactionId}`, {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount_override: amountOverride }),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setTransactions((prev) =>
+          prev.map((t) => {
+            if (t.id !== transactionId) return t
+            const sourceAmount = t.source_amount ?? t.amount
+            const nextOverride =
+              data.amount_override !== undefined ? data.amount_override : amountOverride
+            const effectiveAmount =
+              nextOverride != null && Number.isFinite(Number(nextOverride))
+                ? Number(nextOverride)
+                : sourceAmount
+            return {
+              ...t,
+              source_amount: sourceAmount,
+              amount_override: nextOverride,
+              amount: effectiveAmount,
+              type_override:
+                data.type_override !== undefined ? data.type_override : t.type_override,
+            }
+          })
+        )
+        setSelectedTransactionId(null)
+      } else {
+        const err = await response.json()
+        const msg = err.hint
+          ? `${err.error || 'Failed to update transaction amount'}\n\n${err.hint}`
+          : err.error || 'Failed to update transaction amount'
+        alert(msg)
+      }
+    } catch (error) {
+      console.error('Error setting transaction amount override:', error)
+      alert('Failed to update transaction amount')
+    }
+  }
+
+  const saveSelectedTransactionAmount = (transactionId: string) => {
+    const parsed = parseFloat(amountEditInput)
+    if (!Number.isFinite(parsed)) {
+      alert('Enter a valid amount (use negative for expenses, positive for income).')
+      return
+    }
+    void setTransactionAmountOverride(transactionId, parsed)
+  }
+
+  const resetSelectedTransactionAmount = (transaction: Transaction) => {
+    void setTransactionAmountOverride(transaction.id, null)
   }
 
   const handleBankConnectionSuccess = async (connectionId: string, institutionName: string) => {
@@ -2186,6 +2301,169 @@ export default function BudgetOptimizerModule() {
     } catch (error) {
       console.error('Error deleting expected expense:', error)
       alert('Failed to delete expected expense')
+    }
+  }
+
+  const loadPotentialIncome = async () => {
+    try {
+      const response = await fetch('/api/budget/potential-income')
+      if (response.ok) {
+        const data = await response.json()
+        setPotentialIncome(data.income || [])
+      }
+    } catch (error) {
+      console.error('Error loading potential income:', error)
+    }
+  }
+
+  const loadPotentialExpenses = async () => {
+    try {
+      const response = await fetch('/api/budget/potential-expenses')
+      if (response.ok) {
+        const data = await response.json()
+        setPotentialExpenses(data.expenses || [])
+      }
+    } catch (error) {
+      console.error('Error loading potential expenses:', error)
+    }
+  }
+
+  const potentialMonthLabel = (monthsOut: number) => {
+    if (monthsOut === 1) return 'Within ~1 month'
+    if (monthsOut === 2) return 'Within ~2 months'
+    return 'Within ~3 months'
+  }
+
+  const sumPotential = (items: PotentialItem[]) =>
+    items.filter((item) => item.is_active).reduce((sum, item) => sum + item.amount, 0)
+
+  const handleAddPotentialIncome = () => {
+    setEditingPotentialIncome(null)
+    setPotentialIncomeForm({ category: '', amount: '', months_out: 1, notes: '' })
+    setShowPotentialIncomeModal(true)
+  }
+
+  const handleEditPotentialIncome = (item: PotentialItem) => {
+    setEditingPotentialIncome(item)
+    setPotentialIncomeForm({
+      category: item.category,
+      amount: item.amount.toString(),
+      months_out: item.months_out,
+      notes: item.notes || '',
+    })
+    setShowPotentialIncomeModal(true)
+  }
+
+  const handleSavePotentialIncome = async () => {
+    if (!potentialIncomeForm.category || !potentialIncomeForm.amount) {
+      alert('Please fill in category and amount')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const url = '/api/budget/potential-income'
+      const method = editingPotentialIncome ? 'PUT' : 'POST'
+      const body = editingPotentialIncome
+        ? { id: editingPotentialIncome.id, ...potentialIncomeForm }
+        : potentialIncomeForm
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+      if (response.ok) {
+        await loadPotentialIncome()
+        setShowPotentialIncomeModal(false)
+        setEditingPotentialIncome(null)
+        setPotentialIncomeForm({ category: '', amount: '', months_out: 1, notes: '' })
+      } else {
+        const error = await response.json()
+        alert(error.details || error.error || 'Failed to save potential income')
+      }
+    } catch (error) {
+      console.error('Error saving potential income:', error)
+      alert('Failed to save potential income')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDeletePotentialIncome = async (id: string) => {
+    if (!confirm('Delete this potential income item?')) return
+    try {
+      const response = await fetch(`/api/budget/potential-income?id=${id}`, { method: 'DELETE' })
+      if (response.ok) await loadPotentialIncome()
+    } catch (error) {
+      console.error('Error deleting potential income:', error)
+      alert('Failed to delete potential income')
+    }
+  }
+
+  const handleAddPotentialExpense = () => {
+    setEditingPotentialExpense(null)
+    setPotentialExpenseForm({ category: '', amount: '', months_out: 1, notes: '' })
+    setShowPotentialExpenseModal(true)
+  }
+
+  const handleEditPotentialExpense = (item: PotentialItem) => {
+    setEditingPotentialExpense(item)
+    setPotentialExpenseForm({
+      category: item.category,
+      amount: item.amount.toString(),
+      months_out: item.months_out,
+      notes: item.notes || '',
+    })
+    setShowPotentialExpenseModal(true)
+  }
+
+  const handleSavePotentialExpense = async () => {
+    if (!potentialExpenseForm.category || !potentialExpenseForm.amount) {
+      alert('Please fill in category and amount')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const url = '/api/budget/potential-expenses'
+      const method = editingPotentialExpense ? 'PUT' : 'POST'
+      const body = editingPotentialExpense
+        ? { id: editingPotentialExpense.id, ...potentialExpenseForm }
+        : potentialExpenseForm
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+      if (response.ok) {
+        await loadPotentialExpenses()
+        setShowPotentialExpenseModal(false)
+        setEditingPotentialExpense(null)
+        setPotentialExpenseForm({ category: '', amount: '', months_out: 1, notes: '' })
+      } else {
+        const error = await response.json()
+        alert(error.details || error.error || 'Failed to save potential expense')
+      }
+    } catch (error) {
+      console.error('Error saving potential expense:', error)
+      alert('Failed to save potential expense')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDeletePotentialExpense = async (id: string) => {
+    if (!confirm('Delete this potential expense item?')) return
+    try {
+      const response = await fetch(`/api/budget/potential-expenses?id=${id}`, { method: 'DELETE' })
+      if (response.ok) await loadPotentialExpenses()
+    } catch (error) {
+      console.error('Error deleting potential expense:', error)
+      alert('Failed to delete potential expense')
     }
   }
 
@@ -3005,6 +3283,192 @@ export default function BudgetOptimizerModule() {
               )}
             </div>
 
+            {/* Potential Income & Spending (1–3 months) */}
+            <div className="bg-white rounded-lg border border-amber-200 p-6">
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold flex items-center">
+                  <Calendar className="h-5 w-5 mr-2 text-amber-600" />
+                  Potential (next 1–3 months)
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Track income and spending that might happen soon but isn&apos;t in your expected
+                  budget yet — bonuses, one-off bills, planned purchases, etc.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Potential Income */}
+                <div className="border border-green-100 rounded-lg p-4 bg-green-50/40">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-green-800 flex items-center">
+                      <TrendingUp className="h-4 w-4 mr-1" />
+                      Potential Income
+                    </h3>
+                    <button
+                      onClick={handleAddPotentialIncome}
+                      className="inline-flex items-center gap-1 text-sm border border-green-200 bg-white hover:bg-green-50 h-8 rounded-md px-2"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add
+                    </button>
+                  </div>
+                  {potentialIncome.filter((item) => item.is_active).length === 0 ? (
+                    <p className="text-sm text-gray-500 py-4 text-center">
+                      No potential income added yet.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {potentialIncome
+                        .filter((item) => item.is_active)
+                        .map((item) => (
+                          <div
+                            key={item.id}
+                            className="bg-white border border-green-100 rounded-lg p-3 flex items-start justify-between gap-2"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <span className="font-medium text-gray-900">{item.category}</span>
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                                  {potentialMonthLabel(item.months_out)}
+                                </span>
+                              </div>
+                              <span className="text-lg font-semibold text-green-700">
+                                {formatCurrency(item.amount)}
+                              </span>
+                              {item.notes && (
+                                <p className="text-xs text-gray-600 mt-1">{item.notes}</p>
+                              )}
+                            </div>
+                            <div className="flex shrink-0">
+                              <button
+                                onClick={() => handleEditPotentialIncome(item)}
+                                className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeletePotentialIncome(item.id)}
+                                className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                  {potentialIncome.filter((item) => item.is_active).length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-green-200 flex justify-between text-sm font-semibold text-green-800">
+                      <span>Total potential income</span>
+                      <span>{formatCurrency(sumPotential(potentialIncome))}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Potential Spending */}
+                <div className="border border-red-100 rounded-lg p-4 bg-red-50/40">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-red-800 flex items-center">
+                      <TrendingDown className="h-4 w-4 mr-1" />
+                      Potential Spending
+                    </h3>
+                    <button
+                      onClick={handleAddPotentialExpense}
+                      className="inline-flex items-center gap-1 text-sm border border-red-200 bg-white hover:bg-red-50 h-8 rounded-md px-2"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add
+                    </button>
+                  </div>
+                  {potentialExpenses.filter((item) => item.is_active).length === 0 ? (
+                    <p className="text-sm text-gray-500 py-4 text-center">
+                      No potential spending added yet.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {potentialExpenses
+                        .filter((item) => item.is_active)
+                        .map((item) => (
+                          <div
+                            key={item.id}
+                            className="bg-white border border-red-100 rounded-lg p-3 flex items-start justify-between gap-2"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <span className="font-medium text-gray-900">{item.category}</span>
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                                  {potentialMonthLabel(item.months_out)}
+                                </span>
+                              </div>
+                              <span className="text-lg font-semibold text-red-700">
+                                {formatCurrency(item.amount)}
+                              </span>
+                              {item.notes && (
+                                <p className="text-xs text-gray-600 mt-1">{item.notes}</p>
+                              )}
+                            </div>
+                            <div className="flex shrink-0">
+                              <button
+                                onClick={() => handleEditPotentialExpense(item)}
+                                className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeletePotentialExpense(item.id)}
+                                className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                  {potentialExpenses.filter((item) => item.is_active).length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-red-200 flex justify-between text-sm font-semibold text-red-800">
+                      <span>Total potential spending</span>
+                      <span>{formatCurrency(sumPotential(potentialExpenses))}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {(potentialIncome.some((i) => i.is_active) ||
+                potentialExpenses.some((e) => e.is_active)) && (
+                <div className="mt-6 pt-4 border-t border-amber-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-lg bg-green-50 border border-green-100 p-3 text-center">
+                      <div className="text-xs text-gray-600 mb-1">Potential income</div>
+                      <div className="text-lg font-bold text-green-700">
+                        {formatCurrency(sumPotential(potentialIncome))}
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-red-50 border border-red-100 p-3 text-center">
+                      <div className="text-xs text-gray-600 mb-1">Potential spending</div>
+                      <div className="text-lg font-bold text-red-700">
+                        {formatCurrency(sumPotential(potentialExpenses))}
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-center">
+                      <div className="text-xs text-gray-600 mb-1">Net potential</div>
+                      <div
+                        className={`text-lg font-bold ${
+                          sumPotential(potentialIncome) - sumPotential(potentialExpenses) >= 0
+                            ? 'text-green-700'
+                            : 'text-red-700'
+                        }`}
+                      >
+                        {formatCurrency(
+                          sumPotential(potentialIncome) - sumPotential(potentialExpenses)
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Net Income Summary */}
             {expectedIncome.filter((inc) => inc.is_active).length > 0 &&
               expectedExpenses.filter((exp) => exp.is_active).length > 0 && (
@@ -3700,63 +4164,101 @@ export default function BudgetOptimizerModule() {
                             <div className="flex items-center gap-2 flex-shrink-0">
                               {isSelected && (
                                 <div
-                                  className="flex items-center gap-1"
+                                  className="flex flex-col items-end gap-2"
                                   onClick={(e) => e.stopPropagation()}
                                 >
-                                  <button
-                                    onClick={() =>
-                                      setTransactionTypeOverride(transaction.id, 'income')
-                                    }
-                                    className="p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
-                                    title="Mark as income"
-                                  >
-                                    <TrendingUp className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      setTransactionTypeOverride(transaction.id, 'transfer')
-                                    }
-                                    className="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
-                                    title="Mark as transfer"
-                                  >
-                                    <Minus className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      setTransactionTypeOverride(transaction.id, 'expense')
-                                    }
-                                    className="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
-                                    title="Mark as expense"
-                                  >
-                                    <TrendingDown className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => excludeTransaction(transaction.id)}
-                                    className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-                                    title="Remove duplicate"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      !transaction.is_flagged && flagTransaction(transaction.id)
-                                    }
-                                    className={`p-2 rounded-lg transition-colors ${
-                                      transaction.is_flagged
-                                        ? 'bg-red-100 text-red-600 cursor-default'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                                    title={
-                                      transaction.is_flagged
-                                        ? 'Flagged for review'
-                                        : 'Flag for review'
-                                    }
-                                    disabled={transaction.is_flagged}
-                                  >
-                                    <Flag
-                                      className={`h-4 w-4 ${transaction.is_flagged ? 'fill-red-200' : ''}`}
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() =>
+                                        setTransactionTypeOverride(transaction.id, 'income')
+                                      }
+                                      className="p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                                      title="Mark as income"
+                                    >
+                                      <TrendingUp className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        setTransactionTypeOverride(transaction.id, 'transfer')
+                                      }
+                                      className="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                                      title="Mark as transfer"
+                                    >
+                                      <Minus className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        setTransactionTypeOverride(transaction.id, 'expense')
+                                      }
+                                      className="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                                      title="Mark as expense"
+                                    >
+                                      <TrendingDown className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => excludeTransaction(transaction.id)}
+                                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                                      title="Remove duplicate"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        !transaction.is_flagged && flagTransaction(transaction.id)
+                                      }
+                                      className={`p-2 rounded-lg transition-colors ${
+                                        transaction.is_flagged
+                                          ? 'bg-red-100 text-red-600 cursor-default'
+                                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                      }`}
+                                      title={
+                                        transaction.is_flagged
+                                          ? 'Flagged for review'
+                                          : 'Flag for review'
+                                      }
+                                      disabled={transaction.is_flagged}
+                                    >
+                                      <Flag
+                                        className={`h-4 w-4 ${transaction.is_flagged ? 'fill-red-200' : ''}`}
+                                      />
+                                    </button>
+                                  </div>
+                                  <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1">
+                                    <DollarSign className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={amountEditInput}
+                                      onChange={(e) => setAmountEditInput(e.target.value)}
+                                      className="w-24 text-sm border-0 p-0 focus:ring-0 focus:outline-none text-right"
+                                      title="Edit amount (+ income, − expense)"
+                                      aria-label="Transaction amount"
                                     />
-                                  </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => saveSelectedTransactionAmount(transaction.id)}
+                                      className="p-1.5 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                      title="Save amount"
+                                    >
+                                      <Save className="h-3.5 w-3.5" />
+                                    </button>
+                                    {transaction.amount_override != null && (
+                                      <button
+                                        type="button"
+                                        onClick={() => resetSelectedTransactionAmount(transaction)}
+                                        className="p-1.5 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs"
+                                        title="Reset to bank amount"
+                                      >
+                                        Reset
+                                      </button>
+                                    )}
+                                  </div>
+                                  {transaction.source_amount != null &&
+                                    transaction.amount_override != null && (
+                                      <p className="text-[11px] text-gray-500">
+                                        Bank: {formatCurrency(transaction.source_amount)}
+                                      </p>
+                                    )}
                                 </div>
                               )}
                               <div className="text-right">
@@ -3771,6 +4273,9 @@ export default function BudgetOptimizerModule() {
                                 >
                                   {formatCurrency(transaction.amount)}
                                 </div>
+                                {transaction.amount_override != null && (
+                                  <div className="text-[11px] text-blue-600">Edited amount</div>
+                                )}
                                 {transaction.transaction_categorizations?.[0]
                                   ?.budget_categories && (
                                   <div className="text-xs text-gray-500">
@@ -5201,6 +5706,237 @@ export default function BudgetOptimizerModule() {
               </button>
               <button
                 onClick={handleSaveExpense}
+                disabled={isLoading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+              >
+                <Save className="h-4 w-4" />
+                <span>{isLoading ? 'Saving...' : 'Save'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Potential Income Modal */}
+      {showPotentialIncomeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">
+                {editingPotentialIncome ? 'Edit Potential Income' : 'Add Potential Income'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowPotentialIncomeModal(false)
+                  setEditingPotentialIncome(null)
+                }}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={potentialIncomeForm.category}
+                  onChange={(e) =>
+                    setPotentialIncomeForm({ ...potentialIncomeForm, category: e.target.value })
+                  }
+                  placeholder="e.g., Bonus, Side project, Tax refund"
+                  list="potential-income-categories"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <datalist id="potential-income-categories">
+                  {incomeCategories.map((cat) => (
+                    <option key={cat} value={cat} />
+                  ))}
+                </datalist>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={potentialIncomeForm.amount}
+                  onChange={(e) =>
+                    setPotentialIncomeForm({ ...potentialIncomeForm, amount: e.target.value })
+                  }
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Expected timing <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={potentialIncomeForm.months_out}
+                  onChange={(e) =>
+                    setPotentialIncomeForm({
+                      ...potentialIncomeForm,
+                      months_out: parseInt(e.target.value, 10) as 1 | 2 | 3,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={1}>Within ~1 month</option>
+                  <option value={2}>Within ~2 months</option>
+                  <option value={3}>Within ~3 months</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={potentialIncomeForm.notes}
+                  onChange={(e) =>
+                    setPotentialIncomeForm({ ...potentialIncomeForm, notes: e.target.value })
+                  }
+                  placeholder="e.g., Expected if client renews contract"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowPotentialIncomeModal(false)
+                  setEditingPotentialIncome(null)
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePotentialIncome}
+                disabled={isLoading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+              >
+                <Save className="h-4 w-4" />
+                <span>{isLoading ? 'Saving...' : 'Save'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Potential Expense Modal */}
+      {showPotentialExpenseModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">
+                {editingPotentialExpense ? 'Edit Potential Spending' : 'Add Potential Spending'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowPotentialExpenseModal(false)
+                  setEditingPotentialExpense(null)
+                }}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={potentialExpenseForm.category}
+                  onChange={(e) =>
+                    setPotentialExpenseForm({ ...potentialExpenseForm, category: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select a category</option>
+                  {expenseCategories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={potentialExpenseForm.amount}
+                  onChange={(e) =>
+                    setPotentialExpenseForm({ ...potentialExpenseForm, amount: e.target.value })
+                  }
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Expected timing <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={potentialExpenseForm.months_out}
+                  onChange={(e) =>
+                    setPotentialExpenseForm({
+                      ...potentialExpenseForm,
+                      months_out: parseInt(e.target.value, 10) as 1 | 2 | 3,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={1}>Within ~1 month</option>
+                  <option value={2}>Within ~2 months</option>
+                  <option value={3}>Within ~3 months</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={potentialExpenseForm.notes}
+                  onChange={(e) =>
+                    setPotentialExpenseForm({ ...potentialExpenseForm, notes: e.target.value })
+                  }
+                  placeholder="e.g., Planned laptop upgrade"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowPotentialExpenseModal(false)
+                  setEditingPotentialExpense(null)
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePotentialExpense}
                 disabled={isLoading}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
               >

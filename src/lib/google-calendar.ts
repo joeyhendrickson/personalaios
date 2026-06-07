@@ -25,10 +25,8 @@ export function isGoogleCalendarConfigured(): boolean {
 }
 
 export function getGoogleCalendarRedirectUri(): string {
-  return (
-    process.env.GOOGLE_CALENDAR_REDIRECT_URI ||
-    `${process.env.NEXT_PUBLIC_SITE_URL}/api/calendar/callback`
-  )
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  return process.env.GOOGLE_CALENDAR_REDIRECT_URI || `${siteUrl}/api/calendar/callback`
 }
 
 export function createGoogleCalendarOAuthClient() {

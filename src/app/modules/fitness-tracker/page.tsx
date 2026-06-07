@@ -97,6 +97,10 @@ interface FutureState {
   created_at: string
 }
 
+function isFutureStatePersisted(fs: FutureState): boolean {
+  return !fs.id.startsWith('temp-')
+}
+
 interface FitnessStat {
   id: string
   stat_type: 'cardio' | 'strength' | 'flexibility' | 'endurance'
@@ -137,6 +141,17 @@ interface WorkoutPlan {
   progression_strategy?: {
     [key: string]: string
   }
+  workout_plan_exercises?: Array<{
+    day_of_week: number | null
+    sets?: number | null
+    reps?: string | null
+    weight_suggestion?: number | null
+    rest_seconds?: number | null
+    order_index?: number | null
+    notes?: string | null
+    exercise_id?: string | null
+    exercises?: { name?: string | null } | null
+  }>
   is_active: boolean
   is_ai_generated: boolean
   created_at?: string
@@ -196,12 +211,14 @@ export default function FitnessTrackerModule() {
   const [futureStates, setFutureStates] = useState<FutureState[]>([])
   const [futureTimeframe, setFutureTimeframe] = useState<number>(6)
   const [generatingFuture, setGeneratingFuture] = useState(false)
+  const [savingFutureStateId, setSavingFutureStateId] = useState<string | null>(null)
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null)
   const [showExerciseModal, setShowExerciseModal] = useState(false)
   const [dashboardGoals, setDashboardGoals] = useState<DashboardGoal[]>([])
   const [biometrics, setBiometrics] = useState<FitnessBiometricRow[]>([])
   const [workoutModalOpen, setWorkoutModalOpen] = useState(false)
   const [modalWorkoutPlan, setModalWorkoutPlan] = useState<WorkoutPlan | null>(null)
+  const [generatingWorkoutPlan, setGeneratingWorkoutPlan] = useState(false)
 
   // Available options
   const bodyTypes = [
@@ -579,8 +596,13 @@ export default function FitnessTrackerModule() {
       const json = await response.json().catch(() => ({}))
       if (response.ok && json.future_state) {
         setFutureStates((prev) => [json.future_state, ...prev])
-        setSuccessMessage(json.warning || `Your ${futureTimeframe}-month future state is ready!`)
-        setTimeout(() => setSuccessMessage(''), 5000)
+        if (json.warning) {
+          setErrorMessage(json.warning)
+          setTimeout(() => setErrorMessage(''), 10000)
+        } else {
+          setSuccessMessage(`Your ${futureTimeframe}-month future state is saved to your gallery!`)
+          setTimeout(() => setSuccessMessage(''), 5000)
+        }
       } else {
         setErrorMessage(
           `Failed to generate future state: ${json.details || json.error || 'Unknown error'}`
@@ -596,32 +618,78 @@ export default function FitnessTrackerModule() {
   }
 
   const handleSaveFutureState = async (fs: FutureState) => {
-    const ext = fs.image_url.toLowerCase().includes('.png') ? 'png' : 'jpg'
-    const filename = `lifestacks-future-${fs.timeframe_months}mo-${new Date(fs.created_at).toISOString().slice(0, 10)}.${ext}`
+    setSavingFutureStateId(fs.id)
+    setErrorMessage('')
+
     try {
-      const response = await fetch(fs.image_url)
-      if (!response.ok) throw new Error('Could not fetch image')
-      const blob = await response.blob()
-      const objectUrl = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = objectUrl
-      link.download = filename
-      link.rel = 'noopener'
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      URL.revokeObjectURL(objectUrl)
-      setSuccessMessage('Future state image saved to your downloads.')
-      setTimeout(() => setSuccessMessage(''), 4000)
-    } catch {
-      window.open(fs.image_url, '_blank', 'noopener,noreferrer')
-      setSuccessMessage('Opened image in a new tab — use your browser to save it.')
+      let saved = fs
+
+      if (!isFutureStatePersisted(fs)) {
+        const persistRes = await fetch('/api/fitness/future-state', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: fs.id,
+            image_url: fs.image_url,
+            timeframe_months: fs.timeframe_months,
+            source_photo_ids: fs.source_photo_ids || [],
+          }),
+        })
+        const persistJson = await persistRes.json().catch(() => ({}))
+        if (!persistRes.ok || !persistJson.future_state) {
+          setErrorMessage(
+            `Could not save to gallery: ${persistJson.details || persistJson.error || 'Unknown error'}`
+          )
+          setTimeout(() => setErrorMessage(''), 8000)
+          return
+        }
+        saved = persistJson.future_state
+        setFutureStates((prev) => prev.map((item) => (item.id === fs.id ? saved : item)))
+      }
+
+      const downloadRes = await fetch(
+        `/api/fitness/future-state?download=${encodeURIComponent(saved.id)}`
+      )
+      if (downloadRes.ok) {
+        const blob = await downloadRes.blob()
+        const ext = saved.image_url.toLowerCase().includes('.png') ? 'png' : 'jpg'
+        const filename = `lifestacks-future-${saved.timeframe_months}mo-${new Date(saved.created_at).toISOString().slice(0, 10)}.${ext}`
+        const objectUrl = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = objectUrl
+        link.download = filename
+        link.rel = 'noopener'
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        URL.revokeObjectURL(objectUrl)
+        setSuccessMessage('Saved to your gallery and downloaded to your device.')
+      } else if (isFutureStatePersisted(saved)) {
+        setSuccessMessage('Saved to your gallery.')
+      } else {
+        throw new Error('Download failed')
+      }
       setTimeout(() => setSuccessMessage(''), 5000)
+    } catch {
+      if (isFutureStatePersisted(fs)) {
+        setSuccessMessage('Saved to your gallery. Open the image to download manually if needed.')
+        setTimeout(() => setSuccessMessage(''), 5000)
+      } else {
+        window.open(fs.image_url, '_blank', 'noopener,noreferrer')
+        setSuccessMessage('Opened image in a new tab — use your browser to save it.')
+        setTimeout(() => setSuccessMessage(''), 5000)
+      }
+    } finally {
+      setSavingFutureStateId(null)
     }
   }
 
   const handleDeleteFutureState = async (id: string) => {
     if (!confirm('Delete this future-state image?')) return
+    if (id.startsWith('temp-')) {
+      setFutureStates((prev) => prev.filter((f) => f.id !== id))
+      return
+    }
     try {
       const response = await fetch(`/api/fitness/future-state?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
@@ -864,7 +932,7 @@ export default function FitnessTrackerModule() {
   }
 
   const generateWorkoutPlan = async () => {
-    setIsLoading(true)
+    setGeneratingWorkoutPlan(true)
     setErrorMessage('')
     setSuccessMessage('')
 
@@ -887,6 +955,9 @@ export default function FitnessTrackerModule() {
         const result = await response.json()
         if (result.workout_plan) {
           setWorkoutPlans((prev) => [...prev, result.workout_plan])
+          setModalWorkoutPlan(result.workout_plan)
+          setWorkoutModalOpen(true)
+          setActiveTab('workouts')
           setSuccessMessage('Workout plan generated successfully!')
           setTimeout(() => setSuccessMessage(''), 5000)
         } else {
@@ -906,7 +977,7 @@ export default function FitnessTrackerModule() {
       setErrorMessage(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setTimeout(() => setErrorMessage(''), 5000)
     } finally {
-      setIsLoading(false)
+      setGeneratingWorkoutPlan(false)
     }
   }
 
@@ -1183,10 +1254,10 @@ export default function FitnessTrackerModule() {
                   </button>
                   <button
                     onClick={generateWorkoutPlan}
-                    disabled={isLoading}
+                    disabled={isLoading || generatingWorkoutPlan}
                     className="w-full text-left p-2 text-sm hover:bg-gray-50 rounded flex items-center disabled:opacity-50"
                   >
-                    {isLoading ? (
+                    {generatingWorkoutPlan ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
                       <Dumbbell className="h-4 w-4 mr-2" />
@@ -1386,6 +1457,11 @@ export default function FitnessTrackerModule() {
                           <span className="absolute top-2 left-2 rounded-full bg-purple-600/90 px-2 py-0.5 text-xs font-medium text-white">
                             +{fs.timeframe_months} months
                           </span>
+                          {!isFutureStatePersisted(fs) && (
+                            <span className="absolute bottom-2 left-2 rounded-full bg-amber-500/95 px-2 py-0.5 text-xs font-medium text-white">
+                              Unsaved — click Save
+                            </span>
+                          )}
                           <button
                             onClick={() => handleDeleteFutureState(fs.id)}
                             title="Delete image"
@@ -1404,11 +1480,20 @@ export default function FitnessTrackerModule() {
                           <button
                             type="button"
                             onClick={() => handleSaveFutureState(fs)}
-                            title="Save image"
-                            className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-xs font-medium text-purple-800 hover:bg-purple-100"
+                            disabled={savingFutureStateId === fs.id}
+                            title={
+                              isFutureStatePersisted(fs)
+                                ? 'Download a copy'
+                                : 'Save to your gallery and download'
+                            }
+                            className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-xs font-medium text-purple-800 hover:bg-purple-100 disabled:opacity-60"
                           >
-                            <Download className="h-3.5 w-3.5" />
-                            Save
+                            {savingFutureStateId === fs.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Download className="h-3.5 w-3.5" />
+                            )}
+                            {isFutureStatePersisted(fs) ? 'Download' : 'Save'}
                           </button>
                         </div>
                       </div>
@@ -1762,10 +1847,15 @@ export default function FitnessTrackerModule() {
                   </h3>
                   <button
                     onClick={generateWorkoutPlan}
-                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    disabled={generatingWorkoutPlan}
+                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60"
                   >
-                    <Zap className="h-4 w-4 mr-2" />
-                    Generate Workout Plan
+                    {generatingWorkoutPlan ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Zap className="h-4 w-4 mr-2" />
+                    )}
+                    {generatingWorkoutPlan ? 'Generating…' : 'Generate Workout Plan'}
                   </button>
                 </div>
 
@@ -1780,10 +1870,15 @@ export default function FitnessTrackerModule() {
                     </p>
                     <button
                       onClick={generateWorkoutPlan}
-                      className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      disabled={generatingWorkoutPlan}
+                      className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60"
                     >
-                      <Zap className="h-4 w-4 mr-2" />
-                      Generate Your First Plan
+                      {generatingWorkoutPlan ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Zap className="h-4 w-4 mr-2" />
+                      )}
+                      {generatingWorkoutPlan ? 'Generating…' : 'Generate Your First Plan'}
                     </button>
                   </div>
                 ) : (
@@ -1832,9 +1927,7 @@ export default function FitnessTrackerModule() {
                               {plan.description}
                             </p>
                           )}
-                          <p className="text-sm text-green-700 font-medium">
-                            View timeline & adapted routine →
-                          </p>
+                          <p className="text-sm text-green-700 font-medium">View full plan →</p>
                         </button>
                         <div className="border-t border-gray-100 px-5 py-3 flex justify-end bg-gray-50">
                           <button
