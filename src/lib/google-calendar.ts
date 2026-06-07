@@ -24,17 +24,30 @@ export function isGoogleCalendarConfigured(): boolean {
   return Boolean(getClientId() && getClientSecret())
 }
 
-export function getGoogleCalendarRedirectUri(): string {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-  return process.env.GOOGLE_CALENDAR_REDIRECT_URI || `${siteUrl}/api/calendar/callback`
+function normalizeSiteUrl(url: string): string {
+  return url.replace(/\/$/, '')
 }
 
-export function createGoogleCalendarOAuthClient() {
-  return new google.auth.OAuth2(getClientId(), getClientSecret(), getGoogleCalendarRedirectUri())
+export function getGoogleCalendarRedirectUri(requestOrigin?: string): string {
+  if (process.env.GOOGLE_CALENDAR_REDIRECT_URI) {
+    return process.env.GOOGLE_CALENDAR_REDIRECT_URI
+  }
+  const siteUrl = normalizeSiteUrl(
+    requestOrigin || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  )
+  return `${siteUrl}/api/calendar/callback`
 }
 
-export function getGoogleCalendarAuthUrl(state: string): string {
-  return createGoogleCalendarOAuthClient().generateAuthUrl({
+export function createGoogleCalendarOAuthClient(requestOrigin?: string) {
+  return new google.auth.OAuth2(
+    getClientId(),
+    getClientSecret(),
+    getGoogleCalendarRedirectUri(requestOrigin)
+  )
+}
+
+export function getGoogleCalendarAuthUrl(state: string, requestOrigin?: string): string {
+  return createGoogleCalendarOAuthClient(requestOrigin).generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
     include_granted_scopes: true,
@@ -50,8 +63,11 @@ export interface GoogleCalendarTokens {
   scope: string | null
 }
 
-export async function exchangeGoogleCalendarCode(code: string): Promise<GoogleCalendarTokens> {
-  const client = createGoogleCalendarOAuthClient()
+export async function exchangeGoogleCalendarCode(
+  code: string,
+  requestOrigin?: string
+): Promise<GoogleCalendarTokens> {
+  const client = createGoogleCalendarOAuthClient(requestOrigin)
   const { tokens } = await client.getToken(code)
   return {
     access_token: tokens.access_token || '',

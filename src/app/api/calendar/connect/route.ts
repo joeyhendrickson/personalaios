@@ -1,8 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getGoogleCalendarAuthUrl, isGoogleCalendarConfigured } from '@/lib/google-calendar'
+import {
+  getGoogleCalendarAuthUrl,
+  getGoogleCalendarRedirectUri,
+  isGoogleCalendarConfigured,
+} from '@/lib/google-calendar'
+import { getRequestOrigin } from '@/lib/request-origin'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
     const {
@@ -24,7 +29,11 @@ export async function GET() {
       )
     }
 
-    return NextResponse.json({ auth_url: getGoogleCalendarAuthUrl(user.id) })
+    const origin = getRequestOrigin(request)
+    return NextResponse.json({
+      auth_url: getGoogleCalendarAuthUrl(user.id, origin),
+      redirect_uri: getGoogleCalendarRedirectUri(origin),
+    })
   } catch (error) {
     console.error('Error generating Google Calendar auth URL:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
