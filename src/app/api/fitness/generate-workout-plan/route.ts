@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
             exercises: {
               name:
                 workoutPlan.exercises?.find(
-                  (ex: { exercise_id: string }) => ex.exercise_id === row.exercise_id
+                  (ex) => ex != null && ex.exercise_id === row.exercise_id
                 )?.exercise_name ?? null,
             },
           })),
@@ -508,7 +508,7 @@ IMPORTANT REQUIREMENTS:
               notes: typeof exercise.notes === 'string' ? exercise.notes : undefined,
             }
           })
-          .filter(Boolean)
+          .filter((ex): ex is NonNullable<typeof ex> => ex != null)
       : flattenWeeklyStructureToExercises(weeklyStructure, availableExercises).map((row) => ({
           ...row,
           exercise_name:
