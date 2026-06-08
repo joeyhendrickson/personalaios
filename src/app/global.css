@@ -137,30 +137,35 @@ body {
   border-color: hsl(var(--border));
 }
 
-/* Light gradients used as page/section backgrounds */
-.dark .from-gray-50,
-.dark .from-blue-50,
-.dark .from-amber-50,
-.dark .from-yellow-50 {
-  --tw-gradient-from: hsl(var(--background)) var(--tw-gradient-from-position);
-  --tw-gradient-to: hsl(var(--background) / 0) var(--tw-gradient-to-position);
-  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+/* Dark mode: no gradients — solid surfaces only */
+.dark [class*='bg-gradient-to'] {
+  background-image: none !important;
 }
-.dark .to-blue-50,
-.dark .to-gray-50,
-.dark .to-amber-50,
-.dark .to-yellow-50,
-.dark .to-orange-50 {
-  --tw-gradient-to: hsl(var(--background)) var(--tw-gradient-to-position);
+
+.dark .min-h-screen[class*='bg-gradient-to'] {
+  background-color: hsl(var(--background)) !important;
 }
-.dark .to-gray-100 {
-  --tw-gradient-to: hsl(var(--muted)) var(--tw-gradient-to-position);
+
+.dark [class*='bg-gradient-to']:not(.min-h-screen):not(.h-1):not(.h-1\.5):not(.h-2):not(.h-3) {
+  background-color: hsl(43 28% 10%);
 }
-.dark .from-yellow-50.to-yellow-100,
-.dark .from-amber-50.to-orange-50 {
-  --tw-gradient-from: hsl(43 28% 10%) var(--tw-gradient-from-position);
-  --tw-gradient-to: hsl(43 22% 8%) var(--tw-gradient-to-position);
-  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+
+.dark .h-1[class*='bg-gradient-to'],
+.dark .h-1\.5[class*='bg-gradient-to'],
+.dark .h-2[class*='bg-gradient-to'],
+.dark .h-3[class*='bg-gradient-to'] {
+  background-color: hsl(43 76% 52%) !important;
+}
+
+.dark button[class*='bg-gradient-to'],
+.dark a[class*='bg-gradient-to'] {
+  background-color: hsl(43 76% 52%) !important;
+  color: hsl(0 0% 0%) !important;
+}
+
+.dark button[class*='bg-gradient-to']:hover,
+.dark a[class*='bg-gradient-to']:hover {
+  background-color: hsl(43 80% 58%) !important;
 }
 
 /* Form controls (many inputs rely on the browser default white background) */
@@ -559,13 +564,7 @@ body {
 }
 
 .dark .project-progress-slider input[type='range'] {
-  background: linear-gradient(
-    to right,
-    hsl(43 76% 52%) 0%,
-    hsl(43 76% 52%) var(--slider-pct, 0%),
-    hsl(0 0% 18%) var(--slider-pct, 0%),
-    hsl(0 0% 18%) 100%
-  ) !important;
+  background-color: hsl(0 0% 18%) !important;
 }
 .dark .project-progress-slider input[type='range']::-webkit-slider-thumb {
   background: hsl(43 76% 52%) !important;
