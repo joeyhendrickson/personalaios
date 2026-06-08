@@ -3,6 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import { logAfterOpenAIRestCall } from '@/lib/ai/usage-logger'
+import {
+  formatEventMonitoringForPrompt,
+  formatPredictionThesis,
+  buildFallbackNewsTriggeredEntries,
+} from '@/lib/day-trader/event-monitoring'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -132,12 +137,21 @@ COMPLETED PREDICTION ANALYSIS:
 ${JSON.stringify(prediction, null, 2)}
 
 INFORMATION SOURCES:
-${informationSources.map((source: any) => `- ${source.name} (${source.type}): ${source.weight}% weight`).join('\n')}
+${(informationSources || []).map((source: any) => `- ${source.name} (${source.type}): ${source.weight}% weight`).join('\n')}
 
-EVENT MONITORING:
-${Object.entries(eventMonitoring)
-  .map(([key, value]) => `- ${key}: ${value}`)
-  .join('\n')}
+PREDICTION THESIS (align entries with this unless headline strongly contradicts):
+${formatPredictionThesis(prediction)}
+
+ENABLED EVENT MONITORING — build news-triggered entry rules ONLY for these categories:
+${formatEventMonitoringForPrompt(eventMonitoring)}
+
+NEWS-TRIGGERED ENTRY REQUIREMENTS:
+For EACH enabled event category above, provide a playbook entry that:
+1. Lists 2-4 realistic headline examples (include geopolitical examples like "War in Iran continues" when federalEvents is enabled).
+2. Explains the typical historical correlation between that headline type and ${stockSymbol} price action (sector beta, risk-on/risk-off, etc.).
+3. States whether the headline SUPPORTS or CONTRADICTS the prediction thesis (${prediction?.direction || 'see prediction'}).
+4. Recommends a SPECIFIC position type to enter when the headline appears AND supports the thesis: shares long, shares short, options calls, options puts, spread, or wait/no entry.
+5. States what to do if the headline contradicts the thesis (reduce size, hedge, wait for confirmation, exit).
 
 Based on this comprehensive analysis, provide a PROFIT ADVISOR with specific trade recommendations to achieve $${profitGoal} in ${timeframeDays} days.
 
@@ -203,7 +217,22 @@ Return ONLY this JSON structure:
     "minimumDailyProfit": ${(dailyProfitTarget * 0.7).toFixed(2)},
     "targetDailyProfit": ${dailyProfitTarget.toFixed(2)},
     "maximumAcceptableLoss": ${(dailyProfitTarget * 0.5).toFixed(2)}
-  }
+  },
+  "newsTriggeredEntries": [
+    {
+      "eventCategory": "Federal / Geopolitical Events",
+      "headlineExamples": [
+        "War in Iran continues as oil tankers rerouted",
+        "US announces new sanctions on energy exports"
+      ],
+      "entryTrigger": "Headline confirms sustained geopolitical risk AND ${stockSymbol} moves in direction of thesis within 30 minutes",
+      "recommendedPosition": "options_puts",
+      "thesisAlignment": "supports",
+      "historicalCorrelation": "Brief historical pattern for this symbol/sector when similar headlines hit",
+      "entryAction": "Enter defined put position size per risk rules when headline + price confirm thesis",
+      "ifHeadlineContradictsThesis": "Do not enter; wait for price to confirm or hedge existing exposure"
+    }
+  ]
 }
 
 Provide REALISTIC and ACHIEVABLE trade recommendations based on the actual pattern analysis and predictions. Focus on the lowest risk approaches that can still achieve the profit goal within the timeframe.
@@ -219,7 +248,7 @@ Provide REALISTIC and ACHIEVABLE trade recommendations based on the actual patte
         {
           role: 'system',
           content:
-            'You are an expert trading advisor specializing in profit optimization strategies. Provide realistic, achievable trade recommendations based on technical analysis and market predictions. Always prioritize risk management and realistic profit expectations.',
+            'You are an expert trading advisor specializing in profit optimization and event-driven entries. Provide realistic trade recommendations grounded in pattern analysis, the stated prediction thesis, and historical correlations for the user-selected news/event categories. Always prioritize risk management.',
         },
         {
           role: 'user',
@@ -336,7 +365,20 @@ Provide REALISTIC and ACHIEVABLE trade recommendations based on the actual patte
           targetDailyProfit: dailyProfitTarget.toFixed(2),
           maximumAcceptableLoss: (dailyProfitTarget * 0.5).toFixed(2),
         },
+        newsTriggeredEntries: buildFallbackNewsTriggeredEntries(
+          eventMonitoring,
+          prediction?.direction,
+          stockSymbol
+        ),
       }
+    }
+
+    if (!Array.isArray(parsedAdvisor.newsTriggeredEntries)) {
+      parsedAdvisor.newsTriggeredEntries = buildFallbackNewsTriggeredEntries(
+        eventMonitoring,
+        prediction?.direction,
+        stockSymbol
+      )
     }
 
     return NextResponse.json({
@@ -389,8 +431,6 @@ function getInvestorStrategy(type: string): string {
       return 'Short-term momentum trading with quick entries and exits - focus on options with short timeframes'
     case 'options_trader':
       return 'Options trading with calls and puts, focusing on theta and volatility - balance between calls and puts'
-    case 'gambler':
-      return 'High-risk, high-reward trading with short-term options - focus on high-probability setups with maximum leverage'
     default:
       return 'General trading approach with balanced risk management'
   }

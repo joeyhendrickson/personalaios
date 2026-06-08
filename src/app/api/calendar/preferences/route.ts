@@ -1,21 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-
-const ALL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
-
-type Preferences = {
-  start_hour: number
-  end_hour: number
-  days: string[]
-}
-
-const DEFAULTS: Preferences = { start_hour: 5, end_hour: 24, days: ALL_DAYS }
-
-function clampHour(value: unknown, fallback: number): number {
-  const n = typeof value === 'number' ? value : parseInt(String(value), 10)
-  if (Number.isNaN(n)) return fallback
-  return Math.max(0, Math.min(24, n))
-}
+import {
+  createDefaultWindow,
+  normalizePreferences,
+  sanitizeWindowsInput,
+} from '@/lib/calendar/preferences'
 
 export async function GET() {
   try {
@@ -28,7 +17,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('calendar_preferences')
-      .select('start_hour, end_hour, days')
+      .select('start_hour, end_hour, days, time_windows')
       .eq('user_id', user.id)
       .maybeSingle()
 
@@ -36,7 +25,7 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ preferences: data ?? DEFAULTS })
+    return NextResponse.json({ preferences: normalizePreferences(data) })
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to load preferences' },
@@ -55,25 +44,23 @@ export async function POST(request: NextRequest) {
     if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()
-    const start_hour = clampHour(body.start_hour, DEFAULTS.start_hour)
-    const end_hour = clampHour(body.end_hour, DEFAULTS.end_hour)
-    const days = Array.isArray(body.days)
-      ? body.days.filter((d: unknown): d is string => ALL_DAYS.includes(d as string))
-      : DEFAULTS.days
+    const windows = sanitizeWindowsInput(body.windows ?? body)
+    const primary = windows[0] ?? createDefaultWindow()
 
     const { data, error } = await supabase
       .from('calendar_preferences')
       .upsert(
         {
           user_id: user.id,
-          start_hour,
-          end_hour: end_hour > start_hour ? end_hour : start_hour + 1,
-          days: days.length ? days : DEFAULTS.days,
+          start_hour: primary.start_hour,
+          end_hour: primary.end_hour,
+          days: primary.days,
+          time_windows: windows,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id' }
       )
-      .select('start_hour, end_hour, days')
+      .select('start_hour, end_hour, days, time_windows')
       .single()
 
     if (error) {
@@ -86,10 +73,19 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         )
       }
+      if (error.code === '42703') {
+        return NextResponse.json(
+          {
+            error: 'Column not found',
+            details: 'Run migration 083_calendar_time_windows.sql',
+          },
+          { status: 500 }
+        )
+      }
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, preferences: data })
+    return NextResponse.json({ success: true, preferences: normalizePreferences(data) })
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to save preferences' },

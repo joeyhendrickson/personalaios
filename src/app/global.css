@@ -869,3 +869,40 @@ body {
   ) {
   background-color: hsl(var(--button-hover)) !important;
 }
+
+/* Lifestacks Calendar — day-of-week toggles (override generic dark button hover) */
+.calendar-day-pill {
+  background-color: hsl(0 0% 100%);
+  border-color: hsl(214 32% 91%);
+  color: hsl(215 16% 47%);
+}
+
+.calendar-day-pill--active {
+  background-color: hsl(221 83% 53%);
+  border-color: hsl(221 83% 53%);
+  color: hsl(0 0% 100%);
+}
+
+.dark .calendar-day-pill {
+  background-color: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.dark .calendar-day-pill--active {
+  background-color: hsl(43 18% 10%) !important;
+  border-color: hsl(43 76% 52%) !important;
+  color: hsl(43 80% 65%) !important;
+}
+
+.dark .calendar-day-pill:hover:not(.calendar-day-pill--active) {
+  background-color: hsl(var(--card)) !important;
+  border-color: hsl(43 76% 52% / 0.45) !important;
+  color: hsl(0 0% 88%) !important;
+}
+
+.dark .calendar-day-pill--active:hover {
+  background-color: hsl(43 20% 14%) !important;
+  border-color: hsl(43 80% 58%) !important;
+  color: hsl(43 80% 65%) !important;
+}

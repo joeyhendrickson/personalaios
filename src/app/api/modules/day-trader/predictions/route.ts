@@ -230,8 +230,6 @@ function getRiskTolerance(type: string): string {
       return 'Moderate risk tolerance, quick profit taking'
     case 'options_trader':
       return 'High risk tolerance, comfortable with options volatility'
-    case 'gambler':
-      return 'Very high risk tolerance, willing to lose entire investment'
     default:
       return 'Moderate risk tolerance'
   }

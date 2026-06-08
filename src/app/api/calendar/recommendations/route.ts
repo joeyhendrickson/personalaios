@@ -4,7 +4,7 @@ import { generateText } from 'ai'
 import { env } from '@/lib/env'
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 
-const ALL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+import { ALL_DAYS, formatWindowsForPrompt, normalizePreferences } from '@/lib/calendar/preferences'
 
 type Recommendation = {
   id: string
@@ -39,7 +39,7 @@ export async function POST() {
     const [{ data: prefsRow }, { data: tasks }, { data: habits }] = await Promise.all([
       supabase
         .from('calendar_preferences')
-        .select('start_hour, end_hour, days')
+        .select('start_hour, end_hour, days, time_windows')
         .eq('user_id', user.id)
         .maybeSingle(),
       supabase
@@ -56,9 +56,9 @@ export async function POST() {
         .limit(25),
     ])
 
-    const startHour = prefsRow?.start_hour ?? 5
-    const endHour = prefsRow?.end_hour ?? 24
-    const days: string[] = prefsRow?.days?.length ? prefsRow.days : ALL_DAYS
+    const prefs = normalizePreferences(prefsRow)
+    const windows = prefs.windows
+    const allowedDays = [...new Set(windows.flatMap((w) => w.days))]
 
     if ((!tasks || tasks.length === 0) && (!habits || habits.length === 0)) {
       return NextResponse.json({
@@ -69,8 +69,8 @@ export async function POST() {
 
     const prompt = `You are scheduling a user's Lifestacks tasks and habits into their calendar.
 
-ALLOWED WINDOW: between ${hourLabel(startHour)} and ${hourLabel(endHour)} only.
-ALLOWED DAYS: ${days.join(', ')}.
+ALLOWED SCHEDULING WINDOWS (each item must fit entirely inside ONE window):
+${formatWindowsForPrompt(windows, hourLabel)}
 
 TASKS (one-off; schedule on a suitable single day):
 ${(tasks || []).map((t) => `- ${t.title}${t.description ? `: ${t.description}` : ''}`).join('\n') || '(none)'}
@@ -79,7 +79,7 @@ HABITS (recurring; prefer daily or weekly recurrence):
 ${(habits || []).map((h) => `- ${h.title}${h.description ? `: ${h.description}` : ''}`).join('\n') || '(none)'}
 
 For each task and habit, propose ONE calendar block. Rules:
-- Assign a weekday from the allowed days and a start_time (24h "HH:MM") inside the allowed window.
+- Assign a weekday and start_time (24h "HH:MM") that fall inside one of the allowed windows above.
 - duration_minutes must be between 15 and 120, realistic for the item.
 - Habits should use recurrence "daily" or "weekly"; tasks should use "none" (or "weekly" if clearly repeating).
 - Spread items across days/times; avoid stacking everything at once.
@@ -116,10 +116,14 @@ Respond ONLY with JSON of this exact shape:
     const recommendations: Recommendation[] = (parsed.recommendations || [])
       .map((raw, i): Recommendation | null => {
         const r = raw as Record<string, unknown>
-        const weekday = ALL_DAYS.includes(String(r.weekday)) ? String(r.weekday) : days[0]
+        const weekdayRaw = String(r.weekday)
+        const weekday = (ALL_DAYS as readonly string[]).includes(weekdayRaw)
+          ? weekdayRaw
+          : allowedDays[0]
+        const fallbackWindow = windows[0]
         const startTime = /^\d{1,2}:\d{2}$/.test(String(r.start_time))
           ? String(r.start_time).padStart(5, '0')
-          : `${String(startHour).padStart(2, '0')}:00`
+          : `${String(fallbackWindow.start_hour).padStart(2, '0')}:00`
         const duration = Math.max(15, Math.min(120, Number(r.duration_minutes) || 30))
         const recurrence =
           r.recurrence === 'daily' || r.recurrence === 'weekly' ? r.recurrence : 'none'

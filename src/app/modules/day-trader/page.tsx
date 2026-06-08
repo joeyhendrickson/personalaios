@@ -27,7 +27,9 @@ import {
   Activity,
   Zap,
   Lock,
+  Newspaper,
 } from 'lucide-react'
+import { EVENT_MONITORING_LABELS, type EventMonitoringKey } from '@/lib/day-trader/event-monitoring'
 
 const PROFIT_ADVISOR_UNLOCK_KEY = 'market-advisor-profit-advisor-unlocked'
 const PROFIT_ADVISOR_PASSWORD = 'ProUser'
@@ -43,7 +45,7 @@ interface InformationSource {
 interface TradingConfig {
   buyingPower: number
   stockSymbol: string
-  investorType: 'long_term' | 'scalper' | 'options_trader' | 'gambler'
+  investorType: 'long_term' | 'scalper' | 'options_trader'
   informationSources: InformationSource[]
   eventMonitoring: {
     earnings: boolean
@@ -145,6 +147,16 @@ interface ProfitAdvisor {
     targetDailyProfit: string
     maximumAcceptableLoss: string
   }
+  newsTriggeredEntries?: Array<{
+    eventCategory: string
+    headlineExamples: string[]
+    entryTrigger: string
+    recommendedPosition: string
+    thesisAlignment: 'supports' | 'contradicts' | 'neutral'
+    historicalCorrelation: string
+    entryAction: string
+    ifHeadlineContradictsThesis: string
+  }>
 }
 
 interface StockRecommendation {
@@ -255,13 +267,6 @@ export default function DayTraderModule() {
       label: 'Options Trader',
       description: 'Buying options calls and puts with reasonable theta for high risk trading',
       icon: <Target className="h-4 w-4" />,
-    },
-    {
-      value: 'gambler',
-      label: 'Gambler',
-      description:
-        'Buying calls options or puts with less than 1 week theta for highest return possible, but could lose everything fast',
-      icon: <AlertTriangle className="h-4 w-4" />,
     },
   ]
 
@@ -954,27 +959,34 @@ export default function DayTraderModule() {
 
               {/* Event Monitoring */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Event Monitoring
                 </label>
+                <p className="text-xs text-gray-500 mb-3">
+                  Selected categories shape the Profit Advisor news headline → position entry
+                  playbook, including historical correlation guidance aligned to your prediction
+                  thesis.
+                </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(config.eventMonitoring).map(([key, value]) => (
-                    <label key={key} className="flex items-center space-x-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={value}
-                        onChange={(e) =>
-                          setConfig((prev) => ({
-                            ...prev,
-                            eventMonitoring: { ...prev.eventMonitoring, [key]: e.target.checked },
-                          }))
-                        }
-                        disabled={!isEditing}
-                        className="rounded"
-                      />
-                      <span className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                    </label>
-                  ))}
+                  {(Object.entries(config.eventMonitoring) as [EventMonitoringKey, boolean][]).map(
+                    ([key, value]) => (
+                      <label key={key} className="flex items-center space-x-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={value}
+                          onChange={(e) =>
+                            setConfig((prev) => ({
+                              ...prev,
+                              eventMonitoring: { ...prev.eventMonitoring, [key]: e.target.checked },
+                            }))
+                          }
+                          disabled={!isEditing}
+                          className="rounded"
+                        />
+                        <span>{EVENT_MONITORING_LABELS[key]}</span>
+                      </label>
+                    )
+                  )}
                 </div>
               </div>
 
@@ -1236,11 +1248,6 @@ export default function DayTraderModule() {
                     <div className="flex items-start">
                       <AlertTriangle className="h-5 w-5 text-gray-600 mt-0.5 mr-3 flex-shrink-0" />
                       <div>
-                        <h4 className="font-semibold text-gray-800 mb-2">Data Source Notice</h4>
-                        <p className="text-sm text-gray-700 mb-2">
-                          We're working to integrate reliable real-time stock data sources. Current
-                          analysis may be based on general market knowledge rather than live data.
-                        </p>
                         <p className="text-sm text-gray-700 font-medium">
                           ⚠️ Always verify current stock prices and market data independently before
                           making trading decisions.
@@ -1698,6 +1705,97 @@ export default function DayTraderModule() {
                       </span>
                     </div>
                   </div>
+
+                  {/* News-Triggered Entry Playbook */}
+                  {profitAdvisor.newsTriggeredEntries &&
+                    profitAdvisor.newsTriggeredEntries.length > 0 && (
+                      <div className="mb-6">
+                        <h4 className="font-semibold mb-2 flex items-center">
+                          <Newspaper className="h-5 w-5 mr-2" />
+                          News-Triggered Entry Playbook
+                        </h4>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Enter positions when headlines like these appear and historical
+                          correlation supports your prediction thesis. Guidance is based on
+                          AI-reasoned sector patterns, not live news feeds.
+                        </p>
+                        <div className="space-y-4">
+                          {profitAdvisor.newsTriggeredEntries.map((entry, index) => (
+                            <div
+                              key={index}
+                              className="border border-gray-200 rounded-lg p-4 bg-gray-50"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
+                                <h5 className="font-semibold text-gray-900">
+                                  {entry.eventCategory}
+                                </h5>
+                                <div className="flex flex-wrap gap-2">
+                                  <span
+                                    className={`px-2 py-1 text-xs rounded-full ${
+                                      entry.thesisAlignment === 'supports'
+                                        ? 'bg-green-100 text-green-800'
+                                        : entry.thesisAlignment === 'contradicts'
+                                          ? 'bg-red-100 text-red-800'
+                                          : 'bg-gray-100 text-gray-800'
+                                    }`}
+                                  >
+                                    Thesis: {entry.thesisAlignment}
+                                  </span>
+                                  <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                                    {entry.recommendedPosition.replace(/_/g, ' ').toUpperCase()}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="mb-3">
+                                <p className="text-xs font-medium text-gray-500 mb-1">
+                                  Example headlines
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {entry.headlineExamples.map((headline, headlineIndex) => (
+                                    <span
+                                      key={headlineIndex}
+                                      className="text-xs px-2 py-1 bg-white border border-gray-200 rounded-md text-gray-700"
+                                    >
+                                      {headline}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                <div>
+                                  <p className="text-xs font-medium text-gray-500 mb-1">
+                                    Entry trigger
+                                  </p>
+                                  <p className="text-gray-700">{entry.entryTrigger}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-gray-500 mb-1">
+                                    Historical correlation
+                                  </p>
+                                  <p className="text-gray-700">{entry.historicalCorrelation}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-gray-500 mb-1">
+                                    Entry action
+                                  </p>
+                                  <p className="text-gray-700">{entry.entryAction}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-gray-500 mb-1">
+                                    If headline contradicts thesis
+                                  </p>
+                                  <p className="text-gray-700">
+                                    {entry.ifHeadlineContradictsThesis}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                   {/* Optimal Trades */}
                   <div className="mb-6">

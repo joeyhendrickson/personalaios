@@ -11,10 +11,21 @@ import {
   Edit3,
   Loader2,
   Link as LinkIcon,
+  Plus,
   Repeat,
   Sparkles,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  createDefaultWindow,
+  findUnmatchedWindowItems,
+  matchesTimeWindow,
+  normalizePreferences,
+  type CalendarPreferences,
+  type CalendarTimeWindow,
+  type DayKey,
+} from '@/lib/calendar/preferences'
 
 type Recommendation = {
   id: string
@@ -41,9 +52,9 @@ type CalendarStatus = {
   } | null
 }
 
-type Preferences = { start_hour: number; end_hour: number; days: string[] }
+type Preferences = CalendarPreferences
 
-const DAYS: { key: string; label: string }[] = [
+const DAYS: { key: DayKey; label: string }[] = [
   { key: 'mon', label: 'Mon' },
   { key: 'tue', label: 'Tue' },
   { key: 'wed', label: 'Wed' },
@@ -88,11 +99,7 @@ export default function LifestacksCalendarPage() {
   const [connectError, setConnectError] = useState('')
   const [connectMessage, setConnectMessage] = useState('')
 
-  const [prefs, setPrefs] = useState<Preferences>({
-    start_hour: 5,
-    end_hour: 24,
-    days: DAYS.map((d) => d.key),
-  })
+  const [prefs, setPrefs] = useState<Preferences>(() => normalizePreferences(null))
   const [savingPrefs, setSavingPrefs] = useState(false)
 
   const [recs, setRecs] = useState<Recommendation[]>([])
@@ -115,7 +122,7 @@ export default function LifestacksCalendarPage() {
       const res = await fetch('/api/calendar/preferences')
       if (res.ok) {
         const data = await res.json()
-        if (data.preferences) setPrefs(data.preferences)
+        if (data.preferences) setPrefs(normalizePreferences(data.preferences))
       }
     } catch {
       /* non-fatal */
@@ -179,10 +186,36 @@ export default function LifestacksCalendarPage() {
     await loadStatus()
   }
 
-  const toggleDay = (key: string) => {
+  const updateWindow = (windowId: string, patch: Partial<CalendarTimeWindow>) => {
     setPrefs((p) => ({
       ...p,
-      days: p.days.includes(key) ? p.days.filter((d) => d !== key) : [...p.days, key],
+      windows: p.windows.map((w) => (w.id === windowId ? { ...w, ...patch } : w)),
+    }))
+  }
+
+  const addWindow = () => {
+    setPrefs((p) => ({
+      ...p,
+      windows: [...p.windows, createDefaultWindow()],
+    }))
+  }
+
+  const removeWindow = (windowId: string) => {
+    setPrefs((p) => {
+      if (p.windows.length <= 1) return p
+      return { ...p, windows: p.windows.filter((w) => w.id !== windowId) }
+    })
+  }
+
+  const toggleDay = (windowId: string, key: DayKey) => {
+    setPrefs((p) => ({
+      ...p,
+      windows: p.windows.map((w) => {
+        if (w.id !== windowId) return w
+        const selected = w.days.includes(key)
+        const days = selected ? w.days.filter((d) => d !== key) : [...w.days, key]
+        return { ...w, days: days.length ? days : w.days }
+      }),
     }))
   }
 
@@ -192,10 +225,10 @@ export default function LifestacksCalendarPage() {
       const res = await fetch('/api/calendar/preferences', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(prefs),
+        body: JSON.stringify({ windows: prefs.windows }),
       })
       const data = await res.json()
-      if (res.ok && data.preferences) setPrefs(data.preferences)
+      if (res.ok && data.preferences) setPrefs(normalizePreferences(data.preferences))
     } finally {
       setSavingPrefs(false)
     }
@@ -234,6 +267,8 @@ export default function LifestacksCalendarPage() {
     const selected = recs.filter((r) => r.selected && !r.added)
     if (selected.length === 0) return
     setAdding(true)
+    setRecsMessage('')
+    let addedCount = 0
     try {
       for (const rec of selected) {
         const start = nextOccurrence(rec.weekday, rec.start_time)
@@ -252,16 +287,54 @@ export default function LifestacksCalendarPage() {
         })
         if (res.ok) {
           updateRec(rec.id, { added: true, selected: false })
+          addedCount++
         } else {
           const j = await res.json().catch(() => ({}))
           setRecsMessage(j.error || 'Some events could not be added.')
           if (j.needsReauth) await loadStatus()
         }
       }
+      if (addedCount > 0) {
+        setRecsMessage(
+          `${addedCount} item${addedCount === 1 ? '' : 's'} added to Google Calendar — listed in the matching time window${addedCount === 1 ? '' : 's'} above.`
+        )
+      }
     } finally {
       setAdding(false)
     }
   }
+
+  const addedRecs = recs.filter((r) => r.added)
+  const addedForWindow = (window: CalendarTimeWindow) =>
+    addedRecs.filter((r) => matchesTimeWindow(r.weekday, r.start_time, window))
+  const unmatchedAdded = findUnmatchedWindowItems(addedRecs, prefs.windows)
+
+  const renderAddedItem = (rec: Recommendation) => (
+    <li
+      key={rec.id}
+      className="flex items-start gap-2 rounded-md bg-white/70 border border-green-100 px-3 py-2"
+    >
+      <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-gray-900 text-sm">{rec.title}</span>
+          <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
+            {rec.source_type}
+          </span>
+          {rec.recurrence !== 'none' && (
+            <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+              <Repeat className="h-3 w-3" />
+              {rec.recurrence}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-gray-600 mt-0.5">
+          {DAYS.find((d) => d.key === rec.weekday)?.label} · {rec.start_time} ·{' '}
+          {rec.duration_minutes} min
+        </p>
+      </div>
+    </li>
+  )
 
   const selectedCount = recs.filter((r) => r.selected && !r.added).length
 
@@ -416,61 +489,114 @@ export default function LifestacksCalendarPage() {
             When can Lifestacks schedule items?
           </h2>
           <p className="text-sm text-gray-600 mb-4">
-            Choose the daily window and days the AI may place recommendations.
+            Add one or more windows with allowed times and days. The AI will only schedule inside
+            these windows.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <label className="block">
-              <span className="text-sm font-medium text-gray-700">Earliest time</span>
-              <select
-                value={prefs.start_hour}
-                onChange={(e) =>
-                  setPrefs((p) => ({ ...p, start_hour: parseInt(e.target.value, 10) }))
-                }
-                className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          <div className="space-y-4 mb-4">
+            {prefs.windows.map((window, index) => (
+              <div
+                key={window.id}
+                className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4"
               >
-                {Array.from({ length: 20 }, (_, i) => i + 5).map((h) => (
-                  <option key={h} value={h}>
-                    {hourLabel(h)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-gray-700">Latest time</span>
-              <select
-                value={prefs.end_hour}
-                onChange={(e) =>
-                  setPrefs((p) => ({ ...p, end_hour: parseInt(e.target.value, 10) }))
-                }
-                className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              >
-                {Array.from({ length: 20 }, (_, i) => i + 5).map((h) => (
-                  <option key={h} value={h}>
-                    {hourLabel(h)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {DAYS.map((d) => (
-              <button
-                key={d.key}
-                onClick={() => toggleDay(d.key)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium border ${
-                  prefs.days.includes(d.key)
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-700 border-gray-300'
-                }`}
-              >
-                {d.label}
-              </button>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-gray-900">Window {index + 1}</h3>
+                  {prefs.windows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeWindow(window.id)}
+                      className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-red-600"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <label className="block">
+                    <span className="text-sm font-medium text-gray-700">Earliest time</span>
+                    <select
+                      value={window.start_hour}
+                      onChange={(e) =>
+                        updateWindow(window.id, { start_hour: parseInt(e.target.value, 10) })
+                      }
+                      className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    >
+                      {Array.from({ length: 20 }, (_, i) => i + 5).map((h) => (
+                        <option key={h} value={h}>
+                          {hourLabel(h)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-gray-700">Latest time</span>
+                    <select
+                      value={window.end_hour}
+                      onChange={(e) =>
+                        updateWindow(window.id, { end_hour: parseInt(e.target.value, 10) })
+                      }
+                      className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    >
+                      {Array.from({ length: 20 }, (_, i) => i + 5).map((h) => (
+                        <option key={h} value={h}>
+                          {hourLabel(h)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-700 block mb-2">Days</span>
+                  <div className="flex flex-wrap gap-2">
+                    {DAYS.map((d) => {
+                      const selected = window.days.includes(d.key)
+                      return (
+                        <button
+                          key={d.key}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => toggleDay(window.id, d.key)}
+                          className={`calendar-day-pill px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                            selected ? 'calendar-day-pill--active' : ''
+                          }`}
+                        >
+                          {d.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+                {addedForWindow(window).length > 0 && (
+                  <div className="rounded-md border border-green-200 bg-green-50 p-3">
+                    <p className="text-xs font-semibold text-green-800 mb-2 flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Added to Google Calendar ({addedForWindow(window).length})
+                    </p>
+                    <ul className="space-y-2">{addedForWindow(window).map(renderAddedItem)}</ul>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
-          <Button onClick={savePrefs} disabled={savingPrefs} variant="outline" size="sm">
-            {savingPrefs ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-            Save window
+          {unmatchedAdded.length > 0 && (
+            <div className="rounded-md border border-green-200 bg-green-50 p-4 mb-4">
+              <p className="text-xs font-semibold text-green-800 mb-2 flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Added outside saved windows ({unmatchedAdded.length})
+              </p>
+              <ul className="space-y-2">{unmatchedAdded.map(renderAddedItem)}</ul>
+            </div>
+          )}
+          <Button type="button" onClick={addWindow} variant="outline" size="sm" className="mb-4">
+            <Plus className="h-4 w-4 mr-2" />
+            Add time window
           </Button>
+          <div>
+            <Button onClick={savePrefs} disabled={savingPrefs} variant="outline" size="sm">
+              {savingPrefs ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Save windows
+            </Button>
+          </div>
         </div>
 
         {/* Recommendations */}

@@ -322,8 +322,6 @@ function getInvestorFocus(type: string): string {
       return 'Short-term momentum trading with quick entries and exits'
     case 'options_trader':
       return 'Options trading with calls and puts, focusing on theta and volatility'
-    case 'gambler':
-      return 'High-risk, high-reward trading with short-term options'
     default:
       return 'General trading approach'
   }

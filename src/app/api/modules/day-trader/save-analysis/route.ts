@@ -6,7 +6,7 @@ const saveAnalysisSchema = z.object({
   name: z.string().min(1, 'Analysis name is required'),
   stockSymbol: z.string().min(1, 'Stock symbol is required'),
   buyingPower: z.number().min(100, 'Buying power must be at least $100'),
-  investorType: z.enum(['long_term', 'scalper', 'options_trader', 'gambler']),
+  investorType: z.enum(['long_term', 'scalper', 'options_trader']),
   informationSources: z
     .array(
       z.object({
