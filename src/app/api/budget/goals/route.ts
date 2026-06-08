@@ -1,17 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import { insertBudgetGoal, normalizeBudgetGoalRow } from '@/lib/budget/budget-goals-insert'
+
+const optionalDate = z.preprocess(
+  (val) => (val === '' || val === null || val === undefined ? undefined : val),
+  z.string().optional()
+)
 
 const createBudgetGoalSchema = z.object({
   title: z.string().min(1).max(255),
-  description: z.string().optional(),
+  description: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? undefined : val),
+    z.string().optional()
+  ),
   goal_type: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']),
   goal_category: z.enum(['income', 'budget_reduction']),
   target_value: z.number().min(0).optional(),
   target_unit: z.string().max(50).optional().default('dollars'),
   priority_level: z.number().int().min(1).max(5).default(3),
-  start_date: z.string().optional(),
-  target_date: z.string().optional(),
+  start_date: optionalDate,
+  target_date: optionalDate,
 })
 
 // GET /api/budget/goals - Get all budget goals for the current user
@@ -35,10 +44,20 @@ export async function GET() {
 
     if (goalsError) {
       console.error('Error fetching budget goals:', goalsError)
-      return NextResponse.json({ error: 'Failed to fetch budget goals' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Failed to fetch budget goals', details: goalsError.message },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json({ goals: budgetGoals || [] }, { status: 200 })
+    return NextResponse.json(
+      {
+        goals: (budgetGoals || []).map((row) =>
+          normalizeBudgetGoalRow(row as Record<string, unknown>)
+        ),
+      },
+      { status: 200 }
+    )
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json(
@@ -67,20 +86,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = createBudgetGoalSchema.parse(body)
 
-    const { data: goal, error: goalError } = await supabase
-      .from('budget_goals')
-      .insert({
-        user_id: user.id,
-        ...validatedData,
-        status: 'pending', // Goals start as pending until added to dashboard
-      })
-      .select()
-      .single()
+    const { goal, error } = await insertBudgetGoal(supabase, user.id, validatedData)
 
-    if (goalError) {
-      console.error('Error creating budget goal:', goalError)
+    if (error || !goal) {
+      console.error('Error creating budget goal:', error)
       return NextResponse.json(
-        { error: 'Failed to create budget goal', details: goalError.message },
+        {
+          error: 'Failed to create budget goal',
+          details:
+            error ??
+            'Database schema may be out of date. Run Supabase migration 081_budget_goals_schema_fix.sql.',
+        },
         { status: 500 }
       )
     }
@@ -137,10 +153,16 @@ export async function PUT(request: NextRequest) {
 
     if (goalError) {
       console.error('Error updating budget goal:', goalError)
-      return NextResponse.json({ error: 'Failed to update budget goal' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Failed to update budget goal', details: goalError.message },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json({ goal }, { status: 200 })
+    return NextResponse.json(
+      { goal: normalizeBudgetGoalRow(goal as Record<string, unknown>) },
+      { status: 200 }
+    )
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json(
@@ -181,7 +203,10 @@ export async function DELETE(request: NextRequest) {
 
     if (deleteError) {
       console.error('Error deleting budget goal:', deleteError)
-      return NextResponse.json({ error: 'Failed to delete budget goal' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Failed to delete budget goal', details: deleteError.message },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ success: true }, { status: 200 })

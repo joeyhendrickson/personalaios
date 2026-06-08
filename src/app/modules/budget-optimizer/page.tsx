@@ -1289,7 +1289,11 @@ export default function BudgetOptimizerModule() {
         alert('✅ Income goal created! It will appear as a recommendation on your dashboard.')
       } else {
         const error = await response.json()
-        alert(error.error || 'Failed to create income goal')
+        alert(
+          [error.error || 'Failed to create income goal', error.details]
+            .filter(Boolean)
+            .join('\n\n')
+        )
       }
     } catch (error) {
       console.error('Error creating income goal:', error)
@@ -1351,7 +1355,11 @@ export default function BudgetOptimizerModule() {
         )
       } else {
         const error = await response.json()
-        alert(error.error || 'Failed to create budget reduction goal')
+        alert(
+          [error.error || 'Failed to create budget reduction goal', error.details]
+            .filter(Boolean)
+            .join('\n\n')
+        )
       }
     } catch (error) {
       console.error('Error creating budget reduction goal:', error)
