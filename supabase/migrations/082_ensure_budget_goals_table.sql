@@ -1,10 +1,10 @@
--- Idempotent fix for budget_goals when legacy (015) and modern (030) columns coexist.
--- If the table is missing entirely, run 082_ensure_budget_goals_table.sql instead.
+-- Create budget_goals if missing, then ensure Budget Advisor schema + RLS.
+-- Safe to run when 081 failed with: relation "budget_goals" does not exist
 
 CREATE TABLE IF NOT EXISTS budget_goals (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  title VARCHAR(255) NOT NULL DEFAULT 'Budget goal',
+  title VARCHAR(255) NOT NULL,
   description TEXT,
   goal_type VARCHAR(20) NOT NULL DEFAULT 'monthly',
   goal_category VARCHAR(50) NOT NULL DEFAULT 'budget_reduction',
@@ -40,7 +40,16 @@ CREATE POLICY "Users can delete their own budget goals"
 
 CREATE INDEX IF NOT EXISTS idx_budget_goals_user_id ON budget_goals(user_id);
 CREATE INDEX IF NOT EXISTS idx_budget_goals_status ON budget_goals(status);
+CREATE INDEX IF NOT EXISTS idx_budget_goals_category ON budget_goals(goal_category);
+CREATE INDEX IF NOT EXISTS idx_budget_goals_added_to_dashboard ON budget_goals(is_added_to_dashboard);
 
+DROP TRIGGER IF EXISTS update_budget_goals_updated_at ON budget_goals;
+CREATE TRIGGER update_budget_goals_updated_at
+  BEFORE UPDATE ON budget_goals
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Legacy column upgrades (no-op when table was just created)
 ALTER TABLE budget_goals DROP CONSTRAINT IF EXISTS budget_goals_status_check;
 ALTER TABLE budget_goals DROP CONSTRAINT IF EXISTS budget_goals_priority_check;
 ALTER TABLE budget_goals DROP CONSTRAINT IF EXISTS budget_goals_goal_type_check;
@@ -89,10 +98,8 @@ UPDATE budget_goals SET goal_type = COALESCE(goal_type, 'monthly') WHERE goal_ty
 UPDATE budget_goals SET goal_category = COALESCE(goal_category, 'budget_reduction') WHERE goal_category IS NULL;
 UPDATE budget_goals SET target_unit = COALESCE(target_unit, 'dollars') WHERE target_unit IS NULL;
 UPDATE budget_goals SET priority_level = COALESCE(priority_level, 3) WHERE priority_level IS NULL;
-UPDATE budget_goals SET status = COALESCE(
-  NULLIF(status, 'paused'),
-  'pending'
-) WHERE status IS NULL OR status = 'paused';
+UPDATE budget_goals SET status = COALESCE(NULLIF(status, 'paused'), 'pending')
+  WHERE status IS NULL OR status = 'paused';
 UPDATE budget_goals SET is_added_to_dashboard = COALESCE(is_added_to_dashboard, FALSE)
   WHERE is_added_to_dashboard IS NULL;
 UPDATE budget_goals SET title = 'Budget goal' WHERE title IS NULL;
@@ -116,12 +123,3 @@ ALTER TABLE budget_goals ADD CONSTRAINT budget_goals_priority_level_check
   CHECK (priority_level BETWEEN 1 AND 5);
 ALTER TABLE budget_goals ADD CONSTRAINT budget_goals_status_check
   CHECK (status IN ('pending', 'active', 'completed', 'cancelled'));
-
-CREATE INDEX IF NOT EXISTS idx_budget_goals_category ON budget_goals(goal_category);
-CREATE INDEX IF NOT EXISTS idx_budget_goals_added_to_dashboard ON budget_goals(is_added_to_dashboard);
-
-DROP TRIGGER IF EXISTS update_budget_goals_updated_at ON budget_goals;
-CREATE TRIGGER update_budget_goals_updated_at
-  BEFORE UPDATE ON budget_goals
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
