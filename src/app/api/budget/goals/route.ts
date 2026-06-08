@@ -16,9 +16,9 @@ const createBudgetGoalSchema = z.object({
   ),
   goal_type: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']),
   goal_category: z.enum(['income', 'budget_reduction']),
-  target_value: z.number().min(0).optional(),
+  target_value: z.coerce.number().min(0).optional(),
   target_unit: z.string().max(50).optional().default('dollars'),
-  priority_level: z.number().int().min(1).max(5).default(3),
+  priority_level: z.coerce.number().int().min(1).max(5).default(3),
   start_date: optionalDate,
   target_date: optionalDate,
 })

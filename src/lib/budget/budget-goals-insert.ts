@@ -22,16 +22,6 @@ export type BudgetGoalRow = BudgetGoalInput & {
   updated_at?: string
 }
 
-function isSchemaMismatch(message: string): boolean {
-  const m = message.toLowerCase()
-  return (
-    m.includes('column') ||
-    m.includes('schema cache') ||
-    m.includes('could not find') ||
-    m.includes('violates not-null constraint')
-  )
-}
-
 function legacyPriority(level: number): 'low' | 'medium' | 'high' {
   if (level <= 2) return 'high'
   if (level >= 4) return 'low'
@@ -86,12 +76,8 @@ export function normalizeBudgetGoalRow(row: Record<string, unknown>): BudgetGoal
   }
 }
 
-export async function insertBudgetGoal(
-  supabase: SupabaseClient,
-  userId: string,
-  input: BudgetGoalInput
-): Promise<{ goal: BudgetGoalRow | null; error: string | null }> {
-  const modernRecord = {
+function modernRecord(userId: string, input: BudgetGoalInput, status: 'pending' | 'active') {
+  return {
     user_id: userId,
     title: input.title,
     description: input.description ?? null,
@@ -102,19 +88,12 @@ export async function insertBudgetGoal(
     priority_level: input.priority_level,
     start_date: input.start_date ?? null,
     target_date: input.target_date ?? null,
-    status: 'pending',
+    status,
   }
+}
 
-  const modern = await supabase.from('budget_goals').insert(modernRecord).select('*').single()
-  if (!modern.error && modern.data) {
-    return { goal: normalizeBudgetGoalRow(modern.data as Record<string, unknown>), error: null }
-  }
-
-  if (!modern.error || !isSchemaMismatch(modern.error.message)) {
-    return { goal: null, error: modern.error?.message ?? 'Failed to create budget goal' }
-  }
-
-  const legacyRecord = {
+function legacyRecord(userId: string, input: BudgetGoalInput) {
+  return {
     user_id: userId,
     name: input.title,
     description: withCategoryNote(input.description, input.goal_category),
@@ -123,21 +102,81 @@ export async function insertBudgetGoal(
     priority: legacyPriority(input.priority_level),
     status: 'active',
   }
+}
 
-  const legacy = await supabase.from('budget_goals').insert(legacyRecord).select('*').single()
-  if (legacy.error) {
-    return { goal: null, error: legacy.error.message }
+export async function insertBudgetGoal(
+  supabase: SupabaseClient,
+  userId: string,
+  input: BudgetGoalInput
+): Promise<{ goal: BudgetGoalRow | null; error: string | null }> {
+  const errors: string[] = []
+
+  for (const status of ['pending', 'active'] as const) {
+    const attempt = await supabase
+      .from('budget_goals')
+      .insert(modernRecord(userId, input, status))
+      .select('*')
+      .single()
+
+    if (!attempt.error && attempt.data) {
+      return {
+        goal: normalizeBudgetGoalRow({
+          ...(attempt.data as Record<string, unknown>),
+          status: status === 'active' ? 'pending' : status,
+        }),
+        error: null,
+      }
+    }
+    if (attempt.error?.message) errors.push(`modern/${status}: ${attempt.error.message}`)
   }
 
+  const hybrid = await supabase
+    .from('budget_goals')
+    .insert({
+      ...modernRecord(userId, input, 'active'),
+      name: input.title,
+      target_amount: input.target_value ?? 0,
+      priority: legacyPriority(input.priority_level),
+    })
+    .select('*')
+    .single()
+
+  if (!hybrid.error && hybrid.data) {
+    return {
+      goal: normalizeBudgetGoalRow({
+        ...(hybrid.data as Record<string, unknown>),
+        status: 'pending',
+      }),
+      error: null,
+    }
+  }
+  if (hybrid.error?.message) errors.push(`hybrid: ${hybrid.error.message}`)
+
+  const legacy = await supabase
+    .from('budget_goals')
+    .insert(legacyRecord(userId, input))
+    .select('*')
+    .single()
+
+  if (!legacy.error && legacy.data) {
+    return {
+      goal: normalizeBudgetGoalRow({
+        ...(legacy.data as Record<string, unknown>),
+        goal_type: input.goal_type,
+        goal_category: input.goal_category,
+        target_unit: input.target_unit ?? 'dollars',
+        priority_level: input.priority_level,
+        status: 'pending',
+      }),
+      error: null,
+    }
+  }
+  if (legacy.error?.message) errors.push(`legacy: ${legacy.error.message}`)
+
   return {
-    goal: normalizeBudgetGoalRow({
-      ...(legacy.data as Record<string, unknown>),
-      goal_type: input.goal_type,
-      goal_category: input.goal_category,
-      target_unit: input.target_unit ?? 'dollars',
-      priority_level: input.priority_level,
-      status: 'pending',
-    }),
-    error: null,
+    goal: null,
+    error:
+      errors.join(' | ') ||
+      'Failed to create budget goal. Run Supabase migration 081_budget_goals_schema_fix.sql.',
   }
 }
