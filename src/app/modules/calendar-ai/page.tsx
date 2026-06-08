@@ -34,6 +34,11 @@ type CalendarStatus = {
   connected: boolean
   status: 'connected' | 'needs_reauth' | null
   connected_email: string | null
+  oauth?: {
+    redirect_uri: string
+    client_id_suffix: string | null
+    uses_explicit_redirect_env: boolean
+  } | null
 }
 
 type Preferences = { start_hour: number; end_hour: number; days: string[] }
@@ -132,7 +137,12 @@ export default function LifestacksCalendarPage() {
       setConnectMessage('Google Calendar connected.')
       void loadStatus()
     } else if (flag === 'error') {
-      setConnectError(`Couldn't connect Google Calendar (${params.get('reason') || 'unknown'}).`)
+      const reason = params.get('reason') || 'unknown'
+      setConnectError(
+        reason === 'redirect_uri_mismatch' || reason === 'invalid_request'
+          ? `Google OAuth failed (${reason}). Add the redirect URI shown below to your Google Cloud OAuth client, then try again.`
+          : `Couldn't connect Google Calendar (${reason}).`
+      )
     }
     params.delete('calendar')
     params.delete('reason')
@@ -350,6 +360,38 @@ export default function LifestacksCalendarPage() {
               <p className="text-sm text-gray-600">
                 Sign in with Google and authorize Lifestacks to add events to your calendar.
               </p>
+              {status.oauth?.redirect_uri && (
+                <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-950 space-y-2">
+                  <p className="font-medium">
+                    If Google shows redirect_uri_mismatch, register this exact URI:
+                  </p>
+                  <code className="block break-all bg-white/80 px-2 py-1 rounded border border-amber-100">
+                    {status.oauth.redirect_uri}
+                  </code>
+                  {status.oauth.client_id_suffix && (
+                    <p className="text-amber-900">
+                      OAuth client ID ends with:{' '}
+                      <code className="bg-white/80 px-1 rounded">
+                        {status.oauth.client_id_suffix}
+                      </code>{' '}
+                      (must match the client in Google Cloud → Credentials)
+                    </p>
+                  )}
+                  {(() => {
+                    const uri = status.oauth!.redirect_uri
+                    const alt = uri.includes('://www.')
+                      ? uri.replace('://www.', '://')
+                      : uri.replace('://', '://www.')
+                    if (alt === uri) return null
+                    return (
+                      <p className="text-amber-900">
+                        If you use www, also add:{' '}
+                        <code className="bg-white/80 px-1 rounded break-all">{alt}</code>
+                      </p>
+                    )
+                  })()}
+                </div>
+              )}
               <Button
                 onClick={handleConnect}
                 disabled={connecting}

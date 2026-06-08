@@ -25,17 +25,28 @@ export function isGoogleCalendarConfigured(): boolean {
 }
 
 function normalizeSiteUrl(url: string): string {
-  return url.replace(/\/$/, '')
+  return url.trim().replace(/\/$/, '')
 }
 
 export function getGoogleCalendarRedirectUri(requestOrigin?: string): string {
-  if (process.env.GOOGLE_CALENDAR_REDIRECT_URI) {
-    return process.env.GOOGLE_CALENDAR_REDIRECT_URI
+  const explicit = process.env.GOOGLE_CALENDAR_REDIRECT_URI
+  if (explicit?.trim()) {
+    return normalizeSiteUrl(explicit)
   }
+  // Prefer canonical site URL over request host (avoids www vs apex mismatches).
   const siteUrl = normalizeSiteUrl(
-    requestOrigin || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    process.env.NEXT_PUBLIC_SITE_URL || requestOrigin || 'http://localhost:3000'
   )
   return `${siteUrl}/api/calendar/callback`
+}
+
+export function getGoogleCalendarOAuthDebug(requestOrigin?: string) {
+  const clientId = getClientId()
+  return {
+    redirect_uri: getGoogleCalendarRedirectUri(requestOrigin),
+    client_id_suffix: clientId ? clientId.slice(-20) : null,
+    uses_explicit_redirect_env: Boolean(process.env.GOOGLE_CALENDAR_REDIRECT_URI?.trim()),
+  }
 }
 
 export function createGoogleCalendarOAuthClient(requestOrigin?: string) {
