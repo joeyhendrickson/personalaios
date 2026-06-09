@@ -4,7 +4,12 @@ import { generateText } from 'ai'
 import { env } from '@/lib/env'
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 
-import { ALL_DAYS, formatWindowsForPrompt, normalizePreferences } from '@/lib/calendar/preferences'
+import {
+  ALL_DAYS,
+  assignWindowId,
+  formatWindowsForPrompt,
+  normalizePreferences,
+} from '@/lib/calendar/preferences'
 
 type Recommendation = {
   id: string
@@ -15,6 +20,7 @@ type Recommendation = {
   start_time: string
   duration_minutes: number
   recurrence: 'none' | 'daily' | 'weekly'
+  window_id: string | null
 }
 
 function hourLabel(h: number): string {
@@ -138,6 +144,7 @@ Respond ONLY with JSON of this exact shape:
           start_time: startTime,
           duration_minutes: duration,
           recurrence,
+          window_id: assignWindowId(weekday, startTime, windows),
         }
       })
       .filter((r): r is Recommendation => r !== null)

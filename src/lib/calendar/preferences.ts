@@ -63,8 +63,21 @@ export function normalizePreferences(
     end_hour?: number | null
     days?: string[] | null
     time_windows?: unknown
+    windows?: unknown
   } | null
 ): CalendarPreferences {
+  const windowsFromApi = row?.windows
+  if (Array.isArray(windowsFromApi) && windowsFromApi.length > 0) {
+    const windows = windowsFromApi.map(sanitizeWindow)
+    const primary = windows[0]
+    return {
+      windows,
+      start_hour: primary.start_hour,
+      end_hour: primary.end_hour,
+      days: primary.days,
+    }
+  }
+
   const windowsRaw = row?.time_windows
   let windows: CalendarTimeWindow[]
 
@@ -139,6 +152,36 @@ export function findMatchingWindow(
   windows: CalendarTimeWindow[]
 ): CalendarTimeWindow | null {
   return windows.find((w) => matchesTimeWindow(weekday, startTime, w)) ?? null
+}
+
+export function defaultWeekdayForWindow(window: CalendarTimeWindow): DayKey {
+  return window.days[0] ?? 'mon'
+}
+
+export function defaultStartTimeForWindow(window: CalendarTimeWindow): string {
+  return `${String(window.start_hour).padStart(2, '0')}:00`
+}
+
+export function snapRecToWindow(
+  window: CalendarTimeWindow,
+  rec?: { weekday?: string; start_time?: string }
+): { weekday: DayKey; start_time: string } {
+  const weekday = window.days.includes(rec?.weekday as DayKey)
+    ? (rec!.weekday as DayKey)
+    : defaultWeekdayForWindow(window)
+  let start_time = rec?.start_time ?? defaultStartTimeForWindow(window)
+  if (!matchesTimeWindow(weekday, start_time, window)) {
+    start_time = defaultStartTimeForWindow(window)
+  }
+  return { weekday, start_time }
+}
+
+export function assignWindowId(
+  weekday: string,
+  startTime: string,
+  windows: CalendarTimeWindow[]
+): string | null {
+  return findMatchingWindow(weekday, startTime, windows)?.id ?? windows[0]?.id ?? null
 }
 
 export function groupItemsByWindow<T extends { weekday: string; start_time: string }>(

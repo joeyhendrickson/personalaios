@@ -18,10 +18,12 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
+  assignWindowId,
   createDefaultWindow,
   findUnmatchedWindowItems,
   matchesTimeWindow,
   normalizePreferences,
+  snapRecToWindow,
   type CalendarPreferences,
   type CalendarTimeWindow,
   type DayKey,
@@ -36,6 +38,7 @@ type Recommendation = {
   start_time: string
   duration_minutes: number
   recurrence: 'none' | 'daily' | 'weekly'
+  window_id?: string | null
   selected?: boolean
   added?: boolean
 }
@@ -81,6 +84,15 @@ function toLocalIso(date: Date): string {
   )}:${pad(date.getMinutes())}:00`
 }
 
+function windowLabel(index: number, window: CalendarTimeWindow): string {
+  return `Window ${index + 1} (${hourLabel(window.start_hour)} – ${hourLabel(window.end_hour)})`
+}
+
+function recBelongsToWindow(rec: Recommendation, window: CalendarTimeWindow): boolean {
+  if (rec.window_id) return rec.window_id === window.id
+  return matchesTimeWindow(rec.weekday, rec.start_time, window)
+}
+
 function nextOccurrence(weekday: string, startTime: string): Date {
   const [hh, mm] = startTime.split(':').map((x) => parseInt(x, 10))
   const target = DAY_INDEX[weekday] ?? 1
@@ -101,6 +113,7 @@ export default function LifestacksCalendarPage() {
 
   const [prefs, setPrefs] = useState<Preferences>(() => normalizePreferences(null))
   const [savingPrefs, setSavingPrefs] = useState(false)
+  const [prefsMessage, setPrefsMessage] = useState('')
 
   const [recs, setRecs] = useState<Recommendation[]>([])
   const [generating, setGenerating] = useState(false)
@@ -219,8 +232,9 @@ export default function LifestacksCalendarPage() {
     }))
   }
 
-  const savePrefs = async () => {
+  const savePrefs = async (): Promise<CalendarPreferences | null> => {
     setSavingPrefs(true)
+    setPrefsMessage('')
     try {
       const res = await fetch('/api/calendar/preferences', {
         method: 'POST',
@@ -228,7 +242,16 @@ export default function LifestacksCalendarPage() {
         body: JSON.stringify({ windows: prefs.windows }),
       })
       const data = await res.json()
-      if (res.ok && data.preferences) setPrefs(normalizePreferences(data.preferences))
+      if (res.ok && data.preferences) {
+        const saved = normalizePreferences(data.preferences)
+        setPrefs(saved)
+        setPrefsMessage(
+          `${saved.windows.length} time window${saved.windows.length === 1 ? '' : 's'} saved.`
+        )
+        return saved
+      }
+      setPrefsMessage(data.details || data.error || 'Could not save time windows.')
+      return null
     } finally {
       setSavingPrefs(false)
     }
@@ -238,6 +261,12 @@ export default function LifestacksCalendarPage() {
     setGenerating(true)
     setRecsMessage('')
     try {
+      const saved = await savePrefs()
+      if (!saved) {
+        setRecsMessage('Save your time windows before generating recommendations.')
+        return
+      }
+
       const res = await fetch('/api/calendar/recommendations', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) {
@@ -246,16 +275,41 @@ export default function LifestacksCalendarPage() {
       }
       const list: Recommendation[] = (data.recommendations || []).map((r: Recommendation) => ({
         ...r,
-        selected: true,
+        window_id:
+          r.window_id ??
+          assignWindowId(r.weekday, r.start_time, saved.windows) ??
+          saved.windows[0]?.id ??
+          null,
+        selected: false,
         added: false,
       }))
       setRecs(list)
-      if (list.length === 0) setRecsMessage(data.message || 'No recommendations were generated.')
+      if (list.length === 0) {
+        setRecsMessage(data.message || 'No recommendations were generated.')
+      } else {
+        setRecsMessage(
+          `${list.length} recommendation${list.length === 1 ? '' : 's'} ready — select items, assign a time window, then Add to Calendar.`
+        )
+      }
     } catch {
       setRecsMessage('Failed to generate recommendations.')
     } finally {
       setGenerating(false)
     }
+  }
+
+  const assignRecWindow = (recId: string, windowId: string) => {
+    const window = prefs.windows.find((w) => w.id === windowId)
+    if (!window) return
+    const snapped = snapRecToWindow(
+      window,
+      recs.find((r) => r.id === recId)
+    )
+    updateRec(recId, {
+      window_id: windowId,
+      weekday: snapped.weekday,
+      start_time: snapped.start_time,
+    })
   }
 
   const updateRec = (id: string, patch: Partial<Recommendation>) => {
@@ -266,6 +320,18 @@ export default function LifestacksCalendarPage() {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'
     const selected = recs.filter((r) => r.selected && !r.added)
     if (selected.length === 0) return
+
+    const invalid = selected.filter((r) => {
+      const window = prefs.windows.find((w) => w.id === r.window_id)
+      return !window || !matchesTimeWindow(r.weekday, r.start_time, window)
+    })
+    if (invalid.length > 0) {
+      setRecsMessage(
+        `${invalid.length} selected item${invalid.length === 1 ? '' : 's'} fall outside the assigned time window. Edit the time or pick another window.`
+      )
+      return
+    }
+
     setAdding(true)
     setRecsMessage('')
     let addedCount = 0
@@ -305,8 +371,10 @@ export default function LifestacksCalendarPage() {
   }
 
   const addedRecs = recs.filter((r) => r.added)
+  const scheduledForWindow = (window: CalendarTimeWindow) =>
+    recs.filter((r) => r.selected && !r.added && recBelongsToWindow(r, window))
   const addedForWindow = (window: CalendarTimeWindow) =>
-    addedRecs.filter((r) => matchesTimeWindow(r.weekday, r.start_time, window))
+    addedRecs.filter((r) => recBelongsToWindow(r, window))
   const unmatchedAdded = findUnmatchedWindowItems(addedRecs, prefs.windows)
 
   const renderAddedItem = (rec: Recommendation) => (
@@ -566,6 +634,30 @@ export default function LifestacksCalendarPage() {
                     })}
                   </div>
                 </div>
+                {scheduledForWindow(window).length > 0 && (
+                  <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
+                    <p className="text-xs font-semibold text-blue-800 mb-2">
+                      Selected for this window ({scheduledForWindow(window).length})
+                    </p>
+                    <ul className="space-y-2">
+                      {scheduledForWindow(window).map((rec) => (
+                        <li
+                          key={rec.id}
+                          className="text-sm text-gray-800 rounded-md bg-white/70 border border-blue-100 px-3 py-2"
+                        >
+                          <span className="font-medium">{rec.title}</span>
+                          <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 ml-2">
+                            {rec.source_type}
+                          </span>
+                          <p className="text-xs text-gray-600 mt-0.5">
+                            {DAYS.find((d) => d.key === rec.weekday)?.label} · {rec.start_time} ·{' '}
+                            {rec.duration_minutes} min
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {addedForWindow(window).length > 0 && (
                   <div className="rounded-md border border-green-200 bg-green-50 p-3">
                     <p className="text-xs font-semibold text-green-800 mb-2 flex items-center gap-1.5">
@@ -592,10 +684,22 @@ export default function LifestacksCalendarPage() {
             Add time window
           </Button>
           <div>
-            <Button onClick={savePrefs} disabled={savingPrefs} variant="outline" size="sm">
+            <Button
+              onClick={() => void savePrefs()}
+              disabled={savingPrefs}
+              variant="outline"
+              size="sm"
+            >
               {savingPrefs ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Save windows
             </Button>
+            {prefsMessage && (
+              <p
+                className={`mt-2 text-sm ${prefsMessage.includes('saved') ? 'text-green-700' : 'text-red-600'}`}
+              >
+                {prefsMessage}
+              </p>
+            )}
           </div>
         </div>
 
@@ -603,9 +707,13 @@ export default function LifestacksCalendarPage() {
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="mb-4">
             <h2 className="text-lg font-semibold text-gray-900 mb-3">Schedule Items</h2>
+            <p className="text-sm text-gray-600 mb-3">
+              Save your windows, generate recommendations, select items, assign each to a window,
+              then add to Google Calendar.
+            </p>
             <Button
-              onClick={generate}
-              disabled={generating}
+              onClick={() => void generate()}
+              disabled={generating || savingPrefs}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {generating ? (
@@ -621,131 +729,163 @@ export default function LifestacksCalendarPage() {
 
           {recs.length > 0 && (
             <div className="space-y-3">
-              {recs.map((rec) => (
-                <div
-                  key={rec.id}
-                  className={`rounded-lg border p-4 ${
-                    rec.added ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={!!rec.selected}
-                      disabled={rec.added}
-                      onChange={(e) => updateRec(rec.id, { selected: e.target.checked })}
-                      className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600"
-                    />
-                    <div className="flex-1 min-w-0">
-                      {editingId === rec.id ? (
-                        <div className="space-y-2">
-                          <input
-                            value={rec.title}
-                            onChange={(e) => updateRec(rec.id, { title: e.target.value })}
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm font-medium"
-                          />
-                          <textarea
-                            value={rec.description}
-                            onChange={(e) => updateRec(rec.id, { description: e.target.value })}
-                            rows={2}
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                          />
-                          <div className="flex flex-wrap gap-2">
-                            <select
-                              value={rec.weekday}
-                              onChange={(e) => updateRec(rec.id, { weekday: e.target.value })}
-                              className="border border-gray-300 rounded px-2 py-1 text-sm"
-                            >
-                              {DAYS.map((d) => (
-                                <option key={d.key} value={d.key}>
-                                  {d.label}
-                                </option>
-                              ))}
-                            </select>
+              {recs.map((rec) => {
+                const recWindow =
+                  prefs.windows.find((w) => w.id === rec.window_id) ?? prefs.windows[0]
+                const dayOptions = DAYS.filter((d) => recWindow?.days.includes(d.key))
+
+                return (
+                  <div
+                    key={rec.id}
+                    className={`rounded-lg border p-4 ${
+                      rec.added ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={!!rec.selected}
+                        disabled={rec.added}
+                        onChange={(e) => updateRec(rec.id, { selected: e.target.checked })}
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600"
+                      />
+                      <div className="flex-1 min-w-0">
+                        {editingId === rec.id ? (
+                          <div className="space-y-2">
                             <input
-                              type="time"
-                              value={rec.start_time}
-                              onChange={(e) => updateRec(rec.id, { start_time: e.target.value })}
-                              className="border border-gray-300 rounded px-2 py-1 text-sm"
+                              value={rec.title}
+                              onChange={(e) => updateRec(rec.id, { title: e.target.value })}
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm font-medium"
                             />
-                            <select
-                              value={rec.duration_minutes}
-                              onChange={(e) =>
-                                updateRec(rec.id, {
-                                  duration_minutes: parseInt(e.target.value, 10),
-                                })
-                              }
-                              className="border border-gray-300 rounded px-2 py-1 text-sm"
+                            <textarea
+                              value={rec.description}
+                              onChange={(e) => updateRec(rec.id, { description: e.target.value })}
+                              rows={2}
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                            />
+                            <div className="flex flex-wrap gap-2">
+                              <select
+                                value={rec.window_id ?? recWindow?.id ?? ''}
+                                onChange={(e) => assignRecWindow(rec.id, e.target.value)}
+                                className="border border-gray-300 rounded px-2 py-1 text-sm"
+                              >
+                                {prefs.windows.map((w, i) => (
+                                  <option key={w.id} value={w.id}>
+                                    {windowLabel(i, w)}
+                                  </option>
+                                ))}
+                              </select>
+                              <select
+                                value={rec.weekday}
+                                onChange={(e) => updateRec(rec.id, { weekday: e.target.value })}
+                                className="border border-gray-300 rounded px-2 py-1 text-sm"
+                              >
+                                {dayOptions.map((d) => (
+                                  <option key={d.key} value={d.key}>
+                                    {d.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <input
+                                type="time"
+                                value={rec.start_time}
+                                onChange={(e) => updateRec(rec.id, { start_time: e.target.value })}
+                                className="border border-gray-300 rounded px-2 py-1 text-sm"
+                              />
+                              <select
+                                value={rec.duration_minutes}
+                                onChange={(e) =>
+                                  updateRec(rec.id, {
+                                    duration_minutes: parseInt(e.target.value, 10),
+                                  })
+                                }
+                                className="border border-gray-300 rounded px-2 py-1 text-sm"
+                              >
+                                {[15, 30, 45, 60, 90, 120].map((m) => (
+                                  <option key={m} value={m}>
+                                    {m} min
+                                  </option>
+                                ))}
+                              </select>
+                              <select
+                                value={rec.recurrence}
+                                onChange={(e) =>
+                                  updateRec(rec.id, {
+                                    recurrence: e.target.value as Recommendation['recurrence'],
+                                  })
+                                }
+                                className="border border-gray-300 rounded px-2 py-1 text-sm"
+                              >
+                                <option value="none">One-time</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                              </select>
+                            </div>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="text-sm text-blue-600 hover:text-blue-800"
                             >
-                              {[15, 30, 45, 60, 90, 120].map((m) => (
-                                <option key={m} value={m}>
-                                  {m} min
-                                </option>
-                              ))}
-                            </select>
-                            <select
-                              value={rec.recurrence}
-                              onChange={(e) =>
-                                updateRec(rec.id, {
-                                  recurrence: e.target.value as Recommendation['recurrence'],
-                                })
-                              }
-                              className="border border-gray-300 rounded px-2 py-1 text-sm"
-                            >
-                              <option value="none">One-time</option>
-                              <option value="daily">Daily</option>
-                              <option value="weekly">Weekly</option>
-                            </select>
+                              Done
+                            </button>
                           </div>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="text-sm text-blue-600 hover:text-blue-800"
-                          >
-                            Done
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-900">{rec.title}</span>
-                            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
-                              {rec.source_type}
-                            </span>
-                            {rec.recurrence !== 'none' && (
-                              <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
-                                <Repeat className="h-3 w-3" />
-                                {rec.recurrence}
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-gray-900">{rec.title}</span>
+                              <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
+                                {rec.source_type}
                               </span>
+                              {rec.recurrence !== 'none' && (
+                                <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                                  <Repeat className="h-3 w-3" />
+                                  {rec.recurrence}
+                                </span>
+                              )}
+                            </div>
+                            {rec.description && (
+                              <p className="text-sm text-gray-600 mt-0.5">{rec.description}</p>
                             )}
-                          </div>
-                          {rec.description && (
-                            <p className="text-sm text-gray-600 mt-0.5">{rec.description}</p>
-                          )}
-                          <p className="text-xs text-gray-500 mt-1">
-                            {DAYS.find((d) => d.key === rec.weekday)?.label} · {rec.start_time} ·{' '}
-                            {rec.duration_minutes} min
-                          </p>
-                        </>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {rec.added ? (
-                        <span className="inline-flex items-center gap-1 text-sm text-green-700">
-                          <Check className="h-4 w-4" /> Added
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => setEditingId(editingId === rec.id ? null : rec.id)}
-                          className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
-                          title="Edit"
-                        >
-                          <Edit3 className="h-4 w-4" />
-                        </button>
-                      )}
+                            <p className="text-xs text-gray-500 mt-1">
+                              {DAYS.find((d) => d.key === rec.weekday)?.label} · {rec.start_time} ·{' '}
+                              {rec.duration_minutes} min
+                            </p>
+                            <label className="flex items-center gap-2 mt-2 text-xs text-gray-600">
+                              <span>Time window:</span>
+                              <select
+                                value={rec.window_id ?? recWindow?.id ?? ''}
+                                disabled={rec.added}
+                                onChange={(e) => assignRecWindow(rec.id, e.target.value)}
+                                className="border border-gray-300 rounded px-2 py-1 text-sm text-gray-900"
+                              >
+                                {prefs.windows.map((w, i) => (
+                                  <option key={w.id} value={w.id}>
+                                    {windowLabel(i, w)}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {rec.added ? (
+                          <span className="inline-flex items-center gap-1 text-sm text-green-700">
+                            <Check className="h-4 w-4" /> Added
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setEditingId(editingId === rec.id ? null : rec.id)}
+                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                            title="Edit"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
 
               <div className="flex items-center justify-between pt-2">
                 <p className="text-sm text-gray-600">{selectedCount} selected</p>
