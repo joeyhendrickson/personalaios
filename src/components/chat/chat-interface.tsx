@@ -1,19 +1,35 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useLanguage } from '@/contexts/language-context'
+import { useChatContext } from '@/components/chat/chat-context'
+import { WakeWordToggle } from '@/components/chat/wake-word-toggle'
+import {
+  VoiceSessionControl,
+  type VoiceSessionPhase,
+} from '@/components/chat/voice-session-control'
+import {
+  stopAllChatAudio,
+  VOICE_SESSION_RESUME_DELAY_MS,
+  VOICE_SESSION_SILENCE_MS,
+} from '@/lib/voice/voice-session'
+import { useVoiceSessionAudio } from '@/lib/voice/use-voice-session-audio'
+import { detectDashboardIntent } from '@/lib/assistant/detect-dashboard-intent'
+import {
+  LIFESTACKS_OPEN_ADVISOR_EVENT,
+  pauseWakeWordListener,
+  resumeWakeWordListener,
+  type OpenAdvisorDetail,
+} from '@/lib/voice/advisor-events'
 import {
   Send,
   Plus,
   Target,
   Lightbulb,
   Calendar,
-  Mic,
-  MicOff,
-  Volume2,
-  VolumeX,
   Clock,
   Heart,
   CheckCircle2,
@@ -74,6 +90,8 @@ export function ChatInterface({
   triggerOpen,
 }: ChatInterfaceProps) {
   const { language, t } = useLanguage()
+  const pathname = usePathname()
+  const { wakeWordEnabled, setWakeWordEnabled, wakeWordSupported } = useChatContext()
   void onTaskCompleted
   const [isExpanded, setIsExpanded] = useState(false)
   const [dimensions, setDimensions] = useState({ width: 384, height: 600 }) // w-96 = 384px
@@ -85,13 +103,20 @@ export function ChatInterface({
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [speechSupported, setSpeechSupported] = useState(false)
-  const [voiceEnabled, setVoiceEnabled] = useState(true)
-  const [continuousMode, setContinuousMode] = useState(false)
+  const [voiceSessionActive, setVoiceSessionActive] = useState(false)
   const [lastSpeechTime, setLastSpeechTime] = useState(0)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const synthesisRef = useRef<SpeechSynthesisUtterance | null>(null)
   const speechTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const voiceSessionActiveRef = useRef(false)
+  const isSpeakingRef = useRef(false)
+  const isLoadingRef = useRef(false)
+  const pendingTranscriptRef = useRef('')
   const formRef = useRef<HTMLFormElement | null>(null)
+  const pendingOpenRef = useRef<OpenAdvisorDetail | null>(null)
+  const contextRefreshStartedRef = useRef(false)
+  const startListeningRef = useRef<() => void>(() => {})
+  const submitMessageRef = useRef<(text: string) => Promise<void>>(async () => {})
 
   // Handle external trigger to open chat
   useEffect(() => {
@@ -99,6 +124,104 @@ export function ChatInterface({
       setIsExpanded(true)
     }
   }, [triggerOpen])
+
+  // Open Advisor from wake word or dashboard actions
+  useEffect(() => {
+    const handler = (event: Event) => {
+      pendingOpenRef.current = (event as CustomEvent<OpenAdvisorDetail>).detail ?? {}
+      setIsExpanded(true)
+    }
+    window.addEventListener(LIFESTACKS_OPEN_ADVISOR_EVENT, handler)
+    return () => window.removeEventListener(LIFESTACKS_OPEN_ADVISOR_EVENT, handler)
+  }, [])
+
+  useEffect(() => {
+    if (!isExpanded || !pendingOpenRef.current) return
+    const detail = pendingOpenRef.current
+    pendingOpenRef.current = null
+    pauseWakeWordListener()
+
+    const timer = window.setTimeout(() => {
+      if (detail.initialMessage?.trim()) {
+        void submitMessageRef.current(detail.initialMessage.trim())
+      } else if (detail.startListening !== false) {
+        startListeningRef.current()
+      }
+    }, 300)
+
+    return () => window.clearTimeout(timer)
+  }, [isExpanded])
+
+  useEffect(() => {
+    if (!isExpanded && wakeWordEnabled) {
+      resumeWakeWordListener()
+    }
+  }, [isExpanded, wakeWordEnabled])
+
+  // Warm cross-module context cache when Advisor opens (skip if refreshed within 30 min)
+  useEffect(() => {
+    if (!isExpanded) {
+      contextRefreshStartedRef.current = false
+      return
+    }
+    if (contextRefreshStartedRef.current) return
+    contextRefreshStartedRef.current = true
+
+    void fetch('/api/ai/context-cache/refresh', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trigger: 'advisor_open', forceIfOlderThanMinutes: 30 }),
+    }).catch(() => {
+      contextRefreshStartedRef.current = false
+    })
+  }, [isExpanded])
+
+  const currentModuleFromPath = (() => {
+    const match = pathname?.match(/\/modules\/([^/]+)/)
+    return match?.[1]
+  })()
+
+  // Keep speech recognition callbacks in sync with React state
+  useEffect(() => {
+    voiceSessionActiveRef.current = voiceSessionActive
+  }, [voiceSessionActive])
+  useEffect(() => {
+    isSpeakingRef.current = isSpeaking
+  }, [isSpeaking])
+
+  const clearSpeechSubmitTimeout = () => {
+    if (speechTimeoutRef.current) {
+      clearTimeout(speechTimeoutRef.current)
+      speechTimeoutRef.current = null
+    }
+  }
+
+  const pauseRecognitionForAssistant = () => {
+    clearSpeechSubmitTimeout()
+    pendingTranscriptRef.current = ''
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop()
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  const resumeRecognitionAfterAssistant = () => {
+    if (!voiceSessionActiveRef.current) return
+    if (isSpeakingRef.current || isLoadingRef.current) return
+    window.setTimeout(() => {
+      if (!voiceSessionActiveRef.current || isSpeakingRef.current || isLoadingRef.current) return
+      if (!recognitionRef.current) return
+      try {
+        recognitionRef.current.start()
+      } catch {
+        // already started
+      }
+    }, VOICE_SESSION_RESUME_DELAY_MS)
+  }
 
   // Initialize speech recognition and synthesis
   useEffect(() => {
@@ -117,10 +240,13 @@ export function ChatInterface({
         }
 
         recognitionRef.current.onresult = (event) => {
+          if (!voiceSessionActiveRef.current || isSpeakingRef.current || isLoadingRef.current) {
+            return
+          }
+
           let finalTranscript = ''
           let interimTranscript = ''
 
-          // Process all results
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript
             if (event.results[i].isFinal) {
@@ -130,51 +256,43 @@ export function ChatInterface({
             }
           }
 
-          console.log('Speech result:', { finalTranscript, interimTranscript, continuousMode })
+          const currentTranscript = (finalTranscript + interimTranscript).trim()
+          if (!currentTranscript) return
 
-          // Update input with current transcript
-          const currentTranscript = finalTranscript + interimTranscript
+          pendingTranscriptRef.current = currentTranscript
           setInput(currentTranscript)
-
-          // Update last speech time
           setLastSpeechTime(Date.now())
+          clearSpeechSubmitTimeout()
 
-          // Clear existing timeout
-          if (speechTimeoutRef.current) {
-            clearTimeout(speechTimeoutRef.current)
-          }
-
-          // Set up auto-submit after 10 seconds of silence
-          // Trigger when mic is active (continuousMode) and user has spoken (any transcript appears)
-          // We'll submit the final transcript (confirmed speech) after 10 seconds of silence
-          if (continuousMode && currentTranscript.trim()) {
-            console.log(
-              'Setting up auto-submit timeout - final:',
-              finalTranscript,
-              'interim:',
-              interimTranscript
-            )
-            speechTimeoutRef.current = setTimeout(() => {
-              console.log('Auto-submit triggered after 10s silence!')
-              // Use finalTranscript (confirmed speech) for submission, fallback to currentTranscript if no final yet
-              const textToSubmit = finalTranscript.trim() || currentTranscript.trim()
-              if (textToSubmit) {
-                console.log('Auto-submitting:', textToSubmit)
-                // Clear the input and submit
-                setInput('')
-                submitMessage(textToSubmit)
-              }
-            }, 10000) // 10 seconds
-          }
+          speechTimeoutRef.current = setTimeout(() => {
+            if (!voiceSessionActiveRef.current || isSpeakingRef.current || isLoadingRef.current) {
+              return
+            }
+            const textToSubmit = pendingTranscriptRef.current.trim()
+            if (textToSubmit) {
+              pendingTranscriptRef.current = ''
+              setInput('')
+              void submitMessageRef.current(textToSubmit)
+            }
+          }, VOICE_SESSION_SILENCE_MS)
         }
 
         recognitionRef.current.onerror = (event) => {
           console.error('Speech recognition error:', event.error)
+          if (event.error === 'no-speech' || event.error === 'aborted') {
+            if (voiceSessionActiveRef.current && !isSpeakingRef.current && !isLoadingRef.current) {
+              resumeRecognitionAfterAssistant()
+            }
+            return
+          }
           setIsListening(false)
         }
 
         recognitionRef.current.onend = () => {
           setIsListening(false)
+          if (voiceSessionActiveRef.current && !isSpeakingRef.current && !isLoadingRef.current) {
+            resumeRecognitionAfterAssistant()
+          }
         }
       }
 
@@ -590,8 +708,9 @@ export function ChatInterface({
     }
   }
 
-  const generateDashboardPlanFromChat = async () => {
-    const chatMessages = messages
+  const generateDashboardPlanFromChat = async (conversationOverride?: ChatMessage[]) => {
+    const source = conversationOverride ?? messages
+    const chatMessages = source
       .filter((m) => m.id !== 'welcome')
       .map((m) => ({ role: m.role, content: m.content }))
     if (chatMessages.filter((m) => m.role === 'user').length === 0) {
@@ -716,15 +835,66 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
     console.log('=== SUBMIT MESSAGE CALLED ===', { messageText, isLoading })
 
+    const trimmed = messageText.trim()
+    const intent = detectDashboardIntent(trimmed, {
+      hasDashboardPlan: Boolean(dashboardPlan),
+      hasGoalProposals: goalProposals.length > 0,
+    })
+
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: messageText.trim(),
+      content: trimmed,
+    }
+
+    if (intent?.type === 'dismiss_plan') {
+      setMessages((prev) => [...prev, userMessage])
+      setInput('')
+      setDashboardPlan(null)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: 'Okay — I dismissed the dashboard plan. Let me know if you want to revise it.',
+        },
+      ])
+      return
+    }
+
+    if (intent?.type === 'commit_all') {
+      setMessages((prev) => [...prev, userMessage])
+      setInput('')
+      if (dashboardPlan) {
+        await commitFullDashboardPlan()
+        return
+      }
+      if (goalProposals.length > 0) {
+        setIsLoading(true)
+        try {
+          for (const p of goalProposals) {
+            await commitProposalById(p.id)
+          }
+        } finally {
+          setIsLoading(false)
+        }
+        return
+      }
+    }
+
+    if (intent?.type === 'propose_plan') {
+      const nextMessages = [...messages, userMessage]
+      setMessages(nextMessages)
+      setInput('')
+      await generateDashboardPlanFromChat(nextMessages)
+      return
     }
 
     setMessages((prev) => [...prev, userMessage])
     setInput('')
+    isLoadingRef.current = true
     setIsLoading(true)
+    pauseRecognitionForAssistant()
 
     try {
       const response = await fetch('/api/chat', {
@@ -736,6 +906,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         body: JSON.stringify({
           messages: [...messages, userMessage],
           language: language,
+          currentModule: currentModuleFromPath,
         }),
       })
 
@@ -794,9 +965,9 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         )
       }
 
-      // Speak the complete response if voice is enabled
-      if (finalContent && voiceEnabled) {
-        // Clean and enhance the message for more natural speech
+      // Speak when voice session is active (hands-free conversation loop)
+      if (finalContent && voiceSessionActiveRef.current) {
+        pauseRecognitionForAssistant()
         const cleanMessage = finalContent
           // Remove markdown formatting
           .replace(/\*\*(.*?)\*\*/g, '$1')
@@ -811,97 +982,76 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
         console.log('Speaking response:', cleanMessage)
         speakText(cleanMessage)
-      }
-
-      // Restart listening if continuous mode is on
-      if (continuousMode && recognitionRef.current) {
-        setTimeout(() => {
-          try {
-            recognitionRef.current?.start()
-          } catch (error) {
-            console.error('Error restarting speech recognition:', error)
-          }
-        }, 1000)
+      } else if (voiceSessionActiveRef.current) {
+        resumeRecognitionAfterAssistant()
       }
     } catch (error) {
       console.error('Error sending message:', error)
       setMessages((prev) => prev.slice(0, -1)) // Remove the assistant message on error
+      if (voiceSessionActiveRef.current) {
+        resumeRecognitionAfterAssistant()
+      }
     } finally {
+      isLoadingRef.current = false
       setIsLoading(false)
     }
   }
+  submitMessageRef.current = submitMessage
 
-  // Voice input functions
-  const startListening = () => {
-    if (recognitionRef.current && !isListening) {
-      // CRITICAL: Stop any playing audio immediately when mic is activated
-      // This prevents speech-to-text from picking up the AI voice
-      const currentAudio = (window as any).__currentChatAudio
-      if (currentAudio) {
-        currentAudio.pause()
-        currentAudio.currentTime = 0 // Reset to beginning
-        ;(window as any).__currentChatAudio = null
-      }
-      if (synthesisRef.current) {
-        window.speechSynthesis.cancel()
-        synthesisRef.current = null
-      }
-
-      // Also stop any browser TTS that might be playing
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel()
-      }
-
-      try {
-        setContinuousMode(true)
-        recognitionRef.current.start()
-      } catch (error) {
-        console.error('Error starting speech recognition:', error)
-      }
-    }
-  }
-
-  const stopListening = () => {
-    if (recognitionRef.current && isListening) {
-      setContinuousMode(false)
-      recognitionRef.current.stop()
-      // Clear any pending timeout
-      if (speechTimeoutRef.current) {
-        clearTimeout(speechTimeoutRef.current)
-      }
-    }
-  }
-
-  const toggleContinuousListening = () => {
-    if (isListening) {
-      stopListening()
-    } else {
-      startListening()
-    }
-  }
-
-  // Voice output functions
-  const speakText = async (text: string) => {
-    if (!voiceEnabled) return
-
-    // Stop any current speech
-    if (synthesisRef.current) {
-      window.speechSynthesis.cancel()
-    }
-
-    // Use OpenAI TTS for voice synthesis (primary)
+  const startVoiceSession = () => {
+    if (!recognitionRef.current || voiceSessionActive) return
+    stopAllChatAudio()
+    setIsSpeaking(false)
+    isSpeakingRef.current = false
+    setVoiceSessionActive(true)
+    voiceSessionActiveRef.current = true
+    pauseWakeWordListener()
+    pendingTranscriptRef.current = ''
     try {
-      // Stop any existing audio immediately to prevent overlapping voices
-      if ((window as any).__currentChatAudio) {
-        ;(window as any).__currentChatAudio.pause()
-        ;(window as any).__currentChatAudio = null
-      }
-      if (synthesisRef.current) {
-        window.speechSynthesis.cancel()
-        synthesisRef.current = null
-      }
+      recognitionRef.current.start()
+    } catch (error) {
+      console.error('Error starting speech recognition:', error)
+    }
+  }
 
-      setIsSpeaking(true)
+  const endVoiceSession = () => {
+    setVoiceSessionActive(false)
+    voiceSessionActiveRef.current = false
+    clearSpeechSubmitTimeout()
+    pendingTranscriptRef.current = ''
+    setInput('')
+    stopAllChatAudio()
+    setIsSpeaking(false)
+    isSpeakingRef.current = false
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop()
+      } catch {
+        // ignore
+      }
+    }
+    setIsListening(false)
+    if (wakeWordEnabled) {
+      resumeWakeWordListener()
+    }
+  }
+
+  startListeningRef.current = startVoiceSession
+
+  useEffect(() => {
+    if (!isExpanded && voiceSessionActive) {
+      endVoiceSession()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded, voiceSessionActive])
+
+  const speakText = async (text: string) => {
+    if (!voiceSessionActiveRef.current) return
+
+    pauseRecognitionForAssistant()
+    stopAllChatAudio()
+
+    try {
       const cleanText = text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim()
       const openaiResponse = await fetch('/api/openai/text-to-speech', {
         method: 'POST',
@@ -927,30 +1077,28 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         const audio = new Audio(audioUrl)
 
         // Store audio reference for stopping when user inputs
-        ;(window as any).__currentChatAudio = audio
+        ;(window as Window & { __currentChatAudio?: HTMLAudioElement }).__currentChatAudio = audio
 
-        audio.onplay = () => setIsSpeaking(true)
+        setIsSpeaking(true)
+        isSpeakingRef.current = true
+        audio.onplay = () => {
+          setIsSpeaking(true)
+          isSpeakingRef.current = true
+        }
         audio.onended = () => {
           setIsSpeaking(false)
+          isSpeakingRef.current = false
           URL.revokeObjectURL(audioUrl)
-          ;(window as any).__currentChatAudio = null
-
-          // In continuous mode, restart listening after AI finishes speaking
-          if (continuousMode && recognitionRef.current && !isListening) {
-            setTimeout(() => {
-              try {
-                recognitionRef.current?.start()
-              } catch (error) {
-                // Ignore errors when already listening
-              }
-            }, 500)
-          }
+          ;(window as Window & { __currentChatAudio?: HTMLAudioElement }).__currentChatAudio =
+            undefined
+          resumeRecognitionAfterAssistant()
         }
         audio.onerror = () => {
           setIsSpeaking(false)
+          isSpeakingRef.current = false
           URL.revokeObjectURL(audioUrl)
-          ;(window as any).__currentChatAudio = null
-          // Fallback to browser TTS
+          ;(window as Window & { __currentChatAudio?: HTMLAudioElement }).__currentChatAudio =
+            undefined
           fallbackToBrowserTTS(text)
         }
 
@@ -1098,55 +1246,46 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
     utterance.onstart = () => {
       setIsSpeaking(true)
+      isSpeakingRef.current = true
     }
 
     utterance.onend = () => {
       setIsSpeaking(false)
+      isSpeakingRef.current = false
+      resumeRecognitionAfterAssistant()
     }
 
     utterance.onerror = () => {
       setIsSpeaking(false)
+      isSpeakingRef.current = false
+      resumeRecognitionAfterAssistant()
     }
 
     window.speechSynthesis.speak(utterance)
     synthesisRef.current = utterance
   }
 
-  const stopSpeaking = () => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-      setIsSpeaking(false)
-    }
-  }
+  const voiceSessionPhase: VoiceSessionPhase = voiceSessionActive
+    ? isSpeaking
+      ? 'speaking'
+      : isLoading
+        ? 'processing'
+        : 'listening'
+    : 'off'
 
-  const toggleVoice = () => {
-    const newVoiceState = !voiceEnabled
-    setVoiceEnabled(newVoiceState)
+  const interruptAssistantSpeech = useCallback(() => {
+    if (!isSpeakingRef.current) return
+    stopAllChatAudio()
+    setIsSpeaking(false)
+    isSpeakingRef.current = false
+    resumeRecognitionAfterAssistant()
+  }, [])
 
-    // If turning voice off, immediately stop any playing audio
-    if (!newVoiceState) {
-      const currentAudio = (window as any).__currentChatAudio
-      if (currentAudio) {
-        currentAudio.pause()
-        currentAudio.currentTime = 0 // Reset to beginning
-        ;(window as any).__currentChatAudio = null
-      }
-      if (synthesisRef.current) {
-        window.speechSynthesis.cancel()
-        synthesisRef.current = null
-      }
-
-      // Also stop any browser TTS that might be playing
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel()
-      }
-    }
-
-    // Also call stopSpeaking if currently speaking
-    if (isSpeaking) {
-      stopSpeaking()
-    }
-  }
+  const voiceWaveformLevels = useVoiceSessionAudio(
+    voiceSessionActive,
+    voiceSessionPhase,
+    interruptAssistantSpeech
+  )
 
   // Drag handlers
   const handleDragStart = (e: React.MouseEvent) => {
@@ -1297,7 +1436,15 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
   if (!isExpanded) {
     return (
-      <div className="fixed bottom-4 left-4 right-auto z-50 md:left-auto md:right-4">
+      <div className="fixed bottom-4 left-4 right-auto z-50 md:left-auto md:right-4 flex flex-col items-end gap-2">
+        <div className="rounded-lg bg-white/95 dark:bg-card border border-gray-200 shadow-md px-3 py-2 max-w-[min(100vw-2rem,20rem)]">
+          <WakeWordToggle
+            enabled={wakeWordEnabled}
+            supported={wakeWordSupported}
+            onChange={setWakeWordEnabled}
+            compact
+          />
+        </div>
         <Button
           onClick={() => setIsExpanded(true)}
           className="rounded-full w-14 h-14 shadow-lg bg-black hover:bg-gray-800"
@@ -1554,7 +1701,8 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
               Add conversation to dashboard
             </Button>
             <p className="mt-1 text-xs text-gray-500 text-center">
-              Creates linked goals, projects, and tasks for you to confirm
+              Creates linked goals, projects, and tasks for you to confirm — or say &quot;add to
+              dashboard&quot; / &quot;yes, add it all&quot;
             </p>
           </div>
         )}
@@ -1574,51 +1722,25 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
           ))}
         </div>
 
-        {/* Voice Controls */}
-        {speechSupported && (
-          <div className="flex items-center space-x-2 mb-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={toggleContinuousListening}
-              disabled={isLoading}
-              className={`h-8 px-3 ${isListening ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-white hover:bg-gray-50'}`}
-            >
-              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={isSpeaking ? stopSpeaking : () => {}}
-              disabled={!isSpeaking}
-              className={`h-8 px-3 ${isSpeaking ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'bg-white hover:bg-gray-50'}`}
-            >
-              {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={toggleVoice}
-              className={`h-8 px-3 ${voiceEnabled ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-white hover:bg-gray-50'}`}
-            >
-              {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-            </Button>
-            <span className="text-xs text-gray-500">
-              {isListening
-                ? continuousMode
-                  ? 'Continuous Mode'
-                  : 'Listening...'
-                : isSpeaking
-                  ? 'Speaking...'
-                  : voiceEnabled
-                    ? 'Voice ON'
-                    : 'Voice OFF'}
-            </span>
-          </div>
-        )}
+        {/* Wake word + voice session */}
+        <div className="mb-3 flex flex-col gap-2">
+          <WakeWordToggle
+            enabled={wakeWordEnabled}
+            supported={wakeWordSupported}
+            onChange={setWakeWordEnabled}
+          />
+          <VoiceSessionControl
+            supported={speechSupported}
+            active={voiceSessionActive}
+            phase={voiceSessionPhase}
+            previewText={voiceSessionActive && input ? input : undefined}
+            waveformLevels={voiceWaveformLevels}
+            disabled={isLoading && !voiceSessionActive}
+            onStart={startVoiceSession}
+            onEnd={endVoiceSession}
+            onInterrupt={interruptAssistantSpeech}
+          />
+        </div>
 
         {/* Input */}
         <form ref={formRef} onSubmit={handleSubmit} className="flex space-x-3">

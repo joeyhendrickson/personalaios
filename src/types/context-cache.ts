@@ -56,12 +56,49 @@ export interface DerivedInsightsSummary {
   nextSteps?: string[]
 }
 
+/** Per-module snapshot for Advisor prompts — objective facts + subjective user content */
+export interface ModuleContextSummary {
+  moduleId: string
+  hasData: boolean
+  recordCount: number
+  /** Advisory categories this module supports (financial, emotional, wellness, etc.) */
+  categories: string[]
+  objectiveFacts: string[]
+  subjectiveNotes: string[]
+  recentHighlights: string[]
+  /** AI-compressed summary for large modules (cache refresh only) */
+  aiSummary?: string
+}
+
+/** Precomputed cross-module signal for decision-tree reasoning in chat */
+export interface CrossModuleInsight {
+  id: string
+  category: string
+  insight: string
+  relatedModules: string[]
+  suggestedFollowUp?: string
+}
+
+export interface CrossModuleInsightsSummary {
+  insights: CrossModuleInsight[]
+  emotionalThemes?: string[]
+  financialSnapshot?: {
+    monthIncome?: number
+    monthExpenses?: number
+    monthNet?: number
+    tradingTransferTotal?: number
+    topSpendingCategories?: string[]
+  }
+}
+
 export interface UserContextCacheRow {
   id: string
   user_id: string
   static_profile_summary_json: StaticProfileSummary | null
   structured_state_summary_json: StructuredStateSummary | null
   derived_insights_summary_json: DerivedInsightsSummary | null
+  module_context_summary_json: ModuleContextSummary[] | null
+  cross_module_insights_json: CrossModuleInsightsSummary | null
   cache_version: number
   source_data_checksum: string | null
   last_full_refresh_at: string | null
@@ -81,6 +118,8 @@ export interface AssembleContextOptions {
   maxTokens?: number
   /** Force live fetch if cache is stale (default: use cache when available) */
   preferLiveIfStale?: boolean
+  /** Filter module context to question-relevant modules (default: true when messages present) */
+  filterModulesByQuestion?: boolean
 }
 
 export interface AssembledContext {
@@ -89,5 +128,8 @@ export interface AssembledContext {
   /** Metadata for logging */
   usedCache: boolean
   cacheAgeHours?: number
-  layersIncluded: ('static' | 'structured' | 'derived' | 'ephemeral')[]
+  layersIncluded: ('static' | 'structured' | 'derived' | 'modules' | 'cross_module' | 'ephemeral')[]
+  /** Module IDs included after topic filtering (if applied) */
+  modulesIncluded?: string[]
+  topicFilterApplied?: boolean
 }

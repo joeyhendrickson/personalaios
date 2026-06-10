@@ -1,6 +1,7 @@
 import { streamText } from 'ai'
 import { createClient } from '@/lib/supabase/server'
 import { assembleAIContext } from '@/lib/ai-context/assemble-context'
+import { ADVISOR_CROSS_MODULE_GUIDELINES } from '@/lib/ai-context/advisory-guidelines'
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
@@ -98,7 +99,7 @@ export async function POST(req: Request) {
   const requestStartMs = Date.now()
   let logUserId: string | null = null
   try {
-    const { messages: rawMessages, language = 'en' } = await req.json()
+    const { messages: rawMessages, language = 'en', currentModule } = await req.json()
     const messages = sanitizeChatMessages(rawMessages)
     console.log('Chat API called with messages:', messages.length, 'language:', language)
 
@@ -144,6 +145,7 @@ export async function POST(req: Request) {
         role: m.role,
         content: typeof m.content === 'string' ? m.content : '',
       })),
+      currentModule: typeof currentModule === 'string' ? currentModule : undefined,
     })
 
     if (usedCache) {
@@ -157,9 +159,11 @@ export async function POST(req: Request) {
     const result = await streamText({
       model: defaultOpenaiModel(),
       messages,
-      system: `You are an intelligent AI assistant for a Personal AI OS dashboard. You have access to the user's complete dashboard data and can provide personalized advice based on their goals, tasks, habits, education items, and priorities.
+      system: `You are the Lifestacks Advisor — an intelligent AI assistant for a Personal AI OS. You have access to the user's dashboard data AND detailed MODULE CONTEXT from their installed life modules. Ground advice in real data; help the user feel known.
 
 ${systemContext}
+
+${ADVISOR_CROSS_MODULE_GUIDELINES}
 
 CORE CAPABILITIES:
 1. **Personalized Advice**: Analyze user's data to provide specific, actionable recommendations

@@ -131,6 +131,19 @@ const translations = {
     'chat.quickActions.happyDay': 'Happy Day',
     'chat.quickActions.checkIn': 'Check-In',
     'chat.quickActions.wellnessUpdate': 'Wellness Update',
+    'chat.wakeWord.label': 'Hey Lifestacks',
+    'chat.wakeWord.hint':
+      'Listen for "Hey Lifestacks" to open the Advisor on this tab (requires microphone permission).',
+    'chat.wakeWord.hintShort': 'opens Advisor by voice',
+    'chat.wakeWord.unsupported': 'Voice wake word is not supported in this browser.',
+    'chat.voiceSession.start': 'Talk to Advisor',
+    'chat.voiceSession.stop': 'Stop voice session',
+    'chat.voiceSession.listening': 'Listening…',
+    'chat.voiceSession.processing': 'Thinking…',
+    'chat.voiceSession.speaking': 'Advisor speaking — mic paused',
+    'chat.voiceSession.hint': 'Speak naturally — sends after a brief pause',
+    'chat.voiceSession.interruptHint': 'Tap here or speak to interrupt',
+    'chat.voiceSession.unsupported': 'Voice conversation is not supported in this browser.',
 
     // Homepage
     'home.dashboard': 'Dashboard',
@@ -392,6 +405,19 @@ const translations = {
     'chat.quickActions.happyDay': 'Día Feliz',
     'chat.quickActions.checkIn': 'Registro',
     'chat.quickActions.wellnessUpdate': 'Actualización de Bienestar',
+    'chat.wakeWord.label': 'Hey Lifestacks',
+    'chat.wakeWord.hint':
+      'Escucha "Hey Lifestacks" para abrir el Asesor en esta pestaña (requiere permiso del micrófono).',
+    'chat.wakeWord.hintShort': 'abre el Asesor por voz',
+    'chat.wakeWord.unsupported': 'La activación por voz no es compatible con este navegador.',
+    'chat.voiceSession.start': 'Hablar con el Asesor',
+    'chat.voiceSession.stop': 'Detener sesión de voz',
+    'chat.voiceSession.listening': 'Escuchando…',
+    'chat.voiceSession.processing': 'Pensando…',
+    'chat.voiceSession.speaking': 'El Asesor habla — micrófono en pausa',
+    'chat.voiceSession.hint': 'Habla con naturalidad — se envía tras una breve pausa',
+    'chat.voiceSession.interruptHint': 'Toca aquí o habla para interrumpir',
+    'chat.voiceSession.unsupported': 'La conversación por voz no es compatible con este navegador.',
 
     // Homepage
     'home.dashboard': 'Panel de Control',

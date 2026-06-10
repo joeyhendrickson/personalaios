@@ -38,7 +38,7 @@ import {
   Receipt,
 } from 'lucide-react'
 import Link from 'next/link'
-import { ChatInterface } from '@/components/chat/chat-interface'
+import { openLifestacksAdvisor } from '@/lib/voice/advisor-events'
 import { useAuth } from '@/contexts/auth-context'
 import { useLanguage } from '@/contexts/language-context'
 import { LanguageToggle } from '@/components/ui/language-toggle'
@@ -465,7 +465,6 @@ export default function Dashboard() {
   const [showAccomplishmentsHistory, setShowAccomplishmentsHistory] = useState(false)
   const [showManualPriorityForm, setShowManualPriorityForm] = useState(false)
   const [showConversationalPriorityInput, setShowConversationalPriorityInput] = useState(false)
-  const [triggerChatOpen, setTriggerChatOpen] = useState(false)
   const [navMenuOpen, setNavMenuOpen] = useState(false)
   const [newGoal, setNewGoal] = useState({
     title: '',
@@ -476,13 +475,6 @@ export default function Dashboard() {
   })
   const [editProjectGoalId, setEditProjectGoalId] = useState('')
 
-  // Reset chat trigger after it's been used
-  useEffect(() => {
-    if (triggerChatOpen) {
-      const timer = setTimeout(() => setTriggerChatOpen(false), 100)
-      return () => clearTimeout(timer)
-    }
-  }, [triggerChatOpen])
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -3011,7 +3003,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <button
-                      onClick={() => setTriggerChatOpen(true)}
+                      onClick={() => openLifestacksAdvisor()}
                       className="w-full bg-black hover:bg-gray-800 text-white font-medium py-2 px-4 rounded-md transition-all duration-200"
                     >
                       <MessageSquare className="h-4 w-4 mr-2 inline" />
@@ -4610,14 +4602,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
-      {/* Chat Interface */}
-      <ChatInterface
-        onGoalCreated={fetchDashboardData}
-        onTaskCreated={fetchDashboardData}
-        onTaskCompleted={fetchDashboardData}
-        triggerOpen={triggerChatOpen}
-      />
 
       {/* Manual Priority Form */}
       {showManualPriorityForm && (

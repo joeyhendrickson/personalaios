@@ -6,6 +6,146 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getModuleTables } from './module-mappings'
 import type { StaticProfileSummary, StructuredStateSummary } from '@/types/context-cache'
+import {
+  aggregateClassifiedTransactions,
+  classifyTransactionForContext,
+} from '@/lib/budget/transaction-context'
+
+export interface BudgetTransactionRow {
+  id: string
+  date: string
+  amount: number
+  name?: string
+  merchant_name?: string
+  category?: string[] | string
+  type_override?: 'income' | 'expense' | 'transfer' | null
+  amount_override?: number | null
+}
+
+export interface BudgetContextData {
+  transactions: BudgetTransactionRow[]
+  recentTransactions: Array<{
+    date: string
+    name: string
+    amount: number
+    category?: string
+    kind?: string
+  }>
+  monthIncome?: number
+  monthExpenses?: number
+  monthNet?: number
+  tradingTransferTotal?: number
+  transferTotal?: number
+  topSpendingCategories?: string[]
+  overridesAppliedCount?: number
+}
+
+export async function fetchBudgetContextData(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<BudgetContextData> {
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const startDate = thirtyDaysAgo.toISOString().split('T')[0]
+
+  const { data: connections } = await supabase
+    .from('bank_connections')
+    .select('id')
+    .eq('user_id', userId)
+
+  const connectionIds = (connections ?? []).map((c) => c.id)
+  if (!connectionIds.length) {
+    return { transactions: [], recentTransactions: [] }
+  }
+
+  const { data: accounts } = await supabase
+    .from('bank_accounts')
+    .select('id')
+    .in('bank_connection_id', connectionIds)
+
+  const accountIds = (accounts ?? []).map((a) => a.id)
+  if (!accountIds.length) {
+    return { transactions: [], recentTransactions: [] }
+  }
+
+  const { data: txRows } = await supabase
+    .from('transactions')
+    .select('id, date, amount, name, merchant_name, category')
+    .in('bank_account_id', accountIds)
+    .gte('date', startDate)
+    .order('date', { ascending: false })
+    .limit(200)
+
+  const rawTransactions = (txRows ?? []) as BudgetTransactionRow[]
+  const txIds = rawTransactions.map((t) => t.id)
+
+  let excludedIds = new Set<string>()
+  if (txIds.length) {
+    const { data: exclusions } = await supabase
+      .from('transaction_exclusions')
+      .select('transaction_id')
+      .eq('user_id', userId)
+      .in('transaction_id', txIds)
+    excludedIds = new Set((exclusions ?? []).map((e) => e.transaction_id))
+  }
+
+  const visible = rawTransactions.filter((t) => !excludedIds.has(t.id))
+  const visibleIds = visible.map((t) => t.id)
+
+  let overridesMap: Record<
+    string,
+    { type_override: 'income' | 'expense' | 'transfer' | null; amount_override: number | null }
+  > = {}
+  if (visibleIds.length) {
+    const { data: overrides } = await supabase
+      .from('transaction_type_overrides')
+      .select('transaction_id, type_override, amount_override')
+      .eq('user_id', userId)
+      .in('transaction_id', visibleIds)
+    overridesMap = (overrides ?? []).reduce(
+      (acc, row) => {
+        acc[row.transaction_id] = {
+          type_override: (row.type_override as 'income' | 'expense' | 'transfer') ?? null,
+          amount_override: row.amount_override != null ? Number(row.amount_override) : null,
+        }
+        return acc
+      },
+      {} as typeof overridesMap
+    )
+  }
+
+  const classified = visible.map((t) =>
+    classifyTransactionForContext({
+      ...t,
+      type_override: overridesMap[t.id]?.type_override ?? null,
+      amount_override: overridesMap[t.id]?.amount_override ?? null,
+    })
+  )
+
+  const aggregated = aggregateClassifiedTransactions(classified)
+  const overridesAppliedCount = classified.filter((t) => t.typeOverride != null).length
+
+  const transactions: BudgetTransactionRow[] = classified.map((t) => ({
+    id: t.id,
+    date: t.date,
+    amount: t.amount,
+    name: t.name,
+    category: t.category,
+    type_override: t.typeOverride,
+  }))
+
+  return {
+    transactions,
+    recentTransactions: aggregated.recentTransactions,
+    monthIncome: aggregated.monthIncome,
+    monthExpenses: aggregated.monthExpenses,
+    monthNet: aggregated.monthNet,
+    tradingTransferTotal: aggregated.tradingTransferTotal,
+    transferTotal: aggregated.transferTotal,
+    topSpendingCategories: aggregated.topSpendingCategories,
+    overridesAppliedCount,
+  }
+}
 
 export interface RawUserData {
   /** Rows from `goals` (user goals — weekly/monthly/etc.) */
@@ -27,6 +167,7 @@ export interface RawUserData {
     data: Record<string, unknown[]>
     total_records: number
   }>
+  budgetContext?: BudgetContextData
   _computed?: {
     weeklyPoints: number
     dailyPoints: number
@@ -159,6 +300,7 @@ export async function fetchRawUserData(
   })
 
   const moduleData = await Promise.all(moduleDataPromises)
+  const budgetContext = await fetchBudgetContextData(supabase, userId)
 
   const points = (pointsResult.data || []) as Record<string, unknown>[]
   const recentPoints = points.filter((p) => new Date((p.created_at as string) || 0) >= weekStart)
@@ -197,6 +339,7 @@ export async function fetchRawUserData(
     installedModules: installedModulesList,
     assessmentData: assessmentData as Record<string, unknown>,
     moduleData,
+    budgetContext,
     _computed: {
       weeklyPoints,
       dailyPoints,

@@ -9,6 +9,16 @@ import {
   buildStaticProfileSummary,
   buildStructuredStateSummary,
 } from './fetch-user-data'
+import { buildModuleContextSummaries, formatModuleContextForPrompt } from './module-context-builder'
+import {
+  buildCrossModuleInsights,
+  formatCrossModuleInsightsForPrompt,
+} from './cross-module-insights'
+import {
+  filterCrossModuleInsightsForQuestion,
+  filterModulesForQuestion,
+  formatTopicFilterNote,
+} from './topic-module-filter'
 import type {
   AssembleContextOptions,
   AssembledContext,
@@ -16,6 +26,8 @@ import type {
   StaticProfileSummary,
   StructuredStateSummary,
   DerivedInsightsSummary,
+  ModuleContextSummary,
+  CrossModuleInsightsSummary,
 } from '@/types/context-cache'
 
 /** Max age in hours for cache to be considered fresh */
@@ -136,7 +148,12 @@ export async function assembleAIContext(
   userId: string,
   options: AssembleContextOptions = {}
 ): Promise<AssembledContext> {
-  const { messages, currentModule, preferLiveIfStale = false } = options
+  const {
+    messages,
+    currentModule,
+    preferLiveIfStale = false,
+    filterModulesByQuestion = true,
+  } = options
 
   const supabase = await createClient()
   const {
@@ -163,6 +180,8 @@ export async function assembleAIContext(
   let staticProfile: StaticProfileSummary | null = null
   let structuredState: StructuredStateSummary | null = null
   let derivedInsights: DerivedInsightsSummary | null = null
+  let moduleContext: ModuleContextSummary[] | null = null
+  let crossModuleInsights: CrossModuleInsightsSummary | null = null
 
   if (row && (fresh || !preferLiveIfStale)) {
     usedCache = true
@@ -172,15 +191,26 @@ export async function assembleAIContext(
     staticProfile = row.static_profile_summary_json
     structuredState = row.structured_state_summary_json
     derivedInsights = row.derived_insights_summary_json
+    moduleContext = row.module_context_summary_json
+    crossModuleInsights = row.cross_module_insights_json
     layers.push('static', 'structured', 'derived')
+    if (moduleContext?.length) layers.push('modules')
+    if (crossModuleInsights?.insights?.length) layers.push('cross_module')
   }
 
-  if (!staticProfile || !structuredState) {
+  if (!staticProfile || !structuredState || !moduleContext) {
     const raw = await fetchRawUserData(adminSupabase, userId)
-    staticProfile = buildStaticProfileSummary(raw.assessmentData)
-    structuredState = buildStructuredStateSummary(
-      raw as Parameters<typeof buildStructuredStateSummary>[0]
-    )
+    if (!staticProfile) staticProfile = buildStaticProfileSummary(raw.assessmentData)
+    if (!structuredState) {
+      structuredState = buildStructuredStateSummary(
+        raw as Parameters<typeof buildStructuredStateSummary>[0]
+      )
+    }
+    if (!moduleContext) {
+      moduleContext = buildModuleContextSummaries(raw)
+      crossModuleInsights = buildCrossModuleInsights(raw, moduleContext)
+      layers.push('modules', 'cross_module')
+    }
     if (!usedCache) layers.push('static', 'structured')
   }
 
@@ -191,12 +221,43 @@ export async function assembleAIContext(
 
   if (messages?.length) layers.push('ephemeral')
 
+  const lastUserMessage = [...(messages ?? [])].reverse().find((m) => m.role === 'user')?.content
+
+  let modulesForPrompt = moduleContext ?? []
+  let crossForPrompt = crossModuleInsights
+  let topicFilterApplied = false
+  let modulesIncluded: string[] | undefined
+  let topicFilterNote = ''
+
+  if (filterModulesByQuestion && moduleContext?.length && lastUserMessage) {
+    const filterResult = filterModulesForQuestion(lastUserMessage, moduleContext, {
+      currentModule,
+      crossModuleInsights,
+    })
+    modulesForPrompt = filterResult.filtered
+    modulesIncluded = filterResult.includedModuleIds
+    topicFilterApplied = !filterResult.isBroad
+    topicFilterNote = formatTopicFilterNote(filterResult)
+    crossForPrompt = filterCrossModuleInsightsForQuestion(
+      crossModuleInsights,
+      filterResult.detectedTopics,
+      filterResult.isBroad
+    )
+  } else if (moduleContext?.length) {
+    modulesIncluded = moduleContext.filter((m) => m.hasData).map((m) => m.moduleId)
+  }
+
   const parts: string[] = []
   const profileStr = formatStaticProfile(staticProfile)
   if (profileStr) parts.push(profileStr)
   parts.push(formatStructuredState(structuredState))
   const derivedStr = formatDerived(derivedInsights)
   if (derivedStr) parts.push(derivedStr)
+
+  if (topicFilterNote) parts.push(topicFilterNote)
+
+  parts.push(formatModuleContextForPrompt(modulesForPrompt))
+  parts.push(formatCrossModuleInsightsForPrompt(crossForPrompt))
   if (currentModule) parts.push(`CURRENT MODULE: ${currentModule}`)
   const ephemeralStr = formatEphemeralMessages(messages)
   if (ephemeralStr) parts.push(ephemeralStr)
@@ -208,5 +269,7 @@ export async function assembleAIContext(
     usedCache,
     cacheAgeHours,
     layersIncluded: [...new Set(layers)],
+    modulesIncluded,
+    topicFilterApplied,
   }
 }

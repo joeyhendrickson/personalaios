@@ -13,8 +13,45 @@ import {
   buildStaticProfileSummary,
   buildStructuredStateSummary,
 } from './fetch-user-data'
+import { buildModuleContextSummaries } from './module-context-builder'
+import { buildCrossModuleInsights } from './cross-module-insights'
+import { enrichModuleSummariesWithAI } from './module-ai-summarizer'
 import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
 import type { DerivedInsightsSummary } from '@/types/context-cache'
+
+export interface RefreshContextOptions {
+  route?: string
+  /** Skip refresh if cache is newer than this many minutes */
+  forceIfOlderThanMinutes?: number
+  trigger?: 'manual' | 'advisor_open' | 'cron'
+}
+
+export async function shouldSkipRefresh(
+  userId: string,
+  forceIfOlderThanMinutes?: number
+): Promise<{ skip: boolean; reason?: string }> {
+  if (!forceIfOlderThanMinutes || forceIfOlderThanMinutes <= 0) {
+    return { skip: false }
+  }
+
+  const supabase = createAdminClient()
+  const { data: row } = await supabase
+    .from('user_context_cache')
+    .select('last_full_refresh_at, refresh_status')
+    .eq('user_id', userId)
+    .single()
+
+  if (!row?.last_full_refresh_at || row.refresh_status === 'running') {
+    return { skip: false }
+  }
+
+  const ageMs = Date.now() - new Date(row.last_full_refresh_at as string).getTime()
+  const maxAgeMs = forceIfOlderThanMinutes * 60 * 1000
+  if (ageMs < maxAgeMs) {
+    return { skip: true, reason: `Cache refreshed ${Math.round(ageMs / 60000)}m ago` }
+  }
+  return { skip: false }
+}
 
 function summarizationModelId(): string {
   return process.env.OPENAI_SUMMARIZATION_MODEL?.trim() || resolveOpenAIModelId()
@@ -32,14 +69,28 @@ export interface RefreshResult {
   durationMs: number
   error?: string
   cacheVersion?: number
+  skipped?: boolean
+  skipReason?: string
 }
 
 export async function refreshUserContextCache(
   userId: string,
-  options?: { route?: string }
+  options?: RefreshContextOptions
 ): Promise<RefreshResult> {
   const start = Date.now()
   const supabase = createAdminClient()
+
+  if (options?.forceIfOlderThanMinutes) {
+    const gate = await shouldSkipRefresh(userId, options.forceIfOlderThanMinutes)
+    if (gate.skip) {
+      return {
+        success: true,
+        durationMs: Date.now() - start,
+        skipped: true,
+        skipReason: gate.reason,
+      }
+    }
+  }
 
   try {
     const { data: existing } = await supabase
@@ -85,11 +136,21 @@ export async function refreshUserContextCache(
     })
 
     const raw = await fetchRawUserData(supabase, userId)
+    let moduleContext = buildModuleContextSummaries(raw)
+    moduleContext = await enrichModuleSummariesWithAI(moduleContext, {
+      userId,
+      route: options?.route ?? '/api/ai/context-cache/refresh',
+      budgetTransactionCount: raw.budgetContext?.transactions.length,
+    })
+    const crossModuleInsights = buildCrossModuleInsights(raw, moduleContext)
+
     const checksum = simpleChecksum({
       userGoals: raw.userGoals.length,
       dashboardProjects: raw.dashboardProjects.length,
       tasks: raw.tasks.length,
       priorities: raw.priorities.length,
+      moduleRecords: raw.moduleData.reduce((s, m) => s + m.total_records, 0),
+      transactions: raw.budgetContext?.transactions.length ?? 0,
       ts: Math.floor(Date.now() / 3600000),
     })
 
@@ -98,7 +159,7 @@ export async function refreshUserContextCache(
       raw as Parameters<typeof buildStructuredStateSummary>[0]
     )
 
-    const derived = await generateDerivedInsights(raw, structuredState, {
+    const derived = await generateDerivedInsights(raw, structuredState, moduleContext, {
       userId,
       route: options?.route ?? '/api/ai/context-cache/refresh',
     })
@@ -113,6 +174,8 @@ export async function refreshUserContextCache(
         static_profile_summary_json: staticProfile,
         structured_state_summary_json: structuredState,
         derived_insights_summary_json: derived,
+        module_context_summary_json: moduleContext,
+        cross_module_insights_json: crossModuleInsights,
         cache_version: cacheVersion,
         source_data_checksum: checksum,
         last_full_refresh_at: now,
@@ -174,6 +237,7 @@ export async function refreshUserContextCache(
 async function generateDerivedInsights(
   raw: Awaited<ReturnType<typeof fetchRawUserData>>,
   structured: ReturnType<typeof buildStructuredStateSummary>,
+  moduleContext: ReturnType<typeof buildModuleContextSummaries>,
   ctx: { userId: string; route: string }
 ): Promise<DerivedInsightsSummary> {
   if (!env.OPENAI_API_KEY) {
@@ -186,17 +250,26 @@ async function generateDerivedInsights(
     }
   }
 
-  const prompt = `You are a productivity analyst. In 2-3 sentences, summarize this user's overall progress and provide 3-5 brief actionable recommendations. Be specific to their data. Return ONLY valid JSON:
+  const moduleLines = moduleContext
+    .filter((m) => m.hasData)
+    .map(
+      (m) =>
+        `${m.moduleId}: ${m.objectiveFacts.slice(0, 3).join('; ')}${m.subjectiveNotes.length ? ` | subjective: ${m.subjectiveNotes.slice(0, 2).join('; ')}` : ''}`
+    )
+    .join('\n')
+
+  const prompt = `You are a holistic life advisor analyst. Summarize this user's progress across dashboard AND life modules. Provide cross-domain recommendations (finance, wellness, relationships, habits). Return ONLY valid JSON:
 {"overallProgress":"string","strengths":["string"],"areasForImprovement":["string"],"recommendations":["string"],"goalAlignment":"1 sentence","productivityScore":0-100,"nextSteps":["string"]}
 
-USER DATA:
-- User goals table: ${structured.totalGoals}; Dashboard projects: ${structured.totalDashboardProjects ?? '—'}
+DASHBOARD:
+- User goals: ${structured.totalGoals}; Projects: ${structured.totalDashboardProjects ?? '—'}
 - Tasks: ${structured.totalTasks}, Habits: ${structured.totalHabits}
-- Weekly points: ${structured.weeklyPoints}, Daily points: ${structured.dailyPoints}
-- Completed today: ${structured.completedTasksToday}, Priorities: ${structured.activePriorities}
-- Top user goals: ${structured.topGoals.map((g) => g.title).join(', ') || 'None'}
-- Top dashboard projects: ${(structured.topDashboardProjects ?? []).map((p) => p.title).join(', ') || 'None'}
-- Top priorities: ${structured.topPriorities.map((p) => p.title).join(', ') || 'None'}`
+- Weekly points: ${structured.weeklyPoints}, Completed today: ${structured.completedTasksToday}
+- Top goals: ${structured.topGoals.map((g) => g.title).join(', ') || 'None'}
+- Top projects: ${(structured.topDashboardProjects ?? []).map((p) => p.title).join(', ') || 'None'}
+
+MODULE DATA:
+${moduleLines || 'No module data yet'}`
 
   const modelId = summarizationModelId()
   const startMs = Date.now()
