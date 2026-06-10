@@ -34,9 +34,24 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { goals, stats, body_photos, diet_type, diet_modifications, zipcode } = body
 
+    const { data: savedPrefs } = await supabase
+      .from('nutrition_preferences')
+      .select('diet_type, diet_modifications')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const resolvedDietType =
+      (typeof diet_type === 'string' && diet_type.trim()) || savedPrefs?.diet_type || undefined
+    const resolvedModifications =
+      Array.isArray(diet_modifications) && diet_modifications.length > 0
+        ? diet_modifications
+        : Array.isArray(savedPrefs?.diet_modifications)
+          ? savedPrefs.diet_modifications
+          : []
+
     console.log(`Generating nutrition plan for user: ${user.id}`)
     console.log(
-      `Goals: ${goals?.length || 0}, Stats: ${stats?.length || 0}, Body photos: ${body_photos?.length || 0}`
+      `Goals: ${goals?.length || 0}, Stats: ${stats?.length || 0}, Body photos: ${body_photos?.length || 0}, Diet: ${resolvedDietType || 'none'}`
     )
 
     // Generate nutrition plan using AI
@@ -44,8 +59,8 @@ export async function POST(request: NextRequest) {
       goals || [],
       stats || [],
       body_photos || [],
-      diet_type,
-      diet_modifications || [],
+      resolvedDietType,
+      resolvedModifications,
       zipcode
     )
 
@@ -56,8 +71,8 @@ export async function POST(request: NextRequest) {
       user_id: user.id,
       plan_name: nutritionPlan.plan_name,
       plan_type: planType,
-      diet_type: diet_type,
-      diet_modifications: diet_modifications || [],
+      diet_type: resolvedDietType,
+      diet_modifications: resolvedModifications,
       daily_calories: nutritionPlan.daily_calories,
       protein_grams: nutritionPlan.protein_grams,
       carbs_grams: nutritionPlan.carbs_grams,
@@ -121,8 +136,8 @@ export async function POST(request: NextRequest) {
       // JSONB columns aren't present in this environment yet.
       nutrition_plan: {
         ...savedPlan,
-        diet_type: savedPlan.diet_type ?? diet_type ?? null,
-        diet_modifications: savedPlan.diet_modifications ?? diet_modifications ?? [],
+        diet_type: savedPlan.diet_type ?? resolvedDietType ?? null,
+        diet_modifications: savedPlan.diet_modifications ?? resolvedModifications,
         meal_plan: savedPlan.meal_plan ?? nutritionPlan.meal_plan ?? null,
         shopping_list: savedPlan.shopping_list ?? nutritionPlan.shopping_list ?? null,
         recommendations: savedPlan.recommendations ?? nutritionPlan.recommendations ?? null,
@@ -163,6 +178,25 @@ async function generateNutritionPlanWithAI(
   dietModifications: string[] = [],
   zipcode?: string
 ) {
+  const DIET_LABELS: Record<string, string> = {
+    whole30: 'Whole30 (30-day whole-foods elimination)',
+    keto: 'Ketogenic (high fat, very low carb)',
+    high_protein_vegetarian: 'High-Protein Vegetarian',
+    gluten_free: 'Gluten-Free',
+    vegan: 'Vegan (no animal products)',
+    mediterranean: 'Mediterranean',
+    pescatarian: 'Pescatarian (vegetarian + fish/seafood)',
+    anti_inflammatory: 'Anti-Inflammatory',
+    atkins: 'Atkins (phased low-carb)',
+    paleo: 'Paleo',
+    dash: 'DASH',
+    low_carb: 'Low-Carb',
+    intermittent_fasting: 'Intermittent Fasting',
+    flexitarian: 'Flexitarian',
+    raw_food: 'Raw Food',
+  }
+
+  const dietLabel = dietType ? DIET_LABELS[dietType] || dietType : 'No specific diet selected'
   // Prepare data for AI
   const goalsData = goals.map((g) => ({
     type: g.goal_type,
@@ -199,13 +233,18 @@ ${JSON.stringify(statsData, null, 2)}
 BODY ANALYSIS DATA:
 ${JSON.stringify(bodyData, null, 2)}
 
-DIET PREFERENCES:
-Diet Type: ${dietType || 'No specific diet selected'}
+DIET PREFERENCES (must drive every recommended meal):
+Diet Type: ${dietLabel}
 Diet Modifications: ${dietModifications.length > 0 ? dietModifications.join(', ') : 'None'}
 
 LOCATION: ${zipcode ? `Zipcode: ${zipcode}` : 'No zipcode provided'}
 
-IMPORTANT: If a specific diet type is selected, strictly follow its principles and guidelines. Consider any modifications the user has specified.
+CRITICAL REQUIREMENTS:
+- The primary deliverable is a complete 7-day meal plan with specific named meals (breakfast, lunch, dinner, snacks) — not macros alone.
+- Every meal MUST comply with the selected diet type and all modifications. Do not suggest foods that violate them.
+- Use concrete dish names with ingredients (e.g. "Grilled salmon with quinoa and roasted broccoli" not "balanced dinner").
+- Macros (calories, protein, carbs, fat) support the meal plan; they are secondary to the meals themselves.
+- If no diet is selected, still provide varied, whole-food meal ideas tailored to the user's goals.
 
 Create a comprehensive nutrition plan that includes:
 1. Plan name and type
@@ -213,14 +252,16 @@ Create a comprehensive nutrition plan that includes:
 3. Macronutrient breakdown (protein, carbs, fat)
 4. Fiber and water recommendations
 5. Meal frequency
-6. Detailed description
-7. Complete weekly meal plan (7 days, 3-4 meals per day)
+6. Detailed description referencing how meals align with the diet preferences
+7. Complete weekly meal plan (7 days, breakfast/lunch/dinner/snacks) — REQUIRED
 8. Detailed shopping list with quantities and estimated costs
 9. Store recommendations (Walmart, Target, local grocery stores)
 10. Food recommendations
 11. Supplement suggestions
 12. Hydration strategy
 13. Meal timing recommendations
+
+IMPORTANT: If a specific diet type is selected, strictly follow its principles and guidelines. Consider any modifications the user has specified.
 
 Format your response as JSON with this structure:
 {
@@ -292,7 +333,7 @@ Choose plan_type as exactly one of: weight_loss, muscle_gain, maintenance, perfo
       {
         role: 'system',
         content:
-          'You are an expert nutritionist and dietitian. Create detailed, personalized nutrition plans based on user goals, current fitness level, and body composition. Always prioritize health, sustainability, and balanced nutrition.',
+          "You are an expert nutritionist and dietitian. Create detailed, personalized nutrition plans based on user goals, current fitness level, body composition, and diet preferences. Always include a full 7-day meal plan with specific meals that honor the user's diet type and modifications. Never return macros without meals. Prioritize health, sustainability, and balanced nutrition.",
       },
       {
         role: 'user',
@@ -425,5 +466,87 @@ Choose plan_type as exactly one of: weight_loss, muscle_gain, maintenance, perfo
 
   parsedResponse.plan_type = normalizeNutritionPlanType(parsedResponse.plan_type, goals)
 
+  const mealPlan = parsedResponse.meal_plan
+  const hasMealPlan =
+    mealPlan &&
+    typeof mealPlan === 'object' &&
+    Object.keys(mealPlan as object).length >= 3 &&
+    Object.values(mealPlan as Record<string, unknown>).some(
+      (day) =>
+        day &&
+        typeof day === 'object' &&
+        ('breakfast' in (day as object) || 'lunch' in (day as object))
+    )
+
+  if (!hasMealPlan) {
+    parsedResponse.description =
+      typeof parsedResponse.description === 'string'
+        ? `${parsedResponse.description} Includes a starter weekly meal plan aligned with your diet preferences.`
+        : 'A balanced nutrition plan with diet-aligned meals based on your goals.'
+    parsedResponse.meal_plan = buildDietAlignedFallbackMealPlan(dietType, dietModifications)
+  }
+
   return parsedResponse
+}
+
+function buildDietAlignedFallbackMealPlan(dietType?: string, modifications: string[] = []) {
+  const isVegan = dietType === 'vegan'
+  const isVegetarian =
+    isVegan || dietType === 'high_protein_vegetarian' || dietType === 'flexitarian'
+  const isPescatarian = dietType === 'pescatarian'
+  const isKeto = dietType === 'keto' || dietType === 'atkins' || dietType === 'low_carb'
+  const isGlutenFree = dietType === 'gluten_free' || modifications.includes('Gluten-free')
+  const noDairy = isVegan || modifications.includes('Dairy-free')
+
+  const protein = isVegan
+    ? 'Tofu scramble with spinach and peppers'
+    : isVegetarian
+      ? 'Greek yogurt parfait with berries and chia' + (noDairy ? ' (coconut yogurt)' : '')
+      : isPescatarian
+        ? 'Smoked salmon and avocado on ' +
+          (isGlutenFree ? 'gluten-free toast' : 'whole-grain toast')
+        : isKeto
+          ? 'Scrambled eggs with avocado and turkey sausage'
+          : 'Oatmeal with berries and protein powder'
+
+  const lunch = isVegan
+    ? 'Lentil and quinoa Buddha bowl with tahini dressing'
+    : isVegetarian
+      ? 'Chickpea and feta salad with olive oil and lemon'
+      : isPescatarian
+        ? 'Tuna and white bean salad with mixed greens'
+        : isKeto
+          ? 'Grilled chicken Caesar salad (no croutons)'
+          : 'Grilled chicken salad with quinoa'
+
+  const dinner = isVegan
+    ? 'Tempeh stir-fry with broccoli and brown rice'
+    : isVegetarian
+      ? 'Black bean and sweet potato tacos'
+      : isPescatarian
+        ? 'Baked cod with roasted vegetables and wild rice'
+        : isKeto
+          ? 'Salmon with asparagus and cauliflower mash'
+          : 'Salmon with sweet potato and steamed vegetables'
+
+  const dayTemplate = {
+    breakfast: protein,
+    lunch,
+    dinner,
+    snacks: isKeto
+      ? ['Almonds', 'Cheese sticks']
+      : isVegan
+        ? ['Hummus with carrots', 'Mixed nuts']
+        : ['Greek yogurt', 'Apple with almond butter'],
+  }
+
+  return {
+    monday: { ...dayTemplate },
+    tuesday: { ...dayTemplate, lunch: isVegan ? 'Mediterranean chickpea wrap' : lunch },
+    wednesday: { ...dayTemplate },
+    thursday: { ...dayTemplate, dinner: isVegan ? 'Red lentil curry with basmati rice' : dinner },
+    friday: { ...dayTemplate },
+    saturday: { ...dayTemplate, breakfast: isKeto ? 'Chia pudding with coconut milk' : protein },
+    sunday: { ...dayTemplate },
+  }
 }

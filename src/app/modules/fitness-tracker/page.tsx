@@ -53,6 +53,10 @@ import BiometricsOverview from '@/components/fitness-tracker/BiometricsOverview'
 import FitnessProgressPanel from '@/components/fitness-tracker/FitnessProgressPanel'
 import StrengthGrowthChart from '@/components/fitness-tracker/StrengthGrowthChart'
 import PlanActionSuggestions from '@/components/fitness-tracker/PlanActionSuggestions'
+import {
+  computeStrengthStatsFingerprint,
+  type StrengthGrowthStatPoint,
+} from '@/lib/fitness/strength-growth-fingerprint'
 
 interface DashboardGoal {
   id?: string
@@ -168,12 +172,24 @@ interface NutritionPlan {
   carbs_grams?: number
   fat_grams?: number
   description?: string
-  meal_plan?: any
-  shopping_list?: any
-  recommendations?: any
+  meal_plan?: Record<
+    string,
+    { breakfast?: string; lunch?: string; dinner?: string; snacks?: string[] | string }
+  >
+  shopping_list?: Record<string, unknown>
+  recommendations?: Record<string, unknown>
   is_active: boolean
   is_ai_generated: boolean
   created_at?: string
+}
+
+interface StrengthGrowthSnapshot {
+  id: string
+  stats_fingerprint: string
+  chart_data: StrengthGrowthStatPoint[]
+  exercise_count: number
+  stat_count: number
+  created_at: string
 }
 
 export default function FitnessTrackerModule() {
@@ -206,6 +222,12 @@ export default function FitnessTrackerModule() {
   const [editingStat, setEditingStat] = useState<FitnessStat | null>(null)
   const [showEditStatForm, setShowEditStatForm] = useState(false)
   const [showStrengthGrowth, setShowStrengthGrowth] = useState(false)
+  const [growthSnapshots, setGrowthSnapshots] = useState<StrengthGrowthSnapshot[]>([])
+  const [activeGrowthSnapshot, setActiveGrowthSnapshot] = useState<StrengthGrowthSnapshot | null>(
+    null
+  )
+  const [growthChartCached, setGrowthChartCached] = useState(false)
+  const [loadingGrowthChart, setLoadingGrowthChart] = useState(false)
   const [editingNutritionPlan, setEditingNutritionPlan] = useState<NutritionPlan | null>(null)
   const [expandedPhotoId, setExpandedPhotoId] = useState<string | null>(null)
   const [futureStates, setFutureStates] = useState<FutureState[]>([])
@@ -404,6 +426,7 @@ export default function FitnessTrackerModule() {
         dashboardGoalsRes,
         biometricsRes,
         futureStatesRes,
+        growthSnapshotsRes,
       ] = await Promise.all([
         fetch('/api/fitness/body-photos'),
         fetch('/api/fitness/goals'),
@@ -414,6 +437,7 @@ export default function FitnessTrackerModule() {
         fetch('/api/goals'),
         fetch('/api/fitness/biometrics'),
         fetch('/api/fitness/future-state'),
+        fetch('/api/fitness/strength-growth-snapshots'),
       ])
 
       // Check for table existence errors
@@ -444,6 +468,10 @@ export default function FitnessTrackerModule() {
       if (futureStatesRes.ok) {
         const fs = await futureStatesRes.json()
         setFutureStates(Array.isArray(fs) ? fs : [])
+      }
+      if (growthSnapshotsRes.ok) {
+        const gs = await growthSnapshotsRes.json()
+        setGrowthSnapshots(Array.isArray(gs) ? gs : [])
       }
 
       if (nutritionPrefsRes.ok) {
@@ -614,6 +642,85 @@ export default function FitnessTrackerModule() {
       setTimeout(() => setErrorMessage(''), 5000)
     } finally {
       setGeneratingFuture(false)
+    }
+  }
+
+  const resolveStrengthGrowthChart = async (strengthStats: FitnessStat[], force = false) => {
+    setLoadingGrowthChart(true)
+    setErrorMessage('')
+    try {
+      const response = await fetch('/api/fitness/strength-growth-snapshots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stats: strengthStats, force }),
+      })
+      const json = await response.json().catch(() => ({}))
+      if (!response.ok || !json.snapshot) {
+        setErrorMessage(
+          json.details || json.error || 'Could not load strength growth chart history.'
+        )
+        setTimeout(() => setErrorMessage(''), 8000)
+        return null
+      }
+
+      const snapshot = json.snapshot as StrengthGrowthSnapshot
+      setActiveGrowthSnapshot(snapshot)
+      setGrowthChartCached(json.cached === true)
+      setGrowthSnapshots((prev) => {
+        const without = prev.filter((item) => item.id !== snapshot.id)
+        return [snapshot, ...without]
+      })
+      return snapshot
+    } catch (error) {
+      setErrorMessage(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setTimeout(() => setErrorMessage(''), 5000)
+      return null
+    } finally {
+      setLoadingGrowthChart(false)
+    }
+  }
+
+  const handleTrackGrowthToggle = async (strengthStats: FitnessStat[]) => {
+    if (showStrengthGrowth) {
+      setShowStrengthGrowth(false)
+      return
+    }
+
+    if (strengthStats.length === 0) {
+      setErrorMessage('Log at least one strength stat before tracking growth.')
+      setTimeout(() => setErrorMessage(''), 5000)
+      return
+    }
+
+    setShowStrengthGrowth(true)
+    await resolveStrengthGrowthChart(strengthStats)
+  }
+
+  const handleDeleteGrowthSnapshot = async (snapshotId: string) => {
+    if (!confirm('Delete this saved growth chart?')) return
+
+    try {
+      const response = await fetch(
+        `/api/fitness/strength-growth-snapshots?id=${encodeURIComponent(snapshotId)}`,
+        { method: 'DELETE' }
+      )
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}))
+        setErrorMessage(json.error || 'Failed to delete saved chart.')
+        setTimeout(() => setErrorMessage(''), 5000)
+        return
+      }
+
+      setGrowthSnapshots((prev) => prev.filter((item) => item.id !== snapshotId))
+      if (activeGrowthSnapshot?.id === snapshotId) {
+        setActiveGrowthSnapshot(null)
+        setGrowthChartCached(false)
+      }
+      setSuccessMessage('Saved growth chart deleted.')
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (error) {
+      setErrorMessage(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setTimeout(() => setErrorMessage(''), 5000)
     }
   }
 
@@ -1809,20 +1916,116 @@ export default function FitnessTrackerModule() {
                           {statType.type === 'strength' && (
                             <div className="mt-4 border-t border-gray-200 pt-4">
                               <button
-                                onClick={() => setShowStrengthGrowth((prev) => !prev)}
-                                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                onClick={() => handleTrackGrowthToggle(typeStats)}
+                                disabled={loadingGrowthChart}
+                                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
                               >
-                                <TrendingUp className="h-4 w-4 mr-2" />
+                                {loadingGrowthChart ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <TrendingUp className="h-4 w-4 mr-2" />
+                                )}
                                 {showStrengthGrowth ? 'Hide Growth' : 'Track Growth'}
                               </button>
 
                               {showStrengthGrowth && (
-                                <div className="mt-4">
-                                  <p className="text-sm text-gray-600 mb-3">
+                                <div className="mt-4 space-y-4">
+                                  {growthChartCached && activeGrowthSnapshot && (
+                                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                                      Showing saved chart from{' '}
+                                      {new Date(activeGrowthSnapshot.created_at).toLocaleString()}.
+                                      No new strength entries since this snapshot.
+                                    </div>
+                                  )}
+                                  {activeGrowthSnapshot &&
+                                    computeStrengthStatsFingerprint(typeStats) !==
+                                      activeGrowthSnapshot.stats_fingerprint && (
+                                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex flex-wrap items-center justify-between gap-2">
+                                        <span>
+                                          Viewing a saved chart from{' '}
+                                          {new Date(
+                                            activeGrowthSnapshot.created_at
+                                          ).toLocaleString()}
+                                          . Your current stats may differ.
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            resolveStrengthGrowthChart(typeStats, true)
+                                          }
+                                          disabled={loadingGrowthChart}
+                                          className="inline-flex items-center rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-60"
+                                        >
+                                          Save current chart
+                                        </button>
+                                      </div>
+                                    )}
+                                  <p className="text-sm text-gray-600">
                                     Each strength exercise is plotted as % change from its first
                                     logged value, so reps and weight can be compared on one chart.
                                   </p>
-                                  <StrengthGrowthChart stats={typeStats} />
+                                  <StrengthGrowthChart
+                                    stats={
+                                      activeGrowthSnapshot?.chart_data?.length
+                                        ? activeGrowthSnapshot.chart_data
+                                        : typeStats
+                                    }
+                                  />
+
+                                  {growthSnapshots.length > 0 && (
+                                    <div className="border-t border-gray-200 pt-4">
+                                      <h5 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                                        <Clock className="h-4 w-4 mr-2 text-gray-500" />
+                                        Saved growth charts
+                                      </h5>
+                                      <ul className="space-y-2">
+                                        {growthSnapshots.map((snapshot) => {
+                                          const isActive = activeGrowthSnapshot?.id === snapshot.id
+                                          const matchesCurrent =
+                                            snapshot.stats_fingerprint ===
+                                            computeStrengthStatsFingerprint(typeStats)
+                                          return (
+                                            <li
+                                              key={snapshot.id}
+                                              className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm ${
+                                                isActive
+                                                  ? 'border-blue-300 bg-blue-50'
+                                                  : 'border-gray-200 bg-white'
+                                              }`}
+                                            >
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setActiveGrowthSnapshot(snapshot)
+                                                  setGrowthChartCached(matchesCurrent)
+                                                }}
+                                                className="text-left min-w-0 flex-1"
+                                              >
+                                                <span className="font-medium text-gray-900 block">
+                                                  {new Date(snapshot.created_at).toLocaleString()}
+                                                </span>
+                                                <span className="text-xs text-gray-500">
+                                                  {snapshot.exercise_count} exercises ·{' '}
+                                                  {snapshot.stat_count} entries
+                                                  {matchesCurrent ? ' · matches current stats' : ''}
+                                                </span>
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  handleDeleteGrowthSnapshot(snapshot.id)
+                                                }
+                                                title="Delete saved chart"
+                                                className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                                              >
+                                                <Trash2 className="h-4 w-4" />
+                                              </button>
+                                            </li>
+                                          )
+                                        })}
+                                      </ul>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -2178,159 +2381,192 @@ export default function FitnessTrackerModule() {
                             </div>
                           </div>
                         )}
-                        {plan.daily_calories && (
-                          <p className="text-sm text-gray-600 mb-2">
-                            Daily Calories: {plan.daily_calories}
-                          </p>
+                        {plan.description && (
+                          <p className="text-sm text-gray-600 mb-3">{plan.description}</p>
                         )}
-                        <div className="grid grid-cols-3 gap-2 text-sm">
-                          {plan.protein_grams && (
-                            <div className="text-center">
-                              <p className="font-medium">{plan.protein_grams}g</p>
-                              <p className="text-xs text-gray-500">Protein</p>
+
+                        {plan.meal_plan ? (
+                          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-4">
+                            <h5 className="font-medium text-gray-900 mb-3 flex items-center">
+                              <Calendar className="h-4 w-4 mr-2 text-green-700" />
+                              Weekly Meal Plan
+                            </h5>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                              {Object.entries(plan.meal_plan).map(([day, meals]) => (
+                                <div
+                                  key={day}
+                                  className="bg-white rounded-lg p-3 border border-green-100"
+                                >
+                                  <h6 className="font-medium text-gray-900 capitalize mb-2">
+                                    {day}
+                                  </h6>
+                                  <div className="space-y-1 text-gray-700">
+                                    {meals.breakfast && (
+                                      <div>
+                                        <span className="font-medium text-gray-900">
+                                          Breakfast:
+                                        </span>{' '}
+                                        {meals.breakfast}
+                                      </div>
+                                    )}
+                                    {meals.lunch && (
+                                      <div>
+                                        <span className="font-medium text-gray-900">Lunch:</span>{' '}
+                                        {meals.lunch}
+                                      </div>
+                                    )}
+                                    {meals.dinner && (
+                                      <div>
+                                        <span className="font-medium text-gray-900">Dinner:</span>{' '}
+                                        {meals.dinner}
+                                      </div>
+                                    )}
+                                    {meals.snacks && (
+                                      <div>
+                                        <span className="font-medium text-gray-900">Snacks:</span>{' '}
+                                        {Array.isArray(meals.snacks)
+                                          ? meals.snacks.join(', ')
+                                          : meals.snacks}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
+                          </div>
+                        ) : (
+                          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                            This plan has macros only. Regenerate after saving diet preferences to
+                            get diet-specific meal recommendations.
+                          </div>
+                        )}
+
+                        <div className="border-t border-gray-100 pt-3">
+                          {plan.daily_calories && (
+                            <p className="text-sm text-gray-600 mb-2">
+                              Daily Calories: {plan.daily_calories}
+                            </p>
                           )}
-                          {plan.carbs_grams && (
-                            <div className="text-center">
-                              <p className="font-medium">{plan.carbs_grams}g</p>
-                              <p className="text-xs text-gray-500">Carbs</p>
-                            </div>
-                          )}
-                          {plan.fat_grams && (
-                            <div className="text-center">
-                              <p className="font-medium">{plan.fat_grams}g</p>
-                              <p className="text-xs text-gray-500">Fat</p>
-                            </div>
-                          )}
+                          <div className="grid grid-cols-3 gap-2 text-sm">
+                            {plan.protein_grams && (
+                              <div className="text-center">
+                                <p className="font-medium">{plan.protein_grams}g</p>
+                                <p className="text-xs text-gray-500">Protein</p>
+                              </div>
+                            )}
+                            {plan.carbs_grams && (
+                              <div className="text-center">
+                                <p className="font-medium">{plan.carbs_grams}g</p>
+                                <p className="text-xs text-gray-500">Carbs</p>
+                              </div>
+                            )}
+                            {plan.fat_grams && (
+                              <div className="text-center">
+                                <p className="font-medium">{plan.fat_grams}g</p>
+                                <p className="text-xs text-gray-500">Fat</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Meal Plan and Shopping List */}
-                        {(plan as any).meal_plan && (
+                        {/* Shopping List */}
+                        {plan.shopping_list && (
                           <div className="mt-4 space-y-4">
                             <div className="border-t pt-4">
                               <h5 className="font-medium text-gray-900 mb-3 flex items-center">
-                                <Calendar className="h-4 w-4 mr-2 text-blue-600" />
-                                Weekly Meal Plan
+                                <Utensils className="h-4 w-4 mr-2 text-green-600" />
+                                Shopping List
                               </h5>
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-                                {Object.entries((plan as any).meal_plan).map(
-                                  ([day, meals]: [string, any]) => (
-                                    <div key={day} className="bg-gray-50 rounded-lg p-3">
-                                      <h6 className="font-medium text-gray-900 capitalize mb-2">
-                                        {day}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {Object.entries(plan.shopping_list).map(([category, items]) => {
+                                  if (
+                                    category === 'total_estimated_cost' ||
+                                    category === 'store_recommendations'
+                                  )
+                                    return null
+                                  return (
+                                    <div key={category} className="bg-green-50 rounded-lg p-3">
+                                      <h6 className="font-medium text-green-900 capitalize mb-2">
+                                        {category}
                                       </h6>
                                       <div className="space-y-1">
-                                        <div>
-                                          <span className="font-medium">Breakfast:</span>{' '}
-                                          {meals.breakfast}
-                                        </div>
-                                        <div>
-                                          <span className="font-medium">Lunch:</span> {meals.lunch}
-                                        </div>
-                                        <div>
-                                          <span className="font-medium">Dinner:</span>{' '}
-                                          {meals.dinner}
-                                        </div>
-                                        {meals.snacks && (
-                                          <div>
-                                            <span className="font-medium">Snacks:</span>{' '}
-                                            {Array.isArray(meals.snacks)
-                                              ? meals.snacks.join(', ')
-                                              : meals.snacks}
-                                          </div>
-                                        )}
+                                        {Array.isArray(items) &&
+                                          items.map((item: any, index: number) => (
+                                            <div
+                                              key={index}
+                                              className="text-sm text-gray-700 flex justify-between"
+                                            >
+                                              <span>
+                                                {item.item} ({item.quantity})
+                                              </span>
+                                              <span className="font-medium text-green-600">
+                                                {item.estimated_cost}
+                                              </span>
+                                            </div>
+                                          ))}
                                       </div>
                                     </div>
                                   )
-                                )}
+                                })}
                               </div>
-                            </div>
 
-                            {(plan as any).shopping_list && (
-                              <div className="border-t pt-4">
-                                <h5 className="font-medium text-gray-900 mb-3 flex items-center">
-                                  <Utensils className="h-4 w-4 mr-2 text-green-600" />
-                                  Shopping List
-                                </h5>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {Object.entries((plan as any).shopping_list).map(
-                                    ([category, items]: [string, any]) => {
-                                      if (
-                                        category === 'total_estimated_cost' ||
-                                        category === 'store_recommendations'
-                                      )
-                                        return null
-                                      return (
-                                        <div key={category} className="bg-green-50 rounded-lg p-3">
-                                          <h6 className="font-medium text-green-900 capitalize mb-2">
-                                            {category}
-                                          </h6>
-                                          <div className="space-y-1">
-                                            {Array.isArray(items) &&
-                                              items.map((item: any, index: number) => (
-                                                <div
-                                                  key={index}
-                                                  className="text-sm text-gray-700 flex justify-between"
-                                                >
-                                                  <span>
-                                                    {item.item} ({item.quantity})
-                                                  </span>
-                                                  <span className="font-medium text-green-600">
-                                                    {item.estimated_cost}
-                                                  </span>
-                                                </div>
-                                              ))}
-                                          </div>
-                                        </div>
-                                      )
-                                    }
-                                  )}
+                              {(plan.shopping_list as { total_estimated_cost?: string })
+                                .total_estimated_cost && (
+                                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-medium text-blue-900">
+                                      Total Estimated Cost:
+                                    </span>
+                                    <span className="text-lg font-bold text-blue-600">
+                                      {
+                                        (
+                                          plan.shopping_list as {
+                                            total_estimated_cost?: string
+                                          }
+                                        ).total_estimated_cost
+                                      }
+                                    </span>
+                                  </div>
                                 </div>
+                              )}
 
-                                {(plan as any).shopping_list.total_estimated_cost && (
-                                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                                    <div className="flex justify-between items-center">
-                                      <span className="font-medium text-blue-900">
-                                        Total Estimated Cost:
-                                      </span>
-                                      <span className="text-lg font-bold text-blue-600">
-                                        {(plan as any).shopping_list.total_estimated_cost}
-                                      </span>
-                                    </div>
+                              {Array.isArray(
+                                (plan.shopping_list as { store_recommendations?: unknown[] })
+                                  .store_recommendations
+                              ) && (
+                                <div className="mt-4">
+                                  <h6 className="font-medium text-gray-900 mb-2">
+                                    Store Recommendations:
+                                  </h6>
+                                  <div className="space-y-2">
+                                    {(
+                                      plan.shopping_list as {
+                                        store_recommendations: Array<{
+                                          store: string
+                                          reason: string
+                                          estimated_savings: string
+                                        }>
+                                      }
+                                    ).store_recommendations.map((store, index) => (
+                                      <div
+                                        key={index}
+                                        className="flex justify-between items-center p-2 bg-yellow-50 rounded"
+                                      >
+                                        <div>
+                                          <span className="font-medium text-yellow-900">
+                                            {store.store}
+                                          </span>
+                                          <p className="text-sm text-yellow-700">{store.reason}</p>
+                                        </div>
+                                        <span className="text-sm font-medium text-yellow-600">
+                                          {store.estimated_savings}
+                                        </span>
+                                      </div>
+                                    ))}
                                   </div>
-                                )}
-
-                                {(plan as any).shopping_list.store_recommendations && (
-                                  <div className="mt-4">
-                                    <h6 className="font-medium text-gray-900 mb-2">
-                                      Store Recommendations:
-                                    </h6>
-                                    <div className="space-y-2">
-                                      {(plan as any).shopping_list.store_recommendations.map(
-                                        (store: any, index: number) => (
-                                          <div
-                                            key={index}
-                                            className="flex justify-between items-center p-2 bg-yellow-50 rounded"
-                                          >
-                                            <div>
-                                              <span className="font-medium text-yellow-900">
-                                                {store.store}
-                                              </span>
-                                              <p className="text-sm text-yellow-700">
-                                                {store.reason}
-                                              </p>
-                                            </div>
-                                            <span className="text-sm font-medium text-yellow-600">
-                                              {store.estimated_savings}
-                                            </span>
-                                          </div>
-                                        )
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
 
