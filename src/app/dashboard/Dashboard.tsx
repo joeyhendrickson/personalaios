@@ -3003,7 +3003,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <button
-                      onClick={() => openLifestacksAdvisor()}
+                      onClick={() => openLifestacksAdvisor({ startListening: false })}
                       className="w-full bg-black hover:bg-gray-800 text-white font-medium py-2 px-4 rounded-md transition-all duration-200"
                     >
                       <MessageSquare className="h-4 w-4 mr-2 inline" />

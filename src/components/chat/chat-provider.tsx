@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from 'react'
 import { ChatInterface } from './chat-interface'
 import { HeyLifestacksListener } from './hey-lifestacks-listener'
 import { ChatContext, type ChatContextType } from './chat-context'
-import { useCurrentWeek } from '@/hooks/use-current-week'
 import { openLifestacksAdvisor } from '@/lib/voice/advisor-events'
 import {
   isWakeWordSupported,
@@ -19,7 +18,6 @@ interface ChatProviderProps {
 }
 
 export function ChatProvider({ children }: ChatProviderProps) {
-  const { currentWeekId } = useCurrentWeek()
   const [, setRefreshTrigger] = useState(0)
   const [wakeWordEnabled, setWakeWordEnabledState] = useState(false)
   const [wakeWordSupported, setWakeWordSupported] = useState(false)
@@ -62,16 +60,12 @@ export function ChatProvider({ children }: ChatProviderProps) {
   return (
     <ChatContext.Provider value={contextValue}>
       {children}
-      {currentWeekId && (
-        <>
-          <HeyLifestacksListener enabled={wakeWordEnabled} />
-          <ChatInterface
-            onGoalCreated={refreshGoals}
-            onTaskCreated={refreshTasks}
-            onTaskCompleted={refreshTasks}
-          />
-        </>
-      )}
+      <HeyLifestacksListener enabled={wakeWordEnabled} />
+      <ChatInterface
+        onGoalCreated={refreshGoals}
+        onTaskCreated={refreshTasks}
+        onTaskCompleted={refreshTasks}
+      />
     </ChatContext.Provider>
   )
 }

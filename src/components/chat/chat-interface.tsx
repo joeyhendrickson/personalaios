@@ -144,7 +144,7 @@ export function ChatInterface({
     const timer = window.setTimeout(() => {
       if (detail.initialMessage?.trim()) {
         void submitMessageRef.current(detail.initialMessage.trim())
-      } else if (detail.startListening !== false) {
+      } else if (detail.startListening === true) {
         startListeningRef.current()
       }
     }, 300)
