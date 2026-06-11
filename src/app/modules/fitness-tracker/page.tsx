@@ -98,6 +98,7 @@ interface FutureState {
   image_url: string
   timeframe_months: number
   source_photo_ids?: string[]
+  prompt?: string
   created_at: string
 }
 
@@ -623,13 +624,26 @@ export default function FitnessTrackerModule() {
       })
       const json = await response.json().catch(() => ({}))
       if (response.ok && json.future_state) {
-        setFutureStates((prev) => [json.future_state, ...prev])
-        if (json.warning) {
-          setErrorMessage(json.warning)
-          setTimeout(() => setErrorMessage(''), 10000)
-        } else {
-          setSuccessMessage(`Your ${futureTimeframe}-month future state is saved to your gallery!`)
+        let fs = json.future_state as FutureState
+
+        if (!isFutureStatePersisted(fs)) {
+          const persisted = await persistFutureStateToGallery(fs, { silent: true })
+          if (persisted) {
+            fs = persisted
+          } else if (json.warning) {
+            setErrorMessage(json.warning)
+            setTimeout(() => setErrorMessage(''), 10000)
+          }
+        }
+
+        setFutureStates((prev) => [fs, ...prev.filter((item) => item.id !== fs.id)])
+
+        if (isFutureStatePersisted(fs)) {
+          setSuccessMessage(`Your ${futureTimeframe}-month future state is saved in your gallery.`)
           setTimeout(() => setSuccessMessage(''), 5000)
+        } else {
+          setSuccessMessage('Future state generated. Click Save to Gallery to keep it permanently.')
+          setTimeout(() => setSuccessMessage(''), 8000)
         }
       } else {
         setErrorMessage(
@@ -643,6 +657,112 @@ export default function FitnessTrackerModule() {
     } finally {
       setGeneratingFuture(false)
     }
+  }
+
+  const persistFutureStateToGallery = async (
+    fs: FutureState,
+    options?: { silent?: boolean }
+  ): Promise<FutureState | null> => {
+    if (isFutureStatePersisted(fs)) return fs
+
+    try {
+      const persistRes = await fetch('/api/fitness/future-state', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: fs.id,
+          image_url: fs.image_url,
+          timeframe_months: fs.timeframe_months,
+          source_photo_ids: fs.source_photo_ids || [],
+          prompt: fs.prompt,
+        }),
+      })
+      const persistJson = await persistRes.json().catch(() => ({}))
+      if (!persistRes.ok || !persistJson.future_state) {
+        if (!options?.silent) {
+          setErrorMessage(
+            `Could not save to gallery: ${persistJson.details || persistJson.error || 'Unknown error'}`
+          )
+          setTimeout(() => setErrorMessage(''), 8000)
+        }
+        return null
+      }
+
+      const saved = persistJson.future_state as FutureState
+      setFutureStates((prev) => prev.map((item) => (item.id === fs.id ? saved : item)))
+      if (!options?.silent) {
+        setSuccessMessage('Future state saved to your gallery.')
+        setTimeout(() => setSuccessMessage(''), 5000)
+      }
+      return saved
+    } catch (error) {
+      if (!options?.silent) {
+        setErrorMessage(
+          `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
+        setTimeout(() => setErrorMessage(''), 5000)
+      }
+      return null
+    }
+  }
+
+  const downloadFutureStateImage = async (fs: FutureState) => {
+    setSavingFutureStateId(fs.id)
+    setErrorMessage('')
+
+    try {
+      let saved = fs
+      if (!isFutureStatePersisted(fs)) {
+        const persisted = await persistFutureStateToGallery(fs, { silent: true })
+        if (persisted) saved = persisted
+      }
+
+      if (isFutureStatePersisted(saved)) {
+        const downloadRes = await fetch(
+          `/api/fitness/future-state?download=${encodeURIComponent(saved.id)}`
+        )
+        if (downloadRes.ok) {
+          const blob = await downloadRes.blob()
+          triggerFutureStateDownload(blob, saved)
+          setSuccessMessage('Download started.')
+          setTimeout(() => setSuccessMessage(''), 3000)
+          return
+        }
+      }
+
+      const imageRes = await fetch(saved.image_url, { cache: 'no-store' })
+      if (!imageRes.ok) throw new Error('Could not fetch image')
+      const blob = await imageRes.blob()
+      triggerFutureStateDownload(blob, saved)
+      setSuccessMessage('Download started.')
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch {
+      window.open(fs.image_url, '_blank', 'noopener,noreferrer')
+      setSuccessMessage('Opened image in a new tab — use your browser to save it.')
+      setTimeout(() => setSuccessMessage(''), 5000)
+    } finally {
+      setSavingFutureStateId(null)
+    }
+  }
+
+  const triggerFutureStateDownload = (blob: Blob, fs: FutureState) => {
+    const ext = fs.image_url.toLowerCase().includes('.png') ? 'png' : 'jpg'
+    const filename = `lifestacks-future-${fs.timeframe_months}mo-${new Date(fs.created_at).toISOString().slice(0, 10)}.${ext}`
+    const objectUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = filename
+    link.rel = 'noopener'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(objectUrl)
+  }
+
+  const handleSaveFutureStateToGallery = async (fs: FutureState) => {
+    setSavingFutureStateId(fs.id)
+    await persistFutureStateToGallery(fs)
+    setSavingFutureStateId(null)
   }
 
   const resolveStrengthGrowthChart = async (strengthStats: FitnessStat[], force = false) => {
@@ -721,73 +841,6 @@ export default function FitnessTrackerModule() {
     } catch (error) {
       setErrorMessage(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setTimeout(() => setErrorMessage(''), 5000)
-    }
-  }
-
-  const handleSaveFutureState = async (fs: FutureState) => {
-    setSavingFutureStateId(fs.id)
-    setErrorMessage('')
-
-    try {
-      let saved = fs
-
-      if (!isFutureStatePersisted(fs)) {
-        const persistRes = await fetch('/api/fitness/future-state', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: fs.id,
-            image_url: fs.image_url,
-            timeframe_months: fs.timeframe_months,
-            source_photo_ids: fs.source_photo_ids || [],
-          }),
-        })
-        const persistJson = await persistRes.json().catch(() => ({}))
-        if (!persistRes.ok || !persistJson.future_state) {
-          setErrorMessage(
-            `Could not save to gallery: ${persistJson.details || persistJson.error || 'Unknown error'}`
-          )
-          setTimeout(() => setErrorMessage(''), 8000)
-          return
-        }
-        saved = persistJson.future_state
-        setFutureStates((prev) => prev.map((item) => (item.id === fs.id ? saved : item)))
-      }
-
-      const downloadRes = await fetch(
-        `/api/fitness/future-state?download=${encodeURIComponent(saved.id)}`
-      )
-      if (downloadRes.ok) {
-        const blob = await downloadRes.blob()
-        const ext = saved.image_url.toLowerCase().includes('.png') ? 'png' : 'jpg'
-        const filename = `lifestacks-future-${saved.timeframe_months}mo-${new Date(saved.created_at).toISOString().slice(0, 10)}.${ext}`
-        const objectUrl = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = objectUrl
-        link.download = filename
-        link.rel = 'noopener'
-        document.body.appendChild(link)
-        link.click()
-        link.remove()
-        URL.revokeObjectURL(objectUrl)
-        setSuccessMessage('Saved to your gallery and downloaded to your device.')
-      } else if (isFutureStatePersisted(saved)) {
-        setSuccessMessage('Saved to your gallery.')
-      } else {
-        throw new Error('Download failed')
-      }
-      setTimeout(() => setSuccessMessage(''), 5000)
-    } catch {
-      if (isFutureStatePersisted(fs)) {
-        setSuccessMessage('Saved to your gallery. Open the image to download manually if needed.')
-        setTimeout(() => setSuccessMessage(''), 5000)
-      } else {
-        window.open(fs.image_url, '_blank', 'noopener,noreferrer')
-        setSuccessMessage('Opened image in a new tab — use your browser to save it.')
-        setTimeout(() => setSuccessMessage(''), 5000)
-      }
-    } finally {
-      setSavingFutureStateId(null)
     }
   }
 
@@ -1532,8 +1585,20 @@ export default function FitnessTrackerModule() {
                 <p className="text-sm text-gray-600 mb-4">
                   Uses your most recent photos plus your prescribed workout and nutrition plans to
                   project a realistic, improved physique if you stay consistent. Motivational
-                  visualization — not a guarantee.
+                  visualization — not a guarantee. Saved images stay in your gallery below with a
+                  timestamp so you can revisit them anytime.
                 </p>
+
+                {futureStates.some((fs) => isFutureStatePersisted(fs)) && (
+                  <div className="mb-4 rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-900">
+                    {futureStates.filter((fs) => isFutureStatePersisted(fs)).length} saved future
+                    state
+                    {futureStates.filter((fs) => isFutureStatePersisted(fs)).length === 1
+                      ? ''
+                      : 's'}{' '}
+                    in your gallery.
+                  </div>
+                )}
 
                 {generatingFuture && (
                   <div className="mb-4 rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-800">
@@ -1551,60 +1616,84 @@ export default function FitnessTrackerModule() {
                     No future-state images yet. Pick a timeframe and generate one.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {futureStates.map((fs) => (
-                      <div key={fs.id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="relative aspect-[2/3] bg-gray-100 rounded-lg mb-3 overflow-hidden">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={fs.image_url}
-                            alt={`Projected physique in ${fs.timeframe_months} months`}
-                            className="absolute inset-0 h-full w-full object-cover"
-                          />
-                          <span className="absolute top-2 left-2 rounded-full bg-purple-600/90 px-2 py-0.5 text-xs font-medium text-white">
-                            +{fs.timeframe_months} months
-                          </span>
-                          {!isFutureStatePersisted(fs) && (
-                            <span className="absolute bottom-2 left-2 rounded-full bg-amber-500/95 px-2 py-0.5 text-xs font-medium text-white">
-                              Unsaved — click Save
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                      <Clock className="h-4 w-4 mr-2 text-gray-500" />
+                      Saved Future States
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {futureStates.map((fs) => (
+                        <div key={fs.id} className="border border-gray-200 rounded-lg p-4">
+                          <div className="relative aspect-[2/3] bg-gray-100 rounded-lg mb-3 overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={fs.image_url}
+                              alt={`Projected physique in ${fs.timeframe_months} months`}
+                              className="absolute inset-0 h-full w-full object-cover"
+                            />
+                            <span className="absolute top-2 left-2 rounded-full bg-purple-600/90 px-2 py-0.5 text-xs font-medium text-white">
+                              +{fs.timeframe_months} months
                             </span>
-                          )}
-                          <button
-                            onClick={() => handleDeleteFutureState(fs.id)}
-                            title="Delete image"
-                            className="absolute top-2 right-2 inline-flex items-center justify-center rounded-full bg-white/90 p-1.5 text-red-600 shadow hover:bg-white hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="text-xs text-gray-500 flex items-center min-w-0">
-                            <Clock className="h-3 w-3 mr-1 shrink-0" />
-                            <span className="truncate">
-                              {new Date(fs.created_at).toLocaleString()}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleSaveFutureState(fs)}
-                            disabled={savingFutureStateId === fs.id}
-                            title={
-                              isFutureStatePersisted(fs)
-                                ? 'Download a copy'
-                                : 'Save to your gallery and download'
-                            }
-                            className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-xs font-medium text-purple-800 hover:bg-purple-100 disabled:opacity-60"
-                          >
-                            {savingFutureStateId === fs.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            {isFutureStatePersisted(fs) ? (
+                              <span className="absolute bottom-2 left-2 rounded-full bg-green-600/95 px-2 py-0.5 text-xs font-medium text-white">
+                                Saved
+                              </span>
                             ) : (
-                              <Download className="h-3.5 w-3.5" />
+                              <span className="absolute bottom-2 left-2 rounded-full bg-amber-500/95 px-2 py-0.5 text-xs font-medium text-white">
+                                Not saved yet
+                              </span>
                             )}
-                            {isFutureStatePersisted(fs) ? 'Download' : 'Save'}
-                          </button>
+                            <button
+                              onClick={() => handleDeleteFutureState(fs.id)}
+                              title="Delete image"
+                              className="absolute top-2 right-2 inline-flex items-center justify-center rounded-full bg-white/90 p-1.5 text-red-600 shadow hover:bg-white hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="text-xs text-gray-500 flex items-center min-w-0">
+                              <Clock className="h-3 w-3 mr-1 shrink-0" />
+                              <span className="truncate">
+                                {new Date(fs.created_at).toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {!isFutureStatePersisted(fs) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveFutureStateToGallery(fs)}
+                                  disabled={savingFutureStateId === fs.id}
+                                  title="Save to your gallery"
+                                  className="inline-flex items-center gap-1 rounded-lg border border-green-200 bg-green-50 px-2.5 py-1.5 text-xs font-medium text-green-800 hover:bg-green-100 disabled:opacity-60"
+                                >
+                                  {savingFutureStateId === fs.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Save className="h-3.5 w-3.5" />
+                                  )}
+                                  Save to Gallery
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => downloadFutureStateImage(fs)}
+                                disabled={savingFutureStateId === fs.id}
+                                title="Download image file"
+                                className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-xs font-medium text-purple-800 hover:bg-purple-100 disabled:opacity-60"
+                              >
+                                {savingFutureStateId === fs.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Download className="h-3.5 w-3.5" />
+                                )}
+                                Download
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

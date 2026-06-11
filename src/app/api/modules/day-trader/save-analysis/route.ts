@@ -41,6 +41,7 @@ const saveAnalysisSchema = z.object({
     .object({
       patterns: z.array(z.any()).optional(),
       predictions: z.any().optional(),
+      patternLookbackDays: z.number().optional(),
       sources: z.array(z.any()).optional(),
     })
     .optional(),

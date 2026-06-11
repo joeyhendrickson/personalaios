@@ -410,6 +410,7 @@ Keep it natural and realistic for the timeframe (no exaggerated or cartoonish bo
           ...record,
           created_at: new Date().toISOString(),
         },
+        saved: false,
         warning,
       })
     }
@@ -421,7 +422,7 @@ Keep it natural and realistic for the timeframe (no exaggerated or cartoonish bo
       metadata: { timeframe_months: timeframe, source_photo_id: sourcePhotoId },
     })
 
-    return NextResponse.json({ success: true, future_state: insertResult.data })
+    return NextResponse.json({ success: true, future_state: insertResult.data, saved: true })
   } catch (e) {
     return NextResponse.json(
       {

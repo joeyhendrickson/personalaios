@@ -103,6 +103,71 @@ interface Prediction {
     maxRiskPerTrade: number
     numberOfContracts: number
   }
+  marketContext?: string
+  catalystEvents?: string
+  savedAt?: string
+}
+
+interface SavedTradingAnalysis {
+  id: string
+  name: string
+  stock_symbol: string
+  buying_power: number
+  investor_type: TradingConfig['investorType']
+  information_sources: Array<{ name: string; weight: number }>
+  event_monitoring: TradingConfig['eventMonitoring']
+  manual_stock_data?: {
+    currentPrice: string
+    open: string
+    high: string
+    low: string
+    volume: string
+    previousClose: string
+  }
+  analysis_results?: {
+    predictions?: Prediction
+    patterns?: TradingPattern[]
+    patternLookbackDays?: number
+  }
+  created_at: string
+  updated_at: string
+}
+
+function parsePredictionFromApi(predictionData: Record<string, unknown>): Prediction {
+  const direction = predictionData.direction
+  return {
+    direction:
+      direction === 'up' || direction === 'down' || direction === 'sideways'
+        ? direction
+        : 'sideways',
+    confidence: typeof predictionData.confidence === 'number' ? predictionData.confidence : 70,
+    timeframes: {
+      morning:
+        (predictionData.timeframes as { morning?: string } | undefined)?.morning ||
+        'Morning analysis provided',
+      afternoon:
+        (predictionData.timeframes as { afternoon?: string } | undefined)?.afternoon ||
+        'Afternoon analysis provided',
+      endOfDay:
+        (predictionData.timeframes as { endOfDay?: string } | undefined)?.endOfDay ||
+        'End of day analysis provided',
+    },
+    keyIndicators: Array.isArray(predictionData.keyIndicators)
+      ? (predictionData.keyIndicators as string[])
+      : ['Volume analysis', 'Price action monitoring'],
+    riskLevel:
+      predictionData.riskLevel === 'low' ||
+      predictionData.riskLevel === 'medium' ||
+      predictionData.riskLevel === 'high'
+        ? predictionData.riskLevel
+        : 'medium',
+    optionsStrategy: predictionData.optionsStrategy as Prediction['optionsStrategy'],
+    positionSizing: predictionData.positionSizing as Prediction['positionSizing'],
+    marketContext:
+      typeof predictionData.marketContext === 'string' ? predictionData.marketContext : undefined,
+    catalystEvents:
+      typeof predictionData.catalystEvents === 'string' ? predictionData.catalystEvents : undefined,
+  }
 }
 
 interface ProfitAdvisor {
@@ -208,10 +273,11 @@ export default function DayTraderModule() {
   const [profitAdvisor, setProfitAdvisor] = useState<ProfitAdvisor | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [newSource, setNewSource] = useState({ name: '', type: 'twitter' as const, weight: 50 })
-  const [savedAnalyses, setSavedAnalyses] = useState<any[]>([])
+  const [savedAnalyses, setSavedAnalyses] = useState<SavedTradingAnalysis[]>([])
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showLoadModal, setShowLoadModal] = useState(false)
   const [saveName, setSaveName] = useState('')
+  const [savingPrediction, setSavingPrediction] = useState(false)
   const [recommendations, setRecommendations] = useState<StockRecommendation[]>([])
   const [loadingRecommendations, setLoadingRecommendations] = useState(false)
   const [showRecommendations, setShowRecommendations] = useState(false)
@@ -226,13 +292,142 @@ export default function DayTraderModule() {
   const [patternLookbackInput, setPatternLookbackInput] = useState('5')
   const [patternLookbackDaysUsed, setPatternLookbackDaysUsed] = useState<number | null>(null)
 
+  const loadSavedPredictions = async () => {
+    try {
+      const response = await fetch('/api/modules/day-trader/load-analyses')
+      if (!response.ok) return
+      const data = await response.json()
+      const analyses = (data.analyses || []) as SavedTradingAnalysis[]
+      setSavedAnalyses(analyses.filter((item) => item.analysis_results?.predictions))
+    } catch (error) {
+      console.error('Error loading saved predictions:', error)
+    }
+  }
+
   useEffect(() => {
     try {
       setProfitAdvisorUnlocked(localStorage.getItem(PROFIT_ADVISOR_UNLOCK_KEY) === 'true')
     } catch {
       // ignore storage errors
     }
+    void loadSavedPredictions()
   }, [])
+
+  const openSavePredictionModal = () => {
+    if (!prediction) {
+      alert('Generate a prediction first before saving.')
+      return
+    }
+    setSaveName(
+      `${config.stockSymbol.toUpperCase()} ${prediction.direction} ${new Date().toLocaleDateString()}`
+    )
+    setShowSaveModal(true)
+  }
+
+  const savePrediction = async () => {
+    if (!prediction || !config.stockSymbol) return
+
+    setSavingPrediction(true)
+    try {
+      const response = await fetch('/api/modules/day-trader/save-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:
+            saveName.trim() ||
+            `${config.stockSymbol.toUpperCase()} prediction ${new Date().toLocaleDateString()}`,
+          stockSymbol: config.stockSymbol,
+          buyingPower: config.buyingPower,
+          investorType: config.investorType,
+          informationSources: config.informationSources
+            .filter((source) => source.isActive)
+            .map(({ name, weight }) => ({ name, weight })),
+          eventMonitoring: config.eventMonitoring,
+          manualStockData: manualStockData,
+          analysisResults: {
+            predictions: {
+              ...prediction,
+              savedAt: new Date().toISOString(),
+            },
+            patterns: patterns.map(({ imageUrl: _, ...pattern }) => pattern),
+            patternLookbackDays: patternLookbackDaysUsed ?? undefined,
+          },
+        }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        alert(data.error || 'Failed to save prediction')
+        return
+      }
+
+      setShowSaveModal(false)
+      setSaveName('')
+      await loadSavedPredictions()
+      alert('Prediction saved.')
+    } catch (error) {
+      console.error('Error saving prediction:', error)
+      alert('Failed to save prediction. Please try again.')
+    } finally {
+      setSavingPrediction(false)
+    }
+  }
+
+  const applySavedAnalysis = (analysis: SavedTradingAnalysis) => {
+    setConfig((prev) => ({
+      ...prev,
+      stockSymbol: analysis.stock_symbol,
+      buyingPower: Number(analysis.buying_power),
+      investorType: analysis.investor_type,
+      informationSources: (analysis.information_sources || []).map((source, index) => ({
+        id: `loaded-${analysis.id}-${index}`,
+        name: source.name,
+        type: 'other' as const,
+        weight: source.weight,
+        isActive: true,
+      })),
+      eventMonitoring: analysis.event_monitoring || prev.eventMonitoring,
+    }))
+
+    if (analysis.manual_stock_data) {
+      setManualStockData(analysis.manual_stock_data)
+    }
+
+    const savedPrediction = analysis.analysis_results?.predictions
+    if (savedPrediction) {
+      setPrediction(savedPrediction)
+      setShowPrediction(true)
+    }
+
+    const savedPatterns = analysis.analysis_results?.patterns
+    if (savedPatterns?.length) {
+      setPatterns(savedPatterns)
+      setShowPatterns(true)
+      setPatternLookbackDaysUsed(analysis.analysis_results?.patternLookbackDays ?? null)
+    }
+
+    setShowLoadModal(false)
+  }
+
+  const deleteSavedPrediction = async (analysisId: string) => {
+    if (!confirm('Delete this saved prediction?')) return
+
+    try {
+      const response = await fetch(
+        `/api/modules/day-trader/load-analyses?id=${encodeURIComponent(analysisId)}`,
+        { method: 'DELETE' }
+      )
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        alert(data.error || 'Failed to delete saved prediction')
+        return
+      }
+      setSavedAnalyses((prev) => prev.filter((item) => item.id !== analysisId))
+    } catch (error) {
+      console.error('Error deleting saved prediction:', error)
+      alert('Failed to delete saved prediction.')
+    }
+  }
 
   const unlockProfitAdvisor = () => {
     if (profitAdvisorPasswordInput === PROFIT_ADVISOR_PASSWORD) {
@@ -450,23 +645,7 @@ export default function DayTraderModule() {
         const data = await response.json()
         const predictionData = data.prediction
 
-        // Convert AI prediction to our format
-        const prediction: Prediction = {
-          direction: predictionData.direction || 'sideways',
-          confidence: predictionData.confidence || 70,
-          timeframes: {
-            morning: predictionData.timeframes?.morning || 'Morning analysis provided',
-            afternoon: predictionData.timeframes?.afternoon || 'Afternoon analysis provided',
-            endOfDay: predictionData.timeframes?.endOfDay || 'End of day analysis provided',
-          },
-          keyIndicators: predictionData.keyIndicators || [
-            'Volume analysis',
-            'Price action monitoring',
-          ],
-          riskLevel: predictionData.riskLevel || 'medium',
-        }
-
-        setPrediction(prediction)
+        setPrediction(parsePredictionFromApi(predictionData))
       } else {
         const errorData = await response.json()
         console.error('Error generating prediction:', errorData)
@@ -666,6 +845,17 @@ export default function DayTraderModule() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              <button
+                onClick={() => {
+                  void loadSavedPredictions()
+                  setShowLoadModal(true)
+                }}
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3"
+              >
+                <Eye className="h-4 w-4" />
+                Saved Predictions
+                {savedAnalyses.length > 0 ? ` (${savedAnalyses.length})` : ''}
+              </button>
               <button
                 onClick={() => setIsEditing(!isEditing)}
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 h-9 rounded-md px-3"
@@ -1465,10 +1655,19 @@ export default function DayTraderModule() {
               {/* Prediction */}
               {showPrediction && prediction && (
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h3 className="text-xl font-semibold mb-4 flex items-center">
-                    <Brain className="h-5 w-5 mr-2" />
-                    AI Prediction & Strategic Advisory
-                  </h3>
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <h3 className="text-xl font-semibold flex items-center">
+                      <Brain className="h-5 w-5 mr-2" />
+                      AI Prediction & Strategic Advisory
+                    </h3>
+                    <button
+                      onClick={openSavePredictionModal}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
+                    >
+                      <Save className="h-4 w-4" />
+                      Save Prediction
+                    </button>
+                  </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Prediction Summary */}
@@ -1644,6 +1843,23 @@ export default function DayTraderModule() {
                       ))}
                     </div>
                   </div>
+
+                  {(prediction.marketContext || prediction.catalystEvents) && (
+                    <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {prediction.marketContext && (
+                        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                          <h4 className="font-semibold mb-2">Market Context</h4>
+                          <p className="text-sm text-gray-700">{prediction.marketContext}</p>
+                        </div>
+                      )}
+                      {prediction.catalystEvents && (
+                        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                          <h4 className="font-semibold mb-2">Catalyst Events</h4>
+                          <p className="text-sm text-gray-700">{prediction.catalystEvents}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2035,6 +2251,111 @@ export default function DayTraderModule() {
           </div>
         </div>
       </div>
+
+      {showSaveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Save Prediction</h3>
+              <button
+                onClick={() => setShowSaveModal(false)}
+                className="p-1 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Saves this prediction with your current config, patterns, and lookback context.
+            </p>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+            <input
+              type="text"
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent mb-4"
+              placeholder="e.g., AAPL bullish Mar 6"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowSaveModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void savePrediction()}
+                disabled={savingPrediction}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {savingPrediction ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLoadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Saved Predictions</h3>
+              <button
+                onClick={() => setShowLoadModal(false)}
+                className="p-1 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {savedAnalyses.length === 0 ? (
+              <p className="text-sm text-gray-600 py-8 text-center">
+                No saved predictions yet. Generate a prediction and click Save Prediction.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {savedAnalyses.map((analysis) => {
+                  const savedPrediction = analysis.analysis_results?.predictions
+                  return (
+                    <div
+                      key={analysis.id}
+                      className="border border-gray-200 rounded-lg p-4 flex flex-wrap items-start justify-between gap-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-medium text-gray-900">{analysis.name}</h4>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {analysis.stock_symbol} ·{' '}
+                          {savedPrediction?.direction?.toUpperCase() || '—'} ·{' '}
+                          {savedPrediction?.confidence ?? '—'}% confidence
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1 flex items-center">
+                          <Clock className="h-3 w-3 mr-1" />
+                          Saved {new Date(analysis.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => applySavedAnalysis(analysis)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100"
+                        >
+                          <Eye className="h-4 w-4" />
+                          Load
+                        </button>
+                        <button
+                          onClick={() => void deleteSavedPrediction(analysis.id)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
