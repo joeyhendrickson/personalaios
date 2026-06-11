@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, type MutableRefObject } from 'react'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,7 +19,6 @@ import {
 import { useVoiceSessionAudio } from '@/lib/voice/use-voice-session-audio'
 import { detectDashboardIntent } from '@/lib/assistant/detect-dashboard-intent'
 import {
-  LIFESTACKS_OPEN_ADVISOR_EVENT,
   pauseWakeWordListener,
   resumeWakeWordListener,
   type OpenAdvisorDetail,
@@ -80,22 +79,25 @@ interface ChatInterfaceProps {
   onGoalCreated?: () => void
   onTaskCreated?: () => void
   onTaskCompleted?: () => void
-  triggerOpen?: boolean
+  isExpanded: boolean
+  onExpandedChange: (expanded: boolean) => void
+  pendingOpenRef: MutableRefObject<OpenAdvisorDetail | null>
 }
 
 export function ChatInterface({
   onGoalCreated,
   onTaskCreated,
   onTaskCompleted,
-  triggerOpen,
+  isExpanded,
+  onExpandedChange,
+  pendingOpenRef,
 }: ChatInterfaceProps) {
   const { language, t } = useLanguage()
   const pathname = usePathname()
   const { wakeWordEnabled, setWakeWordEnabled, wakeWordSupported } = useChatContext()
   void onTaskCompleted
-  const [isExpanded, setIsExpanded] = useState(false)
   const [dimensions, setDimensions] = useState({ width: 384, height: 600 }) // w-96 = 384px
-  const [position, setPosition] = useState({ x: 16, y: 16 }) // Default position (top-4 right-4 = 16px)
+  const [position, setPosition] = useState({ x: 16, y: 16 })
   const [isResizing, setIsResizing] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
 
@@ -113,27 +115,20 @@ export function ChatInterface({
   const isLoadingRef = useRef(false)
   const pendingTranscriptRef = useRef('')
   const formRef = useRef<HTMLFormElement | null>(null)
-  const pendingOpenRef = useRef<OpenAdvisorDetail | null>(null)
   const contextRefreshStartedRef = useRef(false)
   const startListeningRef = useRef<() => void>(() => {})
   const submitMessageRef = useRef<(text: string) => Promise<void>>(async () => {})
 
-  // Handle external trigger to open chat
   useEffect(() => {
-    if (triggerOpen) {
-      setIsExpanded(true)
-    }
-  }, [triggerOpen])
-
-  // Open Advisor from wake word or dashboard actions
-  useEffect(() => {
-    const handler = (event: Event) => {
-      pendingOpenRef.current = (event as CustomEvent<OpenAdvisorDetail>).detail ?? {}
-      setIsExpanded(true)
-    }
-    window.addEventListener(LIFESTACKS_OPEN_ADVISOR_EVENT, handler)
-    return () => window.removeEventListener(LIFESTACKS_OPEN_ADVISOR_EVENT, handler)
-  }, [])
+    if (!isExpanded) return
+    const width = dimensions.width
+    const height = dimensions.height
+    const x = Math.max(16, window.innerWidth - width - 16)
+    const y = Math.max(16, window.innerHeight - height - 88)
+    setPosition({ x, y })
+    // Anchor once when opening; width/height are read at open time only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded])
 
   useEffect(() => {
     if (!isExpanded || !pendingOpenRef.current) return
@@ -1435,29 +1430,12 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
   }
 
   if (!isExpanded) {
-    return (
-      <div className="fixed bottom-4 left-4 right-auto z-50 md:left-auto md:right-4 flex flex-col items-end gap-2">
-        <div className="rounded-lg bg-white/95 dark:bg-card border border-gray-200 shadow-md px-3 py-2 max-w-[min(100vw-2rem,20rem)]">
-          <WakeWordToggle
-            enabled={wakeWordEnabled}
-            supported={wakeWordSupported}
-            onChange={setWakeWordEnabled}
-            compact
-          />
-        </div>
-        <Button
-          onClick={() => setIsExpanded(true)}
-          className="rounded-full w-14 h-14 shadow-lg bg-black hover:bg-gray-800"
-        >
-          <Send className="w-6 h-6" />
-        </Button>
-      </div>
-    )
+    return null
   }
 
   return (
     <div
-      className={`fixed z-50 bg-white rounded-lg shadow-xl border flex flex-col ${isResizing || isDragging ? 'select-none' : ''}`}
+      className={`fixed z-[9998] bg-white rounded-lg shadow-xl border flex flex-col ${isResizing || isDragging ? 'select-none' : ''}`}
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
@@ -1505,7 +1483,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setIsExpanded(false)}
+            onClick={() => onExpandedChange(false)}
             className="text-white hover:bg-gray-800 h-8 px-2"
           >
             ✕

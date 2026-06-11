@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext } from 'react'
-import { openLifestacksAdvisor } from '@/lib/voice/advisor-events'
+import type { OpenAdvisorDetail } from '@/lib/voice/advisor-events'
 
 export interface ChatContextType {
   refreshGoals: () => void
@@ -10,7 +10,9 @@ export interface ChatContextType {
   wakeWordEnabled: boolean
   setWakeWordEnabled: (enabled: boolean) => void
   wakeWordSupported: boolean
-  openAdvisor: typeof openLifestacksAdvisor
+  advisorExpanded: boolean
+  setAdvisorExpanded: (expanded: boolean) => void
+  openAdvisor: (detail?: OpenAdvisorDetail) => void
 }
 
 export const ChatContext = createContext<ChatContextType | undefined>(undefined)
