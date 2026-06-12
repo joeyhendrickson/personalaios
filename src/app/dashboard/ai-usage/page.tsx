@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { formatAiCostUsd } from '@/lib/ai/format-ai-cost-usd'
 
 type UsageSummary = {
   totalCostUsd: number
@@ -44,11 +45,6 @@ type LogRow = {
   status: string
   latency_ms: number | null
   description: string | null
-}
-
-function fmtUsd(n: number | null | undefined) {
-  if (n == null || Number.isNaN(n)) return '—'
-  return `$${n.toFixed(4)}`
 }
 
 function fmtNum(n: number | null | undefined) {
@@ -135,7 +131,7 @@ export default function AiUsageReceiptPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-semibold text-gray-900">
-                  {fmtUsd(summary.totalCostUsd)}
+                  {formatAiCostUsd(summary.totalCostUsd)}
                 </p>
               </CardContent>
             </Card>
@@ -333,7 +329,9 @@ export default function AiUsageReceiptPage() {
                     </div>
                     <div>
                       <span className="text-gray-500">Estimated cost</span>
-                      <p>{fmtUsd(row.estimated_cost_usd)}</p>
+                      <p className="font-semibold text-gray-900">
+                        {formatAiCostUsd(row.estimated_cost_usd)}
+                      </p>
                     </div>
                     <div>
                       <span className="text-gray-500">Latency</span>

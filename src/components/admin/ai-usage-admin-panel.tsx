@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Sparkles } from 'lucide-react'
+import { formatAiCostUsd } from '@/lib/ai/format-ai-cost-usd'
 
 type Summary = {
   totalCostUsd: number
@@ -46,11 +47,6 @@ type LogRow = {
   status: string
   latency_ms: number | null
   description: string | null
-}
-
-function fmtUsd(n: number | null | undefined) {
-  if (n == null || Number.isNaN(n)) return '—'
-  return `$${n.toFixed(4)}`
 }
 
 function topEntries(map: Record<string, number>, n = 8) {
@@ -169,7 +165,7 @@ export function AiUsageAdminPanel() {
 
         {summary && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <Stat label="Total AI cost" value={fmtUsd(summary.totalCostUsd)} />
+            <Stat label="Total AI cost" value={formatAiCostUsd(summary.totalCostUsd)} />
             <Stat label="Total tokens" value={summary.totalTokens.toLocaleString()} />
             <Stat label="Total calls" value={String(summary.totalCalls)} />
             <Stat label="Failed calls" value={String(summary.failedCalls)} />
@@ -179,7 +175,7 @@ export function AiUsageAdminPanel() {
             />
             <Stat
               label="Cache savings (est.)"
-              value={fmtUsd(summary.cacheSavingsEstimateUsd ?? null)}
+              value={formatAiCostUsd(summary.cacheSavingsEstimateUsd ?? null)}
             />
           </div>
         )}
@@ -191,7 +187,7 @@ export function AiUsageAdminPanel() {
               <p className="text-gray-700">
                 {summary.mostExpensiveModule || '—'}{' '}
                 <span className="text-gray-500">
-                  ({fmtUsd(summary.mostExpensiveModuleCostUsd ?? null)})
+                  ({formatAiCostUsd(summary.mostExpensiveModuleCostUsd ?? null)})
                 </span>
               </p>
             </div>
@@ -200,7 +196,9 @@ export function AiUsageAdminPanel() {
               <p className="text-gray-700 font-mono text-xs break-all">
                 {summary.mostExpensiveUserId || '—'}
               </p>
-              <p className="text-gray-500">{fmtUsd(summary.mostExpensiveUserCostUsd ?? null)}</p>
+              <p className="text-gray-500">
+                {formatAiCostUsd(summary.mostExpensiveUserCostUsd ?? null)}
+              </p>
             </div>
           </div>
         )}
@@ -345,7 +343,7 @@ export function AiUsageAdminPanel() {
                 expensiveRecent.map((row) => (
                   <div key={row.id} className="text-xs border rounded p-2 bg-white">
                     <div className="flex justify-between">
-                      <span>{fmtUsd(row.estimated_cost_usd)}</span>
+                      <span>{formatAiCostUsd(row.estimated_cost_usd)}</span>
                       <span className="text-gray-500">
                         {new Date(row.created_at).toLocaleString()}
                       </span>
@@ -386,7 +384,7 @@ export function AiUsageAdminPanel() {
                     </td>
                     <td className="p-2">{row.module}</td>
                     <td className="p-2">{row.action}</td>
-                    <td className="p-2">{fmtUsd(row.estimated_cost_usd)}</td>
+                    <td className="p-2">{formatAiCostUsd(row.estimated_cost_usd)}</td>
                     <td className="p-2">
                       <Badge variant={row.status === 'failed' ? 'destructive' : 'secondary'}>
                         {row.status}
@@ -456,7 +454,7 @@ function BreakdownTable({ title, rows }: { title: string; rows: [string, number]
             rows.map(([k, v]) => (
               <tr key={k} className="border-t">
                 <td className="p-2 text-gray-800 break-all">{k}</td>
-                <td className="p-2 text-right font-mono">{fmtUsd(v)}</td>
+                <td className="p-2 text-right font-mono">{formatAiCostUsd(v)}</td>
               </tr>
             ))
           )}

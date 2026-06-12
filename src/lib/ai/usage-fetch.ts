@@ -1,8 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
+  normalizeAiCostMapForDisplay,
+  normalizeAiCostUsdForDisplay,
+} from '@/lib/ai/format-ai-cost-usd'
+import {
   summarizeUsageLogs,
   computeCacheSavingsUsd,
   type UsageLogRow,
+  type UsageSummary,
 } from '@/lib/ai/usage-summary'
 
 export type AiUsageQueryFilters = {
@@ -104,6 +109,28 @@ export async function fetchAiUsageSummaryRows(
   return { rows, truncated }
 }
 
+function normalizeUsageLogForDisplay<T extends { estimated_cost_usd?: number | null }>(log: T): T {
+  return {
+    ...log,
+    estimated_cost_usd: normalizeAiCostUsdForDisplay(log.estimated_cost_usd),
+  }
+}
+
+function normalizeUsageSummaryForDisplay(summary: UsageSummary): UsageSummary {
+  return {
+    ...summary,
+    totalCostUsd: normalizeAiCostUsdForDisplay(summary.totalCostUsd) ?? 0,
+    cacheSavingsEstimateUsd: normalizeAiCostUsdForDisplay(summary.cacheSavingsEstimateUsd),
+    mostExpensiveUserCostUsd: normalizeAiCostUsdForDisplay(summary.mostExpensiveUserCostUsd),
+    mostExpensiveModuleCostUsd: normalizeAiCostUsdForDisplay(summary.mostExpensiveModuleCostUsd),
+    costByModule: normalizeAiCostMapForDisplay(summary.costByModule),
+    costByModel: normalizeAiCostMapForDisplay(summary.costByModel),
+    costByRoute: normalizeAiCostMapForDisplay(summary.costByRoute),
+    costByAction: normalizeAiCostMapForDisplay(summary.costByAction),
+    ...(summary.costByUser ? { costByUser: normalizeAiCostMapForDisplay(summary.costByUser) } : {}),
+  }
+}
+
 export async function buildAiUsageResponse(
   client: SupabaseClient,
   filters: AiUsageQueryFilters,
@@ -132,8 +159,10 @@ export async function buildAiUsageResponse(
   }
 
   return {
-    logs: page.data,
+    logs: (page.data as Array<{ estimated_cost_usd?: number | null }>).map(
+      normalizeUsageLogForDisplay
+    ),
     count: page.count,
-    summary,
+    summary: normalizeUsageSummaryForDisplay(summary),
   }
 }
