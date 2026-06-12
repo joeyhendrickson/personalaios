@@ -350,6 +350,15 @@ interface BudgetAnalysis {
       difference: number
       percentage_difference?: number
     }>
+    categorization_stats?: {
+      incomeTransactions: number
+      expenseTransactions: number
+      transferTransactions: number
+      incomeAssigned: number
+      incomeUnassigned: number
+      expenseAssigned: number
+      expenseUnassigned: number
+    }
   }
 }
 
@@ -5253,9 +5262,33 @@ export default function BudgetOptimizerModule() {
                         30-Day Actuals Summary
                       </h3>
                       <p className="text-sm budget-analysis-body mb-4">
-                        Actual spending and income for the most recent 30 days, broken down by your
-                        defined categories:
+                        Actual spending and income for the most recent 30 days, matched from
+                        transaction titles/descriptions into your expected categories (each
+                        transaction counts once):
                       </p>
+                      {analysis.thirty_day_actuals.categorization_stats && (
+                        <div className="budget-analysis-meta mb-4 text-sm budget-analysis-body">
+                          <p>
+                            Matched{' '}
+                            {analysis.thirty_day_actuals.categorization_stats.incomeAssigned} of{' '}
+                            {analysis.thirty_day_actuals.categorization_stats.incomeTransactions}{' '}
+                            income transactions and{' '}
+                            {analysis.thirty_day_actuals.categorization_stats.expenseAssigned} of{' '}
+                            {analysis.thirty_day_actuals.categorization_stats.expenseTransactions}{' '}
+                            expense transactions.
+                            {(analysis.thirty_day_actuals.categorization_stats.incomeUnassigned >
+                              0 ||
+                              analysis.thirty_day_actuals.categorization_stats.expenseUnassigned >
+                                0) && (
+                              <span className="block mt-2 budget-analysis-warning">
+                                Some transactions did not match any expected category. Review the
+                                Transactions tab: tag income/expense/transfer, add keyword rules,
+                                then re-run analysis.
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      )}
 
                       {/* Income Actuals */}
                       {analysis.thirty_day_actuals.income_actuals.length > 0 && (

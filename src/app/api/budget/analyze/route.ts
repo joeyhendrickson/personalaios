@@ -10,6 +10,7 @@ import {
   normalizeBudgetAnalysis,
   parseBudgetAnalysisText,
 } from '@/lib/budget/normalize-budget-analysis'
+import { computeExpectedCategoryActuals } from '@/lib/budget/match-expected-category-actuals'
 
 export async function POST(request: NextRequest) {
   try {
@@ -137,6 +138,40 @@ export async function POST(request: NextRequest) {
     if (last30DaysError) {
       console.error('Error fetching last 30 days transactions:', last30DaysError)
     }
+
+    const last30DaysRows = last30DaysTransactions || []
+    const last30DayIds = last30DaysRows.map((t: any) => t.id)
+
+    const [{ data: transactionRules }, overridesResult] = await Promise.all([
+      supabase.from('transaction_rules').select('*').eq('user_id', user.id).eq('is_active', true),
+      last30DayIds.length
+        ? supabase
+            .from('transaction_type_overrides')
+            .select('transaction_id, type_override, amount_override')
+            .eq('user_id', user.id)
+            .in('transaction_id', last30DayIds)
+        : Promise.resolve({ data: [] as any[] }),
+    ])
+
+    const overrideMap = new Map<
+      string,
+      { type_override: 'income' | 'expense' | 'transfer' | null; amount_override: number | null }
+    >()
+    for (const row of overridesResult.data || []) {
+      overrideMap.set(row.transaction_id, {
+        type_override: row.type_override ?? null,
+        amount_override: row.amount_override ?? null,
+      })
+    }
+
+    const last30DaysWithOverrides = last30DaysRows.map((t: any) => {
+      const override = overrideMap.get(t.id)
+      return {
+        ...t,
+        type_override: override?.type_override ?? null,
+        amount_override: override?.amount_override ?? null,
+      }
+    })
 
     // Fetch dashboard data: tasks, habits, strategies (goals)
     const [tasksResult, habitsResult, strategiesResult] = await Promise.all([
@@ -328,188 +363,49 @@ ${blocks.join('\n\n')}
     )
 
     // Calculate 30-day actuals by matching transactions to expected income/expense categories
-    const calculate30DayActuals = () => {
-      const last30Days = last30DaysTransactions || []
-      const actuals: {
-        income: Array<{
-          category: string
-          expected: number
-          actual: number
-          difference: number
-          transactions: Array<{ date: string; name: string; amount: number }>
-        }>
-        expenses: Array<{
-          category: string
-          expected: number
-          actual: number
-          difference: number
-          transactions: Array<{ date: string; name: string; amount: number }>
-        }>
-      } = { income: [], expenses: [] }
+    const expectedIncomeLines = expectedIncome.map((inc: any) => ({
+      category: inc.category,
+      amount: Number(inc.amount) || 0,
+      frequency: inc.frequency || 'monthly',
+    }))
+    const expectedExpenseLines = expectedExpenses.map((exp: any) => ({
+      category: exp.category,
+      amount: Number(exp.amount) || 0,
+      frequency: exp.frequency || 'monthly',
+    }))
 
-      // Calculate income actuals
-      expectedIncome.forEach((inc: any) => {
-        const expectedMonthly = calculateMonthlyAmount(inc)
-        // Simple keyword matching - could be improved with AI categorization
-        const matchingTransactions = last30Days.filter((t: any) => {
-          const name = (t.name || '').toLowerCase()
-          const merchant = (t.merchant_name || '').toLowerCase()
-          const categoryName = inc.category.toLowerCase()
-          return (
-            t.amount > 0 &&
-            (name.includes(categoryName) ||
-              merchant.includes(categoryName) ||
-              categoryName.includes(name.split(' ')[0]) ||
-              categoryName.includes(merchant.split(' ')[0]))
-          )
-        })
-        const actual = matchingTransactions.reduce((sum: number, t: any) => sum + t.amount, 0)
-        const transactionDetails = matchingTransactions.map((t: any) => ({
-          date: t.date,
-          name: t.name || t.merchant_name || 'Unknown',
-          amount: t.amount,
-        }))
-        actuals.income.push({
-          category: inc.category,
-          expected: expectedMonthly,
-          actual,
-          difference: actual - expectedMonthly,
-          transactions: transactionDetails,
-        })
-      })
+    const thirtyDayActualsResult = computeExpectedCategoryActuals(
+      last30DaysWithOverrides,
+      expectedIncomeLines,
+      expectedExpenseLines,
+      (transactionRules || []).map((rule: any) => ({
+        keyword: rule.keyword,
+        transaction_type: rule.transaction_type,
+        is_active: rule.is_active,
+      }))
+    )
 
-      // Calculate expense actuals
-      expectedExpenses.forEach((exp: any) => {
-        const expectedMonthly = calculateMonthlyAmount(exp)
-        const categoryName = exp.category.toLowerCase()
-
-        // Create category-specific keywords for better matching
-        const categoryKeywords: string[] = []
-        if (categoryName.includes('utilities')) {
-          categoryKeywords.push(
-            'utility',
-            'electric',
-            'gas',
-            'water',
-            'sewer',
-            'trash',
-            'internet',
-            'cable',
-            'phone bill'
-          )
-        } else if (categoryName.includes('rent')) {
-          categoryKeywords.push('rent', 'apartment', 'housing payment', 'landlord')
-        } else if (categoryName.includes('grocery')) {
-          categoryKeywords.push(
-            'grocery',
-            'supermarket',
-            'walmart',
-            'target',
-            'costco',
-            'kroger',
-            'safeway',
-            'whole foods',
-            'trader joe',
-            'aldi',
-            'food',
-            'grocery store'
-          )
-        } else if (categoryName.includes('meals') || categoryName.includes('entertainment')) {
-          categoryKeywords.push(
-            'restaurant',
-            'dining',
-            'cafe',
-            'bar',
-            'entertainment',
-            'movies',
-            'theater',
-            'concert',
-            'event'
-          )
-        }
-
-        const matchingTransactions = last30Days.filter((t: any) => {
-          // Skip if transaction is income
-          if (t.amount >= 0) return false
-
-          const name = (t.name || '').toLowerCase()
-          const merchant = (t.merchant_name || '').toLowerCase()
-          const transactionText = `${name} ${merchant}`.toLowerCase()
-          const plaidCategories = (t.category || []).map((c: string) => c.toLowerCase())
-
-          // Primary: Check if Plaid category matches (most reliable)
-          const plaidMatch = plaidCategories.some((cat: string) => {
-            if (
-              categoryName.includes('utilities') &&
-              (cat.includes('utilities') || cat.includes('utility'))
-            )
-              return true
-            if (categoryName.includes('rent') && (cat.includes('rent') || cat.includes('housing')))
-              return true
-            if (
-              categoryName.includes('grocery') &&
-              (cat.includes('grocery') || cat.includes('food and drink'))
-            )
-              return true
-            if (
-              (categoryName.includes('meals') || categoryName.includes('entertainment')) &&
-              (cat.includes('restaurant') ||
-                cat.includes('food and drink') ||
-                cat.includes('entertainment'))
-            )
-              return true
-            return false
-          })
-
-          if (plaidMatch) return true
-
-          // Secondary: Check category-specific keywords (more precise)
-          if (categoryKeywords.length > 0) {
-            const keywordMatch = categoryKeywords.some((keyword) =>
-              transactionText.includes(keyword)
-            )
-            if (keywordMatch) return true
-          }
-
-          // Tertiary: Direct category name match in transaction text (fallback)
-          if (categoryName.length > 3 && transactionText.includes(categoryName)) {
-            return true
-          }
-
-          return false
-        })
-
-        const actual = Math.abs(
-          matchingTransactions.reduce((sum: number, t: any) => sum + t.amount, 0)
-        )
-        const transactionDetails = matchingTransactions.map((t: any) => ({
-          date: t.date,
-          name: t.name || t.merchant_name || 'Unknown',
-          amount: Math.abs(t.amount),
-        }))
-        actuals.expenses.push({
-          category: exp.category,
-          expected: expectedMonthly,
-          actual,
-          difference: actual - expectedMonthly,
-          transactions: transactionDetails,
-        })
-      })
-
-      return actuals
+    const thirtyDayActuals = {
+      income: thirtyDayActualsResult.income,
+      expenses: thirtyDayActualsResult.expenses,
+      stats: thirtyDayActualsResult.stats,
     }
 
-    const thirtyDayActuals = calculate30DayActuals()
-
-    // Validate expense actuals - check for duplicate values (indicating matching bug)
-    if (thirtyDayActuals.expenses.length > 1) {
-      const actualValues = thirtyDayActuals.expenses.map((e) => e.actual)
-      const uniqueValues = new Set(actualValues)
-      if (uniqueValues.size === 1 && actualValues[0] > 0) {
+    // Validate actuals — duplicate totals across categories indicate a matching bug
+    if (thirtyDayActuals.income.length > 1) {
+      const incomeActuals = thirtyDayActuals.income.map((e) => e.actual).filter((v) => v > 0)
+      if (incomeActuals.length > 1 && new Set(incomeActuals).size === 1) {
         console.warn(
-          'WARNING: All expense categories have the same actual value. This indicates a matching logic bug.'
+          'WARNING: All non-zero income categories share the same actual value. Check categorization logic.'
         )
-        console.warn('Expense actuals:', thirtyDayActuals.expenses)
+      }
+    }
+    if (thirtyDayActuals.expenses.length > 1) {
+      const expenseActuals = thirtyDayActuals.expenses.map((e) => e.actual).filter((v) => v > 0)
+      if (expenseActuals.length > 1 && new Set(expenseActuals).size === 1) {
+        console.warn(
+          'WARNING: All non-zero expense categories share the same actual value. Check categorization logic.'
+        )
       }
     }
 
@@ -1245,6 +1141,7 @@ Focus on actionable, specific recommendations that help improve financial situat
           difference: a.difference,
           percentage_difference: a.expected > 0 ? (a.difference / a.expected) * 100 : 0,
         })),
+        categorization_stats: thirtyDayActuals.stats,
       },
     })
 

@@ -119,6 +119,15 @@ export type NormalizedBudgetAnalysis = {
       difference: number
       percentage_difference?: number
     }>
+    categorization_stats?: {
+      incomeTransactions: number
+      expenseTransactions: number
+      transferTransactions: number
+      incomeAssigned: number
+      incomeUnassigned: number
+      expenseAssigned: number
+      expenseUnassigned: number
+    }
   }
 }
 
@@ -486,6 +495,10 @@ function normalizeThirtyDayActuals(
   raw: unknown,
   fallback?: NormalizedBudgetAnalysis['thirty_day_actuals']
 ): NormalizedBudgetAnalysis['thirty_day_actuals'] | undefined {
+  if (fallback && (fallback.income_actuals.length > 0 || fallback.expense_actuals.length > 0)) {
+    return fallback
+  }
+
   const source = asRecord(raw)
   if (!source && !fallback) return undefined
 
@@ -504,5 +517,6 @@ function normalizeThirtyDayActuals(
   return {
     income_actuals: incomeActuals,
     expense_actuals: expenseActuals,
+    categorization_stats: fallback?.categorization_stats,
   }
 }
