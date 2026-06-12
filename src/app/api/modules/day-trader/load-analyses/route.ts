@@ -23,7 +23,20 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error loading analyses:', error)
-      return NextResponse.json({ error: 'Failed to load analyses' }, { status: 500 })
+      if (error.code === '42P01') {
+        return NextResponse.json(
+          {
+            error: 'Failed to load analyses',
+            details:
+              'The trading_analyses table is missing. Run migration 014_create_trading_analyses_table.sql in Supabase.',
+          },
+          { status: 500 }
+        )
+      }
+      return NextResponse.json(
+        { error: 'Failed to load analyses', details: error.message },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({

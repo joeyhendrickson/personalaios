@@ -29,10 +29,30 @@ import {
   Lock,
   Newspaper,
 } from 'lucide-react'
-import { EVENT_MONITORING_LABELS, type EventMonitoringKey } from '@/lib/day-trader/event-monitoring'
+import {
+  EVENT_MONITORING_LABELS,
+  normalizeEventMonitoring,
+  type EventMonitoringKey,
+} from '@/lib/day-trader/event-monitoring'
 
 const PROFIT_ADVISOR_UNLOCK_KEY = 'market-advisor-profit-advisor-unlocked'
 const PROFIT_ADVISOR_PASSWORD = 'ProUser'
+
+function patternsForSave(patterns: TradingPattern[]) {
+  return patterns.map(({ imageUrl: _, ...pattern }) => pattern)
+}
+
+function formatSaveError(data: { error?: string; details?: unknown }): string {
+  const base = data.error || 'Failed to save prediction'
+  if (typeof data.details === 'string' && data.details.trim()) {
+    return `${base}: ${data.details}`
+  }
+  if (Array.isArray(data.details) && data.details.length > 0) {
+    const first = data.details[0] as { message?: string }
+    if (first?.message) return `${base}: ${first.message}`
+  }
+  return base
+}
 
 interface InformationSource {
   id: string
@@ -325,31 +345,33 @@ export default function DayTraderModule() {
   }
 
   const savePrediction = async () => {
-    if (!prediction || !config.stockSymbol) return
+    if (!prediction || !config.stockSymbol.trim()) return
 
     setSavingPrediction(true)
     try {
+      const stockSymbol = config.stockSymbol.trim().toUpperCase()
       const response = await fetch('/api/modules/day-trader/save-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name:
-            saveName.trim() ||
-            `${config.stockSymbol.toUpperCase()} prediction ${new Date().toLocaleDateString()}`,
-          stockSymbol: config.stockSymbol,
-          buyingPower: config.buyingPower,
+          name: saveName.trim() || `${stockSymbol} prediction ${new Date().toLocaleDateString()}`,
+          stockSymbol,
+          buyingPower: Number(config.buyingPower) || 100,
           investorType: config.investorType,
           informationSources: config.informationSources
-            .filter((source) => source.isActive)
-            .map(({ name, weight }) => ({ name, weight })),
-          eventMonitoring: config.eventMonitoring,
+            .filter((source) => source.isActive && source.name.trim())
+            .map(({ name, weight }) => ({
+              name: name.trim(),
+              weight: Math.min(100, Math.max(0, Number(weight) || 50)),
+            })),
+          eventMonitoring: normalizeEventMonitoring(config.eventMonitoring),
           manualStockData: manualStockData,
           analysisResults: {
             predictions: {
               ...prediction,
               savedAt: new Date().toISOString(),
             },
-            patterns: patterns.map(({ imageUrl: _, ...pattern }) => pattern),
+            patterns: patternsForSave(patterns),
             patternLookbackDays: patternLookbackDaysUsed ?? undefined,
           },
         }),
@@ -357,7 +379,7 @@ export default function DayTraderModule() {
 
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {
-        alert(data.error || 'Failed to save prediction')
+        alert(formatSaveError(data))
         return
       }
 
@@ -367,7 +389,9 @@ export default function DayTraderModule() {
       alert('Prediction saved.')
     } catch (error) {
       console.error('Error saving prediction:', error)
-      alert('Failed to save prediction. Please try again.')
+      alert(
+        `Failed to save prediction: ${error instanceof Error ? error.message : 'Please try again.'}`
+      )
     } finally {
       setSavingPrediction(false)
     }
@@ -386,7 +410,7 @@ export default function DayTraderModule() {
         weight: source.weight,
         isActive: true,
       })),
-      eventMonitoring: analysis.event_monitoring || prev.eventMonitoring,
+      eventMonitoring: normalizeEventMonitoring(analysis.event_monitoring),
     }))
 
     if (analysis.manual_stock_data) {

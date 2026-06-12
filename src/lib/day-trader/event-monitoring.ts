@@ -12,6 +12,26 @@ export type EventMonitoringKey =
 
 export type EventMonitoringConfig = Record<EventMonitoringKey, boolean>
 
+export const DEFAULT_EVENT_MONITORING: EventMonitoringConfig = {
+  earnings: true,
+  federalEvents: true,
+  tariffs: false,
+  rateCuts: true,
+  employment: true,
+  interestRates: true,
+  recession: false,
+  monetaryPolicy: false,
+  industryTrends: true,
+  analystRatings: true,
+}
+
+/** Merge partial/legacy saved configs with current defaults so API validation always passes. */
+export function normalizeEventMonitoring(
+  config: Partial<EventMonitoringConfig> | null | undefined
+): EventMonitoringConfig {
+  return { ...DEFAULT_EVENT_MONITORING, ...(config || {}) }
+}
+
 export const EVENT_MONITORING_LABELS: Record<EventMonitoringKey, string> = {
   earnings: 'Earnings',
   federalEvents: 'Federal / Geopolitical Events',
