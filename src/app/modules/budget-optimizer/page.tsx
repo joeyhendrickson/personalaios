@@ -43,6 +43,7 @@ import {
   Copy,
 } from 'lucide-react'
 import { classifyPlaidTransactionDisplay } from '@/lib/budget/transaction-display-classification'
+import { findDuplicateTransactions } from '@/lib/budget/find-duplicate-transactions'
 
 interface BankConnection {
   id: string
@@ -113,6 +114,7 @@ interface PotentialItem {
 interface Transaction {
   id: string
   transaction_id: string
+  bank_account_id?: string
   amount: number
   source_amount?: number
   amount_override?: number | null
@@ -124,6 +126,7 @@ interface Transaction {
   type_override?: 'income' | 'expense' | 'transfer' | null
   is_flagged?: boolean
   bank_accounts: {
+    id?: string
     name: string
     type: string
     official_name?: string | null
@@ -1635,38 +1638,19 @@ export default function BudgetOptimizerModule() {
   }
 
   const scanForDuplicateTransactions = () => {
-    const byTransactionNumber = new Map<string, string[]>()
-
-    for (const transaction of transactions) {
-      const transactionNumber = transaction.transaction_id?.trim()
-      if (!transactionNumber) continue
-
-      const ids = byTransactionNumber.get(transactionNumber) ?? []
-      ids.push(transaction.id)
-      byTransactionNumber.set(transactionNumber, ids)
-    }
-
-    const duplicateIds = new Set<string>()
-    let duplicateGroupCount = 0
-
-    for (const ids of byTransactionNumber.values()) {
-      if (ids.length > 1) {
-        duplicateGroupCount += 1
-        for (const id of ids) {
-          duplicateIds.add(id)
-        }
-      }
-    }
+    const { duplicateIds, groupCount } = findDuplicateTransactions(transactions)
 
     setDuplicateTransactionIds(duplicateIds)
 
     if (duplicateIds.size === 0) {
-      setDuplicateScanMessage('No duplicate transaction numbers found in this date range.')
+      setDuplicateScanMessage(
+        'No duplicate transactions found in this date range (same bank transaction number or matching amount across accounts within a few days).'
+      )
       return
     }
 
     setDuplicateScanMessage(
-      `Found ${duplicateIds.size} transaction${duplicateIds.size !== 1 ? 's' : ''} with the same transaction number (${duplicateGroupCount} duplicate group${duplicateGroupCount !== 1 ? 's' : ''}).`
+      `Found ${duplicateIds.size} transaction${duplicateIds.size !== 1 ? 's' : ''} in ${groupCount} duplicate group${groupCount !== 1 ? 's' : ''} (same transaction number or mirrored payment across accounts).`
     )
   }
 
@@ -4034,7 +4018,7 @@ export default function BudgetOptimizerModule() {
                       ? 'bg-purple-700 text-white ring-2 ring-purple-300 ring-offset-2'
                       : 'bg-purple-600 text-white hover:bg-purple-700'
                   }`}
-                  title="Find transactions that share the same bank transaction number"
+                  title="Find duplicate transactions: same bank transaction number, or the same amount across different accounts within a few days (e.g. PayPal + checking transfer)"
                 >
                   <Copy className="h-4 w-4" />
                   Scan for Duplicates
