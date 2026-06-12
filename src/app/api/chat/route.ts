@@ -5,6 +5,11 @@ import { ADVISOR_CROSS_MODULE_GUIDELINES } from '@/lib/ai-context/advisory-guide
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
+import {
+  advisorMaxOutputTokens,
+  buildAdvisorLengthInstructions,
+  userWantsMoreDetail,
+} from '@/lib/advisor/response-length'
 
 /** Stream `error` parts are often plain objects, not `Error` — `String(obj)` becomes "[object Object]". */
 function formatStreamError(err: unknown): string {
@@ -154,21 +159,28 @@ export async function POST(req: Request) {
 
     console.log('Calling OpenAI with user context...')
 
+    const wantsMoreDetail = userWantsMoreDetail(messages)
+    const lengthInstructions = buildAdvisorLengthInstructions(language, wantsMoreDetail)
+
     const startMs = Date.now()
     const modelId = resolveOpenAIModelId()
+    const maxTokens = advisorMaxOutputTokens(wantsMoreDetail)
     const result = await streamText({
       model: defaultOpenaiModel(),
       messages,
+      ...(maxTokens != null ? { maxTokens } : {}),
       system: `You are the Lifestacks Advisor — an intelligent AI assistant for a Personal AI OS. You have access to the user's dashboard data AND detailed MODULE CONTEXT from their installed life modules. Ground advice in real data; help the user feel known.
 
 ${systemContext}
 
 ${ADVISOR_CROSS_MODULE_GUIDELINES}
 
+${lengthInstructions}
+
 CORE CAPABILITIES:
 1. **Personalized Advice**: Analyze user's data to provide specific, actionable recommendations
 2. **Category Analysis**: Understand user's focus areas and suggest improvements
-3. **Dashboard planning**: User can tap "Add conversation to dashboard" to get confirmable goals, projects (linked to goals), and tasks (linked to projects)
+3. **Dashboard planning**: User can tap "Add to dashboard" or ask you to add goals, projects, tasks, or habits — the app then shows proposal cards; nothing is saved until they tap Confirm & Add or Confirm all
 4. **Goal Alignment**: Help align daily activities with weekly goals
 5. **Progress Tracking**: Reference current progress and suggest next steps
 6. **Habit Integration**: Incorporate daily habits into recommendations
@@ -195,6 +207,12 @@ RESPONSE STYLE:
 - Suggest concrete next steps
 - Use conversational language - avoid mentioning specific point values or numbers
 - Focus on the meaning and importance of tasks/goals rather than their point values
+
+DASHBOARD CHANGES (critical — never violate):
+- You CANNOT directly create, edit, or delete goals, projects, tasks, or habits in chat. The database is only updated when the user confirms proposal cards in the chat UI.
+- NEVER say you added, created, updated, saved, or removed dashboard items unless the user has already tapped Confirm & Add or Confirm all and you know it succeeded.
+- When the user asks to add a habit, goal, project, or task, say you are preparing it for their review (or that they should confirm the proposal cards shown below). Do not claim it is already on the dashboard.
+- If no proposal cards are visible yet, tell them you will build a dashboard proposal from the conversation — they must confirm before anything appears on the dashboard.
 
 FORMATTING GUIDELINES:
 - Write in natural, flowing paragraphs with proper spacing

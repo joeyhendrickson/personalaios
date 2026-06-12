@@ -90,6 +90,7 @@ export async function POST(req: Request) {
       goal: result.kind === 'goal' ? result.record : undefined,
       project: result.kind === 'project' ? result.record : undefined,
       task: result.kind === 'task' ? result.record : undefined,
+      habit: result.kind === 'habit' ? result.record : undefined,
     })
   } catch (e) {
     return NextResponse.json(

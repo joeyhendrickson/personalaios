@@ -22,12 +22,21 @@ const COMMIT_ALL_PATTERNS = [
 
 const PROPOSE_PATTERNS = [
   /add (this|these|it|them|that|the conversation)( conversation)? to (my )?dashboard/i,
-  /turn (this|the conversation|that) into (goals|projects|tasks|a plan)/i,
+  /turn (this|the conversation|that) into (goals|projects|tasks|habits|a plan)/i,
   /create (goals|projects|tasks|habits) (from|based on) (this|the conversation|that)/i,
   /put (this|these|that) on (my )?dashboard/i,
-  /make (this|these) (into )?(dashboard )?(goals|projects|tasks)/i,
+  /make (this|these) (into )?(dashboard )?(goals|projects|tasks|habits)/i,
   /add to dashboard/i,
   /generate (a )?dashboard plan/i,
+  /add (a |an |the |this |my )?(new )?habit\b/i,
+  /create (a |an |the )?(new )?habit\b/i,
+  /set up (a |an )?(new )?habit\b/i,
+  /put (a |an )?habit (on|to|in(to)?) (my )?(dashboard|habits)/i,
+  /add .{0,80} (to|on|in(to)?) (my )?(dashboard|habits( section)?)/i,
+  /can you add (a |an )?(new )?habit/i,
+  /please add (a |an )?(new )?habit/i,
+  /add (a |an |the )?(new )?(goal|project|task)\b/i,
+  /create (a |an |the )?(new )?(goal|project|task)\b/i,
 ]
 
 const DISMISS_PATTERNS = [

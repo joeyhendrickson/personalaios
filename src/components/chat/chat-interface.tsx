@@ -51,7 +51,7 @@ const WELCOME_MESSAGE: ChatMessage = {
 
 • Plan your day and prioritize tasks based on your goals
 • Analyze your progress and suggest improvements
-• Turn a conversation into linked goals, projects, tasks, and habits (use Add to dashboard). I only add to your dashboard — I never remove existing items unless you ask me to.
+• Turn a conversation into linked goals, projects, tasks, and habits — ask me to add them to your dashboard, then confirm the proposal cards (nothing is saved until you tap Confirm & Add).
 • Focus on specific areas like "Good Living" or "Enjoyment"
 • Track your habits, education, and priorities
 • Provide personalized advice based on your data
@@ -70,7 +70,7 @@ type OnboardingChoice = { id: 'new' | 'returning'; label: string }
 type GoalProposal = { id: string; preview: string; payload: Record<string, unknown> }
 type DashboardProposal = {
   id: string
-  action_type: 'create_goal' | 'create_project' | 'create_task'
+  action_type: 'create_goal' | 'create_project' | 'create_task' | 'create_habit'
   preview: string
   sort_order: number
 }
@@ -344,6 +344,7 @@ export function ChatInterface({
     onTaskCreated?.()
     window.dispatchEvent(new CustomEvent('goals-refreshed'))
     window.dispatchEvent(new CustomEvent('tasks-refreshed'))
+    window.dispatchEvent(new CustomEvent('habits-refreshed'))
     window.dispatchEvent(new CustomEvent('dashboard-refreshed'))
   }
 
@@ -630,8 +631,15 @@ export function ChatInterface({
             : null
         )
         const label =
-          payload.kind === 'project' ? 'project' : payload.kind === 'task' ? 'task' : 'goal'
+          payload.kind === 'habit'
+            ? 'habit'
+            : payload.kind === 'project'
+              ? 'project'
+              : payload.kind === 'task'
+                ? 'task'
+                : 'goal'
         const title =
+          (payload.habit?.title as string) ||
           (payload.project?.title as string) ||
           (payload.task?.title as string) ||
           (payload.goal?.title as string) ||
@@ -684,7 +692,7 @@ export function ChatInterface({
             content:
               payload.status === 'partial'
                 ? `Added ${count} item(s). Some items need attention: ${(payload.errors as { error: string }[])?.map((e) => e.error).join('; ')}`
-                : `Successfully added ${count} item(s) to your dashboard (goals, projects, and tasks are linked).`,
+                : `Successfully added ${count} item(s) to your dashboard (goals, projects, tasks, and habits are linked where applicable).`,
           },
         ])
         refreshDashboard()
@@ -733,7 +741,7 @@ export function ChatInterface({
           {
             id: Date.now().toString(),
             role: 'assistant',
-            content: `${payload.summary}\n\nReview each item below. Projects link to goals; tasks link to projects. Use Confirm & Add on each item, or Confirm all.`,
+            content: `${payload.summary}\n\nReview each item below — including habits for your Habits section. Use Confirm & Add on each item, or Confirm all. Nothing is saved until you confirm.`,
           },
         ])
       } else {

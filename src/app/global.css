@@ -81,21 +81,21 @@ body {
   aspect-ratio: 1 / 1;
   object-fit: contain;
   max-width: none;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 4rem;
+  height: 4rem;
 }
 
 @media (min-width: 640px) {
   .lifestacks-logo img {
-    width: 3rem;
-    height: 3rem;
+    width: 5rem;
+    height: 5rem;
   }
 }
 
 @media (min-width: 768px) {
   .lifestacks-logo img {
-    width: 3.5rem;
-    height: 3.5rem;
+    width: 6rem;
+    height: 6rem;
   }
 }
 
@@ -1451,4 +1451,20 @@ body {
 .progress-plan-modal__btn-secondary:hover {
   background-color: hsl(43 28% 10%);
   color: hsl(0 0% 100%);
+}
+
+/* Floating AI Advisor launcher — white circle in dark mode for visibility */
+.dark .advisor-launcher-fab {
+  background-color: hsl(0 0% 100%);
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.35),
+    0 0 0 1px hsl(43 76% 52% / 0.35);
+}
+
+.dark .advisor-launcher-fab:hover {
+  background-color: hsl(0 0% 92%);
+}
+
+.dark .advisor-launcher-fab__icon {
+  color: hsl(0 0% 0%);
 }

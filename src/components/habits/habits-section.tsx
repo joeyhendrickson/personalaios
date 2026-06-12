@@ -30,6 +30,11 @@ export default function HabitsSection() {
 
   useEffect(() => {
     fetchHabits()
+    const onRefresh = () => {
+      void fetchHabits()
+    }
+    window.addEventListener('habits-refreshed', onRefresh)
+    return () => window.removeEventListener('habits-refreshed', onRefresh)
   }, [])
 
   const fetchHabits = async () => {
