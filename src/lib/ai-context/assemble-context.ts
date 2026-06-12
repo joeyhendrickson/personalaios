@@ -36,6 +36,9 @@ const CACHE_INCREMENTAL_FRESH_HOURS = 2
 
 function isCacheFresh(row: UserContextCacheRow | null): boolean {
   if (!row?.last_full_refresh_at) return false
+  const structured = row.structured_state_summary_json
+  // Invalidate caches built before active-only workload counts
+  if (structured && typeof structured.completedTasksCount !== 'number') return false
   const fullAge = (Date.now() - new Date(row.last_full_refresh_at).getTime()) / (1000 * 60 * 60)
   if (fullAge <= CACHE_FRESH_HOURS) return true
   if (row.last_incremental_refresh_at) {
@@ -101,14 +104,15 @@ function formatStructuredState(s: StructuredStateSummary | null): string {
   if (orphan > 0 && goalCount > 0)
     maturityFlags.push('Some projects are not linked to any goal (orphans).')
 
-  return `DASHBOARD STATE:
+  return `DASHBOARD STATE (active workload only — exclude completed/cancelled goals, projects, and tasks from counts and recommendations):
 - Points: Weekly ${s.weeklyPoints}, Daily ${s.dailyPoints}
 - Has Good Living Category: ${hasGoodLiving}
-- User GOALS (${s.totalGoals}) — weekly/monthly targets from Goals feature: Top: ${topUserGoalsFmt}
-- Dashboard PROJECTS (${totalProjects}) — week-scoped tiles on Projects panel (not the same table as User Goals): Top: ${topProjectsFmt}
-- Tasks: ${s.totalTasks}, Habits: ${s.totalHabits}, Priorities: ${s.activePriorities}, Completed today: ${s.completedTasksToday}
+- Active GOALS (${s.totalGoals}) — weekly/monthly targets from Goals feature: Top: ${topUserGoalsFmt}
+- Active PROJECTS (${totalProjects}) — week-scoped tiles on Projects panel: Top: ${topProjectsFmt}
+- Open tasks: ${s.totalTasks}, Habits: ${s.totalHabits}, Priorities: ${s.activePriorities}, Completed today: ${s.completedTasksToday}
+- Completed/closed (context only, do not assign new work): goals=${s.completedGoalsCount ?? '—'}, projects=${s.completedProjectsCount ?? '—'}, tasks=${s.completedTasksCount ?? '—'}
 - Modules: ${s.installedModules.join(', ') || 'None'}
-- Top tasks: ${s.topTasks.map((t) => `${t.title} [${t.status}]`).join('; ') || 'None'}
+- Top open tasks: ${s.topTasks.map((t) => `${t.title} [${t.status}]`).join('; ') || 'None'}
 - Completed today: ${s.completedTodayList?.map((t) => `${t.title} (${t.category || ''})`).join('; ') || 'None'}
 - Habits: ${s.topHabits?.filter(Boolean).join('; ') || 'None'}
 - Priorities: ${s.topPriorities.map((p) => p.title).join('; ') || 'None'}
@@ -116,9 +120,13 @@ function formatStructuredState(s: StructuredStateSummary | null): string {
 - Relationships: ${s.relationships?.map((r) => `${r.name} (${r.lastInteraction || 'Never'})`).join('; ') || 'None'}
 - Module data: ${s.moduleSummaries.map((m) => `${m.moduleId}: ${m.summary}`).join('; ') || 'None'}
 
-PLANNING MATURITY (heuristics):
-- Goals recommended: 2–5; Projects recommended: 6–15 total; Tasks recommended: ~2–7 per project.
-- Current: goals=${goalCount}, projects=${projectCount}, tasks=${taskCount}
+COMPLETION AWARENESS:
+- Recommend actions ONLY for active goals, active projects, and open tasks listed above.
+- Completed/cancelled items are past wins — celebrate briefly if relevant, but never treat them as current workload or assign new work on them.
+
+PLANNING MATURITY (heuristics — uses active counts only):
+- Goals recommended: 2–5 active; Projects recommended: 6–15 active; Tasks recommended: ~2–7 open per project.
+- Current active: goals=${goalCount}, projects=${projectCount}, open tasks=${taskCount}
 - Goal↔Project links: linked_projects=${linked}, orphan_projects=${orphan}, goals_with_projects=${goalsWithProjects}
 - Flags: ${maturityFlags.join(' | ') || 'Looks within normal ranges.'}`
 }
@@ -183,7 +191,7 @@ export async function assembleAIContext(
   let moduleContext: ModuleContextSummary[] | null = null
   let crossModuleInsights: CrossModuleInsightsSummary | null = null
 
-  if (row && (fresh || !preferLiveIfStale)) {
+  if (row && fresh && !preferLiveIfStale) {
     usedCache = true
     if (row.last_full_refresh_at) {
       cacheAgeHours = (Date.now() - new Date(row.last_full_refresh_at).getTime()) / (1000 * 60 * 60)

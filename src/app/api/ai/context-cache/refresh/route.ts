@@ -6,6 +6,9 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { refreshUserContextCache } from '@/lib/ai-context/cache-generator'
 
+/** Skip advisor-open refresh if cache is newer than this many minutes (24h daily refresh). */
+const ADVISOR_OPEN_CACHE_MINUTES = 24 * 60
+
 export async function POST(req: Request) {
   try {
     const supabase = await createClient()
@@ -27,7 +30,7 @@ export async function POST(req: Request) {
         typeof body?.forceIfOlderThanMinutes === 'number'
           ? body.forceIfOlderThanMinutes
           : trigger === 'advisor_open'
-            ? 30
+            ? ADVISOR_OPEN_CACHE_MINUTES
             : undefined
     } catch {
       // empty body is fine for manual refresh

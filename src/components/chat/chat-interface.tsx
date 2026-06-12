@@ -153,7 +153,7 @@ export function ChatInterface({
     }
   }, [isExpanded, wakeWordEnabled])
 
-  // Warm cross-module context cache when Advisor opens (skip if refreshed within 30 min)
+  // Warm cross-module context cache when Advisor opens (skip if refreshed within 24 hours)
   useEffect(() => {
     if (!isExpanded) {
       contextRefreshStartedRef.current = false
@@ -166,7 +166,7 @@ export function ChatInterface({
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trigger: 'advisor_open', forceIfOlderThanMinutes: 30 }),
+      body: JSON.stringify({ trigger: 'advisor_open', forceIfOlderThanMinutes: 1440 }),
     }).catch(() => {
       contextRefreshStartedRef.current = false
     })

@@ -18,6 +18,11 @@ import { buildCrossModuleInsights } from './cross-module-insights'
 import { enrichModuleSummariesWithAI } from './module-ai-summarizer'
 import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
 import type { DerivedInsightsSummary } from '@/types/context-cache'
+import {
+  isGoalClosed,
+  isProjectCompleted,
+  isTaskCompleted,
+} from '@/lib/life-coach/partition-user-data'
 
 export interface RefreshContextOptions {
   route?: string
@@ -145,13 +150,13 @@ export async function refreshUserContextCache(
     const crossModuleInsights = buildCrossModuleInsights(raw, moduleContext)
 
     const checksum = simpleChecksum({
-      userGoals: raw.userGoals.length,
-      dashboardProjects: raw.dashboardProjects.length,
-      tasks: raw.tasks.length,
+      activeGoals: raw.userGoals.filter((g) => !isGoalClosed(g)).length,
+      activeProjects: raw.dashboardProjects.filter((p) => !isProjectCompleted(p)).length,
+      openTasks: raw.tasks.filter((t) => !isTaskCompleted(t)).length,
       priorities: raw.priorities.length,
       moduleRecords: raw.moduleData.reduce((s, m) => s + m.total_records, 0),
       transactions: raw.budgetContext?.transactions.length ?? 0,
-      ts: Math.floor(Date.now() / 3600000),
+      ts: Math.floor(Date.now() / 86400000),
     })
 
     const staticProfile = buildStaticProfileSummary(raw.assessmentData)
@@ -261,12 +266,12 @@ async function generateDerivedInsights(
   const prompt = `You are a holistic life advisor analyst. Summarize this user's progress across dashboard AND life modules. Provide cross-domain recommendations (finance, wellness, relationships, habits). Return ONLY valid JSON:
 {"overallProgress":"string","strengths":["string"],"areasForImprovement":["string"],"recommendations":["string"],"goalAlignment":"1 sentence","productivityScore":0-100,"nextSteps":["string"]}
 
-DASHBOARD:
-- User goals: ${structured.totalGoals}; Projects: ${structured.totalDashboardProjects ?? '—'}
-- Tasks: ${structured.totalTasks}, Habits: ${structured.totalHabits}
+DASHBOARD (active workload only — ignore completed/cancelled goals, projects, and tasks):
+- Active goals: ${structured.totalGoals}; Active projects: ${structured.totalDashboardProjects ?? '—'}
+- Open tasks: ${structured.totalTasks}, Habits: ${structured.totalHabits}
 - Weekly points: ${structured.weeklyPoints}, Completed today: ${structured.completedTasksToday}
-- Top goals: ${structured.topGoals.map((g) => g.title).join(', ') || 'None'}
-- Top projects: ${(structured.topDashboardProjects ?? []).map((p) => p.title).join(', ') || 'None'}
+- Top active goals: ${structured.topGoals.map((g) => g.title).join(', ') || 'None'}
+- Top active projects: ${(structured.topDashboardProjects ?? []).map((p) => p.title).join(', ') || 'None'}
 
 MODULE DATA:
 ${moduleLines || 'No module data yet'}`

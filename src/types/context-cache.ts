@@ -18,16 +18,23 @@ export interface StaticProfileSummary {
 export interface StructuredStateSummary {
   weeklyPoints: number
   dailyPoints: number
-  /** Rows in `goals` (weekly/monthly targets), not dashboard projects */
+  /** Active (not completed/cancelled) rows in `goals` */
   totalGoals: number
-  /** Rows in `projects` table (dashboard "Projects"; formerly weekly_goals); optional for older cache JSON */
+  /** Active (not completed/cancelled) rows in `projects` (dashboard Projects panel) */
   totalDashboardProjects?: number
+  /** Completed/cancelled goals — for context only, not workload counts */
+  completedGoalsCount?: number
+  /** Completed/cancelled dashboard projects — for context only */
+  completedProjectsCount?: number
+  /** Completed/cancelled tasks — for context only */
+  completedTasksCount?: number
   /** How many projects are linked to any goal (via projects.goal_id) */
   linkedProjectsCount?: number
   /** Projects with no goal_id set */
   orphanProjectsCount?: number
   /** Goals with at least one linked project */
   goalsWithProjectsCount?: number
+  /** Open (not completed/cancelled) tasks only */
   totalTasks: number
   totalHabits: number
   activePriorities: number

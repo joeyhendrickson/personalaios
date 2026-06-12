@@ -185,6 +185,7 @@ body {
 .dark .bg-amber-50,
 .dark .bg-amber-50\/30,
 .dark .bg-amber-50\/40,
+.dark .bg-amber-50\/50,
 .dark .bg-amber-50\/70,
 .dark .bg-amber-100,
 .dark .bg-amber-200,
@@ -905,4 +906,406 @@ body {
   background-color: hsl(43 20% 14%) !important;
   border-color: hsl(43 80% 58%) !important;
   color: hsl(43 80% 65%) !important;
+}
+
+/* Budget Advisor — flagged transactions panel (gold theme, readable in light + dark) */
+.budget-flagged-panel {
+  border-color: hsl(43 76% 52% / 0.45);
+  background-color: hsl(43 22% 94%);
+}
+
+.budget-flagged-panel-header:hover {
+  background-color: hsl(43 24% 90%);
+}
+
+.budget-flagged-panel-title {
+  color: hsl(0 0% 10%);
+}
+
+.budget-flagged-panel-body {
+  color: hsl(0 0% 28%);
+}
+
+.budget-flagged-panel-muted {
+  color: hsl(43 30% 38%);
+}
+
+.budget-flagged-panel-accent {
+  color: hsl(43 55% 32%);
+}
+
+.budget-flagged-item {
+  background-color: hsl(0 0% 100%);
+  border-color: hsl(43 76% 52% / 0.3);
+}
+
+.dark .budget-flagged-panel {
+  background-color: hsl(43 14% 8%) !important;
+  border-color: hsl(43 76% 52% / 0.45) !important;
+}
+
+.dark .budget-flagged-panel-header:hover {
+  background-color: hsl(43 16% 11%) !important;
+}
+
+.dark .budget-flagged-panel-title {
+  color: hsl(0 0% 100%) !important;
+}
+
+.dark .budget-flagged-panel-body {
+  color: hsl(0 0% 78%) !important;
+}
+
+.dark .budget-flagged-panel-muted {
+  color: hsl(43 80% 62%) !important;
+}
+
+.dark .budget-flagged-panel-accent {
+  color: hsl(43 80% 65%) !important;
+}
+
+.dark .budget-flagged-item {
+  background-color: hsl(0 0% 0%) !important;
+  border-color: hsl(43 76% 52% / 0.35) !important;
+}
+
+/* Budget Advisor — duplicate transaction highlight (scan for duplicates) */
+.budget-duplicate-txn {
+  border-color: hsl(270 65% 52%) !important;
+  box-shadow: 0 0 0 2px hsl(270 65% 52% / 0.28);
+  background-color: hsl(270 45% 97%);
+}
+
+.dark .budget-duplicate-txn {
+  border-color: hsl(270 75% 68%) !important;
+  box-shadow: 0 0 0 2px hsl(270 75% 68% / 0.35);
+  background-color: hsl(270 28% 10%);
+}
+
+/* Slate panels (e.g. analysis metadata) — remap in dark mode */
+.dark .bg-slate-50 {
+  background-color: hsl(43 14% 8%) !important;
+}
+
+.dark .border-slate-200 {
+  border-color: hsl(43 76% 52% / 0.35) !important;
+}
+
+.dark .text-slate-900,
+.dark .text-slate-800 {
+  color: hsl(0 0% 100%) !important;
+}
+
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: hsl(0 0% 78%) !important;
+}
+
+/* Budget Advisor — AI Analysis tab (gold theme, legible light + dark) */
+.budget-analysis-tab .budget-analysis-toolbar {
+  border-color: hsl(43 76% 52% / 0.25);
+  background-color: hsl(43 18% 96%);
+}
+
+.budget-analysis-tab .budget-analysis-section {
+  border: 1px solid hsl(43 76% 52% / 0.35);
+  background-color: hsl(43 20% 95%);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+}
+
+.budget-analysis-tab .budget-analysis-section--nested {
+  padding: 1rem;
+}
+
+.budget-analysis-tab .budget-analysis-section-title,
+.budget-analysis-tab .budget-analysis-card-title {
+  color: hsl(43 40% 18%);
+  font-weight: 600;
+}
+
+.budget-analysis-tab .budget-analysis-body {
+  color: hsl(0 0% 22%);
+}
+
+.budget-analysis-tab .budget-analysis-muted {
+  color: hsl(0 0% 38%);
+}
+
+.budget-analysis-tab .budget-analysis-highlight {
+  color: hsl(43 55% 28%);
+}
+
+.budget-analysis-tab .budget-analysis-meta {
+  border: 1px solid hsl(43 76% 52% / 0.3);
+  background-color: hsl(43 22% 94%);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  font-size: 0.875rem;
+}
+
+.budget-analysis-tab .budget-analysis-subcard {
+  background-color: hsl(0 0% 100%);
+  border: 1px solid hsl(43 76% 52% / 0.28);
+  border-radius: 0.5rem;
+}
+
+.budget-analysis-tab .budget-analysis-stat {
+  background-color: hsl(43 18% 92%);
+  border: 1px solid hsl(43 76% 52% / 0.28);
+  border-radius: 0.5rem;
+}
+
+.budget-analysis-tab .budget-analysis-stat-value {
+  color: hsl(43 55% 26%);
+  font-weight: 700;
+}
+
+.budget-analysis-tab .budget-analysis-score-high,
+.budget-analysis-tab .budget-analysis-score-mid,
+.budget-analysis-tab .budget-analysis-score-low {
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.budget-analysis-tab .budget-analysis-score-high {
+  background-color: hsl(142 45% 88%);
+  color: hsl(142 55% 22%);
+}
+
+.budget-analysis-tab .budget-analysis-score-mid {
+  background-color: hsl(43 50% 86%);
+  color: hsl(43 55% 22%);
+}
+
+.budget-analysis-tab .budget-analysis-score-low {
+  background-color: hsl(0 55% 90%);
+  color: hsl(0 55% 28%);
+}
+
+.budget-analysis-tab .budget-analysis-positive {
+  color: hsl(142 45% 28%);
+}
+
+.budget-analysis-tab .budget-analysis-warning {
+  color: hsl(25 70% 32%);
+}
+
+.budget-analysis-tab .budget-analysis-negative {
+  color: hsl(0 60% 38%);
+}
+
+.budget-analysis-tab .budget-analysis-card {
+  background-color: hsl(0 0% 100%);
+  border: 1px solid hsl(43 76% 52% / 0.32);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.budget-analysis-tab .budget-analysis-badge {
+  background-color: hsl(43 40% 88%);
+  color: hsl(43 55% 22%);
+}
+
+.budget-analysis-tab .budget-analysis-txn-row {
+  background-color: hsl(43 18% 96%);
+  color: hsl(0 0% 24%);
+}
+
+.budget-analysis-tab .budget-analysis-btn-primary {
+  background-color: hsl(0 0% 0%);
+  color: hsl(0 0% 100%);
+  border: 1px solid hsl(43 76% 52% / 0.55);
+}
+
+.budget-analysis-tab .budget-analysis-btn-primary:hover:not(:disabled) {
+  background-color: hsl(43 20% 12%);
+  border-color: hsl(43 76% 52%);
+}
+
+.budget-analysis-tab .budget-analysis-btn-secondary {
+  background-color: transparent;
+  color: hsl(43 55% 26%);
+  border: 1px solid hsl(43 76% 52% / 0.45);
+}
+
+.budget-analysis-tab .budget-analysis-btn-secondary:hover:not(:disabled) {
+  background-color: hsl(43 22% 92%);
+}
+
+.budget-analysis-tab .budget-analysis-btn-soft {
+  background-color: hsl(43 30% 88%);
+  color: hsl(43 55% 18%);
+  border: 1px solid hsl(43 76% 52% / 0.35);
+}
+
+.budget-analysis-tab .budget-analysis-btn-soft:hover:not(:disabled) {
+  background-color: hsl(43 35% 82%);
+}
+
+.budget-analysis-tab .budget-analysis-btn-success {
+  background-color: hsl(142 35% 88%);
+  color: hsl(142 45% 22%);
+  border: 1px solid hsl(142 40% 45% / 0.35);
+}
+
+.budget-analysis-tab .budget-analysis-btn-success:hover:not(:disabled) {
+  background-color: hsl(142 35% 82%);
+}
+
+.budget-analysis-tab .budget-analysis-msg-user {
+  background-color: hsl(43 28% 88%);
+  color: hsl(43 55% 16%);
+}
+
+.budget-analysis-tab .budget-analysis-msg-assistant {
+  background-color: hsl(0 0% 94%);
+  color: hsl(0 0% 12%);
+}
+
+.budget-analysis-tab .budget-analysis-outline-btn {
+  border: 1px solid hsl(43 76% 52% / 0.35);
+  background-color: hsl(0 0% 100%);
+  color: hsl(0 0% 20%);
+}
+
+.budget-analysis-tab .budget-analysis-outline-btn:hover:not(:disabled) {
+  background-color: hsl(43 20% 94%);
+}
+
+.dark .budget-analysis-tab .budget-analysis-toolbar {
+  background-color: hsl(43 14% 8%) !important;
+  border-color: hsl(43 76% 52% / 0.35) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-section {
+  background-color: hsl(43 14% 8%) !important;
+  border-color: hsl(43 76% 52% / 0.45) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-section-title,
+.dark .budget-analysis-tab .budget-analysis-card-title {
+  color: hsl(43 80% 65%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-body {
+  color: hsl(0 0% 88%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-muted {
+  color: hsl(0 0% 72%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-highlight {
+  color: hsl(43 80% 62%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-meta {
+  background-color: hsl(43 14% 8%) !important;
+  border-color: hsl(43 76% 52% / 0.4) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-subcard,
+.dark .budget-analysis-tab .budget-analysis-card {
+  background-color: hsl(0 0% 0%) !important;
+  border-color: hsl(43 76% 52% / 0.35) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-stat {
+  background-color: hsl(43 16% 10%) !important;
+  border-color: hsl(43 76% 52% / 0.35) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-stat-value {
+  color: hsl(43 80% 65%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-score-high {
+  background-color: hsl(142 30% 12%) !important;
+  color: hsl(142 55% 68%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-score-mid {
+  background-color: hsl(43 22% 12%) !important;
+  color: hsl(43 80% 65%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-score-low {
+  background-color: hsl(0 40% 12%) !important;
+  color: hsl(0 72% 68%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-positive {
+  color: hsl(142 55% 62%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-warning {
+  color: hsl(25 85% 62%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-negative {
+  color: hsl(0 72% 62%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-badge {
+  background-color: hsl(43 22% 14%) !important;
+  color: hsl(43 80% 65%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-txn-row {
+  background-color: hsl(43 12% 10%) !important;
+  color: hsl(0 0% 88%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-btn-primary {
+  background-color: hsl(0 0% 0%) !important;
+  color: hsl(0 0% 100%) !important;
+  border-color: hsl(43 76% 52% / 0.55) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-btn-secondary {
+  color: hsl(43 80% 65%) !important;
+  border-color: hsl(43 76% 52% / 0.45) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-btn-soft {
+  background-color: hsl(43 20% 14%) !important;
+  color: hsl(43 80% 68%) !important;
+  border-color: hsl(43 76% 52% / 0.4) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-btn-success {
+  background-color: hsl(142 25% 12%) !important;
+  color: hsl(142 55% 68%) !important;
+  border-color: hsl(142 40% 40% / 0.45) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-msg-user {
+  background-color: hsl(43 22% 14%) !important;
+  color: hsl(43 80% 68%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-msg-assistant {
+  background-color: hsl(0 0% 10%) !important;
+  color: hsl(0 0% 92%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-outline-btn {
+  background-color: transparent !important;
+  border-color: hsl(43 76% 52% / 0.4) !important;
+  color: hsl(0 0% 92%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-outline-btn:hover:not(:disabled) {
+  background-color: hsl(43 16% 11%) !important;
+}
+
+.dark .budget-analysis-tab input[type='date'],
+.dark .budget-analysis-tab input[type='text'],
+.dark .budget-analysis-tab input[type='number'] {
+  background-color: hsl(0 0% 0%) !important;
+  color: hsl(0 0% 92%) !important;
+  border-color: hsl(43 76% 52% / 0.35) !important;
 }

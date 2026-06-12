@@ -7,6 +7,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getModuleTables } from './module-mappings'
 import type { StaticProfileSummary, StructuredStateSummary } from '@/types/context-cache'
 import {
+  isGoalClosed,
+  isProjectCompleted,
+  isTaskCompleted,
+} from '@/lib/life-coach/partition-user-data'
+import {
   aggregateClassifiedTransactions,
   classifyTransactionForContext,
 } from '@/lib/budget/transaction-context'
@@ -319,7 +324,11 @@ export async function fetchRawUserData(
 
   const allCategories = [
     ...new Set(
-      [...userGoals, ...dashboardProjects, ...tasks]
+      [
+        ...userGoals.filter((g) => !isGoalClosed(g)),
+        ...dashboardProjects.filter((p) => !isProjectCompleted(p)),
+        ...tasks.filter((t) => !isTaskCompleted(t)),
+      ]
         .map((i) => (i.category as string) || '')
         .filter(Boolean)
     ),
@@ -399,8 +408,12 @@ export function buildStructuredStateSummary(
   const fmtProjectProgress = (p: Record<string, unknown>) =>
     `${p.current_points ?? 0}/${p.target_points ?? 0}`
 
-  const linkedProjects = raw.dashboardProjects.filter((p) => Boolean(p.goal_id))
-  const orphanProjects = raw.dashboardProjects.filter((p) => !p.goal_id)
+  const activeGoals = raw.userGoals.filter((g) => !isGoalClosed(g))
+  const activeProjects = raw.dashboardProjects.filter((p) => !isProjectCompleted(p))
+  const openTasks = raw.tasks.filter((t) => !isTaskCompleted(t))
+
+  const linkedProjects = activeProjects.filter((p) => Boolean(p.goal_id))
+  const orphanProjects = activeProjects.filter((p) => !p.goal_id)
   const goalsWithProjects = new Set<string>()
   for (const p of linkedProjects) {
     const gid = p.goal_id
@@ -410,12 +423,15 @@ export function buildStructuredStateSummary(
   return {
     weeklyPoints,
     dailyPoints,
-    totalGoals: raw.userGoals.length,
-    totalDashboardProjects: raw.dashboardProjects.length,
+    totalGoals: activeGoals.length,
+    totalDashboardProjects: activeProjects.length,
+    completedGoalsCount: raw.userGoals.length - activeGoals.length,
+    completedProjectsCount: raw.dashboardProjects.length - activeProjects.length,
+    completedTasksCount: raw.tasks.length - openTasks.length,
     linkedProjectsCount: linkedProjects.length,
     orphanProjectsCount: orphanProjects.length,
     goalsWithProjectsCount: goalsWithProjects.size,
-    totalTasks: raw.tasks.length,
+    totalTasks: openTasks.length,
     totalHabits: raw.habits.length,
     activePriorities: raw.priorities.length,
     completedTasksToday: raw.completedTasksToday.length,
@@ -426,21 +442,21 @@ export function buildStructuredStateSummary(
     })),
     categories,
     installedModules: raw.installedModules.map((m) => m.module_id),
-    topGoals: raw.userGoals.slice(0, 8).map((g) => ({
+    topGoals: activeGoals.slice(0, 8).map((g) => ({
       title: (g.title as string) || 'Untitled',
       goalType: g.goal_type as string | undefined,
       category: undefined,
       progress: fmtGoalProgress(g),
     })),
-    topDashboardProjects: raw.dashboardProjects.slice(0, 8).map((p) => ({
+    topDashboardProjects: activeProjects.slice(0, 8).map((p) => ({
       title: (p.title as string) || 'Untitled',
       category: p.category as string | undefined,
       progress: fmtProjectProgress(p),
     })),
-    topTasks: raw.tasks.slice(0, 10).map((t) => ({
+    topTasks: openTasks.slice(0, 10).map((t) => ({
       title: (t.title as string) || 'Untitled',
       category: t.category as string,
-      status: (t.status as string) || 'unknown',
+      status: (t.status as string) || 'pending',
     })),
     topHabits: raw.habits.slice(0, 5).map((h) => (h.title as string) || ''),
     topPriorities: raw.priorities.slice(0, 5).map((p) => ({

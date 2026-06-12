@@ -29,11 +29,20 @@ export async function POST(req: Request) {
     // Get basic user data
     const { data: dashboardProjects } = await supabase
       .from('projects')
-      .select('*')
+      .select('id, is_completed, status')
       .eq('user_id', user.id)
+      .eq('is_completed', false)
+      .neq('status', 'completed')
+      .neq('status', 'cancelled')
       .limit(3)
 
-    const { data: tasks } = await supabase.from('tasks').select('*').eq('user_id', user.id).limit(3)
+    const { data: tasks } = await supabase
+      .from('tasks')
+      .select('id, status, is_completed')
+      .eq('user_id', user.id)
+      .neq('status', 'completed')
+      .neq('status', 'cancelled')
+      .limit(3)
 
     const userContext = {
       projectsCount: dashboardProjects?.length || 0,
@@ -50,7 +59,7 @@ export async function POST(req: Request) {
       messages: [
         {
           role: 'system',
-          content: `You are a helpful productivity assistant. The user has ${userContext.projectsCount} dashboard projects (not the same as long-term Goals in the Goals feature) and ${userContext.tasksCount} tasks. Be friendly and helpful.`,
+          content: `You are a helpful productivity assistant. The user has ${userContext.projectsCount} active dashboard projects and ${userContext.tasksCount} open tasks. Be friendly and helpful.`,
         },
         ...messages,
       ],

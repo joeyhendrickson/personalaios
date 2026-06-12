@@ -40,6 +40,7 @@ import {
   Loader2,
   Minus,
   Flag,
+  Copy,
 } from 'lucide-react'
 import { classifyPlaidTransactionDisplay } from '@/lib/budget/transaction-display-classification'
 
@@ -111,6 +112,7 @@ interface PotentialItem {
 
 interface Transaction {
   id: string
+  transaction_id: string
   amount: number
   source_amount?: number
   amount_override?: number | null
@@ -167,6 +169,28 @@ type BudgetAnalysisRunSummary = {
     transaction_count: number
   }>
   ai_prompt_transactions_omitted_count: number
+}
+
+interface SavedBudgetAnalysis {
+  id: string
+  name: string | null
+  analysis_period_start: string
+  analysis_period_end: string
+  analysis_data: {
+    name?: string
+    analysis: BudgetAnalysis
+    run_summary?: BudgetAnalysisRunSummary | null
+    spending_summary?: Record<string, unknown> | null
+  }
+  created_at: string
+}
+
+function formatBudgetSaveError(data: { error?: string; details?: unknown }): string {
+  const base = data.error || 'Failed to save analysis'
+  if (typeof data.details === 'string' && data.details.trim()) {
+    return `${base}: ${data.details}`
+  }
+  return base
 }
 
 interface BudgetAnalysis {
@@ -504,34 +528,37 @@ function AccountabilityQuestionCard({
   }
 
   return (
-    <div className="bg-white border border-orange-200 rounded-lg p-4">
+    <div className="budget-analysis-card">
       <div className="flex items-start space-x-3">
-        <div className="flex-shrink-0 w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-semibold">
+        <div className="budget-analysis-badge flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold">
           {index + 1}
         </div>
         <div className="flex-1">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <h4 className="font-semibold text-orange-900 mb-1">{question.question}</h4>
-              <p className="text-sm text-gray-600 mb-1">
-                <span className="font-medium">Category:</span> {question.category}
+              <h4 className="budget-analysis-card-title mb-1">{question.question}</h4>
+              <p className="text-sm budget-analysis-muted mb-1">
+                <span className="font-medium budget-analysis-body">Category:</span>{' '}
+                {question.category}
               </p>
-              <p className="text-sm text-gray-700 mb-2">{question.context}</p>
+              <p className="text-sm budget-analysis-body mb-2">{question.context}</p>
               {question.transactions && question.transactions.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <p className="text-xs font-semibold text-gray-700 mb-2">
+                <div className="mt-3 pt-3 border-t border-[hsl(43_76%_52%/0.25)]">
+                  <p className="text-xs font-semibold budget-analysis-body mb-2">
                     Supporting Transactions ({question.transactions.length}):
                   </p>
                   <div className="space-y-1 max-h-40 overflow-y-auto">
                     {question.transactions.map((txn, txnIndex) => (
                       <div
                         key={txnIndex}
-                        className="text-xs text-gray-600 flex justify-between items-center bg-gray-50 px-2 py-1 rounded"
+                        className="budget-analysis-txn-row text-xs flex justify-between items-center px-2 py-1 rounded"
                       >
                         <span>
                           {new Date(txn.date).toLocaleDateString()} - {txn.name}
                         </span>
-                        <span className="font-medium text-red-600">${txn.amount.toFixed(2)}</span>
+                        <span className="font-medium budget-analysis-negative">
+                          ${txn.amount.toFixed(2)}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -539,7 +566,7 @@ function AccountabilityQuestionCard({
               )}
             </div>
             {isCompleted && (
-              <div className="ml-4 flex items-center text-green-600">
+              <div className="ml-4 flex items-center budget-analysis-positive">
                 <CheckCircle className="h-5 w-5" />
               </div>
             )}
@@ -549,7 +576,7 @@ function AccountabilityQuestionCard({
           <div className="mt-3 flex gap-2 flex-wrap">
             <button
               onClick={() => setShowDiscussion(!showDiscussion)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors"
+              className="budget-analysis-btn-soft flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors"
               disabled={isCompleted}
             >
               <MessageCircle className="h-4 w-4" />
@@ -563,7 +590,7 @@ function AccountabilityQuestionCard({
             <button
               onClick={() => setShowUpdateModal(true)}
               disabled={isCompleted}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="budget-analysis-btn-secondary flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Edit className="h-4 w-4" />
               Update Expected Spending
@@ -571,7 +598,7 @@ function AccountabilityQuestionCard({
             <button
               onClick={handleComplete}
               disabled={isCompleted || isCompleting || !questionId}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="budget-analysis-btn-success flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isCompleting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -584,13 +611,15 @@ function AccountabilityQuestionCard({
 
           {/* Discussion Interface */}
           {showDiscussion && !isCompleted && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <h5 className="font-semibold text-sm mb-3">Discussion</h5>
+            <div className="mt-4 pt-4 border-t border-[hsl(43_76%_52%/0.25)]">
+              <h5 className="font-semibold text-sm mb-3 budget-analysis-section-title">
+                Discussion
+              </h5>
 
               {/* Discussion Messages */}
               <div className="space-y-3 max-h-60 overflow-y-auto mb-3">
                 {discussionMessages.length === 0 ? (
-                  <p className="text-sm text-gray-500 italic">
+                  <p className="text-sm budget-analysis-muted italic">
                     No discussion yet. Start the conversation!
                   </p>
                 ) : (
@@ -602,8 +631,8 @@ function AccountabilityQuestionCard({
                       <div
                         className={`max-w-[80%] rounded-lg px-3 py-2 ${
                           msg.role === 'user'
-                            ? 'bg-orange-100 text-orange-900'
-                            : 'bg-gray-100 text-gray-900'
+                            ? 'budget-analysis-msg-user'
+                            : 'budget-analysis-msg-assistant'
                         }`}
                       >
                         <p className="text-sm">{msg.message}</p>
@@ -613,10 +642,10 @@ function AccountabilityQuestionCard({
                 )}
                 {isLoadingDiscussion && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-100 rounded-lg px-3 py-2">
+                    <div className="budget-analysis-msg-assistant rounded-lg px-3 py-2">
                       <div className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="text-sm text-gray-600">Thinking...</span>
+                        <span className="text-sm budget-analysis-muted">Thinking...</span>
                       </div>
                     </div>
                   </div>
@@ -631,13 +660,13 @@ function AccountabilityQuestionCard({
                   onChange={(e) => setDiscussionInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleDiscuss()}
                   placeholder="Type your response..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="flex-1 px-3 py-2 border border-[hsl(43_76%_52%/0.35)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(43_76%_52%)]"
                   disabled={isLoadingDiscussion || !questionId}
                 />
                 <button
                   onClick={handleDiscuss}
                   disabled={!discussionInput.trim() || isLoadingDiscussion || !questionId}
-                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="budget-analysis-btn-primary px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   <Send className="h-4 w-4" />
                 </button>
@@ -648,23 +677,27 @@ function AccountabilityQuestionCard({
           {/* Update Expected Spending Modal */}
           {showUpdateModal && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                <h3 className="text-lg font-semibold mb-4">Update Expected Spending</h3>
-                <p className="text-sm text-gray-600 mb-4">
+              <div className="budget-analysis-subcard rounded-lg p-6 max-w-md w-full mx-4">
+                <h3 className="text-lg font-semibold mb-4 budget-analysis-section-title">
+                  Update Expected Spending
+                </h3>
+                <p className="text-sm budget-analysis-muted mb-4">
                   Update the expected monthly spending for <strong>{question.category}</strong>
                 </p>
 
                 {actualAmount !== null && (
-                  <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                    <p className="text-xs text-gray-600 mb-1">Actual spending (last 30 days):</p>
-                    <p className="text-lg font-semibold text-blue-700">
+                  <div className="mb-4 p-3 budget-analysis-stat rounded-lg">
+                    <p className="text-xs budget-analysis-muted mb-1">
+                      Actual spending (last 30 days):
+                    </p>
+                    <p className="text-lg font-semibold budget-analysis-stat-value">
                       ${actualAmount.toFixed(2)}
                     </p>
                   </div>
                 )}
 
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium budget-analysis-body mb-2">
                     Monthly Expected Amount ($)
                   </label>
                   <input
@@ -673,7 +706,7 @@ function AccountabilityQuestionCard({
                     onChange={(e) => setUpdateAmount(e.target.value)}
                     step="0.01"
                     min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-[hsl(43_76%_52%/0.35)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(43_76%_52%)]"
                     placeholder="Enter monthly amount"
                   />
                 </div>
@@ -681,7 +714,7 @@ function AccountabilityQuestionCard({
                 <div className="flex gap-3 justify-end">
                   <button
                     onClick={() => setShowUpdateModal(false)}
-                    className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="budget-analysis-outline-btn px-4 py-2 text-sm rounded-lg transition-colors"
                     disabled={isUpdating}
                   >
                     Cancel
@@ -689,7 +722,7 @@ function AccountabilityQuestionCard({
                   <button
                     onClick={handleUpdateExpectedSpending}
                     disabled={isUpdating || !updateAmount}
-                    className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="budget-analysis-btn-primary px-4 py-2 text-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {isUpdating ? (
                       <>
@@ -718,6 +751,8 @@ export default function BudgetOptimizerModule() {
     total: number | null
     nextOffset: number
   }>({ hasMore: false, total: null, nextOffset: 0 })
+  const [duplicateTransactionIds, setDuplicateTransactionIds] = useState<Set<string>>(new Set())
+  const [duplicateScanMessage, setDuplicateScanMessage] = useState<string | null>(null)
   const [verifiedPeriods, setVerifiedPeriods] = useState<
     Array<{ id: string; start_date: string; end_date: string; updated_at?: string }>
   >([])
@@ -726,6 +761,15 @@ export default function BudgetOptimizerModule() {
   const [analysisRunSummary, setAnalysisRunSummary] = useState<BudgetAnalysisRunSummary | null>(
     null
   )
+  const [analysisSpendingSummary, setAnalysisSpendingSummary] = useState<Record<
+    string,
+    unknown
+  > | null>(null)
+  const [savedAnalyses, setSavedAnalyses] = useState<SavedBudgetAnalysis[]>([])
+  const [showSaveAnalysisModal, setShowSaveAnalysisModal] = useState(false)
+  const [showLoadAnalysisModal, setShowLoadAnalysisModal] = useState(false)
+  const [saveAnalysisName, setSaveAnalysisName] = useState('')
+  const [savingAnalysis, setSavingAnalysis] = useState(false)
   const [manualAccounts, setManualAccounts] = useState<ManualAccount[]>([])
   const [expectedIncome, setExpectedIncome] = useState<ExpectedIncome[]>([])
   const [expectedExpenses, setExpectedExpenses] = useState<ExpectedExpense[]>([])
@@ -941,6 +985,7 @@ export default function BudgetOptimizerModule() {
     loadPotentialExpenses()
     loadGoals()
     loadTransactionRules()
+    void loadSavedAnalyses()
   }, [])
 
   useEffect(() => {
@@ -1029,6 +1074,11 @@ export default function BudgetOptimizerModule() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, dateRange.start, dateRange.end])
+
+  useEffect(() => {
+    setDuplicateTransactionIds(new Set())
+    setDuplicateScanMessage(null)
+  }, [dateRange.start, dateRange.end])
 
   const loadGoals = async () => {
     try {
@@ -1584,6 +1634,47 @@ export default function BudgetOptimizerModule() {
     }
   }
 
+  const scanForDuplicateTransactions = () => {
+    const byTransactionNumber = new Map<string, string[]>()
+
+    for (const transaction of transactions) {
+      const transactionNumber = transaction.transaction_id?.trim()
+      if (!transactionNumber) continue
+
+      const ids = byTransactionNumber.get(transactionNumber) ?? []
+      ids.push(transaction.id)
+      byTransactionNumber.set(transactionNumber, ids)
+    }
+
+    const duplicateIds = new Set<string>()
+    let duplicateGroupCount = 0
+
+    for (const ids of byTransactionNumber.values()) {
+      if (ids.length > 1) {
+        duplicateGroupCount += 1
+        for (const id of ids) {
+          duplicateIds.add(id)
+        }
+      }
+    }
+
+    setDuplicateTransactionIds(duplicateIds)
+
+    if (duplicateIds.size === 0) {
+      setDuplicateScanMessage('No duplicate transaction numbers found in this date range.')
+      return
+    }
+
+    setDuplicateScanMessage(
+      `Found ${duplicateIds.size} transaction${duplicateIds.size !== 1 ? 's' : ''} with the same transaction number (${duplicateGroupCount} duplicate group${duplicateGroupCount !== 1 ? 's' : ''}).`
+    )
+  }
+
+  const clearDuplicateScan = () => {
+    setDuplicateTransactionIds(new Set())
+    setDuplicateScanMessage(null)
+  }
+
   const loadMoreTransactions = async () => {
     if (!dateRange.start || !dateRange.end || transactionsPagination.hasMore === false) return
 
@@ -1958,6 +2049,97 @@ export default function BudgetOptimizerModule() {
     }
   }
 
+  const loadSavedAnalyses = async () => {
+    try {
+      const response = await fetch('/api/budget/analyses')
+      if (!response.ok) return
+      const data = await response.json()
+      setSavedAnalyses((data.analyses || []) as SavedBudgetAnalysis[])
+    } catch (error) {
+      console.error('Error loading saved budget analyses:', error)
+    }
+  }
+
+  const openSaveAnalysisModal = () => {
+    if (!analysis) {
+      alert('Run an analysis first before saving.')
+      return
+    }
+    setSaveAnalysisName(`Analysis ${analysisDateRange.start} – ${analysisDateRange.end}`)
+    setShowSaveAnalysisModal(true)
+  }
+
+  const saveAnalysisToLibrary = async () => {
+    if (!analysis) return
+
+    setSavingAnalysis(true)
+    try {
+      const response = await fetch('/api/budget/analyses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:
+            saveAnalysisName.trim() ||
+            `Analysis ${analysisDateRange.start} – ${analysisDateRange.end}`,
+          analysis_period_start: analysisDateRange.start,
+          analysis_period_end: analysisDateRange.end,
+          analysis,
+          run_summary: analysisRunSummary,
+          spending_summary: analysisSpendingSummary,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        alert(formatBudgetSaveError(data))
+        return
+      }
+
+      setShowSaveAnalysisModal(false)
+      setSaveAnalysisName('')
+      await loadSavedAnalyses()
+      alert('Analysis saved.')
+    } catch (error) {
+      console.error('Error saving budget analysis:', error)
+      alert('Failed to save analysis. Please try again.')
+    } finally {
+      setSavingAnalysis(false)
+    }
+  }
+
+  const applySavedAnalysis = (saved: SavedBudgetAnalysis) => {
+    const payload = saved.analysis_data
+    if (payload?.analysis) {
+      setAnalysis(payload.analysis)
+    }
+    setAnalysisRunSummary(payload?.run_summary ?? null)
+    setAnalysisSpendingSummary(payload?.spending_summary ?? null)
+    setAnalysisDateRange({
+      start: saved.analysis_period_start,
+      end: saved.analysis_period_end,
+    })
+    setActiveTab('analysis')
+    setShowLoadAnalysisModal(false)
+  }
+
+  const deleteSavedAnalysis = async (analysisId: string) => {
+    if (!confirm('Delete this saved analysis?')) return
+
+    try {
+      const response = await fetch(`/api/budget/analyses?id=${encodeURIComponent(analysisId)}`, {
+        method: 'DELETE',
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        alert(data.error || 'Failed to delete saved analysis')
+        return
+      }
+      setSavedAnalyses((prev) => prev.filter((item) => item.id !== analysisId))
+    } catch (error) {
+      console.error('Error deleting saved budget analysis:', error)
+      alert('Failed to delete saved analysis.')
+    }
+  }
+
   const analyzeBudget = async () => {
     setIsLoading(true)
     try {
@@ -1975,6 +2157,7 @@ export default function BudgetOptimizerModule() {
       if (response.ok) {
         const data = await response.json()
         setAnalysis(data.analysis)
+        setAnalysisSpendingSummary(data.spending_summary ?? null)
         setAnalysisRunSummary({
           analysis_scope: {
             requested_start_date:
@@ -2483,21 +2666,21 @@ export default function BudgetOptimizerModule() {
   }
 
   const getHealthScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 bg-green-100'
-    if (score >= 60) return 'text-yellow-600 bg-yellow-100'
-    return 'text-red-600 bg-red-100'
+    if (score >= 80) return 'budget-analysis-score-high'
+    if (score >= 60) return 'budget-analysis-score-mid'
+    return 'budget-analysis-score-low'
   }
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
-        return 'text-red-600 bg-red-100'
+        return 'budget-analysis-score-low'
       case 'medium':
-        return 'text-yellow-600 bg-yellow-100'
+        return 'budget-analysis-score-mid'
       case 'low':
-        return 'text-green-600 bg-green-100'
+        return 'budget-analysis-score-high'
       default:
-        return 'text-gray-600 bg-gray-100'
+        return 'budget-analysis-badge'
     }
   }
 
@@ -3843,6 +4026,30 @@ export default function BudgetOptimizerModule() {
                   {isLoading ? 'Loading...' : 'Refresh'}
                 </button>
                 <button
+                  type="button"
+                  onClick={scanForDuplicateTransactions}
+                  disabled={isLoading || transactions.length === 0}
+                  className={`px-4 py-2 rounded-lg disabled:opacity-50 flex items-center gap-2 ${
+                    duplicateTransactionIds.size > 0
+                      ? 'bg-purple-700 text-white ring-2 ring-purple-300 ring-offset-2'
+                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                  }`}
+                  title="Find transactions that share the same bank transaction number"
+                >
+                  <Copy className="h-4 w-4" />
+                  Scan for Duplicates
+                  {duplicateTransactionIds.size > 0 ? ` (${duplicateTransactionIds.size})` : ''}
+                </button>
+                {duplicateScanMessage && (
+                  <button
+                    type="button"
+                    onClick={clearDuplicateScan}
+                    className="px-3 py-2 text-sm rounded-lg border border-purple-200 text-purple-800 bg-purple-50 hover:bg-purple-100 dark:border-purple-500/40 dark:text-purple-200 dark:bg-purple-950/40 dark:hover:bg-purple-950/60"
+                  >
+                    Clear highlights
+                  </button>
+                )}
+                <button
                   onClick={() => void saveVerifiedPeriodForDateRange()}
                   disabled={isLoading || savingVerifiedPeriod || !dateRange.start || !dateRange.end}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
@@ -3924,52 +4131,54 @@ export default function BudgetOptimizerModule() {
                 </div>
 
                 {flaggedTransactions.length > 0 && (
-                  <div className="mb-6 border border-amber-200 rounded-lg bg-amber-50/50">
+                  <div className="budget-flagged-panel mb-6 rounded-lg border p-0">
                     <button
                       onClick={() => setShowFlaggedSection(!showFlaggedSection)}
-                      className="w-full flex items-center justify-between p-4 text-left hover:bg-amber-50/50 transition-colors rounded-lg"
+                      className="budget-flagged-panel-header w-full flex items-center justify-between p-4 text-left transition-colors rounded-lg"
                     >
                       <div className="flex items-center gap-2">
-                        <Flag className="h-5 w-5 text-red-600 fill-red-100" />
-                        <h3 className="font-semibold text-gray-900">
+                        <Flag className="h-5 w-5 text-red-500 dark:text-red-400 fill-red-500/20" />
+                        <h3 className="font-semibold budget-flagged-panel-title">
                           Flagged for Review ({flaggedTransactions.length})
                         </h3>
                       </div>
                       {showFlaggedSection ? (
-                        <ChevronUp className="h-4 w-4 text-gray-500" />
+                        <ChevronUp className="h-4 w-4 budget-flagged-panel-muted" />
                       ) : (
-                        <ChevronDown className="h-4 w-4 text-gray-500" />
+                        <ChevronDown className="h-4 w-4 budget-flagged-panel-muted" />
                       )}
                     </button>
                     {showFlaggedSection && (
                       <div className="px-4 pb-4 space-y-2">
-                        <p className="text-sm text-gray-600 mb-3">
+                        <p className="text-sm budget-flagged-panel-body mb-3">
                           Review these transactions to verify fraud or clarify charges. Check the
                           box when managed.
                         </p>
                         {flaggedTransactions.map((tx) => (
                           <div
                             key={tx.id}
-                            className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg"
+                            className="budget-flagged-item flex items-center gap-3 p-3 rounded-lg border"
                           >
                             <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
                               <input
                                 type="checkbox"
                                 onChange={() => resolveFlaggedTransaction(tx.id)}
-                                className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500 dark:border-[hsl(43_76%_52%/0.55)] dark:bg-black"
                                 aria-label="Mark as managed"
                               />
                               <div className="min-w-0 flex-1">
-                                <h4 className="font-medium truncate">{tx.name}</h4>
-                                <p className="text-sm text-gray-600">
+                                <h4 className="font-medium truncate budget-flagged-panel-title">
+                                  {tx.name}
+                                </h4>
+                                <p className="text-sm budget-flagged-panel-body">
                                   {tx.bank_accounts?.name} •{' '}
                                   {new Date(tx.date).toLocaleDateString()} •{' '}
                                   {formatCurrency(tx.amount)}
                                 </p>
                               </div>
                             </label>
-                            <span className="text-xs text-amber-700 font-medium flex-shrink-0">
-                              Managed
+                            <span className="text-xs font-medium flex-shrink-0 budget-flagged-panel-accent">
+                              Flagged
                             </span>
                           </div>
                         ))}
@@ -4020,6 +4229,11 @@ export default function BudgetOptimizerModule() {
                           </span>
                         )}
                       </span>
+                      {duplicateScanMessage && (
+                        <span className="text-sm text-purple-700 dark:text-purple-300">
+                          {duplicateScanMessage}
+                        </span>
+                      )}
                       {transactionsPagination.hasMore && (
                         <button
                           onClick={loadMoreTransactions}
@@ -4107,6 +4321,9 @@ export default function BudgetOptimizerModule() {
                         }
 
                         const isSelected = selectedTransactionId === transaction.id
+                        const isDuplicate =
+                          duplicateTransactionIds.size > 0 &&
+                          duplicateTransactionIds.has(transaction.id)
 
                         return (
                           <div
@@ -4117,9 +4334,11 @@ export default function BudgetOptimizerModule() {
                               )
                             }
                             className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
-                              isSelected
-                                ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50/50'
-                                : 'border-gray-200 hover:border-gray-300'
+                              isDuplicate
+                                ? 'budget-duplicate-txn'
+                                : isSelected
+                                  ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50/50'
+                                  : 'border-gray-200 hover:border-gray-300'
                             }`}
                           >
                             <div className="flex items-center space-x-3 flex-1 min-w-0">
@@ -4491,47 +4710,76 @@ export default function BudgetOptimizerModule() {
 
         {/* Analysis Tab */}
         {activeTab === 'analysis' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold flex items-center">
+          <div className="budget-analysis-tab space-y-6">
+            <div className="budget-analysis-section">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 className="text-xl font-semibold flex items-center budget-analysis-section-title">
                   <Brain className="h-5 w-5 mr-2" />
                   AI Budget Analysis
                 </h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void loadSavedAnalyses()
+                      setShowLoadAnalysisModal(true)
+                    }}
+                    className="budget-analysis-outline-btn inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Saved Analyses
+                    {savedAnalyses.length > 0 ? ` (${savedAnalyses.length})` : ''}
+                  </button>
+                  {analysis && (
+                    <button
+                      type="button"
+                      onClick={openSaveAnalysisModal}
+                      disabled={savingAnalysis}
+                      className="budget-analysis-btn-success inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-60"
+                    >
+                      {savingAnalysis ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                      Save Analysis
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Date Range Selection */}
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">
+              <div className="mb-6 budget-analysis-meta">
+                <h3 className="text-sm font-medium budget-analysis-body mb-3">
                   Select Date Range for Analysis
                 </h3>
-                <div className="flex items-center space-x-4">
+                <div className="flex flex-wrap items-center gap-4">
                   <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700">From:</label>
+                    <label className="text-sm font-medium budget-analysis-body">From:</label>
                     <input
                       type="date"
                       value={analysisDateRange.start}
                       onChange={(e) =>
                         setAnalysisDateRange((prev) => ({ ...prev, start: e.target.value }))
                       }
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-2 border border-[hsl(43_76%_52%/0.35)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(43_76%_52%)]"
                     />
                   </div>
                   <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700">To:</label>
+                    <label className="text-sm font-medium budget-analysis-body">To:</label>
                     <input
                       type="date"
                       value={analysisDateRange.end}
                       onChange={(e) =>
                         setAnalysisDateRange((prev) => ({ ...prev, end: e.target.value }))
                       }
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-2 border border-[hsl(43_76%_52%/0.35)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(43_76%_52%)]"
                     />
                   </div>
                   <button
                     onClick={analyzeBudget}
                     disabled={isLoading}
-                    className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                    className="budget-analysis-btn-primary flex items-center space-x-2 px-4 py-2 rounded-lg disabled:opacity-50"
                   >
                     <Brain className="h-4 w-4" />
                     <span>{isLoading ? 'Analyzing...' : 'Run Analysis'}</span>
@@ -4541,9 +4789,11 @@ export default function BudgetOptimizerModule() {
 
               {!analysis ? (
                 <div className="text-center py-8">
-                  <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Analysis Available</h3>
-                  <p className="text-gray-600 mb-4">
+                  <Brain className="h-12 w-12 budget-analysis-muted mx-auto mb-4" />
+                  <h3 className="text-lg font-medium budget-analysis-section-title mb-2">
+                    No Analysis Available
+                  </h3>
+                  <p className="budget-analysis-muted mb-4">
                     Run an AI analysis to get insights about your spending patterns and budget
                     recommendations.
                   </p>
@@ -4551,24 +4801,26 @@ export default function BudgetOptimizerModule() {
               ) : (
                 <div className="space-y-6">
                   {analysisRunSummary && (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
-                      <h3 className="font-semibold text-slate-900 mb-2">This analysis used</h3>
-                      <ul className="space-y-2">
+                    <div className="budget-analysis-meta">
+                      <h3 className="font-semibold budget-analysis-section-title mb-2">
+                        This analysis used
+                      </h3>
+                      <ul className="space-y-2 budget-analysis-body">
                         <li>
-                          <span className="font-medium text-slate-700">
+                          <span className="font-medium budget-analysis-body">
                             Date range you selected:{' '}
                           </span>
                           {analysisRunSummary.analysis_scope.requested_start_date} →{' '}
                           {analysisRunSummary.analysis_scope.requested_end_date}
                         </li>
                         <li>
-                          <span className="font-medium text-slate-700">
+                          <span className="font-medium budget-analysis-body">
                             Bank transactions in that range:{' '}
                           </span>
                           {analysisRunSummary.analysis_scope.transactions_analyzed_count}
                           {analysisRunSummary.analysis_scope.earliest_transaction_date &&
                             analysisRunSummary.analysis_scope.latest_transaction_date && (
-                              <span className="text-slate-600">
+                              <span className="budget-analysis-muted">
                                 {' '}
                                 (earliest line{' '}
                                 {analysisRunSummary.analysis_scope.earliest_transaction_date},
@@ -4578,7 +4830,7 @@ export default function BudgetOptimizerModule() {
                         </li>
                         {analysisRunSummary.verified_periods_applied.length > 0 && (
                           <li>
-                            <span className="font-medium text-slate-700">
+                            <span className="font-medium budget-analysis-body">
                               User-saved verified periods (compact AI context):{' '}
                             </span>
                             {analysisRunSummary.verified_periods_applied
@@ -4587,7 +4839,7 @@ export default function BudgetOptimizerModule() {
                               )
                               .join('; ')}
                             {analysisRunSummary.ai_prompt_transactions_omitted_count > 0 && (
-                              <span className="text-slate-600">
+                              <span className="budget-analysis-muted">
                                 {' '}
                                 — {analysisRunSummary.ai_prompt_transactions_omitted_count} lines
                                 omitted from the long transaction sample in the AI prompt.
@@ -4596,13 +4848,15 @@ export default function BudgetOptimizerModule() {
                           </li>
                         )}
                         <li>
-                          <span className="font-medium text-slate-700">AI tokens (this run): </span>
+                          <span className="font-medium budget-analysis-body">
+                            AI tokens (this run):{' '}
+                          </span>
                           {analysisRunSummary.ai_usage.total_tokens != null ? (
                             <>
                               {analysisRunSummary.ai_usage.total_tokens.toLocaleString()} total
                               {analysisRunSummary.ai_usage.input_tokens != null &&
                                 analysisRunSummary.ai_usage.output_tokens != null && (
-                                  <span className="text-slate-600">
+                                  <span className="budget-analysis-muted">
                                     {' '}
                                     ({analysisRunSummary.ai_usage.input_tokens.toLocaleString()}{' '}
                                     prompt +{' '}
@@ -4612,7 +4866,7 @@ export default function BudgetOptimizerModule() {
                                 )}
                               {analysisRunSummary.ai_usage.cached_input_tokens != null &&
                                 analysisRunSummary.ai_usage.cached_input_tokens > 0 && (
-                                  <span className="text-slate-600">
+                                  <span className="budget-analysis-muted">
                                     {' '}
                                     · cached prompt tokens:{' '}
                                     {analysisRunSummary.ai_usage.cached_input_tokens.toLocaleString()}
@@ -4620,11 +4874,11 @@ export default function BudgetOptimizerModule() {
                                 )}
                             </>
                           ) : (
-                            <span className="text-slate-600">
+                            <span className="budget-analysis-muted">
                               not reported by the provider for this call
                             </span>
                           )}
-                          <span className="text-slate-600">
+                          <span className="budget-analysis-muted">
                             {' '}
                             · model {analysisRunSummary.ai_usage.model}
                           </span>
@@ -4634,34 +4888,46 @@ export default function BudgetOptimizerModule() {
                   )}
 
                   {/* Financial Health Score */}
-                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6">
+                  <div className="budget-analysis-section">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold">Financial Health Score</h3>
+                      <h3 className="text-lg font-semibold budget-analysis-section-title">
+                        Financial Health Score
+                      </h3>
                       <span
                         className={`px-3 py-1 rounded-full text-sm font-medium ${getHealthScoreColor(analysis.financial_health.score)}`}
                       >
                         {analysis.financial_health.score}/100
                       </span>
                     </div>
-                    <p className="text-gray-700 mb-4">{analysis.financial_health.assessment}</p>
+                    <p className="budget-analysis-body mb-4">
+                      {analysis.financial_health.assessment}
+                    </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <h4 className="font-medium text-green-600 mb-2">Strengths</h4>
+                        <h4 className="font-medium budget-analysis-positive mb-2">Strengths</h4>
                         <ul className="space-y-1">
                           {analysis.financial_health.strengths.map((strength, index) => (
-                            <li key={index} className="flex items-center text-sm">
-                              <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                            <li
+                              key={index}
+                              className="flex items-center text-sm budget-analysis-body"
+                            >
+                              <CheckCircle className="h-4 w-4 budget-analysis-positive mr-2 flex-shrink-0" />
                               {strength}
                             </li>
                           ))}
                         </ul>
                       </div>
                       <div>
-                        <h4 className="font-medium text-red-600 mb-2">Areas for Improvement</h4>
+                        <h4 className="font-medium budget-analysis-warning mb-2">
+                          Areas for Improvement
+                        </h4>
                         <ul className="space-y-1">
                           {analysis.financial_health.concerns.map((concern, index) => (
-                            <li key={index} className="flex items-center text-sm">
-                              <AlertTriangle className="h-4 w-4 text-red-600 mr-2" />
+                            <li
+                              key={index}
+                              className="flex items-center text-sm budget-analysis-body"
+                            >
+                              <AlertTriangle className="h-4 w-4 budget-analysis-negative mr-2 flex-shrink-0" />
                               {concern}
                             </li>
                           ))}
@@ -4669,9 +4935,11 @@ export default function BudgetOptimizerModule() {
                       </div>
                     </div>
                     {analysis.financial_health.goal_progress && (
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <h4 className="font-medium text-purple-600 mb-2">Goal Progress</h4>
-                        <p className="text-sm text-gray-700">
+                      <div className="mt-4 pt-4 border-t border-[hsl(43_76%_52%/0.25)]">
+                        <h4 className="font-medium budget-analysis-highlight mb-2">
+                          Goal Progress
+                        </h4>
+                        <p className="text-sm budget-analysis-body">
                           {analysis.financial_health.goal_progress}
                         </p>
                       </div>
@@ -4681,8 +4949,8 @@ export default function BudgetOptimizerModule() {
                   {/* Accountability Questions */}
                   {analysis.accountability_questions &&
                     analysis.accountability_questions.length > 0 && (
-                      <div className="bg-white border border-orange-200 rounded-lg p-6 bg-orange-50">
-                        <h3 className="text-lg font-semibold mb-4 flex items-center text-orange-900">
+                      <div className="budget-analysis-section">
+                        <h3 className="text-lg font-semibold mb-4 flex items-center budget-analysis-warning">
                           <AlertTriangle className="h-5 w-5 mr-2" />
                           Accountability Questions
                         </h3>
@@ -4701,29 +4969,36 @@ export default function BudgetOptimizerModule() {
 
                   {/* Side Business Analysis */}
                   {analysis.side_business_analysis && (
-                    <div className="bg-white border border-green-200 rounded-lg p-6 bg-green-50">
-                      <h3 className="text-lg font-semibold mb-4 flex items-center text-green-900">
+                    <div className="budget-analysis-section">
+                      <h3 className="text-lg font-semibold mb-4 flex items-center budget-analysis-section-title">
                         <TrendingUp className="h-5 w-5 mr-2" />
                         Side Business Analysis
                       </h3>
-                      <div className="bg-white rounded-lg p-4 border border-green-200 mb-4">
+                      <div className="budget-analysis-subcard p-4 mb-4">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm text-gray-600">Potential P2P Income:</span>
-                          <span className="text-xl font-bold text-green-600">
+                          <span className="text-sm budget-analysis-muted">
+                            Potential P2P Income:
+                          </span>
+                          <span className="text-xl font-bold budget-analysis-stat-value">
                             {formatCurrency(analysis.side_business_analysis.potential_income)}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-700 mb-4">
+                        <p className="text-sm budget-analysis-body mb-4">
                           {analysis.side_business_analysis.transfers_analysis}
                         </p>
                         {analysis.side_business_analysis.questions &&
                           analysis.side_business_analysis.questions.length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-gray-200">
-                              <h4 className="font-medium mb-2">Questions to Consider:</h4>
+                            <div className="mt-4 pt-4 border-t border-[hsl(43_76%_52%/0.25)]">
+                              <h4 className="font-medium mb-2 budget-analysis-section-title">
+                                Questions to Consider:
+                              </h4>
                               <ul className="space-y-1">
                                 {analysis.side_business_analysis.questions.map((q, i) => (
-                                  <li key={i} className="text-sm text-gray-700 flex items-start">
-                                    <span className="text-green-600 mr-2">•</span>
+                                  <li
+                                    key={i}
+                                    className="text-sm budget-analysis-body flex items-start"
+                                  >
+                                    <span className="budget-analysis-highlight mr-2">•</span>
                                     {q}
                                   </li>
                                 ))}
@@ -4734,13 +5009,12 @@ export default function BudgetOptimizerModule() {
                       {analysis.side_business_analysis.recommendations &&
                         analysis.side_business_analysis.recommendations.length > 0 && (
                           <div className="space-y-2">
-                            <h4 className="font-medium text-green-900">Recommendations:</h4>
+                            <h4 className="font-medium budget-analysis-section-title">
+                              Recommendations:
+                            </h4>
                             {analysis.side_business_analysis.recommendations.map((rec, i) => (
-                              <div
-                                key={i}
-                                className="bg-white rounded-lg p-3 border border-green-200"
-                              >
-                                <p className="text-sm text-gray-700">{rec}</p>
+                              <div key={i} className="budget-analysis-subcard p-3">
+                                <p className="text-sm budget-analysis-body">{rec}</p>
                               </div>
                             ))}
                           </div>
@@ -4750,17 +5024,17 @@ export default function BudgetOptimizerModule() {
 
                   {/* Subscription Analysis */}
                   {analysis.subscription_analysis && (
-                    <div className="bg-white border border-purple-200 rounded-lg p-6 bg-purple-50">
-                      <h3 className="text-lg font-semibold mb-4 flex items-center text-purple-900">
+                    <div className="budget-analysis-section">
+                      <h3 className="text-lg font-semibold mb-4 flex items-center budget-analysis-section-title">
                         <Activity className="h-5 w-5 mr-2" />
                         Subscription Analysis
                       </h3>
-                      <div className="bg-white rounded-lg p-4 border border-purple-200 mb-4">
+                      <div className="budget-analysis-subcard p-4 mb-4">
                         <div className="flex items-center justify-between mb-4">
-                          <span className="text-sm text-gray-600">
+                          <span className="text-sm budget-analysis-muted">
                             Total Subscription Spending:
                           </span>
-                          <span className="text-xl font-bold text-purple-600">
+                          <span className="text-xl font-bold budget-analysis-stat-value">
                             {formatCurrency(
                               analysis.subscription_analysis.total_subscription_spending
                             )}
@@ -4769,16 +5043,18 @@ export default function BudgetOptimizerModule() {
                         {analysis.subscription_analysis.unaccounted_subscriptions &&
                           analysis.subscription_analysis.unaccounted_subscriptions.length > 0 && (
                             <div className="mb-4">
-                              <h4 className="font-medium mb-2">Unaccounted Subscriptions:</h4>
+                              <h4 className="font-medium mb-2 budget-analysis-section-title">
+                                Unaccounted Subscriptions:
+                              </h4>
                               <div className="space-y-2">
                                 {analysis.subscription_analysis.unaccounted_subscriptions.map(
                                   (sub, i) => (
                                     <div
                                       key={i}
-                                      className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                                      className="flex items-center justify-between p-2 budget-analysis-txn-row rounded"
                                     >
                                       <span className="text-sm font-medium">{sub.name}</span>
-                                      <span className="text-sm text-purple-600 font-semibold">
+                                      <span className="text-sm budget-analysis-highlight font-semibold">
                                         {formatCurrency(sub.amount)}
                                       </span>
                                     </div>
@@ -4789,12 +5065,17 @@ export default function BudgetOptimizerModule() {
                           )}
                         {analysis.subscription_analysis.recommendations &&
                           analysis.subscription_analysis.recommendations.length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-gray-200">
-                              <h4 className="font-medium mb-2">Recommendations:</h4>
+                            <div className="mt-4 pt-4 border-t border-[hsl(43_76%_52%/0.25)]">
+                              <h4 className="font-medium mb-2 budget-analysis-section-title">
+                                Recommendations:
+                              </h4>
                               <ul className="space-y-1">
                                 {analysis.subscription_analysis.recommendations.map((rec, i) => (
-                                  <li key={i} className="text-sm text-gray-700 flex items-start">
-                                    <span className="text-purple-600 mr-2">•</span>
+                                  <li
+                                    key={i}
+                                    className="text-sm budget-analysis-body flex items-start"
+                                  >
+                                    <span className="budget-analysis-highlight mr-2">•</span>
                                     {rec}
                                   </li>
                                 ))}
@@ -4807,21 +5088,27 @@ export default function BudgetOptimizerModule() {
 
                   {/* Goal Alignment */}
                   {analysis.goal_alignment && (
-                    <div className="bg-white border border-blue-200 rounded-lg p-6 bg-blue-50">
-                      <h3 className="text-lg font-semibold mb-4 flex items-center text-blue-900">
+                    <div className="budget-analysis-section">
+                      <h3 className="text-lg font-semibold mb-4 flex items-center budget-analysis-section-title">
                         <Target className="h-5 w-5 mr-2" />
                         Goal Alignment & Coaching
                       </h3>
                       {analysis.goal_alignment.connected_goals &&
                         analysis.goal_alignment.connected_goals.length > 0 && (
-                          <div className="bg-white rounded-lg p-4 border border-blue-200 mb-4">
-                            <h4 className="font-medium mb-2">Connected Goals:</h4>
+                          <div className="budget-analysis-subcard p-4 mb-4">
+                            <h4 className="font-medium mb-2 budget-analysis-section-title">
+                              Connected Goals:
+                            </h4>
                             <div className="space-y-2">
                               {analysis.goal_alignment.connected_goals.map((goal, i) => (
-                                <div key={i} className="p-2 bg-gray-50 rounded">
-                                  <div className="font-medium">{goal.title}</div>
+                                <div key={i} className="p-2 budget-analysis-txn-row rounded">
+                                  <div className="font-medium budget-analysis-body">
+                                    {goal.title}
+                                  </div>
                                   {goal.description && (
-                                    <div className="text-sm text-gray-600">{goal.description}</div>
+                                    <div className="text-sm budget-analysis-muted">
+                                      {goal.description}
+                                    </div>
                                   )}
                                 </div>
                               ))}
@@ -4830,14 +5117,17 @@ export default function BudgetOptimizerModule() {
                         )}
                       {analysis.goal_alignment.income_goal_coaching &&
                         analysis.goal_alignment.income_goal_coaching.length > 0 && (
-                          <div className="bg-white rounded-lg p-4 border border-blue-200 mb-4">
-                            <h4 className="font-medium mb-2 text-green-700">
+                          <div className="budget-analysis-subcard p-4 mb-4">
+                            <h4 className="font-medium mb-2 budget-analysis-positive">
                               Income Goal Coaching:
                             </h4>
                             <ul className="space-y-1">
                               {analysis.goal_alignment.income_goal_coaching.map((coaching, i) => (
-                                <li key={i} className="text-sm text-gray-700 flex items-start">
-                                  <span className="text-green-600 mr-2">•</span>
+                                <li
+                                  key={i}
+                                  className="text-sm budget-analysis-body flex items-start"
+                                >
+                                  <span className="budget-analysis-positive mr-2">•</span>
                                   {coaching}
                                 </li>
                               ))}
@@ -4846,15 +5136,18 @@ export default function BudgetOptimizerModule() {
                         )}
                       {analysis.goal_alignment.budget_reduction_coaching &&
                         analysis.goal_alignment.budget_reduction_coaching.length > 0 && (
-                          <div className="bg-white rounded-lg p-4 border border-blue-200 mb-4">
-                            <h4 className="font-medium mb-2 text-red-700">
+                          <div className="budget-analysis-subcard p-4 mb-4">
+                            <h4 className="font-medium mb-2 budget-analysis-negative">
                               Budget Reduction Coaching:
                             </h4>
                             <ul className="space-y-1">
                               {analysis.goal_alignment.budget_reduction_coaching.map(
                                 (coaching, i) => (
-                                  <li key={i} className="text-sm text-gray-700 flex items-start">
-                                    <span className="text-red-600 mr-2">•</span>
+                                  <li
+                                    key={i}
+                                    className="text-sm budget-analysis-body flex items-start"
+                                  >
+                                    <span className="budget-analysis-negative mr-2">•</span>
                                     {coaching}
                                   </li>
                                 )
@@ -4864,15 +5157,18 @@ export default function BudgetOptimizerModule() {
                         )}
                       {analysis.goal_alignment.business_launch_recommendations &&
                         analysis.goal_alignment.business_launch_recommendations.length > 0 && (
-                          <div className="bg-white rounded-lg p-4 border border-blue-200">
-                            <h4 className="font-medium mb-2 text-purple-700">
+                          <div className="budget-analysis-subcard p-4">
+                            <h4 className="font-medium mb-2 budget-analysis-highlight">
                               Business Launch Recommendations:
                             </h4>
                             <ul className="space-y-1">
                               {analysis.goal_alignment.business_launch_recommendations.map(
                                 (rec, i) => (
-                                  <li key={i} className="text-sm text-gray-700 flex items-start">
-                                    <span className="text-purple-600 mr-2">•</span>
+                                  <li
+                                    key={i}
+                                    className="text-sm budget-analysis-body flex items-start"
+                                  >
+                                    <span className="budget-analysis-highlight mr-2">•</span>
                                     {rec}
                                   </li>
                                 )
@@ -4887,25 +5183,28 @@ export default function BudgetOptimizerModule() {
                   {((analysis.budget_recommendations.expected_income_updates?.length ?? 0) > 0 ||
                     (analysis.budget_recommendations.expected_expense_updates?.length ?? 0) >
                       0) && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-6">
-                      <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <div className="budget-analysis-section">
+                      <h3 className="text-lg font-semibold mb-4 flex items-center budget-analysis-section-title">
                         <Edit className="h-5 w-5 mr-2" />
                         Recommended Budget Updates
                       </h3>
                       {analysis.budget_recommendations.expected_income_updates &&
                         analysis.budget_recommendations.expected_income_updates.length > 0 && (
                           <div className="mb-4">
-                            <h4 className="font-medium text-green-700 mb-2">Income Updates:</h4>
+                            <h4 className="font-medium budget-analysis-positive mb-2">
+                              Income Updates:
+                            </h4>
                             <div className="space-y-2">
                               {analysis.budget_recommendations.expected_income_updates.map(
                                 (update, i) => (
-                                  <div
-                                    key={i}
-                                    className="border border-green-200 rounded-lg p-3 bg-green-50"
-                                  >
-                                    <div className="font-medium mb-1">{update.suggestion}</div>
-                                    <p className="text-sm text-gray-700 mb-1">{update.reasoning}</p>
-                                    <span className="text-sm font-semibold text-green-600">
+                                  <div key={i} className="budget-analysis-subcard p-3">
+                                    <div className="font-medium mb-1 budget-analysis-body">
+                                      {update.suggestion}
+                                    </div>
+                                    <p className="text-sm budget-analysis-muted mb-1">
+                                      {update.reasoning}
+                                    </p>
+                                    <span className="text-sm font-semibold budget-analysis-positive">
                                       Estimated: {formatCurrency(update.estimated_amount)}
                                     </span>
                                   </div>
@@ -4917,35 +5216,38 @@ export default function BudgetOptimizerModule() {
                       {analysis.budget_recommendations.expected_expense_updates &&
                         analysis.budget_recommendations.expected_expense_updates.length > 0 && (
                           <div>
-                            <h4 className="font-medium text-red-700 mb-2">Expense Updates:</h4>
+                            <h4 className="font-medium budget-analysis-negative mb-2">
+                              Expense Updates:
+                            </h4>
                             <div className="space-y-2">
                               {analysis.budget_recommendations.expected_expense_updates.map(
                                 (update, i) => (
-                                  <div
-                                    key={i}
-                                    className="border border-red-200 rounded-lg p-3 bg-red-50"
-                                  >
-                                    <div className="font-medium mb-1">{update.suggestion}</div>
-                                    <p className="text-sm text-gray-700 mb-1">{update.reasoning}</p>
+                                  <div key={i} className="budget-analysis-subcard p-3">
+                                    <div className="font-medium mb-1 budget-analysis-body">
+                                      {update.suggestion}
+                                    </div>
+                                    <p className="text-sm budget-analysis-muted mb-1">
+                                      {update.reasoning}
+                                    </p>
                                     {update.current_amount && update.recommended_amount && (
-                                      <div className="flex items-center space-x-4 text-sm">
+                                      <div className="flex items-center space-x-4 text-sm budget-analysis-body">
                                         <span>
                                           Current:{' '}
-                                          <span className="font-semibold text-red-600">
+                                          <span className="font-semibold budget-analysis-negative">
                                             {formatCurrency(update.current_amount)}
                                           </span>
                                         </span>
                                         <span>→</span>
                                         <span>
                                           Recommended:{' '}
-                                          <span className="font-semibold text-green-600">
+                                          <span className="font-semibold budget-analysis-positive">
                                             {formatCurrency(update.recommended_amount)}
                                           </span>
                                         </span>
                                       </div>
                                     )}
                                     {update.estimated_amount && (
-                                      <span className="text-sm font-semibold text-red-600">
+                                      <span className="text-sm font-semibold budget-analysis-negative">
                                         Estimated: {formatCurrency(update.estimated_amount)}
                                       </span>
                                     )}
@@ -4960,12 +5262,12 @@ export default function BudgetOptimizerModule() {
 
                   {/* 30-Day Actuals Summary */}
                   {analysis.thirty_day_actuals && (
-                    <div className="bg-white border border-green-200 rounded-lg p-6 bg-green-50">
-                      <h3 className="text-lg font-semibold mb-4 flex items-center text-green-900">
+                    <div className="budget-analysis-section">
+                      <h3 className="text-lg font-semibold mb-4 flex items-center budget-analysis-section-title">
                         <BarChart3 className="h-5 w-5 mr-2" />
                         30-Day Actuals Summary
                       </h3>
-                      <p className="text-sm text-gray-700 mb-4">
+                      <p className="text-sm budget-analysis-body mb-4">
                         Actual spending and income for the most recent 30 days, broken down by your
                         defined categories:
                       </p>
@@ -4973,20 +5275,21 @@ export default function BudgetOptimizerModule() {
                       {/* Income Actuals */}
                       {analysis.thirty_day_actuals.income_actuals.length > 0 && (
                         <div className="mb-6">
-                          <h4 className="font-semibold text-green-800 mb-3">Income Actuals</h4>
+                          <h4 className="font-semibold budget-analysis-positive mb-3">
+                            Income Actuals
+                          </h4>
                           <div className="space-y-2">
                             {analysis.thirty_day_actuals.income_actuals.map((item, i) => (
-                              <div
-                                key={i}
-                                className="bg-white rounded-lg p-4 border border-green-200"
-                              >
+                              <div key={i} className="budget-analysis-subcard p-4">
                                 <div className="flex items-center justify-between mb-2">
-                                  <h5 className="font-medium text-green-900">{item.category}</h5>
+                                  <h5 className="font-medium budget-analysis-body">
+                                    {item.category}
+                                  </h5>
                                   <div className="text-right">
-                                    <div className="text-lg font-bold text-green-700">
+                                    <div className="text-lg font-bold budget-analysis-positive">
                                       {formatCurrency(item.actual)}
                                     </div>
-                                    <div className="text-xs text-gray-600">
+                                    <div className="text-xs budget-analysis-muted">
                                       Expected: {formatCurrency(item.expected)}
                                     </div>
                                   </div>
@@ -4994,7 +5297,9 @@ export default function BudgetOptimizerModule() {
                                 <div className="flex items-center justify-between text-sm">
                                   <span
                                     className={`font-medium ${
-                                      item.difference >= 0 ? 'text-green-600' : 'text-red-600'
+                                      item.difference >= 0
+                                        ? 'budget-analysis-positive'
+                                        : 'budget-analysis-negative'
                                     }`}
                                   >
                                     Difference: {formatCurrency(item.difference)} (
@@ -5010,20 +5315,21 @@ export default function BudgetOptimizerModule() {
                       {/* Expense Actuals */}
                       {analysis.thirty_day_actuals.expense_actuals.length > 0 && (
                         <div>
-                          <h4 className="font-semibold text-red-800 mb-3">Expense Actuals</h4>
+                          <h4 className="font-semibold budget-analysis-negative mb-3">
+                            Expense Actuals
+                          </h4>
                           <div className="space-y-2">
                             {analysis.thirty_day_actuals.expense_actuals.map((item, i) => (
-                              <div
-                                key={i}
-                                className="bg-white rounded-lg p-4 border border-red-200"
-                              >
+                              <div key={i} className="budget-analysis-subcard p-4">
                                 <div className="flex items-center justify-between mb-2">
-                                  <h5 className="font-medium text-red-900">{item.category}</h5>
+                                  <h5 className="font-medium budget-analysis-body">
+                                    {item.category}
+                                  </h5>
                                   <div className="text-right">
-                                    <div className="text-lg font-bold text-red-700">
+                                    <div className="text-lg font-bold budget-analysis-negative">
                                       {formatCurrency(item.actual)}
                                     </div>
-                                    <div className="text-xs text-gray-600">
+                                    <div className="text-xs budget-analysis-muted">
                                       Expected: {formatCurrency(item.expected)}
                                     </div>
                                   </div>
@@ -5031,7 +5337,9 @@ export default function BudgetOptimizerModule() {
                                 <div className="flex items-center justify-between text-sm">
                                   <span
                                     className={`font-medium ${
-                                      item.difference <= 0 ? 'text-green-600' : 'text-red-600'
+                                      item.difference <= 0
+                                        ? 'budget-analysis-positive'
+                                        : 'budget-analysis-negative'
                                     }`}
                                   >
                                     Difference: {formatCurrency(item.difference)} (
@@ -5048,15 +5356,15 @@ export default function BudgetOptimizerModule() {
 
                   {/* Cross-Module Insights */}
                   {analysis.cross_module_insights && analysis.cross_module_insights.length > 0 && (
-                    <div className="bg-white border border-indigo-200 rounded-lg p-6 bg-indigo-50">
-                      <h3 className="text-lg font-semibold mb-4 flex items-center text-indigo-900">
+                    <div className="budget-analysis-section">
+                      <h3 className="text-lg font-semibold mb-4 flex items-center budget-analysis-section-title">
                         <Zap className="h-5 w-5 mr-2" />
                         Cross-Module Insights
                       </h3>
                       <div className="space-y-2">
                         {analysis.cross_module_insights.map((insight, i) => (
-                          <div key={i} className="bg-white rounded-lg p-3 border border-indigo-200">
-                            <p className="text-sm text-gray-700">{insight}</p>
+                          <div key={i} className="budget-analysis-subcard p-3">
+                            <p className="text-sm budget-analysis-body">{insight}</p>
                           </div>
                         ))}
                       </div>
@@ -5065,37 +5373,37 @@ export default function BudgetOptimizerModule() {
 
                   {/* Top 5 Common Waste Areas Analysis */}
                   {analysis.waste_area_analysis && (
-                    <div className="bg-white border border-orange-200 rounded-lg p-6 bg-orange-50">
-                      <h3 className="text-lg font-semibold mb-4 flex items-center text-orange-900">
+                    <div className="budget-analysis-section">
+                      <h3 className="text-lg font-semibold mb-4 flex items-center budget-analysis-warning">
                         <AlertTriangle className="h-5 w-5 mr-2" />
                         Top 5 Common Waste Areas Analysis
                       </h3>
-                      <p className="text-sm text-gray-700 mb-4">
+                      <p className="text-sm budget-analysis-body mb-4">
                         Based on research showing where consumers commonly waste money, here's your
                         spending in these areas:
                       </p>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         {/* Frequently Eating Out */}
-                        <div className="bg-white rounded-lg border border-orange-200 p-4">
+                        <div className="budget-analysis-subcard p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-semibold text-orange-900">
+                            <h4 className="font-semibold budget-analysis-body">
                               1. Frequently Eating Out
                             </h4>
-                            <span className="text-lg font-bold text-orange-600">
+                            <span className="text-lg font-bold budget-analysis-warning">
                               {formatCurrency(
                                 analysis.waste_area_analysis.frequently_eating_out.total
                               )}
                             </span>
                           </div>
-                          <p className="text-xs text-gray-600 mb-2">
+                          <p className="text-xs budget-analysis-muted mb-2">
                             {analysis.waste_area_analysis.frequently_eating_out.transaction_count}{' '}
                             transactions
                           </p>
                           {analysis.waste_area_analysis.frequently_eating_out.recommendations &&
                             analysis.waste_area_analysis.frequently_eating_out.recommendations
                               .length > 0 && (
-                              <p className="text-sm text-gray-700">
+                              <p className="text-sm budget-analysis-body">
                                 {
                                   analysis.waste_area_analysis.frequently_eating_out
                                     .recommendations[0]
@@ -5105,25 +5413,25 @@ export default function BudgetOptimizerModule() {
                         </div>
 
                         {/* Impulse Online Buying */}
-                        <div className="bg-white rounded-lg border border-orange-200 p-4">
+                        <div className="budget-analysis-subcard p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-semibold text-orange-900">
+                            <h4 className="font-semibold budget-analysis-body">
                               2. Impulse Online Buying
                             </h4>
-                            <span className="text-lg font-bold text-orange-600">
+                            <span className="text-lg font-bold budget-analysis-warning">
                               {formatCurrency(
                                 analysis.waste_area_analysis.impulse_online_buying.total
                               )}
                             </span>
                           </div>
-                          <p className="text-xs text-gray-600 mb-2">
+                          <p className="text-xs budget-analysis-muted mb-2">
                             {analysis.waste_area_analysis.impulse_online_buying.transaction_count}{' '}
                             transactions
                           </p>
                           {analysis.waste_area_analysis.impulse_online_buying.recommendations &&
                             analysis.waste_area_analysis.impulse_online_buying.recommendations
                               .length > 0 && (
-                              <p className="text-sm text-gray-700">
+                              <p className="text-sm budget-analysis-body">
                                 {
                                   analysis.waste_area_analysis.impulse_online_buying
                                     .recommendations[0]
@@ -5133,18 +5441,18 @@ export default function BudgetOptimizerModule() {
                         </div>
 
                         {/* Unused Memberships and Subscriptions */}
-                        <div className="bg-white rounded-lg border border-orange-200 p-4">
+                        <div className="budget-analysis-subcard p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-semibold text-orange-900">
+                            <h4 className="font-semibold budget-analysis-body">
                               3. Unused Memberships & Subscriptions
                             </h4>
-                            <span className="text-lg font-bold text-orange-600">
+                            <span className="text-lg font-bold budget-analysis-warning">
                               {formatCurrency(
                                 analysis.waste_area_analysis.unused_memberships_subscriptions.total
                               )}
                             </span>
                           </div>
-                          <p className="text-xs text-gray-600 mb-2">
+                          <p className="text-xs budget-analysis-muted mb-2">
                             {
                               analysis.waste_area_analysis.unused_memberships_subscriptions
                                 .transaction_count
@@ -5155,7 +5463,7 @@ export default function BudgetOptimizerModule() {
                             .recommendations &&
                             analysis.waste_area_analysis.unused_memberships_subscriptions
                               .recommendations.length > 0 && (
-                              <p className="text-sm text-gray-700">
+                              <p className="text-sm budget-analysis-body">
                                 {
                                   analysis.waste_area_analysis.unused_memberships_subscriptions
                                     .recommendations[0]
@@ -5165,18 +5473,18 @@ export default function BudgetOptimizerModule() {
                         </div>
 
                         {/* Convenience Foods and Drinks */}
-                        <div className="bg-white rounded-lg border border-orange-200 p-4">
+                        <div className="budget-analysis-subcard p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-semibold text-orange-900">
+                            <h4 className="font-semibold budget-analysis-body">
                               4. Convenience Foods & Drinks
                             </h4>
-                            <span className="text-lg font-bold text-orange-600">
+                            <span className="text-lg font-bold budget-analysis-warning">
                               {formatCurrency(
                                 analysis.waste_area_analysis.convenience_foods_drinks.total
                               )}
                             </span>
                           </div>
-                          <p className="text-xs text-gray-600 mb-2">
+                          <p className="text-xs budget-analysis-muted mb-2">
                             {
                               analysis.waste_area_analysis.convenience_foods_drinks
                                 .transaction_count
@@ -5186,7 +5494,7 @@ export default function BudgetOptimizerModule() {
                           {analysis.waste_area_analysis.convenience_foods_drinks.recommendations &&
                             analysis.waste_area_analysis.convenience_foods_drinks.recommendations
                               .length > 0 && (
-                              <p className="text-sm text-gray-700">
+                              <p className="text-sm budget-analysis-body">
                                 {
                                   analysis.waste_area_analysis.convenience_foods_drinks
                                     .recommendations[0]
@@ -5197,23 +5505,23 @@ export default function BudgetOptimizerModule() {
                       </div>
 
                       {/* Food Waste */}
-                      <div className="bg-white rounded-lg border border-orange-200 p-4 mb-4">
+                      <div className="budget-analysis-subcard p-4 mb-4">
                         <div className="flex items-center justify-between mb-2">
                           <div>
-                            <h4 className="font-semibold text-orange-900">
+                            <h4 className="font-semibold budget-analysis-body">
                               5. Food Waste (Estimated)
                             </h4>
                             {analysis.waste_area_analysis.food_waste.note && (
-                              <p className="text-xs text-gray-600 mt-1">
+                              <p className="text-xs budget-analysis-muted mt-1">
                                 {analysis.waste_area_analysis.food_waste.note}
                               </p>
                             )}
                           </div>
-                          <span className="text-lg font-bold text-orange-600">
+                          <span className="text-lg font-bold budget-analysis-warning">
                             {formatCurrency(analysis.waste_area_analysis.food_waste.total)}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-600 mb-2">
+                        <p className="text-xs budget-analysis-muted mb-2">
                           Based on{' '}
                           {formatCurrency(analysis.waste_area_analysis.food_waste.grocery_spending)}{' '}
                           in grocery spending (
@@ -5221,21 +5529,23 @@ export default function BudgetOptimizerModule() {
                         </p>
                         {analysis.waste_area_analysis.food_waste.recommendations &&
                           analysis.waste_area_analysis.food_waste.recommendations.length > 0 && (
-                            <p className="text-sm text-gray-700">
+                            <p className="text-sm budget-analysis-body">
                               {analysis.waste_area_analysis.food_waste.recommendations[0]}
                             </p>
                           )}
                       </div>
 
                       {/* Total Waste Spending */}
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <div className="budget-analysis-stat p-4">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-bold text-red-900">Total Waste Areas Spending</h4>
-                          <span className="text-2xl font-bold text-red-600">
+                          <h4 className="font-bold budget-analysis-body">
+                            Total Waste Areas Spending
+                          </h4>
+                          <span className="text-2xl font-bold budget-analysis-negative">
                             {formatCurrency(analysis.waste_area_analysis.total_waste_spending)}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-700 mt-2">
+                        <p className="text-sm budget-analysis-muted mt-2">
                           This represents potential savings opportunities across all 5 common waste
                           areas.
                         </p>
@@ -5244,27 +5554,31 @@ export default function BudgetOptimizerModule() {
                   )}
 
                   {/* Savings Opportunities */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <div className="budget-analysis-section">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center budget-analysis-section-title">
                       <Target className="h-5 w-5 mr-2" />
                       Savings Opportunities
                     </h3>
                     <div className="space-y-4">
                       {analysis.savings_opportunities.map((opportunity, index) => (
-                        <div key={index} className="border border-gray-200 rounded-lg p-4">
+                        <div key={index} className="budget-analysis-subcard p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium">{opportunity.category}</h4>
-                            <span className="text-sm text-green-600 font-medium">
+                            <h4 className="font-medium budget-analysis-body">
+                              {opportunity.category}
+                            </h4>
+                            <span className="text-sm budget-analysis-positive font-medium">
                               Save {formatCurrency(opportunity.potential_savings)} (
                               {opportunity.savings_percentage}%)
                             </span>
                           </div>
-                          <p className="text-sm text-gray-600 mb-2">
+                          <p className="text-sm budget-analysis-muted mb-2">
                             Current spending: {formatCurrency(opportunity.current_spending)}
                           </p>
-                          <p className="text-sm text-gray-700 mb-2">{opportunity.recommendation}</p>
+                          <p className="text-sm budget-analysis-body mb-2">
+                            {opportunity.recommendation}
+                          </p>
                           {opportunity.connection_to_goals && (
-                            <p className="text-xs text-purple-600 italic">
+                            <p className="text-xs budget-analysis-highlight italic">
                               📍 {opportunity.connection_to_goals}
                             </p>
                           )}
@@ -5274,8 +5588,8 @@ export default function BudgetOptimizerModule() {
                   </div>
 
                   {/* Actionable Insights */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <div className="budget-analysis-section">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center budget-analysis-section-title">
                       <Star className="h-5 w-5 mr-2" />
                       Actionable Insights
                     </h3>
@@ -5283,7 +5597,7 @@ export default function BudgetOptimizerModule() {
                       {analysis.actionable_insights.map((insight, index) => (
                         <div
                           key={index}
-                          className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg"
+                          className="flex items-start space-x-3 p-3 budget-analysis-txn-row rounded-lg"
                         >
                           <span
                             className={`px-2 py-1 text-xs rounded-full font-medium ${getPriorityColor(insight.priority)}`}
@@ -5291,11 +5605,13 @@ export default function BudgetOptimizerModule() {
                             {insight.priority.toUpperCase()}
                           </span>
                           <div className="flex-1">
-                            <h4 className="font-medium">{insight.action}</h4>
-                            <p className="text-sm text-gray-600 mb-1">{insight.impact}</p>
-                            <p className="text-xs text-gray-500">Timeline: {insight.timeline}</p>
+                            <h4 className="font-medium budget-analysis-body">{insight.action}</h4>
+                            <p className="text-sm budget-analysis-muted mb-1">{insight.impact}</p>
+                            <p className="text-xs budget-analysis-muted">
+                              Timeline: {insight.timeline}
+                            </p>
                             {insight.connected_goal && (
-                              <p className="text-xs text-purple-600 mt-1">
+                              <p className="text-xs budget-analysis-highlight mt-1">
                                 🎯 Connected to goal: {insight.connected_goal}
                               </p>
                             )}
@@ -5306,32 +5622,32 @@ export default function BudgetOptimizerModule() {
                   </div>
 
                   {/* Monthly Budget Suggestion */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <div className="budget-analysis-section">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center budget-analysis-section-title">
                       <PieChart className="h-5 w-5 mr-2" />
                       Recommended Monthly Budget
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                      <div className="text-center p-4 bg-green-50 rounded-lg">
-                        <div className="text-2xl font-bold text-green-600">
+                      <div className="text-center p-4 budget-analysis-stat">
+                        <div className="text-2xl font-bold budget-analysis-positive">
                           {formatCurrency(analysis.monthly_budget_suggestion.total_income)}
                         </div>
-                        <div className="text-sm text-gray-600">Total Income</div>
+                        <div className="text-sm budget-analysis-muted">Total Income</div>
                       </div>
-                      <div className="text-center p-4 bg-blue-50 rounded-lg">
-                        <div className="text-2xl font-bold text-blue-600">
+                      <div className="text-center p-4 budget-analysis-stat">
+                        <div className="text-2xl font-bold budget-analysis-highlight">
                           {formatCurrency(analysis.monthly_budget_suggestion.recommended_expenses)}
                         </div>
-                        <div className="text-sm text-gray-600">Recommended Expenses</div>
+                        <div className="text-sm budget-analysis-muted">Recommended Expenses</div>
                       </div>
-                      <div className="text-center p-4 bg-purple-50 rounded-lg">
-                        <div className="text-2xl font-bold text-purple-600">
+                      <div className="text-center p-4 budget-analysis-stat">
+                        <div className="text-2xl font-bold budget-analysis-stat-value">
                           {formatCurrency(analysis.monthly_budget_suggestion.recommended_savings)}
                         </div>
-                        <div className="text-sm text-gray-600">Recommended Savings</div>
+                        <div className="text-sm budget-analysis-muted">Recommended Savings</div>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-700">
+                    <p className="text-sm budget-analysis-body">
                       {analysis.monthly_budget_suggestion.breakdown}
                     </p>
                   </div>
@@ -6250,6 +6566,122 @@ export default function BudgetOptimizerModule() {
                 <Save className="h-4 w-4" />
                 <span>{isLoading ? 'Saving...' : 'Save Goal'}</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSaveAnalysisModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="budget-analysis-tab w-full max-w-md rounded-lg budget-analysis-subcard p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold budget-analysis-section-title">Save Analysis</h3>
+              <button
+                type="button"
+                onClick={() => setShowSaveAnalysisModal(false)}
+                className="budget-analysis-outline-btn rounded p-1"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mb-4 text-sm budget-analysis-muted">
+              Saves this AI analysis with your selected date range and run details so you can reload
+              it later.
+            </p>
+            <label className="mb-2 block text-sm font-medium budget-analysis-body">Name</label>
+            <input
+              type="text"
+              value={saveAnalysisName}
+              onChange={(e) => setSaveAnalysisName(e.target.value)}
+              className="mb-6 w-full rounded-lg border border-[hsl(43_76%_52%/0.35)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(43_76%_52%)]"
+              placeholder="Analysis name"
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowSaveAnalysisModal(false)}
+                className="budget-analysis-outline-btn rounded-lg px-4 py-2 text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveAnalysisToLibrary()}
+                disabled={savingAnalysis}
+                className="budget-analysis-btn-primary inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
+              >
+                {savingAnalysis ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLoadAnalysisModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="budget-analysis-tab max-h-[85vh] w-full max-w-lg overflow-hidden rounded-lg budget-analysis-subcard shadow-xl">
+            <div className="flex items-center justify-between border-b border-[hsl(43_76%_52%/0.25)] px-6 py-4">
+              <h3 className="text-lg font-semibold budget-analysis-section-title">
+                Saved Analyses
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowLoadAnalysisModal(false)}
+                className="budget-analysis-outline-btn rounded p-1"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
+              {savedAnalyses.length === 0 ? (
+                <p className="py-8 text-center text-sm budget-analysis-muted">
+                  No saved analyses yet. Run an analysis and click Save Analysis.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {savedAnalyses.map((saved) => {
+                    const score = saved.analysis_data?.analysis?.financial_health?.score
+                    return (
+                      <li key={saved.id} className="budget-analysis-card">
+                        <div className="mb-2 font-medium budget-analysis-body">
+                          {saved.name ||
+                            saved.analysis_data?.name ||
+                            `Analysis ${saved.analysis_period_start} – ${saved.analysis_period_end}`}
+                        </div>
+                        <div className="mb-3 text-xs budget-analysis-muted">
+                          {saved.analysis_period_start} → {saved.analysis_period_end}
+                          {typeof score === 'number' ? ` · Health score ${score}/100` : ''}
+                          {' · '}
+                          Saved {new Date(saved.created_at).toLocaleString()}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => applySavedAnalysis(saved)}
+                            className="budget-analysis-btn-soft inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Load
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void deleteSavedAnalysis(saved.id)}
+                            className="budget-analysis-btn-secondary inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </button>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
             </div>
           </div>
         </div>
