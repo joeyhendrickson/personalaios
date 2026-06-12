@@ -6,6 +6,10 @@ import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import { logAfterVercelSdkCall, normalizeUsageFromVercelAI } from '@/lib/ai/usage-logger'
 import { fingerprintTransactionSet } from '@/lib/budget/verified-period-cache'
+import {
+  normalizeBudgetAnalysis,
+  parseBudgetAnalysisText,
+} from '@/lib/budget/normalize-budget-analysis'
 
 export async function POST(request: NextRequest) {
   try {
@@ -148,16 +152,15 @@ export async function POST(request: NextRequest) {
     if (!transactionsToAnalyze || transactionsToAnalyze.length === 0) {
       return NextResponse.json({
         success: true,
-        analysis: {
-          message: 'No transactions found. Please sync your bank accounts first.',
-          insights: [],
-          recommendations: [],
-          spending_summary: {
-            total_income: 0,
-            total_expenses: 0,
-            net_savings: 0,
-            top_categories: [],
-          },
+        analysis: normalizeBudgetAnalysis(null, {
+          emptyMessage: 'No transactions found. Please sync your bank accounts first.',
+        }),
+        spending_summary: {
+          total_income: 0,
+          total_expenses: 0,
+          net_savings: 0,
+          top_categories: [],
+          transaction_count: 0,
         },
       })
     }
@@ -1175,139 +1178,75 @@ Focus on actionable, specific recommendations that help improve financial situat
       latest_transaction_date = sortedDates[sortedDates.length - 1]
     }
 
-    let parsedAnalysis
-    try {
-      parsedAnalysis = JSON.parse(analysis)
-    } catch {
-      // If JSON parsing fails, return a structured response
-      parsedAnalysis = {
-        spending_patterns: {
-          trends: ['Analysis provided in recommendations'],
-          unusual_spending: ['See detailed analysis above'],
-          seasonal_patterns: ['Pattern analysis included'],
-          discrepancies: {
-            expected_vs_actual_income: analysis,
-            expected_vs_actual_expenses: analysis,
-            missing_categories: [],
-            unexpected_income: [],
-          },
-        },
-        accountability_questions: [
-          {
-            question:
-              'Review the detailed analysis above for specific questions about your spending habits',
-            category: 'General',
-            context: 'Understanding your spending patterns',
-            transactions: [],
-          },
-        ],
-        side_business_analysis: {
-          potential_income: totalIncomingP2P,
-          transfers_analysis: analysis,
-          recommendations: ['Review analysis for specific recommendations'],
-          questions: ['Are incoming P2P transfers from side business income?'],
-        },
-        subscription_analysis: {
-          total_subscription_spending: subscriptionTransactions.reduce(
-            (sum: number, t: any) => sum + Math.abs(t.amount),
-            0
-          ),
-          unaccounted_subscriptions: missingSubscriptions,
-          recommendations: ['Review analysis for subscription management recommendations'],
-        },
-        goal_alignment: {
-          connected_goals: relevantGoals,
-          income_goal_coaching: ['Review analysis for income growth coaching'],
-          budget_reduction_coaching: ['Review analysis for budget reduction coaching'],
-          business_launch_recommendations: ['Review analysis for business launch strategies'],
-        },
-        waste_area_analysis: {
-          frequently_eating_out: {
-            total: wasteAreaCategories.frequentlyEatingOut.total,
-            transaction_count: wasteAreaCategories.frequentlyEatingOut.transactions.length,
-            recommendations: ['Review analysis for dining out reduction recommendations'],
-          },
-          impulse_online_buying: {
-            total: wasteAreaCategories.impulseOnlineBuying.total,
-            transaction_count: wasteAreaCategories.impulseOnlineBuying.transactions.length,
-            recommendations: ['Review analysis for impulse purchase reduction recommendations'],
-          },
-          unused_memberships_subscriptions: {
-            total: wasteAreaCategories.unusedMembershipsSubscriptions.total,
-            transaction_count:
-              wasteAreaCategories.unusedMembershipsSubscriptions.transactions.length,
-            recommendations: ['Review analysis for subscription management recommendations'],
-          },
-          convenience_foods_drinks: {
-            total: wasteAreaCategories.convenienceFoodsDrinks.total,
-            transaction_count: wasteAreaCategories.convenienceFoodsDrinks.transactions.length,
-            recommendations: ['Review analysis for convenience food reduction recommendations'],
-          },
-          food_waste: {
-            total: estimatedFoodWaste,
-            grocery_spending: totalGrocerySpending,
-            transaction_count: wasteAreaCategories.foodWaste.transactions.length,
-            note: 'Estimated as 25% of grocery spending',
-            recommendations: ['Review analysis for food waste reduction recommendations'],
-          },
-          total_waste_spending:
-            wasteAreaCategories.frequentlyEatingOut.total +
-            wasteAreaCategories.impulseOnlineBuying.total +
-            wasteAreaCategories.unusedMembershipsSubscriptions.total +
-            wasteAreaCategories.convenienceFoodsDrinks.total +
-            estimatedFoodWaste,
-        },
-        savings_opportunities: [
-          {
-            category: 'General',
-            current_spending: totalExpenses,
-            potential_savings: totalExpenses * 0.1,
-            savings_percentage: 10,
-            recommendation: analysis,
-            connection_to_goals: 'Review analysis for goal connections',
-          },
-        ],
-        budget_recommendations: {
-          income_allocation: {
-            needs: 50,
-            wants: 30,
-            savings: 20,
-          },
-          category_budgets: [],
-          expected_income_updates: [],
-          expected_expense_updates: [],
-        },
-        financial_health: {
-          score: 70,
-          assessment: 'Based on your transaction data',
-          strengths: ['Regular income and spending tracking'],
-          concerns: ['Review detailed analysis for specific areas'],
-          goal_progress: 'Review analysis for goal alignment',
-        },
-        actionable_insights: [
-          {
-            priority: 'medium',
-            action: 'Review the detailed analysis above',
-            impact: 'Improved financial awareness',
-            timeline: 'Immediate',
-            connected_goal: null,
-          },
-        ],
-        monthly_budget_suggestion: {
-          total_income:
-            totalExpectedMonthlyIncome ||
-            totalIncome / Math.max(1, transactionsToAnalyze.length / 30),
-          recommended_expenses: totalExpectedMonthlyIncome
-            ? totalExpectedMonthlyIncome * 0.8
-            : totalIncome * 0.8,
-          recommended_savings: totalExpectedMonthlyIncome
-            ? totalExpectedMonthlyIncome * 0.2
-            : totalIncome * 0.2,
-          breakdown: 'See detailed analysis above',
-        },
-        cross_module_insights: ['Review analysis for cross-module insights'],
-      }
+    const wasteAreaAnalysisFallback = {
+      frequently_eating_out: {
+        total: wasteAreaCategories.frequentlyEatingOut.total,
+        transaction_count: wasteAreaCategories.frequentlyEatingOut.transactions.length,
+        recommendations: ['Review analysis for dining out reduction recommendations'],
+      },
+      impulse_online_buying: {
+        total: wasteAreaCategories.impulseOnlineBuying.total,
+        transaction_count: wasteAreaCategories.impulseOnlineBuying.transactions.length,
+        recommendations: ['Review analysis for impulse purchase reduction recommendations'],
+      },
+      unused_memberships_subscriptions: {
+        total: wasteAreaCategories.unusedMembershipsSubscriptions.total,
+        transaction_count: wasteAreaCategories.unusedMembershipsSubscriptions.transactions.length,
+        recommendations: ['Review analysis for subscription management recommendations'],
+      },
+      convenience_foods_drinks: {
+        total: wasteAreaCategories.convenienceFoodsDrinks.total,
+        transaction_count: wasteAreaCategories.convenienceFoodsDrinks.transactions.length,
+        recommendations: ['Review analysis for convenience food reduction recommendations'],
+      },
+      food_waste: {
+        total: estimatedFoodWaste,
+        grocery_spending: totalGrocerySpending,
+        transaction_count: wasteAreaCategories.foodWaste.transactions.length,
+        note: 'Estimated as 25% of grocery spending',
+        recommendations: ['Review analysis for food waste reduction recommendations'],
+      },
+      total_waste_spending:
+        wasteAreaCategories.frequentlyEatingOut.total +
+        wasteAreaCategories.impulseOnlineBuying.total +
+        wasteAreaCategories.unusedMembershipsSubscriptions.total +
+        wasteAreaCategories.convenienceFoodsDrinks.total +
+        estimatedFoodWaste,
     }
+
+    const parsedAnalysis = normalizeBudgetAnalysis(parseBudgetAnalysisText(analysis), {
+      rawText: analysis,
+      totalExpenses,
+      totalIncome,
+      totalExpectedMonthlyIncome,
+      totalIncomingP2P,
+      missingSubscriptions,
+      subscriptionTotal: subscriptionTransactions.reduce(
+        (sum: number, t: any) => sum + Math.abs(t.amount),
+        0
+      ),
+      relevantGoals: relevantGoals.map((g: any) => ({
+        title: g.title,
+        description: g.description,
+      })),
+      wasteAreaAnalysis: wasteAreaAnalysisFallback,
+      thirtyDayActuals: {
+        income_actuals: thirtyDayActuals.income.map((a: any) => ({
+          category: a.category,
+          expected: a.expected,
+          actual: a.actual,
+          difference: a.difference,
+          percentage_difference: a.expected > 0 ? (a.difference / a.expected) * 100 : 0,
+        })),
+        expense_actuals: thirtyDayActuals.expenses.map((a: any) => ({
+          category: a.category,
+          expected: a.expected,
+          actual: a.actual,
+          difference: a.difference,
+          percentage_difference: a.expected > 0 ? (a.difference / a.expected) * 100 : 0,
+        })),
+      },
+    })
 
     // Store insights in database
     const insightsToInsert = [

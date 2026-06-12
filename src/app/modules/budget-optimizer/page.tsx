@@ -44,6 +44,7 @@ import {
 } from 'lucide-react'
 import { classifyPlaidTransactionDisplay } from '@/lib/budget/transaction-display-classification'
 import { findDuplicateTransactions } from '@/lib/budget/find-duplicate-transactions'
+import { normalizeBudgetAnalysis } from '@/lib/budget/normalize-budget-analysis'
 
 interface BankConnection {
   id: string
@@ -2093,7 +2094,7 @@ export default function BudgetOptimizerModule() {
   const applySavedAnalysis = (saved: SavedBudgetAnalysis) => {
     const payload = saved.analysis_data
     if (payload?.analysis) {
-      setAnalysis(payload.analysis)
+      setAnalysis(normalizeBudgetAnalysis(payload.analysis) as BudgetAnalysis)
     }
     setAnalysisRunSummary(payload?.run_summary ?? null)
     setAnalysisSpendingSummary(payload?.spending_summary ?? null)
@@ -2140,7 +2141,7 @@ export default function BudgetOptimizerModule() {
       })
       if (response.ok) {
         const data = await response.json()
-        setAnalysis(data.analysis)
+        setAnalysis(normalizeBudgetAnalysis(data.analysis) as BudgetAnalysis)
         setAnalysisSpendingSummary(data.spending_summary ?? null)
         setAnalysisRunSummary({
           analysis_scope: {
@@ -4890,7 +4891,7 @@ export default function BudgetOptimizerModule() {
                       <div>
                         <h4 className="font-medium budget-analysis-positive mb-2">Strengths</h4>
                         <ul className="space-y-1">
-                          {analysis.financial_health.strengths.map((strength, index) => (
+                          {analysis.financial_health.strengths?.map((strength, index) => (
                             <li
                               key={index}
                               className="flex items-center text-sm budget-analysis-body"
@@ -4906,7 +4907,7 @@ export default function BudgetOptimizerModule() {
                           Areas for Improvement
                         </h4>
                         <ul className="space-y-1">
-                          {analysis.financial_health.concerns.map((concern, index) => (
+                          {analysis.financial_health.concerns?.map((concern, index) => (
                             <li
                               key={index}
                               className="flex items-center text-sm budget-analysis-body"
@@ -5164,15 +5165,15 @@ export default function BudgetOptimizerModule() {
                   )}
 
                   {/* Expected Income/Expense Updates */}
-                  {((analysis.budget_recommendations.expected_income_updates?.length ?? 0) > 0 ||
-                    (analysis.budget_recommendations.expected_expense_updates?.length ?? 0) >
+                  {((analysis.budget_recommendations?.expected_income_updates?.length ?? 0) > 0 ||
+                    (analysis.budget_recommendations?.expected_expense_updates?.length ?? 0) >
                       0) && (
                     <div className="budget-analysis-section">
                       <h3 className="text-lg font-semibold mb-4 flex items-center budget-analysis-section-title">
                         <Edit className="h-5 w-5 mr-2" />
                         Recommended Budget Updates
                       </h3>
-                      {analysis.budget_recommendations.expected_income_updates &&
+                      {analysis.budget_recommendations?.expected_income_updates &&
                         analysis.budget_recommendations.expected_income_updates.length > 0 && (
                           <div className="mb-4">
                             <h4 className="font-medium budget-analysis-positive mb-2">
@@ -5197,7 +5198,7 @@ export default function BudgetOptimizerModule() {
                             </div>
                           </div>
                         )}
-                      {analysis.budget_recommendations.expected_expense_updates &&
+                      {analysis.budget_recommendations?.expected_expense_updates &&
                         analysis.budget_recommendations.expected_expense_updates.length > 0 && (
                           <div>
                             <h4 className="font-medium budget-analysis-negative mb-2">
@@ -5544,7 +5545,7 @@ export default function BudgetOptimizerModule() {
                       Savings Opportunities
                     </h3>
                     <div className="space-y-4">
-                      {analysis.savings_opportunities.map((opportunity, index) => (
+                      {(analysis.savings_opportunities ?? []).map((opportunity, index) => (
                         <div key={index} className="budget-analysis-subcard p-4">
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="font-medium budget-analysis-body">
@@ -5578,7 +5579,7 @@ export default function BudgetOptimizerModule() {
                       Actionable Insights
                     </h3>
                     <div className="space-y-3">
-                      {analysis.actionable_insights.map((insight, index) => (
+                      {(analysis.actionable_insights ?? []).map((insight, index) => (
                         <div
                           key={index}
                           className="flex items-start space-x-3 p-3 budget-analysis-txn-row rounded-lg"
@@ -5614,25 +5615,29 @@ export default function BudgetOptimizerModule() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                       <div className="text-center p-4 budget-analysis-stat">
                         <div className="text-2xl font-bold budget-analysis-positive">
-                          {formatCurrency(analysis.monthly_budget_suggestion.total_income)}
+                          {formatCurrency(analysis.monthly_budget_suggestion?.total_income ?? 0)}
                         </div>
                         <div className="text-sm budget-analysis-muted">Total Income</div>
                       </div>
                       <div className="text-center p-4 budget-analysis-stat">
                         <div className="text-2xl font-bold budget-analysis-highlight">
-                          {formatCurrency(analysis.monthly_budget_suggestion.recommended_expenses)}
+                          {formatCurrency(
+                            analysis.monthly_budget_suggestion?.recommended_expenses ?? 0
+                          )}
                         </div>
                         <div className="text-sm budget-analysis-muted">Recommended Expenses</div>
                       </div>
                       <div className="text-center p-4 budget-analysis-stat">
                         <div className="text-2xl font-bold budget-analysis-stat-value">
-                          {formatCurrency(analysis.monthly_budget_suggestion.recommended_savings)}
+                          {formatCurrency(
+                            analysis.monthly_budget_suggestion?.recommended_savings ?? 0
+                          )}
                         </div>
                         <div className="text-sm budget-analysis-muted">Recommended Savings</div>
                       </div>
                     </div>
                     <p className="text-sm budget-analysis-body">
-                      {analysis.monthly_budget_suggestion.breakdown}
+                      {analysis.monthly_budget_suggestion?.breakdown ?? ''}
                     </p>
                   </div>
                 </div>

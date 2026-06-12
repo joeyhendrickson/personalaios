@@ -12,6 +12,10 @@ import {
   resolveExerciseId,
   resolveWorkoutPlanWeeklyStructure,
 } from '@/lib/fitness/normalize-workout-plan'
+import {
+  activeDashboardContextFromRows,
+  summarizeDashboardContextForAi,
+} from '@/lib/fitness/dashboard-context'
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,14 +46,24 @@ export async function POST(request: NextRequest) {
       stats,
       target_areas,
       body_type_goal,
-      dashboard_goals,
+      dashboard_goals: _clientDashboardGoals,
       latest_biometrics,
       body_photos,
     } = body
 
+    const [{ data: dashboardProjects }, { data: dashboardStrategyGoals }] = await Promise.all([
+      supabase.from('projects').select('*').eq('user_id', user.id),
+      supabase.from('goals').select('*').eq('user_id', user.id),
+    ])
+
+    const dashboardGoals = activeDashboardContextFromRows(
+      (dashboardProjects || []) as Array<Record<string, unknown>>,
+      (dashboardStrategyGoals || []) as Array<Record<string, unknown>>
+    )
+
     console.log(`Generating workout plan for user: ${user.id}`)
     console.log(
-      `Goals: ${goals?.length || 0}, Stats: ${stats?.length || 0}, Target areas: ${target_areas?.join(', ') || 'none'}, Dashboard goals: ${dashboard_goals?.length || 0}`
+      `Goals: ${goals?.length || 0}, Stats: ${stats?.length || 0}, Target areas: ${target_areas?.join(', ') || 'none'}, Active dashboard items: ${dashboardGoals.length}`
     )
 
     // Get available exercises from database
@@ -70,7 +84,7 @@ export async function POST(request: NextRequest) {
       target_areas || [],
       body_type_goal,
       exercises || [],
-      dashboard_goals || [],
+      dashboardGoals,
       latest_biometrics || null,
       body_photos || []
     )
@@ -272,19 +286,7 @@ async function generateWorkoutPlanWithAI(
     is_compound: e.is_compound,
   }))
 
-  const dashboardGoalsSummary =
-    dashboardGoals.length > 0
-      ? JSON.stringify(
-          dashboardGoals.slice(0, 15).map((g: any) => ({
-            title: g.title,
-            description: g.description,
-            priority: g.priority_level,
-            target_date: g.target_date,
-          })),
-          null,
-          2
-        )
-      : 'None provided'
+  const dashboardGoalsSummary = summarizeDashboardContextForAi(dashboardGoals)
 
   const bodyAnalysisSummary =
     bodyPhotos && bodyPhotos.length > 0
@@ -317,7 +319,7 @@ Create a comprehensive, detailed weekly workout plan based on the following user
 FITNESS MODULE GOALS:
 ${JSON.stringify(goalsData, null, 2)}
 
-DASHBOARD GOALS (user's primary Life Stacks goals — align volume and exercise selection where sensible):
+DASHBOARD GOALS (user's active Life Stacks projects and strategy goals — align volume and exercise selection where sensible; do NOT reference completed or cancelled items):
 ${dashboardGoalsSummary}
 
 CURRENT FITNESS STATS:

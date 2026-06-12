@@ -57,14 +57,10 @@ import {
   computeStrengthStatsFingerprint,
   type StrengthGrowthStatPoint,
 } from '@/lib/fitness/strength-growth-fingerprint'
-
-interface DashboardGoal {
-  id?: string
-  title?: string
-  description?: string
-  priority_level?: number
-  target_date?: string
-}
+import {
+  activeDashboardContextFromRows,
+  type DashboardContextItem,
+} from '@/lib/fitness/dashboard-context'
 
 interface BodyPhoto {
   id: string
@@ -237,7 +233,7 @@ export default function FitnessTrackerModule() {
   const [savingFutureStateId, setSavingFutureStateId] = useState<string | null>(null)
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null)
   const [showExerciseModal, setShowExerciseModal] = useState(false)
-  const [dashboardGoals, setDashboardGoals] = useState<DashboardGoal[]>([])
+  const [dashboardGoals, setDashboardGoals] = useState<DashboardContextItem[]>([])
   const [biometrics, setBiometrics] = useState<FitnessBiometricRow[]>([])
   const [workoutModalOpen, setWorkoutModalOpen] = useState(false)
   const [modalWorkoutPlan, setModalWorkoutPlan] = useState<WorkoutPlan | null>(null)
@@ -424,6 +420,7 @@ export default function FitnessTrackerModule() {
         workoutsRes,
         nutritionRes,
         nutritionPrefsRes,
+        dashboardProjectsRes,
         dashboardGoalsRes,
         biometricsRes,
         futureStatesRes,
@@ -435,6 +432,7 @@ export default function FitnessTrackerModule() {
         fetch('/api/fitness/workout-plans'),
         fetch('/api/fitness/nutrition-plans'),
         fetch('/api/fitness/nutrition-preferences'),
+        fetch('/api/projects'),
         fetch('/api/goals'),
         fetch('/api/fitness/biometrics'),
         fetch('/api/fitness/future-state'),
@@ -458,10 +456,17 @@ export default function FitnessTrackerModule() {
       if (workoutsRes.ok) setWorkoutPlans(await workoutsRes.json())
       if (nutritionRes.ok) setNutritionPlans(await nutritionRes.json())
 
+      let dashboardProjects: Array<Record<string, unknown>> = []
+      let dashboardStrategyGoals: Array<Record<string, unknown>> = []
+      if (dashboardProjectsRes.ok) {
+        const dp = await dashboardProjectsRes.json()
+        dashboardProjects = dp.projects || []
+      }
       if (dashboardGoalsRes.ok) {
         const dg = await dashboardGoalsRes.json()
-        setDashboardGoals(dg.goals || [])
+        dashboardStrategyGoals = dg.goals || []
       }
+      setDashboardGoals(activeDashboardContextFromRows(dashboardProjects, dashboardStrategyGoals))
       if (biometricsRes.ok) {
         const bio = await biometricsRes.json()
         setBiometrics(bio.biometrics || [])
@@ -494,6 +499,28 @@ export default function FitnessTrackerModule() {
       setTimeout(() => setErrorMessage(''), 5000)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const refreshDashboardContext = async () => {
+    try {
+      const [projectsRes, goalsRes] = await Promise.all([
+        fetch('/api/projects'),
+        fetch('/api/goals'),
+      ])
+      let dashboardProjects: Array<Record<string, unknown>> = []
+      let dashboardStrategyGoals: Array<Record<string, unknown>> = []
+      if (projectsRes.ok) {
+        const dp = await projectsRes.json()
+        dashboardProjects = dp.projects || []
+      }
+      if (goalsRes.ok) {
+        const dg = await goalsRes.json()
+        dashboardStrategyGoals = dg.goals || []
+      }
+      setDashboardGoals(activeDashboardContextFromRows(dashboardProjects, dashboardStrategyGoals))
+    } catch (error) {
+      console.error('Error refreshing dashboard context for fitness:', error)
     }
   }
 
@@ -1101,7 +1128,7 @@ export default function FitnessTrackerModule() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          goals: fitnessGoals,
+          goals: fitnessGoals.filter((g) => !g.completed_at && g.is_active !== false),
           stats: fitnessStats,
           target_areas: selectedTargetAreas,
           body_type_goal: selectedBodyType,
@@ -2184,6 +2211,7 @@ export default function FitnessTrackerModule() {
                           type="button"
                           className="text-left p-5 flex-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
                           onClick={() => {
+                            void refreshDashboardContext()
                             setModalWorkoutPlan(plan)
                             setWorkoutModalOpen(true)
                           }}
@@ -2707,7 +2735,7 @@ export default function FitnessTrackerModule() {
           setWorkoutModalOpen(false)
           setModalWorkoutPlan(null)
         }}
-        fitnessGoals={fitnessGoals}
+        fitnessGoals={fitnessGoals.filter((g) => !g.completed_at && g.is_active !== false)}
         dashboardGoals={dashboardGoals}
         fitnessStats={fitnessStats}
         latestBiometric={biometrics[0] ?? null}

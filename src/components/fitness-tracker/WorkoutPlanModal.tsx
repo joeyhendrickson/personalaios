@@ -22,6 +22,7 @@ import {
   resolveWorkoutPlanWeeklyStructure,
   type PlanExerciseRow,
 } from '@/lib/fitness/normalize-workout-plan'
+import type { DashboardContextItem } from '@/lib/fitness/dashboard-context'
 
 type WorkoutPlan = {
   id: string
@@ -46,12 +47,7 @@ type FitnessGoal = {
   description?: string
 }
 
-type DashboardGoal = {
-  title?: string
-  description?: string
-  priority_level?: number
-  target_date?: string
-}
+type DashboardGoal = DashboardContextItem
 
 type FitnessStat = {
   stat_type: string
@@ -226,12 +222,15 @@ export default function WorkoutPlanModal(props: {
             <div className="border border-blue-100 bg-blue-50/80 rounded-lg p-4">
               <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-2">
                 <Zap className="h-4 w-4 text-blue-600" />
-                Dashboard goals
+                Active dashboard projects &amp; goals
               </h3>
               <ul className="text-sm text-gray-700 space-y-1">
                 {dashboardGoals.slice(0, 6).map((g, i) => (
-                  <li key={i}>
-                    <span className="font-medium">{g.title || 'Goal'}</span>
+                  <li key={g.id ?? i}>
+                    <span className="text-[10px] uppercase tracking-wide text-blue-700 font-semibold mr-1.5">
+                      {g.kind === 'project' ? 'Project' : 'Goal'}
+                    </span>
+                    <span className="font-medium">{g.title || 'Untitled'}</span>
                     {g.target_date ? (
                       <span className="text-gray-500 text-xs ml-1">
                         (target {new Date(g.target_date).toLocaleDateString()})
@@ -240,9 +239,14 @@ export default function WorkoutPlanModal(props: {
                   </li>
                 ))}
                 {dashboardGoals.length === 0 && (
-                  <li className="text-gray-500 text-sm">No dashboard goals found.</li>
+                  <li className="text-gray-500 text-sm">
+                    No active dashboard projects or goals right now.
+                  </li>
                 )}
               </ul>
+              <p className="text-xs text-gray-500 mt-2">
+                Matches what you see on your dashboard today — completed items are excluded.
+              </p>
             </div>
           </div>
 
@@ -422,9 +426,15 @@ export default function WorkoutPlanModal(props: {
               </div>
             </div>
             {plan.description && (
-              <p className="text-sm text-gray-600 mb-4 italic border-l-4 border-green-200 pl-3">
-                {plan.description}
-              </p>
+              <>
+                <p className="text-sm text-gray-600 mb-4 italic border-l-4 border-green-200 pl-3">
+                  {plan.description}
+                </p>
+                <p className="text-xs text-gray-500 mb-4">
+                  Plan narrative was written when this plan was generated. Use the dashboard context
+                  above for your current active projects and goals.
+                </p>
+              </>
             )}
             {baseFrequency === 0 && (
               <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
