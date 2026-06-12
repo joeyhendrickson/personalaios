@@ -70,10 +70,33 @@ body {
   color: hsl(var(--foreground));
 }
 
-/* LifeStacks logo — dark mode: black tile, inverted white mark */
+/* LifeStacks logo — square aspect, no stretch on narrow mobile headers */
 .lifestacks-logo {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
+}
+
+.lifestacks-logo img {
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  max-width: none;
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+@media (min-width: 640px) {
+  .lifestacks-logo img {
+    width: 3rem;
+    height: 3rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .lifestacks-logo img {
+    width: 3.5rem;
+    height: 3.5rem;
+  }
 }
 
 .dark .lifestacks-logo {
@@ -192,6 +215,7 @@ body {
 .dark .bg-blue-100,
 .dark .bg-blue-50,
 .dark .bg-blue-50\/40,
+.dark .bg-blue-50\/50,
 .dark .bg-emerald-50,
 .dark .bg-emerald-50\/30,
 .dark .bg-green-50,
@@ -207,7 +231,9 @@ body {
 .dark .border-amber-100,
 .dark .border-amber-200,
 .dark .border-amber-300,
+.dark .border-blue-100,
 .dark .border-blue-200,
+.dark .border-blue-500,
 .dark .border-emerald-200,
 .dark .border-green-100,
 .dark .border-green-200,
@@ -231,6 +257,7 @@ body {
 .dark .text-blue-600,
 .dark .text-blue-700,
 .dark .text-blue-800,
+.dark .text-blue-900,
 .dark .text-emerald-700,
 .dark .text-emerald-800,
 .dark .text-green-600,
@@ -1308,4 +1335,116 @@ body {
   background-color: hsl(0 0% 0%) !important;
   color: hsl(0 0% 92%) !important;
   border-color: hsl(43 76% 52% / 0.35) !important;
+}
+
+/* Progress Plan modal — always black + gold/white (no blue-on-black, no grey panels) */
+.progress-plan-modal {
+  background-color: hsl(0 0% 0%);
+  color: hsl(0 0% 100%);
+  border: 1px solid hsl(43 76% 52% / 0.45);
+}
+
+.progress-plan-modal__header {
+  border-bottom: 1px solid hsl(43 76% 52% / 0.35);
+}
+
+.progress-plan-modal__title {
+  color: hsl(0 0% 100%);
+}
+
+.progress-plan-modal__icon {
+  color: hsl(43 76% 52%);
+}
+
+.progress-plan-modal__close {
+  color: hsl(43 80% 62%);
+}
+
+.progress-plan-modal__close:hover {
+  color: hsl(0 0% 100%);
+  background-color: hsl(43 28% 10%);
+}
+
+.progress-plan-modal__intro {
+  color: hsl(43 55% 72%);
+}
+
+.progress-plan-modal__quota {
+  border: 1px solid hsl(43 76% 52% / 0.45);
+  background-color: hsl(0 0% 0%);
+  color: hsl(0 0% 100%);
+}
+
+.progress-plan-modal__quota--warning {
+  border-color: hsl(43 76% 52%);
+}
+
+.progress-plan-modal__quota-premium {
+  color: hsl(43 80% 62%);
+}
+
+.progress-plan-modal__label {
+  color: hsl(0 0% 100%);
+}
+
+.progress-plan-modal__period {
+  border: 1px solid hsl(43 35% 28%);
+  background-color: hsl(0 0% 0%);
+}
+
+.progress-plan-modal__period:hover {
+  border-color: hsl(43 76% 52% / 0.55);
+}
+
+.progress-plan-modal__period--selected {
+  border-color: hsl(43 76% 52%);
+  box-shadow: 0 0 0 1px hsl(43 76% 52% / 0.4);
+}
+
+.progress-plan-modal__period-title {
+  color: hsl(0 0% 100%);
+  font-weight: 500;
+}
+
+.progress-plan-modal__period-desc {
+  color: hsl(43 80% 62%);
+  font-size: 0.75rem;
+}
+
+.progress-plan-modal__period input[type='radio'] {
+  accent-color: hsl(43 76% 52%);
+}
+
+.progress-plan-modal__error {
+  border: 1px solid hsl(0 72% 45% / 0.5);
+  background-color: hsl(0 50% 8%);
+  color: hsl(0 72% 62%);
+}
+
+.progress-plan-modal__preview {
+  border: 1px solid hsl(43 76% 52% / 0.35);
+  background-color: hsl(0 0% 0%);
+}
+
+.progress-plan-modal__preview-title {
+  color: hsl(0 0% 100%);
+}
+
+.progress-plan-modal__preview-muted {
+  color: hsl(43 80% 62%);
+}
+
+.progress-plan-modal__footer {
+  border-top: 1px solid hsl(43 76% 52% / 0.35);
+}
+
+.progress-plan-modal__btn-secondary {
+  border: 1px solid hsl(43 76% 52% / 0.45);
+  color: hsl(43 80% 62%);
+  background-color: transparent;
+}
+
+.progress-plan-modal__btn-secondary:hover {
+  background-color: hsl(43 28% 10%);
+  color: hsl(0 0% 100%);
 }

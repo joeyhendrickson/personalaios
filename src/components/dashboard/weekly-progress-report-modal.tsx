@@ -118,17 +118,17 @@ export function WeeklyProgressReportModal({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="progress-plan-modal flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl shadow-xl">
+        <div className="progress-plan-modal__header flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
-            <Settings className="h-5 w-5 text-blue-500" />
-            <h3 className="text-lg font-semibold text-gray-900">Progress Plan</h3>
+            <Settings className="progress-plan-modal__icon h-5 w-5" />
+            <h3 className="progress-plan-modal__title text-lg font-semibold">Progress Plan</h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            className="progress-plan-modal__close rounded-md p-1 transition-colors"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
@@ -136,7 +136,7 @@ export function WeeklyProgressReportModal({
         </div>
 
         <div className="space-y-5 overflow-y-auto px-6 py-5">
-          <p className="text-sm text-gray-600">
+          <p className="progress-plan-modal__intro text-sm">
             Generate a styled progress plan with a profile of who you are, what drove your
             motivation, where your attention went, and a SWOT analysis—plus highlights you can share
             or frame for motivation!
@@ -144,16 +144,12 @@ export function WeeklyProgressReportModal({
 
           {quota && (
             <div
-              className={`rounded-lg border px-3 py-2 text-sm ${
-                quota.isPremium
-                  ? 'border-amber-200 bg-amber-50 text-amber-900'
-                  : quota.canGenerate
-                    ? 'border-blue-100 bg-blue-50 text-blue-900'
-                    : 'border-orange-200 bg-orange-50 text-orange-900'
+              className={`progress-plan-modal__quota rounded-lg px-3 py-2 text-sm ${
+                !quota.isPremium && !quota.canGenerate ? 'progress-plan-modal__quota--warning' : ''
               }`}
             >
               {quota.isPremium ? (
-                <span className="flex items-center gap-1.5 font-medium">
+                <span className="progress-plan-modal__quota-premium flex items-center gap-1.5 font-medium">
                   <Crown className="h-4 w-4" />
                   Premium — unlimited reports
                 </span>
@@ -162,7 +158,7 @@ export function WeeklyProgressReportModal({
                   Standard plan: {quota.reportsUsedThisWeek} / {quota.weeklyLimit} report used this
                   week
                   {!quota.canGenerate && quota.nextAvailableAt && (
-                    <span className="block mt-1 text-xs opacity-90">
+                    <span className="progress-plan-modal__period-desc mt-1 block">
                       Next available:{' '}
                       {new Date(quota.nextAvailableAt).toLocaleDateString(undefined, {
                         weekday: 'short',
@@ -177,15 +173,15 @@ export function WeeklyProgressReportModal({
           )}
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Report period</label>
+            <label className="progress-plan-modal__label mb-2 block text-sm font-medium">
+              Report period
+            </label>
             <div className="space-y-2">
               {PERIOD_OPTIONS.map((opt) => (
                 <label
                   key={opt.value}
-                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
-                    periodType === opt.value
-                      ? 'border-blue-500 bg-blue-50/50'
-                      : 'border-gray-200 hover:border-gray-300'
+                  className={`progress-plan-modal__period flex cursor-pointer items-start gap-3 rounded-lg p-3 transition-colors ${
+                    periodType === opt.value ? 'progress-plan-modal__period--selected' : ''
                   }`}
                 >
                   <input
@@ -197,8 +193,8 @@ export function WeeklyProgressReportModal({
                     className="mt-1"
                   />
                   <div>
-                    <span className="font-medium text-gray-900">{opt.label}</span>
-                    <p className="text-xs text-gray-500">{opt.description}</p>
+                    <span className="progress-plan-modal__period-title">{opt.label}</span>
+                    <p className="progress-plan-modal__period-desc">{opt.description}</p>
                   </div>
                 </label>
               ))}
@@ -206,12 +202,12 @@ export function WeeklyProgressReportModal({
           </div>
 
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            <div className="progress-plan-modal__error rounded-lg px-3 py-2 text-sm">
               {error}
               {!quota?.canGenerate && !quota?.isPremium && (
                 <Link
                   href="/subscribe?plan=premium"
-                  className="mt-2 inline-flex items-center gap-1 font-medium text-red-900 underline"
+                  className="progress-plan-modal__quota-premium mt-2 inline-flex items-center gap-1 font-medium underline"
                 >
                   <Crown className="h-3.5 w-3.5" />
                   Upgrade to Premium for unlimited reports
@@ -221,37 +217,41 @@ export function WeeklyProgressReportModal({
           )}
 
           {report && (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                <Sparkles className="h-4 w-4 text-blue-500" />
+            <div className="progress-plan-modal__preview space-y-3 rounded-lg p-4">
+              <div className="progress-plan-modal__preview-title flex items-center gap-2 text-sm font-semibold">
+                <Sparkles className="progress-plan-modal__icon h-4 w-4" />
                 {report.periodLabel}
               </div>
               {hasCoverImage && (
-                <p className="text-xs text-gray-500">Custom DALL·E cover included in PDF</p>
+                <p className="progress-plan-modal__preview-muted text-xs">
+                  Custom DALL·E cover included in PDF
+                </p>
               )}
               {report.userProfile && (
-                <p className="text-xs text-gray-600 line-clamp-2">
+                <p className="progress-plan-modal__preview-muted line-clamp-2 text-xs">
                   {report.userProfile.whoYouSeemToBe}
                 </p>
               )}
               {report.focusReview?.summary && (
-                <p className="text-sm text-gray-700 line-clamp-3">{report.focusReview.summary}</p>
+                <p className="progress-plan-modal__preview-muted line-clamp-3 text-sm">
+                  {report.focusReview.summary}
+                </p>
               )}
               {report.swot?.strengths?.length ? (
-                <p className="text-xs text-gray-500">
+                <p className="progress-plan-modal__preview-muted text-xs">
                   SWOT included ({report.swot.strengths.length} strengths,{' '}
                   {report.swot.opportunities?.length || 0} opportunities)
                 </p>
               ) : null}
               {report.highlightsBullets.length > 0 && (
-                <ul className="text-xs text-gray-600 list-disc pl-4 space-y-1">
+                <ul className="progress-plan-modal__preview-muted list-disc space-y-1 pl-4 text-xs">
                   {report.highlightsBullets.slice(0, 4).map((b, i) => (
                     <li key={i}>{b}</li>
                   ))}
                 </ul>
               )}
               {report.moduleHighlights.length > 0 && (
-                <p className="text-xs text-gray-500">
+                <p className="progress-plan-modal__preview-muted text-xs">
                   {report.moduleHighlights.length} Life Hack module
                   {report.moduleHighlights.length === 1 ? '' : 's'} highlighted
                 </p>
@@ -260,13 +260,13 @@ export function WeeklyProgressReportModal({
           )}
         </div>
 
-        <div className="flex flex-col gap-2 border-t border-gray-200 px-6 py-4 sm:flex-row">
+        <div className="progress-plan-modal__footer flex flex-col gap-2 px-6 py-4 sm:flex-row">
           {!report ? (
             <button
               type="button"
               onClick={handleGenerate}
               disabled={generating || (quota !== null && !quota.canGenerate)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-black py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-black py-2.5 text-sm font-medium text-white ring-1 ring-[hsl(43_76%_52%/0.55)] hover:bg-[hsl(43_28%_10%)] disabled:opacity-50"
             >
               {generating ? (
                 <>
@@ -275,7 +275,7 @@ export function WeeklyProgressReportModal({
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-4 w-4" />
+                  <Sparkles className="h-4 w-4 text-[hsl(43_76%_52%)]" />
                   Generate report
                 </>
               )}
@@ -285,7 +285,7 @@ export function WeeklyProgressReportModal({
               type="button"
               onClick={handleDownloadPdf}
               disabled={downloading}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-black py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-black py-2.5 text-sm font-medium text-white ring-1 ring-[hsl(43_76%_52%/0.55)] hover:bg-[hsl(43_28%_10%)] disabled:opacity-50"
             >
               {downloading ? (
                 <>
@@ -294,7 +294,7 @@ export function WeeklyProgressReportModal({
                 </>
               ) : (
                 <>
-                  <FileDown className="h-4 w-4" />
+                  <FileDown className="h-4 w-4 text-[hsl(43_76%_52%)]" />
                   Download PDF
                 </>
               )}
@@ -303,7 +303,7 @@ export function WeeklyProgressReportModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="progress-plan-modal__btn-secondary rounded-lg px-4 py-2.5 text-sm font-medium transition-colors"
           >
             {report ? 'Done' : 'Cancel'}
           </button>

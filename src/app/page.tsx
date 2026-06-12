@@ -156,7 +156,7 @@ export default function HomePage() {
     },
     {
       icon: Brain,
-      title: 'AI Life Coach',
+      title: 'Life Coach',
       description:
         'Personal AI assistant that understands your goals and provides tailored guidance',
     },

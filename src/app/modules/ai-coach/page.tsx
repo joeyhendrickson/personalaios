@@ -261,7 +261,7 @@ export default function AICoachModule() {
       id: 'welcome',
       role: 'assistant',
       content:
-        "Hello! I'm your AI Life Coach, and I'm here to help you optimize your life using your Personal AI OS. I have access to all your goals, projects, tasks, habits, and progress data to provide personalized guidance. What would you like to work on today?",
+        "Hello! I'm your Life Coach, and I'm here to help you optimize your life using your Personal AI OS. I have access to all your goals, projects, tasks, habits, and progress data to provide personalized guidance. What would you like to work on today?",
       timestamp: new Date(),
       conversation_context: {
         mood: 'welcoming',
@@ -552,17 +552,11 @@ export default function AICoachModule() {
               <div>
                 <h1 className="text-3xl font-bold text-black flex items-center">
                   <Brain className="h-8 w-8 mr-3 text-purple-600" />
-                  AI Life Coach
+                  Life Coach
                 </h1>
                 <p className="text-sm text-gray-600">
-                  Your personalized AI coach with insights from your entire Personal AI OS data
+                  Your personalized coach with insights from your entire Personal AI OS data
                 </p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <Sparkles className="h-4 w-4 text-purple-600" />
-                <span>Powered by AI</span>
               </div>
             </div>
           </div>
@@ -581,7 +575,7 @@ export default function AICoachModule() {
                     <Brain className="h-5 w-5 text-purple-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold">AI Life Coach</h3>
+                    <h3 className="font-semibold">Life Coach</h3>
                     <p className="text-sm text-gray-600">
                       Analyzing your goals, habits, and progress
                     </p>

@@ -135,8 +135,6 @@ export function buildFallbackPlan(input: OnboardingPlanInput): OnboardingPlan {
     'Review my goals',
     'Plan my top 3 tasks for the day',
     'Move my body for 20 minutes',
-    'Write one thing I am grateful for',
-    'Wind down screen-free before bed',
   ]
   for (const title of habitTitles) {
     items.push({ type: 'create_habit', title, points_per_completion: 25 })
@@ -180,7 +178,7 @@ RULES (strict):
 1. Create 3-6 measurable GOALS. Each goal needs goal_type (weekly|monthly|quarterly|yearly), a numeric target_value, and a target_unit (e.g. "workouts", "dollars", "books", "milestones").
 2. Create 1-2 PROJECTS per goal. Every project MUST set goal_title_ref to the EXACT title of one of the goals above.
 3. Create 2-4 TASKS per project. Every task MUST set project_title to the EXACT title of one of the projects.
-4. Create 5-8 daily HABITS that support the goals (small, repeatable daily actions).
+4. Create 3-5 daily HABITS that support the goals (small, repeatable daily actions).
 5. project category = lowercase_with_underscores (e.g. health, business_growth, learning, other).
 6. task category MUST be one of: quick_money, save_money, health, network_expansion, business_growth, fires, good_living, big_vision, job, organization, tech_issues, business_launch, future_planning, innovation, productivity, learning, financial, personal, other.
 7. target_points on projects: 10-50. points_value on tasks: 3-15. points_per_completion on habits: 10-50.

@@ -37,6 +37,7 @@ import {
   Gift,
 } from 'lucide-react'
 import RatingStars from '@/components/rating-stars'
+import { LanguageToggle } from '@/components/ui/language-toggle'
 
 interface Module {
   id: string
@@ -574,6 +575,9 @@ const categories = [
 
 export default function ModulesPage() {
   const { t } = useLanguage()
+  const translateCategory = (category: string) => t(`modules.category.${category}`)
+  const translateComplexity = (complexity: string) => t(`modules.complexity.${complexity}`)
+  const translateStatus = (status: string) => t(`modules.status.${status}`)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedComplexity, setSelectedComplexity] = useState('All')
@@ -800,7 +804,7 @@ export default function ModulesPage() {
               <h3 className="life-hack-card-title text-lg font-semibold text-gray-900">
                 {module.title}
               </h3>
-              <p className="text-sm text-gray-500">{module.category}</p>
+              <p className="text-sm text-gray-500">{translateCategory(module.category)}</p>
             </div>
           </div>
           <span
@@ -810,7 +814,7 @@ export default function ModulesPage() {
                 : getStatusColor(module.status)
             }`}
           >
-            {installed ? 'Active' : module.status}
+            {installed ? t('common.active') : translateStatus(module.status)}
           </span>
         </div>
 
@@ -820,9 +824,11 @@ export default function ModulesPage() {
           <span
             className={`px-2 py-1 text-xs font-medium rounded-full ${getComplexityColor(module.complexity)}`}
           >
-            {module.complexity}
+            {translateComplexity(module.complexity)}
           </span>
-          <span className="text-xs text-gray-500">{module.features.length} features</span>
+          <span className="text-xs text-gray-500">
+            {t('modules.featureCount', { count: module.features.length })}
+          </span>
         </div>
 
         <div className="mb-4">
@@ -844,7 +850,7 @@ export default function ModulesPage() {
                 className="flex-1"
               >
                 <button className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium">
-                  Open
+                  {t('modules.open')}
                 </button>
               </Link>
               <button
@@ -869,10 +875,10 @@ export default function ModulesPage() {
                 {actionLoading === module.id ? (
                   <div className="flex items-center justify-center">
                     <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-                    Installing...
+                    {t('modules.installing')}
                   </div>
                 ) : (
-                  'Install'
+                  t('modules.install')
                 )}
               </button>
               {module.status === 'premium' && (
@@ -892,7 +898,7 @@ export default function ModulesPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading life hacks...</p>
+          <p className="text-gray-600">{t('modules.loading')}</p>
         </div>
       </div>
     )
@@ -908,7 +914,7 @@ export default function ModulesPage() {
               <Link href="/dashboard" className="self-start">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 hover:bg-gray-100">
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
+                  {t('modules.backToDashboard')}
                 </button>
               </Link>
               <div>
@@ -916,6 +922,7 @@ export default function ModulesPage() {
                 <p className="text-sm text-gray-600">{t('modules.subtitle')}</p>
               </div>
             </div>
+            <LanguageToggle />
           </div>
         </div>
       </div>
@@ -948,7 +955,7 @@ export default function ModulesPage() {
               >
                 {categories.map((category) => (
                   <option key={category} value={category}>
-                    {category}
+                    {translateCategory(category)}
                   </option>
                 ))}
               </select>
@@ -976,9 +983,9 @@ export default function ModulesPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold text-gray-900 flex items-center">
                 <CheckCircle className="h-6 w-6 mr-2 text-green-600" />
-                Active Life Hacks ({activeModules.length})
+                {t('modules.activeSection')} ({activeModules.length})
               </h2>
-              <p className="text-sm text-gray-500">Life hacks you're currently using</p>
+              <p className="text-sm text-gray-500">{t('modules.activeSectionHint')}</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {activeModules.map((module) => {
@@ -997,11 +1004,13 @@ export default function ModulesPage() {
                           <h3 className="life-hack-card-title text-lg font-semibold text-gray-900">
                             {module.title}
                           </h3>
-                          <p className="text-sm text-gray-500">{module.category}</p>
+                          <p className="text-sm text-gray-500">
+                            {translateCategory(module.category)}
+                          </p>
                         </div>
                       </div>
                       <span className="life-hack-badge-active px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 border border-green-200">
-                        Active
+                        {t('common.active')}
                       </span>
                     </div>
 
@@ -1011,13 +1020,13 @@ export default function ModulesPage() {
                       <span
                         className={`px-2 py-1 text-xs font-medium rounded-full ${getComplexityColor(module.complexity)}`}
                       >
-                        {module.complexity}
+                        {translateComplexity(module.complexity)}
                       </span>
                       <span className="text-xs text-gray-500">
-                        Last used:{' '}
+                        {t('modules.lastUsed')}{' '}
                         {installedModule
                           ? new Date(installedModule.last_accessed).toLocaleDateString()
-                          : 'Never'}
+                          : t('modules.never')}
                       </span>
                     </div>
 
@@ -1027,7 +1036,7 @@ export default function ModulesPage() {
                         onClick={() => handleModuleAccess(module.id)}
                       >
                         <button className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium">
-                          Open
+                          {t('modules.open')}
                         </button>
                       </Link>
                       <button
@@ -1137,9 +1146,9 @@ export default function ModulesPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold text-gray-900 flex items-center">
                 <Search className="h-6 w-6 mr-2 text-blue-600" />
-                Search results ({searchResults.length})
+                {t('modules.searchResults')} ({searchResults.length})
               </h2>
-              <p className="text-sm text-gray-500">Most relevant life hacks first</p>
+              <p className="text-sm text-gray-500">{t('modules.searchResultsHint')}</p>
             </div>
             {searchResults.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1150,11 +1159,8 @@ export default function ModulesPage() {
                 <div className="text-gray-400 mb-4">
                   <Search className="h-12 w-12 mx-auto" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No life hacks found</h3>
-                <p className="text-gray-500">
-                  Try different keywords — search looks across every life hack and what it&apos;s
-                  for.
-                </p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">{t('modules.noResults')}</h3>
+                <p className="text-gray-500">{t('modules.noSearchResultsHint')}</p>
               </div>
             )}
           </div>
@@ -1167,12 +1173,9 @@ export default function ModulesPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-gray-900 flex items-center">
                   <Plus className="h-6 w-6 mr-2 text-blue-600" />
-                  Available Life Hacks ({filteredModules.length})
+                  {t('modules.availableSection')} ({filteredModules.length})
                 </h2>
-                <p className="text-sm text-gray-500">
-                  Install new life hacks as tools to help you complete your projects and reach your
-                  goals.
-                </p>
+                <p className="text-sm text-gray-500">{t('modules.availableSectionHint')}</p>
               </div>
             </div>
 
@@ -1192,13 +1195,15 @@ export default function ModulesPage() {
                         <h3 className="life-hack-card-title text-lg font-semibold text-gray-900">
                           {module.title}
                         </h3>
-                        <p className="text-sm text-gray-500">{module.category}</p>
+                        <p className="text-sm text-gray-500">
+                          {translateCategory(module.category)}
+                        </p>
                       </div>
                     </div>
                     <span
                       className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(module.status)}`}
                     >
-                      {module.status}
+                      {translateStatus(module.status)}
                     </span>
                   </div>
 
@@ -1208,13 +1213,17 @@ export default function ModulesPage() {
                     <span
                       className={`px-2 py-1 text-xs font-medium rounded-full ${getComplexityColor(module.complexity)}`}
                     >
-                      {module.complexity}
+                      {translateComplexity(module.complexity)}
                     </span>
-                    <span className="text-xs text-gray-500">{module.features.length} features</span>
+                    <span className="text-xs text-gray-500">
+                      {t('modules.featureCount', { count: module.features.length })}
+                    </span>
                   </div>
 
                   <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Features:</h4>
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">
+                      {t('modules.features')}
+                    </h4>
                     <div className="flex flex-wrap gap-1">
                       {module.features.map((feature, index) => (
                         <span
@@ -1236,10 +1245,10 @@ export default function ModulesPage() {
                       {actionLoading === module.id ? (
                         <div className="flex items-center justify-center">
                           <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-                          Installing...
+                          {t('modules.installing')}
                         </div>
                       ) : (
-                        'Install'
+                        t('modules.install')
                       )}
                     </button>
                     {module.status === 'premium' && (
@@ -1257,8 +1266,8 @@ export default function ModulesPage() {
                 <div className="text-gray-400 mb-4">
                   <Search className="h-12 w-12 mx-auto" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No life hacks found</h3>
-                <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">{t('modules.noResults')}</h3>
+                <p className="text-gray-500">{t('modules.noResultsHint')}</p>
               </div>
             )}
           </>

@@ -26,6 +26,13 @@ import {
   VolumeX,
   Shield,
 } from 'lucide-react'
+import {
+  INTAKE_QUESTION_COUNT,
+  normalizeDreamCatcherPhase,
+  STREAMLINED_PHASES,
+} from '@/lib/dream-catcher/streamlined-phases'
+import type { OnboardingPlan } from '@/lib/dream-catcher/generate-onboarding-plan'
+import type { DashboardPlanPreview } from '@/lib/dream-catcher/dashboard-plan-preview'
 
 interface ChatMessage {
   id: string
@@ -33,6 +40,10 @@ interface ChatMessage {
   content: string
   timestamp: Date
   phase?:
+    | 'intake'
+    | 'vision'
+    | 'goals'
+    | 'confirm'
     | 'personality'
     | 'assessment'
     | 'influences'
@@ -78,18 +89,25 @@ function DreamCatcherModuleContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingSession, setIsLoadingSession] = useState(false)
   const [currentPhase, setCurrentPhase] = useState<
+    | 'intake'
+    | 'vision'
+    | 'goals'
+    | 'confirm'
     | 'personality'
     | 'assessment'
     | 'influences'
     | 'executive-skills'
     | 'executive-blocking'
     | 'dreams'
-    | 'vision'
-    | 'goals'
-  >('personality')
+  >('intake')
   const [assessmentData, setAssessmentData] = useState<AssessmentData>({})
-  const [personalityQuestionIndex, setPersonalityQuestionIndex] = useState(0)
+  const [intakeQuestionIndex, setIntakeQuestionIndex] = useState(0)
   const [showResults, setShowResults] = useState(false)
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [dashboardPreview, setDashboardPreview] = useState<DashboardPlanPreview | null>(null)
+  const [pendingPlan, setPendingPlan] = useState<OnboardingPlan | null>(null)
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false)
+  const [previewError, setPreviewError] = useState<string | null>(null)
   const [showExitWarning, setShowExitWarning] = useState(false)
   const [exitHasProgress, setExitHasProgress] = useState(false)
   const [isAutofilling, setIsAutofilling] = useState(false)
@@ -454,12 +472,16 @@ function DreamCatcherModuleContent() {
 
         // Restore phase
         if (session.assessment_data.current_phase) {
-          setCurrentPhase(session.assessment_data.current_phase)
+          setCurrentPhase(
+            normalizeDreamCatcherPhase(session.assessment_data.current_phase) as typeof currentPhase
+          )
         }
 
-        // Restore personality question index
-        if (session.assessment_data.personality_question_index !== undefined) {
-          setPersonalityQuestionIndex(session.assessment_data.personality_question_index)
+        const savedIndex =
+          session.assessment_data.intake_question_index ??
+          session.assessment_data.personality_question_index
+        if (savedIndex !== undefined) {
+          setIntakeQuestionIndex(savedIndex)
         }
 
         // Restore conversation messages if they exist
@@ -505,19 +527,53 @@ function DreamCatcherModuleContent() {
   useEffect(() => {
     if (!sessionId && !isLoadingSession && messages.length === 0) {
       const welcomeContent = isNewUser
-        ? "Welcome to Life Stacks! 🌟 Before we set up your dashboard, let's discover your true dreams and create a clear vision for your future. This journey will help us personalize your experience.\n\nYou can save your progress at any time using the 'Save Progress' button, so you can pause and continue later. Your progress will be saved automatically as you go through the journey.\n\nWe'll go through 8 phases together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nAt the end, you can choose to autofill your dashboard with the goals we create together!\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!\n\nWhen you're ready to respond, click the red microphone button to speak your answer. After you finish speaking, your response will automatically be submitted after 10 seconds of silence."
-        : "Welcome back to Dream Catcher! 🌟 I'm here to help you discover your true dreams and create a clear vision for your future. We'll go through a journey together:\n\n1. Personality Assessment - I'll ask you 20 structured questions to understand your personality profile\n2. Personal Assessment - Exploring your values and desires\n3. Influence Exploration - Questioning what shapes your thoughts\n4. Executive Skills Assessment - Evaluating your executive functioning capabilities\n5. Executive Blocking Factors - Identifying and removing personal barriers\n6. Dream Discovery - Identifying your authentic dreams\n7. Vision Creation - Crafting your vision statement\n8. Goal Generation - Creating actionable goals\n\nYou can save your progress at any time using the 'Save Progress' button, so you can pause and continue later. At the end, you can save your dreams and choose to add them to your dashboard (they'll be added to your existing goals, not replace them).\n\nLet's begin with the Personality Assessment. I'll ask you 20 questions, one at a time. Just answer naturally - there are no right or wrong answers!\n\nWhen you're ready to respond, click the red microphone button to speak your answer. After you finish speaking, your response will automatically be submitted after 10 seconds of silence."
+        ? `Welcome to LifeStacks! I'll ask ${INTAKE_QUESTION_COUNT} quick questions about what matters to you, then we'll draft your vision and goals.\n\nAt the end you'll review a preview of your starter dashboard — goals, projects, tasks, and habits — and confirm before anything is created.\n\nHere's the first question: What matters most to you right now? Tell me about your top priorities in your own words.`
+        : `Welcome back to Dream Catcher! We'll keep this short — a few questions, your vision, and goals. You'll review a dashboard preview and confirm before anything is added. Your existing goals, projects, tasks, and habits stay as they are.\n\nWhat matters most to you right now? Tell me about your top priorities in your own words.`
 
       const welcomeMessage: ChatMessage = {
         id: 'welcome',
         role: 'assistant',
         content: welcomeContent,
         timestamp: new Date(),
-        phase: 'personality',
+        phase: 'intake',
       }
       setMessages([welcomeMessage])
     }
   }, [isNewUser, sessionId, isLoadingSession, messages.length])
+
+  const loadDashboardPreview = async (data: AssessmentData): Promise<OnboardingPlan | null> => {
+    if (!data.goals_generated || data.goals_generated.length === 0) return null
+
+    setIsLoadingPreview(true)
+    setPreviewError(null)
+    try {
+      const response = await fetch('/api/modules/dream-catcher/preview-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goals: data.goals_generated,
+          vision_statement: data.vision_statement,
+          personality_traits: data.personality_traits,
+          dreams_discovered: data.dreams_discovered,
+        }),
+      })
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.error || 'Failed to build dashboard preview')
+      }
+      const result = await response.json()
+      setDashboardPreview(result.preview)
+      setPendingPlan(result.plan)
+      return result.plan as OnboardingPlan
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : 'Failed to load preview')
+      setDashboardPreview(null)
+      setPendingPlan(null)
+      return null
+    } finally {
+      setIsLoadingPreview(false)
+    }
+  }
 
   const sendMessageDirectly = async (messageText: string) => {
     if (!messageText.trim() || isLoading) return
@@ -567,54 +623,71 @@ function DreamCatcherModuleContent() {
           })),
           current_phase: currentPhase,
           assessment_data: assessmentData,
-          personality_question_index: personalityQuestionIndex,
+          personality_question_index: intakeQuestionIndex,
+          intake_question_index: intakeQuestionIndex,
         }),
       })
 
       if (response.ok) {
         const data = await response.json()
 
-        // Update personality question index if provided
-        if (data.personality_question_index !== undefined) {
-          setPersonalityQuestionIndex(data.personality_question_index)
-        }
+        const nextIndex =
+          data.intake_question_index ?? data.personality_question_index ?? intakeQuestionIndex
+        setIntakeQuestionIndex(nextIndex)
 
         // Remove markdown formatting from AI response
         const cleanResponse = data.response.replace(/\*\*/g, '').replace(/\n\n\n+/g, '\n\n')
+
+        const nextPhase = data.next_phase
+          ? (normalizeDreamCatcherPhase(data.next_phase) as typeof currentPhase)
+          : currentPhase
 
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
           content: cleanResponse,
           timestamp: new Date(),
-          phase: data.next_phase || currentPhase,
+          phase: nextPhase,
         }
 
         setMessages((prev) => [...prev, assistantMessage])
 
-        // Update phase if changed
-        if (data.next_phase && data.next_phase !== currentPhase) {
-          setCurrentPhase(data.next_phase)
-          // Reset question index when moving to a new phase
-          if (data.next_phase !== 'personality') {
-            setPersonalityQuestionIndex(0)
+        if (data.next_phase && nextPhase !== currentPhase) {
+          setCurrentPhase(nextPhase)
+          if (nextPhase !== 'intake') {
+            setIntakeQuestionIndex(0)
           }
         }
 
-        // Update assessment data
+        let mergedAssessment = assessmentData
         if (data.assessment_data) {
-          setAssessmentData((prev) => ({
-            ...prev,
-            ...data.assessment_data,
-          }))
+          mergedAssessment = { ...assessmentData }
+          for (const [key, value] of Object.entries(data.assessment_data)) {
+            if (
+              Array.isArray(value) &&
+              Array.isArray(mergedAssessment[key as keyof AssessmentData])
+            ) {
+              const existing = mergedAssessment[key as keyof AssessmentData] as unknown[]
+              mergedAssessment = {
+                ...mergedAssessment,
+                [key]: [...new Set([...existing, ...value])],
+              }
+            } else if (value !== undefined && value !== null && value !== '') {
+              mergedAssessment = { ...mergedAssessment, [key]: value }
+            }
+          }
+          setAssessmentData(mergedAssessment)
         }
 
-        // Show results if goals are generated
-        if (
-          data.assessment_data?.goals_generated &&
-          data.assessment_data.goals_generated.length > 0
-        ) {
+        if (nextPhase === 'confirm') {
+          setShowConfirmation(true)
           setShowResults(true)
+        }
+
+        if (mergedAssessment.goals_generated && mergedAssessment.goals_generated.length > 0) {
+          if (nextPhase === 'confirm' || nextPhase === 'goals') {
+            void loadDashboardPreview(mergedAssessment)
+          }
         }
 
         // DO NOT auto-restart listening after AI responds
@@ -843,7 +916,8 @@ function DreamCatcherModuleContent() {
           phase: msg.phase,
         })),
         current_phase: currentPhase,
-        personality_question_index: personalityQuestionIndex,
+        intake_question_index: intakeQuestionIndex,
+        personality_question_index: intakeQuestionIndex,
       }
 
       const response = await fetch('/api/modules/dream-catcher/save', {
@@ -880,7 +954,13 @@ function DreamCatcherModuleContent() {
 
   const handleAutofillDashboard = async () => {
     if (!assessmentData.goals_generated || assessmentData.goals_generated.length === 0) {
-      alert('No goals to autofill. Please complete the Dream Catcher journey first.')
+      alert('No goals yet. Finish the chat through the confirm step first.')
+      return
+    }
+
+    const planToCommit = pendingPlan ?? (await loadDashboardPreview(assessmentData))
+    if (!planToCommit) {
+      alert(previewError || 'Could not load dashboard preview. Please try again.')
       return
     }
 
@@ -896,27 +976,27 @@ function DreamCatcherModuleContent() {
           personality_traits: assessmentData.personality_traits,
           dreams_discovered: assessmentData.dreams_discovered,
           is_new_user: isNewUser,
+          plan: planToCommit,
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to autofill dashboard')
+        throw new Error(errorData.error || 'Failed to set up dashboard')
       }
 
       const data = await response.json()
       const c = data.counts || {}
       alert(
         data.message ||
-          `Your dashboard is ready: ${c.goals_added ?? data.goals_added ?? 0} goals, ${c.projects_added ?? 0} projects, ${c.tasks_added ?? 0} tasks, ${c.habits_added ?? 0} habits.`
+          `Dashboard updated: ${c.goals_added ?? data.goals_added ?? 0} goals, ${c.projects_added ?? 0} projects, ${c.tasks_added ?? 0} tasks, ${c.habits_added ?? 0} habits added.`
       )
 
-      // Redirect to the freshly populated dashboard
       router.push('/dashboard?onboarded=true')
     } catch (error) {
-      console.error('Error autofilling dashboard:', error)
+      console.error('Error setting up dashboard:', error)
       alert(
-        error instanceof Error ? error.message : 'Failed to autofill dashboard. Please try again.'
+        error instanceof Error ? error.message : 'Failed to set up dashboard. Please try again.'
       )
     } finally {
       setIsAutofilling(false)
@@ -932,84 +1012,49 @@ function DreamCatcherModuleContent() {
   }
 
   const getPhaseInfo = (phase: string) => {
+    const normalized = normalizeDreamCatcherPhase(phase)
     const phases = {
-      personality: {
-        name: 'Personality Assessment',
+      intake: {
+        name: 'Quick Intake',
         icon: <User className="h-4 w-4" />,
-        color: 'purple',
         bgClass: 'bg-purple-100',
         borderClass: 'border-purple-200',
         borderActiveClass: 'border-purple-300',
         textClass: 'text-purple-700',
       },
-      assessment: {
-        name: 'Personal Assessment',
-        icon: <Heart className="h-4 w-4" />,
-        color: 'pink',
+      vision: {
+        name: 'Vision',
+        icon: <Eye className="h-4 w-4" />,
         bgClass: 'bg-pink-100',
         borderClass: 'border-pink-200',
         borderActiveClass: 'border-pink-300',
         textClass: 'text-pink-700',
       },
-      influences: {
-        name: 'Influence Exploration',
-        icon: <Brain className="h-4 w-4" />,
-        color: 'blue',
-        bgClass: 'bg-blue-100',
-        borderClass: 'border-blue-200',
-        borderActiveClass: 'border-blue-300',
-        textClass: 'text-blue-700',
-      },
-      'executive-skills': {
-        name: 'Executive Skills Assessment',
-        icon: <Target className="h-4 w-4" />,
-        color: 'indigo',
-        bgClass: 'bg-indigo-100',
-        borderClass: 'border-indigo-200',
-        borderActiveClass: 'border-indigo-300',
-        textClass: 'text-indigo-700',
-      },
-      'executive-blocking': {
-        name: 'Blocking Factors',
-        icon: <Lightbulb className="h-4 w-4" />,
-        color: 'red',
-        bgClass: 'bg-red-100',
-        borderClass: 'border-red-200',
-        borderActiveClass: 'border-red-300',
-        textClass: 'text-red-700',
-      },
-      dreams: {
-        name: 'Dream Discovery',
-        icon: <Sparkles className="h-4 w-4" />,
-        color: 'yellow',
-        bgClass: 'bg-yellow-100',
-        borderClass: 'border-yellow-200',
-        borderActiveClass: 'border-yellow-300',
-        textClass: 'text-yellow-700',
-      },
-      vision: {
-        name: 'Vision Creation',
-        icon: <Eye className="h-4 w-4" />,
-        color: 'green',
-        bgClass: 'bg-green-100',
-        borderClass: 'border-green-200',
-        borderActiveClass: 'border-green-300',
-        textClass: 'text-green-700',
-      },
       goals: {
-        name: 'Goal Generation',
+        name: 'Goals',
         icon: <Target className="h-4 w-4" />,
-        color: 'orange',
         bgClass: 'bg-orange-100',
         borderClass: 'border-orange-200',
         borderActiveClass: 'border-orange-300',
         textClass: 'text-orange-700',
       },
+      confirm: {
+        name: 'Confirm',
+        icon: <CheckCircle className="h-4 w-4" />,
+        bgClass: 'bg-green-100',
+        borderClass: 'border-green-200',
+        borderActiveClass: 'border-green-300',
+        textClass: 'text-green-700',
+      },
     }
-    return phases[phase as keyof typeof phases] || phases.personality
+    return phases[normalized as keyof typeof phases] || phases.intake
   }
 
+  const normalizedPhase = normalizeDreamCatcherPhase(currentPhase)
   const phaseInfo = getPhaseInfo(currentPhase)
+  const phaseStepIndex = STREAMLINED_PHASES.indexOf(
+    normalizedPhase as (typeof STREAMLINED_PHASES)[number]
+  )
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
@@ -1039,7 +1084,7 @@ function DreamCatcherModuleContent() {
                   Dream Catcher
                 </h1>
                 <p className="text-sm text-gray-600">
-                  Discover your true dreams and create your vision for the future
+                  A short conversation, then confirm your starter dashboard
                   {!isNewUser && (
                     <span className="ml-2">
                       •{' '}
@@ -1114,18 +1159,12 @@ function DreamCatcherModuleContent() {
                     <div>
                       <h3 className="font-semibold">Dream Catcher</h3>
                       <p className="text-sm text-gray-600">
-                        {phaseInfo.name} - Step{' '}
-                        {[
-                          'personality',
-                          'assessment',
-                          'influences',
-                          'executive-skills',
-                          'executive-blocking',
-                          'dreams',
-                          'vision',
-                          'goals',
-                        ].indexOf(currentPhase) + 1}{' '}
-                        of 8
+                        {phaseInfo.name}
+                        {normalizedPhase === 'intake'
+                          ? ` — question ${Math.min(intakeQuestionIndex + 1, INTAKE_QUESTION_COUNT)} of ${INTAKE_QUESTION_COUNT}`
+                          : phaseStepIndex >= 0
+                            ? ` — step ${phaseStepIndex + 1} of ${STREAMLINED_PHASES.length}`
+                            : ''}
                       </p>
                     </div>
                   </div>
@@ -1230,11 +1269,15 @@ function DreamCatcherModuleContent() {
                       }}
                       onKeyPress={handleKeyPress}
                       placeholder={
-                        isListening ? 'Listening...' : 'Share your thoughts or click mic...'
+                        normalizedPhase === 'confirm'
+                          ? 'Review your dashboard preview below, then confirm'
+                          : isListening
+                            ? 'Listening...'
+                            : 'Share your thoughts or click mic...'
                       }
                       className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       rows={2}
-                      disabled={isLoading}
+                      disabled={isLoading || normalizedPhase === 'confirm'}
                     />
                     <button
                       onClick={toggleVoice}
@@ -1253,7 +1296,7 @@ function DreamCatcherModuleContent() {
                     </button>
                     <button
                       onClick={sendMessage}
-                      disabled={!inputMessage.trim() || isLoading}
+                      disabled={!inputMessage.trim() || isLoading || normalizedPhase === 'confirm'}
                       className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                     >
                       <Send className="h-4 w-4" />
@@ -1335,21 +1378,12 @@ function DreamCatcherModuleContent() {
                   Journey Progress
                 </h3>
                 <div className="space-y-2">
-                  {[
-                    'personality',
-                    'assessment',
-                    'influences',
-                    'executive-skills',
-                    'executive-blocking',
-                    'dreams',
-                    'vision',
-                    'goals',
-                  ].map((phase, index) => {
+                  {STREAMLINED_PHASES.map((phase) => {
                     const info = getPhaseInfo(phase)
-                    const isActive = phase === currentPhase
+                    const isActive = normalizeDreamCatcherPhase(currentPhase) === phase
+                    const phaseOrder = STREAMLINED_PHASES.indexOf(phase)
                     const isCompleted =
-                      Object.keys(assessmentData).length > 0 &&
-                      (phase === 'goals' ? assessmentData.goals_generated : true)
+                      phaseStepIndex > phaseOrder || (phase === 'confirm' && showConfirmation)
                     return (
                       <div
                         key={phase}
@@ -1462,82 +1496,169 @@ function DreamCatcherModuleContent() {
               )}
 
               {/* Action Buttons */}
-              {showResults && assessmentData.goals_generated && (
+              {showConfirmation && assessmentData.goals_generated && (
                 <div className="space-y-2">
+                  <p className="text-xs text-gray-600">
+                    Review the dashboard preview below. Confirming adds new items only — nothing you
+                    already have will be removed.
+                  </p>
                   <button
-                    onClick={() => {
-                      // Scroll to results or show modal
-                      window.scrollTo({ top: 0, behavior: 'smooth' })
-                    }}
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg"
+                    onClick={handleAutofillDashboard}
+                    disabled={isAutofilling || isLoadingPreview}
+                    className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50"
                   >
-                    <List className="h-4 w-4" />
-                    <span>View Your Goals</span>
+                    {isAutofilling ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Setting up...</span>
+                      </>
+                    ) : isLoadingPreview ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Building preview...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-4 w-4" />
+                        <span>Confirm & Set Up Dashboard</span>
+                      </>
+                    )}
                   </button>
-                  {isNewUser ? (
-                    <button
-                      onClick={handleAutofillDashboard}
-                      disabled={isAutofilling}
-                      className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50"
-                    >
-                      {isAutofilling ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Setting up your dashboard...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Target className="h-4 w-4" />
-                          <span>Set Up My Dashboard</span>
-                        </>
-                      )}
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={handleSaveDreams}
-                        disabled={isAutofilling}
-                        className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50"
-                      >
-                        {isAutofilling ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span>Saving...</span>
-                          </>
-                        ) : (
-                          <>
-                            <FileText className="h-4 w-4" />
-                            <span>Save Dreams</span>
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={handleAutofillDashboard}
-                        disabled={isAutofilling}
-                        className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50"
-                      >
-                        {isAutofilling ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span>Autofilling...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Target className="h-4 w-4" />
-                            <span>Add to Dashboard</span>
-                          </>
-                        )}
-                      </button>
-                    </>
-                  )}
+                  <button
+                    onClick={handleSaveDreams}
+                    disabled={isAutofilling}
+                    className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+                  >
+                    Save session without confirming
+                  </button>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Results Section */}
-        {showResults && assessmentData.goals_generated && (
+        {/* Confirmation & dashboard preview */}
+        {showConfirmation && assessmentData.goals_generated && (
+          <div className="mt-8 bg-white/90 backdrop-blur-sm rounded-lg border border-green-200 p-6 shadow-lg">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-3 bg-green-100 rounded-lg">
+                <CheckCircle className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Confirm Your Dashboard Plan</h2>
+                <p className="text-sm text-gray-600">
+                  {isNewUser
+                    ? 'This will create your starter dashboard.'
+                    : 'New items will be added alongside what you already have.'}
+                </p>
+              </div>
+            </div>
+
+            {assessmentData.vision_statement && (
+              <div className="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <h3 className="font-semibold text-gray-900 mb-1">Vision</h3>
+                <p className="text-gray-700 italic">
+                  &ldquo;{assessmentData.vision_statement}&rdquo;
+                </p>
+              </div>
+            )}
+
+            {isLoadingPreview && (
+              <div className="flex items-center gap-2 text-sm text-gray-600 py-8 justify-center">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Building your dashboard preview...
+              </div>
+            )}
+
+            {previewError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                {previewError}
+                <button
+                  type="button"
+                  onClick={() => void loadDashboardPreview(assessmentData)}
+                  className="ml-2 underline"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {dashboardPreview && (
+              <>
+                <p className="text-sm text-gray-700 mb-4">{dashboardPreview.summary}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                  {[
+                    { label: 'Goals', count: dashboardPreview.totals.goals },
+                    { label: 'Projects', count: dashboardPreview.totals.projects },
+                    { label: 'Tasks', count: dashboardPreview.totals.tasks },
+                    { label: 'Habits', count: dashboardPreview.totals.habits },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200"
+                    >
+                      <div className="text-2xl font-bold text-purple-700">{stat.count}</div>
+                      <div className="text-xs text-gray-600">{stat.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 max-h-80 overflow-y-auto">
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Goals</h4>
+                    <ul className="space-y-1 text-sm text-gray-700">
+                      {dashboardPreview.goals.map((g, i) => (
+                        <li key={i} className="border-b border-gray-100 pb-1">
+                          {g.title}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Daily habits</h4>
+                    <ul className="space-y-1 text-sm text-gray-700">
+                      {dashboardPreview.habits.map((h, i) => (
+                        <li key={i} className="border-b border-gray-100 pb-1">
+                          {h.title}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleAutofillDashboard}
+                disabled={isAutofilling || isLoadingPreview || !dashboardPreview}
+                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50"
+              >
+                {isAutofilling ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Setting up your dashboard...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-5 w-5" />
+                    <span>Confirm & Set Up Dashboard</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleSaveDreams}
+                disabled={isAutofilling}
+                className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Save for later
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Results Section — session summary */}
+        {showResults && assessmentData.goals_generated && !showConfirmation && (
           <div className="mt-8 bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 p-6 shadow-lg">
             <div className="flex items-center space-x-3 mb-6">
               <div className="p-3 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
