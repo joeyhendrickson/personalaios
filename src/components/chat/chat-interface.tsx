@@ -12,6 +12,8 @@ import {
   type VoiceSessionPhase,
 } from '@/components/chat/voice-session-control'
 import {
+  ADVISOR_TTS_FETCH_TIMEOUT_MS,
+  ADVISOR_TTS_MAX_CHARS,
   stopAllChatAudio,
   VOICE_SESSION_RESUME_DELAY_MS,
   VOICE_SESSION_SILENCE_MS,
@@ -121,7 +123,7 @@ export function ChatInterface({
   const [voiceSessionActive, setVoiceSessionActive] = useState(false)
   const [lastSpeechTime, setLastSpeechTime] = useState(0)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
-  const synthesisRef = useRef<SpeechSynthesisUtterance | null>(null)
+  const speakGenerationRef = useRef(0)
   const speechTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const voiceSessionActiveRef = useRef(false)
   const isSpeakingRef = useRef(false)
@@ -205,6 +207,28 @@ export function ChatInterface({
     }
   }
 
+  const invalidatePendingSpeech = useCallback(() => {
+    speakGenerationRef.current += 1
+    stopAllChatAudio()
+    setIsSpeaking(false)
+    isSpeakingRef.current = false
+  }, [])
+
+  useEffect(() => {
+    const onPageHidden = () => {
+      if (document.visibilityState !== 'hidden') return
+      invalidatePendingSpeech()
+      clearSpeechSubmitTimeout()
+      pendingTranscriptRef.current = ''
+    }
+    document.addEventListener('visibilitychange', onPageHidden)
+    window.addEventListener('pagehide', onPageHidden)
+    return () => {
+      document.removeEventListener('visibilitychange', onPageHidden)
+      window.removeEventListener('pagehide', onPageHidden)
+    }
+  }, [invalidatePendingSpeech])
+
   const pauseRecognitionForAssistant = () => {
     clearSpeechSubmitTimeout()
     pendingTranscriptRef.current = ''
@@ -231,7 +255,7 @@ export function ChatInterface({
     }, VOICE_SESSION_RESUME_DELAY_MS)
   }
 
-  // Initialize speech recognition and synthesis
+  // Initialize speech recognition
   useEffect(() => {
     // Check for speech recognition support
     if (typeof window !== 'undefined') {
@@ -303,34 +327,16 @@ export function ChatInterface({
           }
         }
       }
-
-      // Load voices for better speech synthesis
-      const loadVoices = () => {
-        const voices = window.speechSynthesis.getVoices()
-        if (voices.length > 0) {
-          console.log(
-            'Available voices:',
-            voices.map((v) => v.name)
-          )
-        }
-      }
-
-      // Load voices immediately and on voice change
-      loadVoices()
-      if (window.speechSynthesis.onvoiceschanged !== undefined) {
-        window.speechSynthesis.onvoiceschanged = loadVoices
-      }
     }
   }, [])
 
-  // Cleanup timeouts on unmount
+  // Cleanup voice session on unmount
   useEffect(() => {
     return () => {
-      if (speechTimeoutRef.current) {
-        clearTimeout(speechTimeoutRef.current)
-      }
+      clearSpeechSubmitTimeout()
+      invalidatePendingSpeech()
     }
-  }, [])
+  }, [invalidatePendingSpeech])
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [savedSessions, setSavedSessions] = useState<SavedChatSession[]>([])
@@ -996,7 +1002,6 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
           .replace(/\s+/g, ' ')
           .trim()
 
-        console.log('Speaking response:', cleanMessage)
         speakText(cleanMessage)
       } else if (voiceSessionActiveRef.current) {
         resumeRecognitionAfterAssistant()
@@ -1031,14 +1036,12 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
   }
 
   const endVoiceSession = () => {
+    invalidatePendingSpeech()
     setVoiceSessionActive(false)
     voiceSessionActiveRef.current = false
     clearSpeechSubmitTimeout()
     pendingTranscriptRef.current = ''
     setInput('')
-    stopAllChatAudio()
-    setIsSpeaking(false)
-    isSpeakingRef.current = false
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop()
@@ -1064,221 +1067,97 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
   const speakText = async (text: string) => {
     if (!voiceSessionActiveRef.current) return
 
+    const generation = ++speakGenerationRef.current
     pauseRecognitionForAssistant()
     stopAllChatAudio()
 
-    try {
-      const cleanText = text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim()
-      const openaiResponse = await fetch('/api/openai/text-to-speech', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: cleanText,
-          voice: 'alloy',
-        }),
-      })
+    const cleanText = text
+      .replace(/\*\*/g, '')
+      .replace(/\n/g, ' ')
+      .trim()
+      .slice(0, ADVISOR_TTS_MAX_CHARS)
 
-      if (openaiResponse.ok) {
-        const openaiBlob = await openaiResponse.blob()
-
-        // Double-check: stop any audio that might have started while fetching
-        if ((window as any).__currentChatAudio) {
-          ;(window as any).__currentChatAudio.pause()
-          ;(window as any).__currentChatAudio = null
-        }
-
-        const audioUrl = URL.createObjectURL(openaiBlob)
-        const audio = new Audio(audioUrl)
-
-        // Store audio reference for stopping when user inputs
-        ;(window as Window & { __currentChatAudio?: HTMLAudioElement }).__currentChatAudio = audio
-
-        setIsSpeaking(true)
-        isSpeakingRef.current = true
-        audio.onplay = () => {
-          setIsSpeaking(true)
-          isSpeakingRef.current = true
-        }
-        audio.onended = () => {
-          setIsSpeaking(false)
-          isSpeakingRef.current = false
-          URL.revokeObjectURL(audioUrl)
-          ;(window as Window & { __currentChatAudio?: HTMLAudioElement }).__currentChatAudio =
-            undefined
-          resumeRecognitionAfterAssistant()
-        }
-        audio.onerror = () => {
-          setIsSpeaking(false)
-          isSpeakingRef.current = false
-          URL.revokeObjectURL(audioUrl)
-          ;(window as Window & { __currentChatAudio?: HTMLAudioElement }).__currentChatAudio =
-            undefined
-          fallbackToBrowserTTS(text)
-        }
-
-        await audio.play()
-        return
-      } else {
-        console.warn('OpenAI TTS failed, falling back to browser TTS')
-        // Fallback to browser TTS
-        fallbackToBrowserTTS(text)
-      }
-    } catch (error) {
-      console.error('Error playing OpenAI TTS audio:', error)
-      // Fallback to browser TTS
-      fallbackToBrowserTTS(text)
+    if (!cleanText) {
+      resumeRecognitionAfterAssistant()
+      return
     }
-  }
 
-  const fallbackToOpenAITTS = async (text: string) => {
+    const canSpeak = () =>
+      voiceSessionActiveRef.current && speakGenerationRef.current === generation
+
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), ADVISOR_TTS_FETCH_TIMEOUT_MS)
+
     try {
-      const cleanText = text.replace(/\*\*/g, '').replace(/\n/g, ' ').trim()
-      const openaiResponse = await fetch('/api/openai/text-to-speech', {
+      let response = await fetch('/api/elevenlabs/text-to-speech', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: cleanText,
-          voice: 'alloy',
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: cleanText }),
+        signal: controller.signal,
       })
 
-      if (openaiResponse.ok) {
-        const openaiBlob = await openaiResponse.blob()
-        const openaiUrl = URL.createObjectURL(openaiBlob)
-        const openaiAudio = new Audio(openaiUrl)
-        ;(window as any).__currentChatAudio = openaiAudio
+      if (!response.ok) {
+        response = await fetch('/api/openai/text-to-speech', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: cleanText, voice: 'alloy' }),
+          signal: controller.signal,
+        })
+      }
 
-        openaiAudio.onended = () => {
-          setIsSpeaking(false)
-          URL.revokeObjectURL(openaiUrl)
-          ;(window as any).__currentChatAudio = null
-        }
+      if (!canSpeak()) return
 
-        openaiAudio.onerror = () => {
-          setIsSpeaking(false)
-          URL.revokeObjectURL(openaiUrl)
-          ;(window as any).__currentChatAudio = null
-          // Final fallback to browser TTS
-          fallbackToBrowserTTS(text)
-        }
-
-        await openaiAudio.play()
+      if (!response.ok) {
+        console.warn('[Advisor TTS] unavailable:', response.status)
+        resumeRecognitionAfterAssistant()
         return
       }
-    } catch (openaiError) {
-      console.error('Error in OpenAI TTS fallback:', openaiError)
-    }
 
-    // Final fallback to browser TTS
-    fallbackToBrowserTTS(text)
-  }
+      const blob = await response.blob()
+      if (!canSpeak()) return
 
-  const fallbackToBrowserTTS = (text: string) => {
-    if (!('speechSynthesis' in window)) return
+      const audioUrl = URL.createObjectURL(blob)
+      const audio = new Audio(audioUrl)
+      ;(window as Window & { __currentChatAudio?: HTMLAudioElement }).__currentChatAudio = audio
 
-    // Stop any current speech
-    window.speechSynthesis.cancel()
-
-    const utterance = new SpeechSynthesisUtterance(text)
-
-    // Professional and sophisticated speech parameters
-    utterance.rate = 1.1 // Faster, more conversational pace
-    utterance.pitch = 0.75 // Lower pitch for professional, sultry tone
-    utterance.volume = 0.9 // Slightly lower volume for intimate, engaging delivery
-    utterance.lang = 'en-AU' // Australian English accent
-
-    // Try to select the most modern, high-quality voice
-    const voices = window.speechSynthesis.getVoices()
-    if (voices.length > 0) {
-      console.log(
-        'Available voices:',
-        voices.map((v) => `${v.name} (${v.lang}) - Local: ${v.localService}`)
-      )
-
-      // Prioritize professional, sophisticated voices
-      const professionalVoices = voices.filter(
-        (voice) =>
-          // Premium cloud voices (highest quality)
-          voice.name.toLowerCase().includes('neural') ||
-          voice.name.toLowerCase().includes('enhanced') ||
-          voice.name.toLowerCase().includes('premium') ||
-          voice.name.toLowerCase().includes('wavenet') ||
-          voice.name.toLowerCase().includes('standard') ||
-          // Professional-sounding system voices (lower pitch, sophisticated)
-          voice.name.toLowerCase().includes('daniel') ||
-          voice.name.toLowerCase().includes('alex') ||
-          voice.name.toLowerCase().includes('victoria') ||
-          voice.name.toLowerCase().includes('moira') ||
-          voice.name.toLowerCase().includes('samantha') ||
-          voice.name.toLowerCase().includes('tessa') ||
-          voice.name.toLowerCase().includes('veena') ||
-          voice.name.toLowerCase().includes('fiona') ||
-          voice.name.toLowerCase().includes('karen') ||
-          voice.name.toLowerCase().includes('susan') ||
-          voice.name.toLowerCase().includes('zira') ||
-          voice.name.toLowerCase().includes('hazel') ||
-          voice.name.toLowerCase().includes('sarah') ||
-          voice.name.toLowerCase().includes('emma') ||
-          // Professional cloud services
-          voice.name.toLowerCase().includes('google') ||
-          voice.name.toLowerCase().includes('microsoft') ||
-          voice.name.toLowerCase().includes('amazon') ||
-          voice.name.toLowerCase().includes('azure') ||
-          // Look for voices with professional descriptors
-          voice.name.toLowerCase().includes('professional') ||
-          voice.name.toLowerCase().includes('business') ||
-          voice.name.toLowerCase().includes('news') ||
-          voice.name.toLowerCase().includes('narrator')
-      )
-
-      // Sort by quality preference (cloud voices first, then local)
-      const sortedVoices = professionalVoices.sort((a, b) => {
-        // Prefer cloud voices over local
-        if (a.localService !== b.localService) {
-          return a.localService ? 1 : -1
-        }
-        // Prefer English voices
-        if (a.lang.startsWith('en') && !b.lang.startsWith('en')) return -1
-        if (!a.lang.startsWith('en') && b.lang.startsWith('en')) return 1
-        return 0
-      })
-
-      if (sortedVoices.length > 0) {
-        utterance.voice = sortedVoices[0]
-        console.log('Selected voice:', sortedVoices[0].name, sortedVoices[0].lang)
-      } else {
-        // Fallback to any non-default voice
-        const nonDefaultVoices = voices.filter((voice) => !voice.default)
-        if (nonDefaultVoices.length > 0) {
-          utterance.voice = nonDefaultVoices[0]
-          console.log('Fallback voice:', nonDefaultVoices[0].name)
-        }
-      }
-    }
-
-    utterance.onstart = () => {
       setIsSpeaking(true)
       isSpeakingRef.current = true
-    }
 
-    utterance.onend = () => {
-      setIsSpeaking(false)
-      isSpeakingRef.current = false
+      audio.onplay = () => {
+        if (!canSpeak()) {
+          audio.pause()
+          return
+        }
+        setIsSpeaking(true)
+        isSpeakingRef.current = true
+      }
+
+      audio.onended = () => {
+        setIsSpeaking(false)
+        isSpeakingRef.current = false
+        URL.revokeObjectURL(audioUrl)
+        ;(window as Window & { __currentChatAudio?: HTMLAudioElement }).__currentChatAudio =
+          undefined
+        if (canSpeak()) resumeRecognitionAfterAssistant()
+      }
+
+      audio.onerror = () => {
+        setIsSpeaking(false)
+        isSpeakingRef.current = false
+        URL.revokeObjectURL(audioUrl)
+        ;(window as Window & { __currentChatAudio?: HTMLAudioElement }).__currentChatAudio =
+          undefined
+        if (canSpeak()) resumeRecognitionAfterAssistant()
+      }
+
+      await audio.play()
+    } catch (error) {
+      if (!canSpeak()) return
+      console.warn('[Advisor TTS] failed:', error)
       resumeRecognitionAfterAssistant()
+    } finally {
+      window.clearTimeout(timeoutId)
     }
-
-    utterance.onerror = () => {
-      setIsSpeaking(false)
-      isSpeakingRef.current = false
-      resumeRecognitionAfterAssistant()
-    }
-
-    window.speechSynthesis.speak(utterance)
-    synthesisRef.current = utterance
   }
 
   const voiceSessionPhase: VoiceSessionPhase = voiceSessionActive
@@ -1291,11 +1170,9 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
   const interruptAssistantSpeech = useCallback(() => {
     if (!isSpeakingRef.current) return
-    stopAllChatAudio()
-    setIsSpeaking(false)
-    isSpeakingRef.current = false
+    invalidatePendingSpeech()
     resumeRecognitionAfterAssistant()
-  }, [])
+  }, [invalidatePendingSpeech])
 
   const voiceWaveformLevels = useVoiceSessionAudio(
     voiceSessionActive,
@@ -1756,17 +1633,8 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
           <Input
             value={input}
             onChange={(e) => {
-              // Stop any playing audio when user types
-              if (synthesisRef.current) {
-                window.speechSynthesis.cancel()
-                synthesisRef.current = null
-              }
-              // Stop audio if playing
-              if ((window as any).__currentChatAudio) {
-                ;(window as any).__currentChatAudio.pause()
-                ;(window as any).__currentChatAudio = null
-              }
-              console.log('=== INPUT CHANGED ===', e.target.value)
+              stopAllChatAudio()
+              invalidatePendingSpeech()
               setInput(e.target.value)
             }}
             placeholder="Ask me anything about your strategy for the day..."
