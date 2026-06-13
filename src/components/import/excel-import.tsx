@@ -5,38 +5,30 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Brain, Target } from 'lucide-react'
+import {
+  Upload,
+  FileSpreadsheet,
+  CheckCircle,
+  AlertCircle,
+  Brain,
+  Target,
+  Repeat,
+  BookOpen,
+} from 'lucide-react'
 import * as XLSX from 'xlsx'
-
-interface ImportedGoal {
-  title: string
-  description: string
-  category: string
-  targetPoints: number
-  priority: 'low' | 'medium' | 'high'
-  deadline: string
-  tasks: ImportedTask[]
-}
-
-interface ImportedTask {
-  title: string
-  description: string
-  points: number
-  priority: 'low' | 'medium' | 'high'
-  estimatedTime: string
-}
+import {
+  parseLifestacksWorkbook,
+  type LifestacksImportPayload,
+} from '@/lib/import/lifestacks-import-schema'
 
 interface ExcelImportProps {
-  onImportComplete: (goals: ImportedGoal[], tasks: ImportedTask[]) => void
+  onImportComplete: (data: LifestacksImportPayload) => void
 }
 
 export function ExcelImport({ onImportComplete }: ExcelImportProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [importedData, setImportedData] = useState<{
-    goals: ImportedGoal[]
-    tasks: ImportedTask[]
-  } | null>(null)
+  const [importedData, setImportedData] = useState<LifestacksImportPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -50,7 +42,6 @@ export function ExcelImport({ onImportComplete }: ExcelImportProps) {
     setUploadProgress(0)
 
     try {
-      // Simulate upload progress
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => {
           if (prev >= 90) {
@@ -61,7 +52,7 @@ export function ExcelImport({ onImportComplete }: ExcelImportProps) {
         })
       }, 100)
 
-      const data = await readExcelFile(file)
+      const data = await readWorkbookFile(file)
 
       clearInterval(progressInterval)
       setUploadProgress(100)
@@ -77,7 +68,7 @@ export function ExcelImport({ onImportComplete }: ExcelImportProps) {
     }
   }
 
-  const readExcelFile = (file: File): Promise<{ goals: ImportedGoal[]; tasks: ImportedTask[] }> => {
+  const readWorkbookFile = (file: File): Promise<LifestacksImportPayload> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
 
@@ -85,103 +76,24 @@ export function ExcelImport({ onImportComplete }: ExcelImportProps) {
         try {
           const data = e.target?.result
           const workbook = XLSX.read(data, { type: 'binary' })
-
-          // Look for sheets named 'Goals' and 'Tasks' or use the first sheet
-          const goalsSheet = workbook.Sheets['Goals'] || workbook.Sheets[workbook.SheetNames[0]]
-          const tasksSheet = workbook.Sheets['Tasks'] || workbook.Sheets[workbook.SheetNames[1]]
-
-          const goals: ImportedGoal[] = []
-          const tasks: ImportedTask[] = []
-
-          // Parse Goals sheet
-          if (goalsSheet) {
-            const goalsData = XLSX.utils.sheet_to_json(goalsSheet, { header: 1 })
-            const goalRows = goalsData.slice(1) as unknown[][]
-
-            goalRows.forEach((row, index) => {
-              if (row.length > 0 && row[0]) {
-                // Check if row has data
-                const category = String(row[2]) || ''
-                const validCategories = [
-                  'quick_money',
-                  'save_money',
-                  'health',
-                  'network_expansion',
-                  'business_growth',
-                  'fires',
-                  'good_living',
-                  'big_vision',
-                  'job',
-                  'organization',
-                  'tech_issues',
-                  'business_launch',
-                  'future_planning',
-                  'innovation',
-                  'productivity',
-                  'learning',
-                  'financial',
-                  'personal',
-                  'other',
-                ]
-                let finalCategory = validCategories.includes(category.toLowerCase())
-                  ? category.toLowerCase()
-                  : 'other'
-
-                // If no category provided or invalid, we'll predict it later during import
-                if (!category || !validCategories.includes(category.toLowerCase())) {
-                  finalCategory = 'other' // Will be predicted during import
-                }
-
-                const priority = (String(row[4]) || 'medium').toLowerCase()
-                const validPriorities = ['low', 'medium', 'high']
-                const finalPriority = validPriorities.includes(priority) ? priority : 'medium'
-
-                const goal: ImportedGoal = {
-                  title: String(row[0]) || `Goal ${index + 1}`,
-                  description: String(row[1]) || '',
-                  category: finalCategory,
-                  targetPoints: parseInt(String(row[3])) || 10,
-                  priority: finalPriority as 'low' | 'medium' | 'high',
-                  deadline:
-                    String(row[5]) ||
-                    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                  tasks: [],
-                }
-                goals.push(goal)
-              }
-            })
+          const parsed = parseLifestacksWorkbook(workbook)
+          const total =
+            parsed.goals.length +
+            parsed.projects.length +
+            parsed.tasks.length +
+            parsed.habits.length +
+            parsed.education.length
+          if (total === 0) {
+            reject(
+              new Error(
+                'No import rows found. Use the LifeStacks master template with sheets: LifeGoals, Projects, Tasks, Habits, Education.'
+              )
+            )
+            return
           }
-
-          // Parse Tasks sheet
-          if (tasksSheet) {
-            const tasksData = XLSX.utils.sheet_to_json(tasksSheet, { header: 1 })
-            const taskRows = tasksData.slice(1) as unknown[][]
-
-            taskRows.forEach((row, index) => {
-              if (row.length > 0 && row[0]) {
-                // Check if row has data
-                const taskPriority = (String(row[3]) || 'medium').toLowerCase()
-                const validTaskPriorities = ['low', 'medium', 'high']
-                const finalTaskPriority = validTaskPriorities.includes(taskPriority)
-                  ? taskPriority
-                  : 'medium'
-
-                const task: ImportedTask = {
-                  title: String(row[0]) || `Task ${index + 1}`,
-                  description: String(row[1]) || '',
-                  points: parseInt(String(row[2])) || 5,
-                  priority: finalTaskPriority as 'low' | 'medium' | 'high',
-                  estimatedTime: String(row[4]) || '1 hour',
-                }
-                tasks.push(task)
-              }
-            })
-          }
-
-          console.log('Parsed Excel data:', { goals, tasks })
-          resolve({ goals, tasks })
+          resolve(parsed)
         } catch {
-          reject(new Error('Failed to parse Excel file. Please ensure it has the correct format.'))
+          reject(new Error('Failed to parse file. Use the LifeStacks master import template.'))
         }
       }
 
@@ -203,8 +115,22 @@ export function ExcelImport({ onImportComplete }: ExcelImportProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          goals: importedData.goals,
-          tasks: importedData.tasks,
+          goals: importedData.projects.map((p) => ({
+            title: p.title,
+            description: p.description,
+            category: p.category,
+            targetPoints: p.target_points,
+            priority: 'medium',
+            deadline: p.deadline || '',
+            tasks: [],
+          })),
+          tasks: importedData.tasks.map((t) => ({
+            title: t.title,
+            description: t.description,
+            points: t.points_value,
+            priority: t.priority,
+            estimatedTime: t.estimated_time || '1 hour',
+          })),
         }),
       })
 
@@ -213,7 +139,26 @@ export function ExcelImport({ onImportComplete }: ExcelImportProps) {
       }
 
       const prioritizedData = await response.json()
-      setImportedData(prioritizedData)
+      setImportedData((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          projects: prev.projects.map((p, i) => {
+            const updated = prioritizedData.goals?.[i]
+            return updated ? { ...p, description: updated.description || p.description } : p
+          }),
+          tasks: prev.tasks.map((t, i) => {
+            const updated = prioritizedData.tasks?.[i]
+            return updated
+              ? {
+                  ...t,
+                  priority: updated.priority || t.priority,
+                  points_value: updated.points ?? t.points_value,
+                }
+              : t
+          }),
+        }
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to prioritize tasks')
     } finally {
@@ -223,7 +168,7 @@ export function ExcelImport({ onImportComplete }: ExcelImportProps) {
 
   const handleImport = () => {
     if (importedData) {
-      onImportComplete(importedData.goals, importedData.tasks)
+      onImportComplete(importedData)
       setImportedData(null)
       setUploadProgress(0)
       if (fileInputRef.current) {
@@ -232,21 +177,28 @@ export function ExcelImport({ onImportComplete }: ExcelImportProps) {
     }
   }
 
+  const totalRows = importedData
+    ? importedData.goals.length +
+      importedData.projects.length +
+      importedData.tasks.length +
+      importedData.habits.length +
+      importedData.education.length
+    : 0
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
-            Excel Import
+            LifeStacks Master Import
           </CardTitle>
           <CardDescription>
-            Upload an Excel file with your goals and tasks. The AI will help prioritize them for
-            optimal productivity.
+            Upload the master Excel template (filled in by you or ChatGPT). Supports life goals,
+            projects, tasks, habits, and education in one file.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* File Upload */}
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
             <input
               ref={fileInputRef}
@@ -257,8 +209,8 @@ export function ExcelImport({ onImportComplete }: ExcelImportProps) {
               disabled={isUploading}
             />
             <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <p className="text-lg font-medium mb-2">Upload Excel File</p>
-            <p className="text-sm text-gray-600 mb-4">Supported formats: .xlsx, .xls, .csv</p>
+            <p className="text-lg font-medium mb-2">Upload completed template</p>
+            <p className="text-sm text-gray-600 mb-4">Supported formats: .xlsx, .xls</p>
             <Button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
@@ -275,7 +227,6 @@ export function ExcelImport({ onImportComplete }: ExcelImportProps) {
             )}
           </div>
 
-          {/* Error Display */}
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -283,73 +234,43 @@ export function ExcelImport({ onImportComplete }: ExcelImportProps) {
             </Alert>
           )}
 
-          {/* Import Preview */}
           {importedData && (
             <div className="space-y-4">
               <Alert>
                 <CheckCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Successfully imported {importedData.goals.length} goals and{' '}
-                  {importedData.tasks.length} tasks
+                  Ready to import {totalRows} rows across{' '}
+                  {[
+                    importedData.goals.length && `${importedData.goals.length} goals`,
+                    importedData.projects.length && `${importedData.projects.length} projects`,
+                    importedData.tasks.length && `${importedData.tasks.length} tasks`,
+                    importedData.habits.length && `${importedData.habits.length} habits`,
+                    importedData.education.length && `${importedData.education.length} education`,
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}
                 </AlertDescription>
               </Alert>
 
-              {/* Data Preview */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Target className="h-4 w-4" />
-                      Goals ({importedData.goals.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {importedData.goals.slice(0, 5).map((goal, index) => (
-                        <div key={index} className="text-sm p-2 bg-gray-50 rounded">
-                          <p className="font-medium">{goal.title}</p>
-                          <p className="text-gray-600">
-                            {goal.category} • {goal.targetPoints} points
-                          </p>
-                        </div>
-                      ))}
-                      {importedData.goals.length > 5 && (
-                        <p className="text-sm text-gray-500">
-                          ... and {importedData.goals.length - 5} more
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4" />
-                      Tasks ({importedData.tasks.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {importedData.tasks.slice(0, 5).map((task, index) => (
-                        <div key={index} className="text-sm p-2 bg-gray-50 rounded">
-                          <p className="font-medium">{task.title}</p>
-                          <p className="text-gray-600">
-                            {task.points} points • {task.estimatedTime}
-                          </p>
-                        </div>
-                      ))}
-                      {importedData.tasks.length > 5 && (
-                        <p className="text-sm text-gray-500">
-                          ... and {importedData.tasks.length - 5} more
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  { label: 'Life goals', count: importedData.goals.length, icon: Target },
+                  { label: 'Projects', count: importedData.projects.length, icon: Target },
+                  { label: 'Tasks', count: importedData.tasks.length, icon: CheckCircle },
+                  { label: 'Habits', count: importedData.habits.length, icon: Repeat },
+                  { label: 'Education', count: importedData.education.length, icon: BookOpen },
+                ].map(({ label, count, icon: Icon }) => (
+                  <Card key={label}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Icon className="h-4 w-4" />
+                        {label} ({count})
+                      </CardTitle>
+                    </CardHeader>
+                  </Card>
+                ))}
               </div>
 
-              {/* Action Buttons */}
               <div className="flex gap-3">
                 <Button
                   onClick={handleAIPrioritization}
@@ -357,7 +278,7 @@ export function ExcelImport({ onImportComplete }: ExcelImportProps) {
                   className="flex items-center gap-2"
                 >
                   <Brain className="h-4 w-4" />
-                  {isProcessing ? 'AI Processing...' : 'AI Prioritize'}
+                  {isProcessing ? 'AI Processing...' : 'AI Prioritize tasks'}
                 </Button>
                 <Button
                   onClick={handleImport}
@@ -373,46 +294,42 @@ export function ExcelImport({ onImportComplete }: ExcelImportProps) {
         </CardContent>
       </Card>
 
-      {/* Excel Template Instructions */}
       <Card>
         <CardHeader>
-          <CardTitle>Excel File Format</CardTitle>
-          <CardDescription>Your Excel file should have the following structure:</CardDescription>
+          <CardTitle>Template sheets</CardTitle>
+          <CardDescription>
+            Download{' '}
+            <code className="text-xs bg-gray-100 px-1 rounded">
+              lifestacks-master-import-template.xlsx
+            </code>{' '}
+            and the ChatGPT prompt below. Fill every sheet, then upload here.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h4 className="font-medium mb-2">
-              Goals Sheet (optional sheet name: &quot;Goals&quot;)
-            </h4>
-            <div className="bg-gray-50 p-3 rounded text-sm font-mono">
-              <div>Title | Description | Category | Target Points | Priority | Deadline</div>
-              <div className="text-gray-600 mt-1">
-                Complete Project Alpha | Finish main features | productivity | 30 | high |
-                2024-12-31
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h4 className="font-medium mb-2">
-              Tasks Sheet (optional sheet name: &quot;Tasks&quot;)
-            </h4>
-            <div className="bg-gray-50 p-3 rounded text-sm font-mono">
-              <div>Title | Description | Points | Priority | Estimated Time</div>
-              <div className="text-gray-600 mt-1">
-                Design UI mockups | Create wireframes | 8 | high | 2 hours
-              </div>
-            </div>
-          </div>
-
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Note:</strong> If you don&apos;t have separate sheets, put all data in one
-              sheet. The first row should contain headers, and the AI will automatically detect the
-              structure.
-            </AlertDescription>
-          </Alert>
+        <CardContent className="space-y-3 text-sm text-gray-700">
+          <p>
+            <strong>Categories</strong> — valid slugs for project categories (reference only)
+          </p>
+          <p>
+            <strong>LifeGoals</strong> — high-level goals (no points; tracked by completion in
+            LifeStacks)
+          </p>
+          <p>
+            <strong>Projects</strong> — weekly dashboard projects with{' '}
+            <code className="text-xs">target_points</code>
+          </p>
+          <p>
+            <strong>Tasks</strong> — link each row to a{' '}
+            <code className="text-xs">project_title</code> with{' '}
+            <code className="text-xs">points_value</code>
+          </p>
+          <p>
+            <strong>Habits</strong> — daily habits with{' '}
+            <code className="text-xs">points_per_completion</code>
+          </p>
+          <p>
+            <strong>Education</strong> — courses/certs with{' '}
+            <code className="text-xs">points_value</code>
+          </p>
         </CardContent>
       </Card>
     </div>

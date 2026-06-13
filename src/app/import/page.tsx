@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ExcelImport } from '@/components/import/excel-import'
+import type { LifestacksImportPayload } from '@/lib/import/lifestacks-import-schema'
 import {
   ArrowLeft,
   CheckCircle,
@@ -22,24 +23,18 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-interface ImportedGoal {
-  title: string
-  description: string
-  category: string
-  targetPoints: number
-  priority: 'low' | 'medium' | 'high'
-  deadline: string
-  tasks: ImportedTask[]
-  aiRecommendations?: string
-}
-
-interface ImportedTask {
-  title: string
-  description: string
-  points: number
-  priority: 'low' | 'medium' | 'high'
-  estimatedTime: string
-  aiRecommendations?: string
+async function downloadPublicFile(path: string, filename: string) {
+  const response = await fetch(path)
+  if (!response.ok) throw new Error(`Failed to fetch ${path}`)
+  const blob = await response.blob()
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  window.URL.revokeObjectURL(url)
 }
 
 export default function ImportPage() {
@@ -66,48 +61,24 @@ export default function ImportPage() {
     checkAuth()
   }, [router])
 
-  const handleImportComplete = async (goals: ImportedGoal[], tasks: ImportedTask[]) => {
+  const handleImportComplete = async (data: LifestacksImportPayload) => {
     setIsImporting(true)
-    setImportStatus('Importing goals and tasks...')
+    setImportStatus('Importing dashboard data...')
 
     try {
-      const requestData = {
-        goals: goals.map((goal) => ({
-          title: goal.title,
-          description: goal.description,
-          category: goal.category,
-          target_points: goal.targetPoints,
-          target_money: 0,
-          priority: goal.priority,
-          deadline: goal.deadline,
-        })),
-        tasks: tasks.map((task) => ({
-          title: task.title,
-          description: task.description,
-          points_value: task.points,
-          money_value: 0,
-          priority: task.priority,
-          estimated_time: task.estimatedTime,
-        })),
-      }
-
-      console.log('Sending import data:', requestData)
-
-      // Use the new import endpoint that handles authentication and database operations
-      const response = await fetch('/api/import/goals', {
+      const response = await fetch('/api/import/dashboard', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestData),
+        body: JSON.stringify(data),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
         console.error('Import error:', errorData)
 
-        // Show more detailed error information
-        let errorMessage = errorData.error || 'Failed to import goals and tasks'
+        let errorMessage = errorData.error || 'Failed to import dashboard data'
         if (errorData.details) {
           errorMessage += `: ${JSON.stringify(errorData.details)}`
         }
@@ -116,7 +87,11 @@ export default function ImportPage() {
       }
 
       const result = await response.json()
-      setImportStatus(result.message || 'Import completed successfully!')
+      const skipped =
+        result.imported?.skippedTasks?.length > 0
+          ? ` (${result.imported.skippedTasks.length} tasks skipped — missing project_title match)`
+          : ''
+      setImportStatus((result.message || 'Import completed successfully!') + skipped)
 
       setTimeout(() => {
         router.push('/dashboard')
@@ -181,6 +156,50 @@ export default function ImportPage() {
             <AlertDescription>{importStatus}</AlertDescription>
           </Alert>
         )}
+
+        {/* Master template + ChatGPT workflow */}
+        <div className="max-w-4xl mx-auto mb-8">
+          <Card className="border-blue-200 bg-blue-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5 text-blue-600" />
+                ChatGPT workflow (recommended)
+              </CardTitle>
+              <CardDescription>
+                Download the master template and prompt, fill the template in ChatGPT with your
+                context, then upload the completed file below.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col sm:flex-row gap-3">
+              <Button
+                variant="default"
+                className="flex-1"
+                onClick={() =>
+                  downloadPublicFile(
+                    '/lifestacks-master-import-template.xlsx',
+                    'lifestacks-master-import-template.xlsx'
+                  ).catch(() => alert('Template not found. Run npm run generate:import-template'))
+                }
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Master Excel template
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() =>
+                  downloadPublicFile(
+                    '/chatgpt-lifestacks-import-prompt.md',
+                    'chatgpt-lifestacks-import-prompt.md'
+                  ).catch(() => alert('Prompt file not found.'))
+                }
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                ChatGPT prompt
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Main Import Component */}
         <div className="max-w-4xl mx-auto">
@@ -276,7 +295,7 @@ export default function ImportPage() {
                     <span className="font-medium">Goals Template</span>
                   </div>
                   <span className="text-sm text-gray-600 text-left">
-                    Life goals with points, money targets, priorities, and deadlines
+                    High-level life goals (no points — completion toggle in app)
                   </span>
                 </Button>
 
@@ -306,7 +325,7 @@ export default function ImportPage() {
                     <span className="font-medium">Projects Template</span>
                   </div>
                   <span className="text-sm text-gray-600 text-left">
-                    Project tracking with progress, status, and deadlines
+                    Weekly projects with target_points and optional linked goal
                   </span>
                 </Button>
 
@@ -336,7 +355,7 @@ export default function ImportPage() {
                     <span className="font-medium">Tasks Template</span>
                   </div>
                   <span className="text-sm text-gray-600 text-left">
-                    Actionable tasks with points, priorities, and time estimates
+                    Tasks linked to project_title with points_value
                   </span>
                 </Button>
 
@@ -366,7 +385,7 @@ export default function ImportPage() {
                     <span className="font-medium">Habits Template</span>
                   </div>
                   <span className="text-sm text-gray-600 text-left">
-                    Daily habits with points, streaks, and tracking
+                    Daily habits with points_per_completion
                   </span>
                 </Button>
 
@@ -426,7 +445,7 @@ export default function ImportPage() {
                     <span className="font-medium">Categories Template</span>
                   </div>
                   <span className="text-sm text-gray-600 text-left">
-                    Custom dashboard categories with colors and icons
+                    Valid category slugs for the Projects sheet
                   </span>
                 </Button>
               </div>
@@ -450,9 +469,9 @@ export default function ImportPage() {
                     <span className="text-blue-600 text-sm font-medium">1</span>
                   </div>
                   <div>
-                    <h4 className="font-medium text-gray-900">Download Templates</h4>
+                    <h4 className="font-medium text-gray-900">Download template & prompt</h4>
                     <p className="text-sm text-gray-600">
-                      Download the CSV templates above that match the data you want to import.
+                      Get the master Excel template and ChatGPT instructions above.
                     </p>
                   </div>
                 </div>
@@ -461,10 +480,11 @@ export default function ImportPage() {
                     <span className="text-blue-600 text-sm font-medium">2</span>
                   </div>
                   <div>
-                    <h4 className="font-medium text-gray-900">Fill in Your Data</h4>
+                    <h4 className="font-medium text-gray-900">Fill with ChatGPT (or manually)</h4>
                     <p className="text-sm text-gray-600">
-                      Replace the sample data with your actual goals, tasks, habits, and other
-                      information. Keep the column headers exactly as they are.
+                      Upload the template to ChatGPT, add your notes/files, and ask it to complete
+                      every sheet. Goals have no points; projects, tasks, habits, and education
+                      include point values.
                     </p>
                   </div>
                 </div>
@@ -473,10 +493,10 @@ export default function ImportPage() {
                     <span className="text-blue-600 text-sm font-medium">3</span>
                   </div>
                   <div>
-                    <h4 className="font-medium text-gray-900">Upload and Import</h4>
+                    <h4 className="font-medium text-gray-900">Upload and import</h4>
                     <p className="text-sm text-gray-600">
-                      Use the upload area above to select your CSV files. Our AI will analyze and
-                      prioritize your data automatically.
+                      Upload the completed Excel file. Optionally run AI prioritize, then import to
+                      your dashboard.
                     </p>
                   </div>
                 </div>
@@ -485,10 +505,10 @@ export default function ImportPage() {
                     <span className="text-blue-600 text-sm font-medium">4</span>
                   </div>
                   <div>
-                    <h4 className="font-medium text-gray-900">Review and Confirm</h4>
+                    <h4 className="font-medium text-gray-900">Review on dashboard</h4>
                     <p className="text-sm text-gray-600">
-                      Review the AI recommendations and confirm the import. Your data will be
-                      organized in your personalized dashboard.
+                      Confirm goals, projects, tasks, habits, and education appear in the right
+                      sections.
                     </p>
                   </div>
                 </div>

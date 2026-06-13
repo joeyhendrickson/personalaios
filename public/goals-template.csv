@@ -1,6 +1,3 @@
-title,description,category,target_points,target_money,priority,deadline
-"Launch my startup","Build and launch a tech startup that solves real problems",Business,1000,50000,high,2024-12-31
-"Get in shape","Lose 20 pounds and build muscle through consistent exercise",Health,500,2000,medium,2024-06-30
-"Learn Spanish","Achieve conversational fluency in Spanish",Education,300,500,low,2024-08-15
-"Save for house down payment","Save $50,000 for a house down payment",Finance,800,50000,high,2025-03-31
-"Write a book","Complete and publish my first book",Creative,600,3000,medium,2024-10-31
+title,description,goal_type,target_value,target_unit,priority_level,target_date,status
+Run a half marathon,Build endurance and complete a race in under 2 hours,yearly,1,race,4,2026-11-01,active
+Grow consulting revenue,Increase recurring consulting income,yearly,150000,USD,5,2026-12-31,active
