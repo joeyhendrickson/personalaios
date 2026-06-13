@@ -101,6 +101,19 @@ export function ChatInterface({
   const [isResizing, setIsResizing] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
 
+  useEffect(() => {
+    const endPanelInteraction = () => {
+      setIsDragging(false)
+      setIsResizing(false)
+    }
+    window.addEventListener('mouseup', endPanelInteraction)
+    window.addEventListener('blur', endPanelInteraction)
+    return () => {
+      window.removeEventListener('mouseup', endPanelInteraction)
+      window.removeEventListener('blur', endPanelInteraction)
+    }
+  }, [])
+
   // Voice-related state
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
@@ -1290,19 +1303,27 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
     interruptAssistantSpeech
   )
 
-  // Drag handlers
+  // Drag handlers — threshold before drag so message text stays selectable
   const handleDragStart = (e: React.MouseEvent) => {
-    e.preventDefault()
-    setIsDragging(true)
+    if (e.button !== 0) return
 
     const startX = e.clientX
     const startY = e.clientY
     const startPositionX = position.x
     const startPositionY = position.y
+    let dragging = false
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const deltaX = e.clientX - startX
-      const deltaY = e.clientY - startY
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = moveEvent.clientX - startX
+      const deltaY = moveEvent.clientY - startY
+
+      if (!dragging) {
+        if (Math.abs(deltaX) < 4 && Math.abs(deltaY) < 4) return
+        dragging = true
+        setIsDragging(true)
+      }
+
+      moveEvent.preventDefault()
 
       const newX = Math.max(
         0,
@@ -1407,7 +1428,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
       return (
         <div className="flex justify-end mb-4">
           <div
-            className="bg-black text-white rounded-lg px-6 py-3 max-w-[85%]"
+            className="advisor-chat-message-body bg-black text-white rounded-lg px-6 py-3 max-w-[85%] select-text"
             style={{ fontSize: '16px', lineHeight: '1.6' }}
           >
             {message.content}
@@ -1420,9 +1441,9 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
     return (
       <div className="flex justify-start mb-4">
-        <div className="bg-gray-100 rounded-lg px-6 py-4 max-w-[85%]">
+        <div className="bg-gray-100 rounded-lg px-6 py-4 max-w-[85%] select-text">
           <div
-            className="prose max-w-none"
+            className="advisor-chat-message-body max-w-none select-text"
             style={{
               lineHeight: '1.8',
               whiteSpace: 'pre-wrap',
@@ -1443,7 +1464,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
   return (
     <div
-      className={`fixed z-[9998] bg-white rounded-lg shadow-xl border flex flex-col ${isResizing || isDragging ? 'select-none' : ''}`}
+      className="fixed z-[9998] bg-white rounded-lg shadow-xl border flex flex-col overflow-hidden"
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
@@ -1455,7 +1476,9 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
     >
       {/* Header - Draggable */}
       <div
-        className="flex items-center justify-between gap-2 p-4 border-b bg-black text-white rounded-t-lg cursor-move"
+        className={`flex items-center justify-between gap-2 p-4 border-b bg-black text-white rounded-t-lg cursor-move shrink-0 ${
+          isDragging ? 'select-none' : ''
+        }`}
         onMouseDown={handleDragStart}
       >
         <h3 className="font-semibold truncate">Advisor</h3>
@@ -1548,7 +1571,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="advisor-chat-messages flex-1 overflow-y-auto p-4 space-y-4 relative z-[1] select-text">
         {onboardingActive && onboardingPrompt && (
           <div className="bg-white border rounded-lg p-4">
             <div className="text-sm font-medium mb-2">Getting you set up</div>
@@ -1756,42 +1779,28 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         </form>
       </div>
 
-      {/* Resize Handles */}
-      {/* Corner handles */}
+      {/* Resize handles — corners only; wrapper passes clicks through to messages */}
       <div
-        className="absolute top-0 right-0 w-3 h-3 cursor-nw-resize hover:bg-gray-300"
-        onMouseDown={(e) => handleMouseDown(e, 'ne')}
-      />
-      <div
-        className="absolute top-0 left-0 w-3 h-3 cursor-ne-resize hover:bg-gray-300"
-        onMouseDown={(e) => handleMouseDown(e, 'nw')}
-      />
-      <div
-        className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize hover:bg-gray-300"
-        onMouseDown={(e) => handleMouseDown(e, 'se')}
-      />
-      <div
-        className="absolute bottom-0 left-0 w-3 h-3 cursor-sw-resize hover:bg-gray-300"
-        onMouseDown={(e) => handleMouseDown(e, 'sw')}
-      />
-
-      {/* Edge handles */}
-      <div
-        className="absolute top-0 left-3 right-3 h-1 cursor-n-resize hover:bg-gray-300"
-        onMouseDown={(e) => handleMouseDown(e, 'n')}
-      />
-      <div
-        className="absolute bottom-0 left-3 right-3 h-1 cursor-s-resize hover:bg-gray-300"
-        onMouseDown={(e) => handleMouseDown(e, 's')}
-      />
-      <div
-        className="absolute left-0 top-3 bottom-3 w-1 cursor-w-resize hover:bg-gray-300"
-        onMouseDown={(e) => handleMouseDown(e, 'w')}
-      />
-      <div
-        className="absolute right-0 top-3 bottom-3 w-1 cursor-e-resize hover:bg-gray-300"
-        onMouseDown={(e) => handleMouseDown(e, 'e')}
-      />
+        className={`pointer-events-none absolute inset-0 z-[2] ${isResizing ? 'select-none' : ''}`}
+        aria-hidden
+      >
+        <div
+          className="pointer-events-auto absolute top-0 right-0 h-3 w-3 cursor-nesw-resize"
+          onMouseDown={(e) => handleMouseDown(e, 'ne')}
+        />
+        <div
+          className="pointer-events-auto absolute top-0 left-0 h-3 w-3 cursor-nwse-resize"
+          onMouseDown={(e) => handleMouseDown(e, 'nw')}
+        />
+        <div
+          className="pointer-events-auto absolute bottom-0 right-0 h-3 w-3 cursor-nwse-resize"
+          onMouseDown={(e) => handleMouseDown(e, 'se')}
+        />
+        <div
+          className="pointer-events-auto absolute bottom-0 left-0 h-3 w-3 cursor-nesw-resize"
+          onMouseDown={(e) => handleMouseDown(e, 'sw')}
+        />
+      </div>
     </div>
   )
 }

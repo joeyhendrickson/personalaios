@@ -1468,3 +1468,17 @@ body {
 .dark .advisor-launcher-fab__icon {
   color: hsl(0 0% 0%);
 }
+
+.advisor-chat-messages,
+.advisor-chat-message-body {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.advisor-chat-message-body strong {
+  font-weight: 600;
+}
+
+.advisor-chat-message-body em {
+  font-style: italic;
+}
