@@ -11,6 +11,7 @@ import {
   isProjectCompleted,
   isTaskCompleted,
 } from '@/lib/life-coach/partition-user-data'
+import { sumEarnedPoints } from '@/lib/points/sum-earned-points'
 import {
   aggregateClassifiedTransactions,
   classifyTransactionForContext,
@@ -309,10 +310,10 @@ export async function fetchRawUserData(
 
   const points = (pointsResult.data || []) as Record<string, unknown>[]
   const recentPoints = points.filter((p) => new Date((p.created_at as string) || 0) >= weekStart)
-  const dailyPoints = points
-    .filter((p) => new Date((p.created_at as string) || 0) >= todayStart)
-    .reduce((s, p) => s + ((p.points as number) || 0), 0)
-  const weeklyPoints = recentPoints.reduce((s, p) => s + ((p.points as number) || 0), 0)
+  const dailyPoints = sumEarnedPoints(
+    points.filter((p) => new Date((p.created_at as string) || 0) >= todayStart)
+  )
+  const weeklyPoints = sumEarnedPoints(recentPoints)
 
   const priorities = (prioritiesResult.data || []) as Record<string, unknown>[]
   const firePriorities = priorities.filter(

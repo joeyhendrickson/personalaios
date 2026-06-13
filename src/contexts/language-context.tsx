@@ -116,7 +116,7 @@ const translations = {
 
     // Radial cards
     'radial.todayPoints': "Today's Points",
-    'radial.weeklyProgress': 'Weekly Progress',
+    'radial.weeklyProgress': 'Weekly Points Earned',
     'radial.habitStreak': 'Habit Streak',
     'radial.strategicInsights': 'Strategic Insights',
     'radial.motivational.incredible':
@@ -420,7 +420,7 @@ const translations = {
 
     // Radial cards
     'radial.todayPoints': 'Puntos de Hoy',
-    'radial.weeklyProgress': 'Progreso Semanal',
+    'radial.weeklyProgress': 'Puntos Ganados Esta Semana',
     'radial.habitStreak': 'Racha de Hábitos',
     'radial.strategicInsights': 'Insights Estratégicos',
     'radial.motivational.incredible':

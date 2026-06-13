@@ -6,7 +6,7 @@ const updateProgressSchema = z.object({
   progress_percentage: z.number().min(0).max(100),
 })
 
-// PATCH /api/goals/[id]/progress - Update goal progress and award points
+// PATCH /api/goals/[id]/progress - Update goal metric progress (no points ledger entries)
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient()
@@ -24,7 +24,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = await request.json()
     const { progress_percentage } = updateProgressSchema.parse(body)
 
-    // Get the current goal to calculate points
+    // Get the current goal to calculate metric progress (not gamification points)
     const { data: goal, error: goalError } = await supabase
       .from('goals')
       .select('id, title, target_value, current_value, user_id')
@@ -58,25 +58,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (updateError) {
       console.error('Error updating goal progress:', updateError)
       return NextResponse.json({ error: 'Failed to update goal progress' }, { status: 500 })
-    }
-
-    // Add progress change to the ledger (positive or negative)
-    if (progressChange !== 0) {
-      const description =
-        progressChange > 0 ? `Progress on "${goal.title}"` : `Progress reduced on "${goal.title}"`
-
-      const { error: pointsError } = await supabase.from('points_ledger').insert({
-        user_id: user.id,
-        goal_id: goalId,
-        points: progressChange, // This can be negative
-        description: description,
-        created_at: new Date().toISOString(),
-      })
-
-      if (pointsError) {
-        console.error('Error adding progress to ledger:', pointsError)
-        // Don't fail the request, just log the error
-      }
     }
 
     return NextResponse.json({

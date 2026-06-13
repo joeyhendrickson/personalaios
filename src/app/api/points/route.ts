@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { sumEarnedPoints } from '@/lib/points/sum-earned-points'
 
 // GET /api/points - Get points summary for the current user
 export async function GET(request: NextRequest) {
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const dailyPoints = todayPoints?.reduce((sum, entry) => sum + (entry.points || 0), 0) || 0
+    const dailyPoints = sumEarnedPoints(todayPoints)
 
     // Get weekly points (last 7 days)
     const weekAgo = new Date(today)
@@ -63,8 +64,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const weeklyPointsTotal =
-      weeklyPoints?.reduce((sum, entry) => sum + (entry.points || 0), 0) || 0
+    const weeklyPointsTotal = sumEarnedPoints(weeklyPoints)
 
     // Create daily breakdown for the last 7 days
     const dailyBreakdown = []
@@ -74,10 +74,9 @@ export async function GET(request: NextRequest) {
       const dateStr = date.toISOString().split('T')[0]
 
       // Calculate points for this day
-      const dayPoints =
-        weeklyPoints
-          ?.filter((entry) => entry.created_at.startsWith(dateStr))
-          .reduce((sum, entry) => sum + (entry.points || 0), 0) || 0
+      const dayPoints = sumEarnedPoints(
+        weeklyPoints?.filter((entry) => entry.created_at.startsWith(dateStr))
+      )
 
       dailyBreakdown.push({
         date: dateStr,

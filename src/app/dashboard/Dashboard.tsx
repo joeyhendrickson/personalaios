@@ -924,7 +924,7 @@ export default function Dashboard() {
   const progressPercentage =
     totalTargetPoints > 0 ? Math.round((totalCurrentPoints / totalTargetPoints) * 100) : 0
 
-  // Calculate points by category (from both goals and tasks)
+  // Calculate progress metrics (projects only — high-level goals do not affect points)
   const categoryPoints = [...goals, ...tasks].reduce(
     (acc, item) => {
       const category = item.category
@@ -933,7 +933,7 @@ export default function Dashboard() {
       }
 
       if ('current_points' in item) {
-        // This is a goal
+        // Dashboard project
         acc[category].current += item.current_points || 0
         acc[category].target += item.target_points
       } else if ('status' in item) {
@@ -1367,80 +1367,78 @@ export default function Dashboard() {
     }))
   }
 
-  // Handle slider release (API call)
-  const handleProgressCommit = async (
-    goalId: string,
-    progressPercentage: number,
-    isProject: boolean = false
-  ) => {
+  const toggleHighLevelGoalComplete = async (goalId: string, markCompleted: boolean) => {
     try {
-      setUpdatingProgress(goalId)
-      console.log(
-        `Updating ${isProject ? 'project' : 'goal'} ${goalId} progress to ${progressPercentage}%`
-      )
+      const response = await fetch(`/api/goals/${goalId}`, {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: markCompleted ? 'completed' : 'active' }),
+      })
 
-      // Choose the correct API endpoint based on whether it's a project or goal
-      const apiEndpoint = isProject
-        ? `/api/projects/${goalId}/progress`
-        : `/api/goals/${goalId}/progress`
+      if (response.ok) {
+        await fetchHighLevelGoals()
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to update goal: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error updating goal completion:', error)
+      alert(`Error updating goal: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
 
-      const response = await fetch(apiEndpoint, {
+  // Handle slider release (projects only — goals use completion toggle, not points)
+  const handleProgressCommit = async (projectId: string, progressPercentage: number) => {
+    try {
+      setUpdatingProgress(projectId)
+      console.log(`Updating project ${projectId} progress to ${progressPercentage}%`)
+
+      const response = await fetch(`/api/projects/${projectId}/progress`, {
         method: 'PATCH',
         credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          progress: progressPercentage, // Projects API expects 'progress'
-          progress_percentage: progressPercentage, // Goals API expects 'progress_percentage'
+          progress: progressPercentage,
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
         console.error('Progress update failed:', errorData)
-        throw new Error(
-          errorData.error || `Failed to update ${isProject ? 'project' : 'goal'} progress`
-        )
+        throw new Error(errorData.error || 'Failed to update project progress')
       }
 
       const result = await response.json()
       console.log('Progress update result:', result)
 
-      // Refresh the dashboard data to show updated progress and points
-      console.log('Refreshing dashboard data after progress update...')
       await fetchDashboardData()
-      console.log('Dashboard data refreshed')
 
-      // Clear local progress state
       setLocalProgress((prev) => {
         const newState = { ...prev }
-        delete newState[goalId]
+        delete newState[projectId]
         return newState
       })
 
-      // Show success message if points changed
-      const pointsEarned = result.pointsEarned || (result.goal && result.goal.points_earned)
+      const pointsEarned = result.pointsEarned
       if (pointsEarned && pointsEarned !== 0) {
         if (pointsEarned > 0) {
-          console.log(
-            `Earned ${pointsEarned} points for ${isProject ? 'project' : 'goal'} progress!`
-          )
+          console.log(`Earned ${pointsEarned} points for project progress!`)
         } else {
           console.log(`Lost ${Math.abs(pointsEarned)} points due to progress reduction!`)
         }
-        // You could add a toast notification here if you want
       }
     } catch (error) {
-      console.error(`Error updating ${isProject ? 'project' : 'goal'} progress:`, error)
+      console.error('Error updating project progress:', error)
       alert(
-        `Error updating ${isProject ? 'project' : 'goal'} progress: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Error updating project progress: ${error instanceof Error ? error.message : 'Unknown error'}`
       )
 
-      // Clear local progress state on error
       setLocalProgress((prev) => {
         const newState = { ...prev }
-        delete newState[goalId]
+        delete newState[projectId]
         return newState
       })
     } finally {
@@ -2316,26 +2314,38 @@ export default function Dashboard() {
                             key={(goal as any).id}
                             className="bg-green-50 rounded-xl p-6 border border-green-200 hover:shadow-md transition-all duration-200"
                           >
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="flex-1">
-                                <h3 className="font-semibold text-gray-900 mb-2">
-                                  {(goal as any).title}
-                                </h3>
-                                <p className="text-sm text-gray-600 mb-2">
-                                  {(goal as any).description}
-                                </p>
-                                <div className="flex items-center space-x-2 text-xs text-gray-500">
-                                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
-                                    {(goal as any).goal_type}
-                                  </span>
-                                  <span>
-                                    {t('goals.priority')}: {(goal as any).priority_level}/5
+                            <div className="flex items-start gap-3 mb-4">
+                              <button
+                                type="button"
+                                onClick={() => toggleHighLevelGoalComplete((goal as any).id, false)}
+                                className="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 bg-green-500 border-green-500"
+                                title="Mark as active"
+                              >
+                                <CheckCircle className="h-3 w-3 text-white" />
+                              </button>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <h3 className="font-semibold text-gray-900 mb-2">
+                                      {(goal as any).title}
+                                    </h3>
+                                    <p className="text-sm text-gray-600 mb-2">
+                                      {(goal as any).description}
+                                    </p>
+                                    <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
+                                        {(goal as any).goal_type}
+                                      </span>
+                                      <span>
+                                        {t('goals.priority')}: {(goal as any).priority_level}/5
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 border-green-200 text-green-700 shrink-0">
+                                    Completed
                                   </span>
                                 </div>
                               </div>
-                              <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 border-green-200 text-green-700">
-                                Completed
-                              </span>
                             </div>
 
                             {(goal as any).target_value && (
@@ -2453,97 +2463,66 @@ export default function Dashboard() {
                               key={(goal as any).id}
                               className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
                             >
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex-1">
-                                  <h3 className="font-semibold text-gray-900 mb-1">
-                                    {(goal as any).title}
-                                  </h3>
-                                  <p className="text-sm text-gray-600 mb-2">
-                                    {(goal as any).description}
-                                  </p>
-                                  <div className="flex items-center space-x-2 text-xs text-gray-500">
-                                    <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
-                                      {(goal as any).goal_type}
-                                    </span>
-                                    <span>
-                                      {t('goals.priority')}: {(goal as any).priority_level}/5
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="flex space-x-1">
-                                  <button
-                                    onClick={() => openEditHighLevelGoal(goal)}
-                                    className="text-gray-400 hover:text-gray-600"
-                                    title="Edit Goal"
-                                  >
-                                    <Settings className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => deleteHighLevelGoal((goal as any).id)}
-                                    className="text-gray-400 hover:text-red-600"
-                                    title="Delete Goal"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                </div>
-                              </div>
-
-                              {(goal as any).target_value && (
-                                <div className="mb-3">
-                                  {/* Interactive Progress Slider */}
-                                  <div className="space-y-2">
-                                    <div className="flex items-center justify-between text-xs text-gray-500">
-                                      <span>Progress</span>
-                                      <span>
-                                        {(goal as any).current_value}/{(goal as any).target_value}{' '}
-                                        {(goal as any).target_unit || ''}
-                                      </span>
+                              <div className="flex items-start gap-3 mb-3">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    toggleHighLevelGoalComplete((goal as any).id, true)
+                                  }
+                                  className="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 border-gray-300 hover:border-green-400"
+                                  title="Mark goal complete"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                      <h3 className="font-semibold text-gray-900 mb-1">
+                                        {(goal as any).title}
+                                      </h3>
+                                      <p className="text-sm text-gray-600 mb-2">
+                                        {(goal as any).description}
+                                      </p>
+                                      <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                        <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
+                                          {(goal as any).goal_type}
+                                        </span>
+                                        <span>
+                                          {t('goals.priority')}: {(goal as any).priority_level}/5
+                                        </span>
+                                      </div>
                                     </div>
-                                    <Slider
-                                      value={
-                                        localProgress[(goal as any).id] !== undefined
-                                          ? localProgress[(goal as any).id]
-                                          : Math.min(
-                                              100,
-                                              ((goal as any).current_value /
-                                                (goal as any).target_value) *
-                                                100
-                                            )
-                                      }
-                                      onChange={(value) =>
-                                        handleProgressChange((goal as any).id, value)
-                                      }
-                                      onValueCommit={(value) =>
-                                        handleProgressCommit((goal as any).id, value)
-                                      }
-                                      min={0}
-                                      max={100}
-                                      step={1}
-                                      className="w-full"
-                                      disabled={updatingProgress === (goal as any).id}
-                                    />
-                                    <div className="flex items-center justify-between text-xs text-gray-500">
-                                      <span>
-                                        {localProgress[(goal as any).id] !== undefined
-                                          ? `${localProgress[(goal as any).id]}%`
-                                          : `${Math.min(
-                                              100,
-                                              Math.round(
-                                                ((goal as any).current_value /
-                                                  (goal as any).target_value) *
-                                                  100
-                                              )
-                                            )}%`}
-                                      </span>
-                                      <span>100%</span>
+                                    <div className="flex space-x-1 shrink-0">
+                                      <button
+                                        onClick={() => openEditHighLevelGoal(goal)}
+                                        className="text-gray-400 hover:text-gray-600"
+                                        title="Edit Goal"
+                                      >
+                                        <Settings className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => deleteHighLevelGoal((goal as any).id)}
+                                        className="text-gray-400 hover:text-red-600"
+                                        title="Delete Goal"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
                                     </div>
                                   </div>
-                                </div>
-                              )}
 
-                              <div className="text-xs text-gray-500">
-                                {(goal as any).target_date &&
-                                  `Target: ${new Date((goal as any).target_date).toLocaleDateString()}`}
+                                  {(goal as any).target_value ? (
+                                    <p className="text-xs text-gray-500 mt-2">
+                                      Target: {(goal as any).target_value}{' '}
+                                      {(goal as any).target_unit || ''}
+                                      {(goal as any).current_value
+                                        ? ` · Current: ${(goal as any).current_value}`
+                                        : ''}
+                                    </p>
+                                  ) : null}
+
+                                  <div className="text-xs text-gray-500 mt-2">
+                                    {(goal as any).target_date &&
+                                      `Due: ${new Date((goal as any).target_date).toLocaleDateString()}`}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           ))
@@ -2829,7 +2808,7 @@ export default function Dashboard() {
                                       value={goalProgress}
                                       onChange={(value) => handleProgressChange(goal.id, value)}
                                       onValueCommit={(value) =>
-                                        handleProgressCommit(goal.id, value, true)
+                                        handleProgressCommit(goal.id, value)
                                       }
                                       min={0}
                                       max={100}
