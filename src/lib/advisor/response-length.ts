@@ -1,4 +1,32 @@
 export const ADVISOR_INITIAL_MAX_CHARS = 1000
+export const ADVISOR_FACTUAL_MAX_CHARS = 320
+
+const FACTUAL_QUESTION_PHRASES = [
+  'how much',
+  'how many',
+  'what was',
+  'what were',
+  'what is my',
+  'what are my',
+  'did i',
+  'when did',
+  'how long',
+  'how did',
+  'tell me what happened',
+  'last night',
+  'yesterday',
+  'this week',
+  'this month',
+  'today',
+  'cuánto',
+  'cuántos',
+  'cuanta',
+  'cuantas',
+  'qué fue',
+  'que fue',
+  'anoche',
+  'ayer',
+]
 
 const MORE_DETAIL_PHRASES = [
   'more detail',
@@ -31,6 +59,13 @@ export function assistantAskedForMoreDetail(content: string): boolean {
   return MORE_DETAIL_QUESTION_EN.test(content) || MORE_DETAIL_QUESTION_ES.test(content)
 }
 
+/** Objective lookup questions (sleep, spending, counts) — answer briefly when data exists. */
+export function isFactualDataQuestion(text: string): boolean {
+  const normalized = text.toLowerCase().trim()
+  if (normalized.length < 8) return false
+  return FACTUAL_QUESTION_PHRASES.some((phrase) => normalized.includes(phrase))
+}
+
 /** User is continuing after a brief reply and wants the fuller version. */
 export function userWantsMoreDetail(messages: ChatMessage[]): boolean {
   const lastUser = [...messages].reverse().find((message) => message.role === 'user')
@@ -50,7 +85,11 @@ export function userWantsMoreDetail(messages: ChatMessage[]): boolean {
   return /^(yes|yeah|yep|sure|please|ok|okay|y|sí|si)$/i.test(text)
 }
 
-export function buildAdvisorLengthInstructions(language: string, wantsMoreDetail: boolean): string {
+export function buildAdvisorLengthInstructions(
+  language: string,
+  wantsMoreDetail: boolean,
+  factualQuestion = false
+): string {
   if (wantsMoreDetail) {
     return language === 'es'
       ? `LONGITUD DE RESPUESTA (modo detallado):
@@ -61,6 +100,24 @@ export function buildAdvisorLengthInstructions(language: string, wantsMoreDetail
 - The user asked for more detail. Give a fuller follow-up without the ~${ADVISOR_INITIAL_MAX_CHARS}-character limit.
 - Stay focused: expand on what you already said; do not restart from scratch.
 - Do not end with "Would you like more detail?" unless a clearly useful third level remains uncovered.`
+  }
+
+  if (factualQuestion) {
+    return language === 'es'
+      ? `LONGITUD DE RESPUESTA (modo factual — predeterminado para esta pregunta):
+- El usuario hace una pregunta objetiva. Si MODULE CONTEXT o DASHBOARD STATE responden con alta confianza, responde en ${ADVISOR_FACTUAL_MAX_CHARS} caracteres o menos (1–3 oraciones).
+- Empieza con el dato concreto (número, fecha, estado). No especules ni mezcles otros módulos salvo que el usuario pida causas o un plan.
+- No pidas al usuario registrar datos que ya aparecen en MODULE CONTEXT.
+- Si realmente falta el dato tras revisar los módulos instalados, dilo en una frase y opcionalmente indica dónde registrarlo.
+- No propongas tarjetas del dashboard ni listas largas de seguimiento salvo que lo pidan.
+- Si omites contexto útil por brevedad, termina con: "¿Te gustaría más detalle?"`
+      : `RESPONSE LENGTH (factual mode — default for this question):
+- The user asked an objective question. If MODULE CONTEXT or DASHBOARD STATE answer it with high confidence, reply in ${ADVISOR_FACTUAL_MAX_CHARS} characters or less (1–3 sentences).
+- Lead with the concrete fact (number, date, status). Do not speculate or pull unrelated modules unless they asked for causes or a plan.
+- Do not ask the user to log data that already appears in MODULE CONTEXT.
+- If data is truly missing after checking installed modules, say so in one sentence and optionally point to where to add it.
+- Do not offer dashboard proposal cards or long follow-up questionnaires unless they asked.
+- If you omit useful context for brevity, end with: "Would you like more detail?"`
   }
 
   return language === 'es'
@@ -79,6 +136,11 @@ export function buildAdvisorLengthInstructions(language: string, wantsMoreDetail
 }
 
 /** ~4 chars per token — rough cap for initial advisor replies. */
-export function advisorMaxOutputTokens(wantsMoreDetail: boolean): number | undefined {
-  return wantsMoreDetail ? undefined : 280
+export function advisorMaxOutputTokens(
+  wantsMoreDetail: boolean,
+  factualQuestion = false
+): number | undefined {
+  if (wantsMoreDetail) return undefined
+  if (factualQuestion) return 120
+  return 280
 }

@@ -182,6 +182,68 @@ export interface RawUserData {
   }
 }
 
+const TABLE_ORDER_COLUMNS: Record<string, string[]> = {
+  fitness_biometrics: ['sync_date', 'recorded_at', 'created_at'],
+  fitness_energy_history: ['recorded_at', 'created_at'],
+  daily_nutrition: ['log_date', 'recorded_at', 'created_at'],
+  gratitude_journal_entries: ['entry_date', 'created_at'],
+}
+
+async function fetchModuleTableRows(
+  supabase: SupabaseClient,
+  userId: string,
+  tableName: string,
+  limit = 20
+): Promise<unknown[]> {
+  const orderColumns = TABLE_ORDER_COLUMNS[tableName] ?? ['created_at']
+  for (const column of orderColumns) {
+    try {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select('*')
+        .eq('user_id', userId)
+        .order(column, { ascending: false, nullsFirst: false })
+        .limit(limit)
+      if (!error && data?.length) return data as unknown[]
+      if (error && !error.message.toLowerCase().includes('column')) break
+    } catch {
+      break
+    }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('*')
+      .eq('user_id', userId)
+      .limit(limit)
+    if (!error && data?.length) return data as unknown[]
+  } catch {
+    // Skip unknown tables
+  }
+  return []
+}
+
+/** Live fetch for one installed module — used when advisor needs fresh wearable/bank module data. */
+export async function fetchModuleDataForContext(
+  supabase: SupabaseClient,
+  userId: string,
+  moduleId: string
+): Promise<{ module_id: string; data: Record<string, unknown[]>; total_records: number } | null> {
+  const tables = getModuleTables(moduleId)
+  const tableData: Record<string, unknown[]> = {}
+  let totalRecords = 0
+  for (const tableName of tables) {
+    const rows = await fetchModuleTableRows(supabase, userId, tableName)
+    if (rows.length) {
+      tableData[tableName] = rows as Record<string, unknown>[]
+      totalRecords += rows.length
+    }
+  }
+  if (totalRecords === 0) return null
+  return { module_id: moduleId, data: tableData, total_records: totalRecords }
+}
+
 export async function fetchRawUserData(
   supabase: SupabaseClient,
   userId: string
@@ -287,19 +349,10 @@ export async function fetchRawUserData(
     const tableData: Record<string, unknown[]> = {}
     let totalRecords = 0
     for (const tableName of tables) {
-      try {
-        const { data, error } = await supabase
-          .from(tableName)
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(20)
-        if (!error && data?.length) {
-          tableData[tableName] = data as unknown[]
-          totalRecords += data.length
-        }
-      } catch {
-        // Skip unknown tables
+      const rows = await fetchModuleTableRows(supabase, userId, tableName)
+      if (rows.length) {
+        tableData[tableName] = rows as Record<string, unknown>[]
+        totalRecords += rows.length
       }
     }
     return { module_id: mod.module_id, data: tableData, total_records: totalRecords }

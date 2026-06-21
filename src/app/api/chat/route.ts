@@ -8,6 +8,7 @@ import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
 import {
   advisorMaxOutputTokens,
   buildAdvisorLengthInstructions,
+  isFactualDataQuestion,
   userWantsMoreDetail,
 } from '@/lib/advisor/response-length'
 
@@ -160,11 +161,16 @@ export async function POST(req: Request) {
     console.log('Calling OpenAI with user context...')
 
     const wantsMoreDetail = userWantsMoreDetail(messages)
-    const lengthInstructions = buildAdvisorLengthInstructions(language, wantsMoreDetail)
+    const factualQuestion = isFactualDataQuestion(lastUserMsg)
+    const lengthInstructions = buildAdvisorLengthInstructions(
+      language,
+      wantsMoreDetail,
+      factualQuestion
+    )
 
     const startMs = Date.now()
     const modelId = resolveOpenAIModelId()
-    const maxTokens = advisorMaxOutputTokens(wantsMoreDetail)
+    const maxTokens = advisorMaxOutputTokens(wantsMoreDetail, factualQuestion)
     const result = await streamText({
       model: defaultOpenaiModel(),
       messages,

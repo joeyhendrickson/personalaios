@@ -162,10 +162,28 @@ function extractDayTrader(moduleId: string, data: Record<string, unknown[]>): Mo
   return summary
 }
 
+function sortBiometricRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  return [...rows].sort((a, b) => {
+    const dateA = String(a.sync_date || a.recorded_at || a.created_at || '')
+    const dateB = String(b.sync_date || b.recorded_at || b.created_at || '')
+    if (dateA !== dateB) return dateB.localeCompare(dateA)
+    return String(b.recorded_at || b.created_at || '').localeCompare(
+      String(a.recorded_at || a.created_at || '')
+    )
+  })
+}
+
+function fmtMetric(value: unknown, suffix = ''): string | null {
+  if (value == null || value === '') return null
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n)) return null
+  return `${suffix ? n + suffix : n}`
+}
+
 function extractFitness(moduleId: string, data: Record<string, unknown[]>): ModuleContextSummary {
   const summary = emptySummary(moduleId)
   const goals = pickRows(data, 'fitness_goals')
-  const biometrics = pickRows(data, 'fitness_biometrics')
+  const biometrics = sortBiometricRows(pickRows(data, 'fitness_biometrics'))
   const energy = pickRows(data, 'fitness_energy_history')
   const nutrition = pickRows(data, 'daily_nutrition')
 
@@ -178,13 +196,42 @@ function extractFitness(moduleId: string, data: Record<string, unknown[]>): Modu
       `Fitness goal: ${str(g.title || g.goal_type)} — ${str(g.current_value)}/${str(g.target_value)} ${str(g.target_unit || '')}`.trim()
     )
   }
-  const latestBio = biometrics[0]
-  if (latestBio) {
-    summary.objectiveFacts.push(
-      `Latest biometrics: energy ${str(latestBio.energy_level_self_1_10)}/10, stress ${str(latestBio.stress_level_1_10)}/10`
-    )
-    if (latestBio.notes) summary.subjectiveNotes.push(str(latestBio.notes))
+
+  const googleRows = biometrics.filter(
+    (row) => row.source === 'google_health' || row.sync_date != null
+  )
+  const dailyRows = (googleRows.length ? googleRows : biometrics).slice(0, 7)
+
+  for (const row of dailyRows) {
+    const date = str(row.sync_date || row.recorded_at, 32)
+    const source = str(row.source || (row.sync_date ? 'google_health' : 'manual'), 24)
+    const parts: string[] = []
+    const sleep = fmtMetric(row.sleep_hours, 'h sleep')
+    const rhr = fmtMetric(row.resting_heart_rate, ' bpm RHR')
+    const steps = fmtMetric(row.steps, ' steps')
+    if (sleep) parts.push(sleep)
+    if (rhr) parts.push(rhr)
+    if (steps) parts.push(steps)
+    const stress = fmtMetric(row.stress_level_1_10, '/10 stress')
+    const energySelf = fmtMetric(row.energy_level_self_1_10, '/10 self energy')
+    if (stress) parts.push(stress)
+    if (energySelf) parts.push(energySelf)
+    if (parts.length) {
+      summary.objectiveFacts.push(`${date} (${source}): ${parts.join(', ')}`)
+    }
+    if (row.notes) summary.subjectiveNotes.push(str(row.notes))
   }
+
+  const latestSleep = dailyRows.find((row) => {
+    const hours = Number(row.sleep_hours)
+    return Number.isFinite(hours) && hours > 0 && hours <= 16
+  })
+  if (latestSleep) {
+    summary.recentHighlights.unshift(
+      `Most recent sleep: ${Number(latestSleep.sleep_hours).toFixed(1)}h on ${str(latestSleep.sync_date || latestSleep.recorded_at, 32)}`
+    )
+  }
+
   const latestEnergy = energy[0]
   if (latestEnergy) {
     summary.objectiveFacts.push(
@@ -450,10 +497,31 @@ export function buildModuleContextSummaries(raw: RawUserData): ModuleContextSumm
   })
 }
 
+export function buildModuleSummaryForModule(
+  moduleId: string,
+  data: Record<string, unknown[]>,
+  budget?: BudgetContextData
+): ModuleContextSummary {
+  const extractor = EXTRACTORS[moduleId]
+  if (extractor) return extractor(moduleId, data, budget)
+  return extractGeneric(moduleId, data)
+}
+
+export function mergeModuleSummary(
+  summaries: ModuleContextSummary[],
+  updated: ModuleContextSummary
+): ModuleContextSummary[] {
+  const index = summaries.findIndex((summary) => summary.moduleId === updated.moduleId)
+  if (index === -1) return [...summaries, updated]
+  const next = [...summaries]
+  next[index] = updated
+  return next
+}
+
 export function formatModuleContextForPrompt(summaries: ModuleContextSummary[]): string {
   const withData = summaries.filter((s) => s.hasData)
   if (!withData.length) {
-    return 'MODULE CONTEXT: No installed modules with stored data yet. Encourage the user to add data in relevant modules.'
+    return 'MODULE CONTEXT: No installed modules with stored data yet. Before saying data is missing, remember wearable sleep/steps live in fitness-tracker (Google Health sync) and bank data in budget-optimizer.'
   }
 
   const blocks = withData.map((s) => {

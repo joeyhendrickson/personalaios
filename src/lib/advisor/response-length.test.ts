@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { assistantAskedForMoreDetail, userWantsMoreDetail } from './response-length'
+import {
+  assistantAskedForMoreDetail,
+  isFactualDataQuestion,
+  userWantsMoreDetail,
+} from './response-length'
+
+describe('isFactualDataQuestion', () => {
+  it('detects objective sleep lookup questions', () => {
+    expect(isFactualDataQuestion('tell me what happened with my sleep last night')).toBe(true)
+  })
+
+  it('ignores open-ended coaching prompts', () => {
+    expect(isFactualDataQuestion('help me plan my day')).toBe(false)
+  })
+})
 
 describe('userWantsMoreDetail', () => {
   it('detects explicit more-detail requests', () => {

@@ -7,6 +7,7 @@ import {
 import { fetchDailySteps, fetchSleepMinutes, fetchRestingHeartRate } from '@/lib/google-health'
 import { computeContextualEnergyLevel } from '@/lib/fitness/contextual-energy'
 import { normalizeBiometricRow } from '@/lib/fitness/normalize-biometrics'
+import { refreshUserContextCache } from '@/lib/ai-context/cache-generator'
 
 export const dynamic = 'force-dynamic'
 
@@ -320,6 +321,13 @@ export async function POST() {
         message: 'Connected, but no recent Google Health data was available yet.',
       })
     }
+
+    void refreshUserContextCache(user.id, {
+      route: '/api/fitness/google-health/sync',
+      trigger: 'manual',
+    }).catch((error) => {
+      console.warn('[GoogleHealthSync] Advisor context refresh failed:', error)
+    })
 
     return NextResponse.json({
       ok: true,

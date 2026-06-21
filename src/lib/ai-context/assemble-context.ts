@@ -9,7 +9,12 @@ import {
   buildStaticProfileSummary,
   buildStructuredStateSummary,
 } from './fetch-user-data'
-import { buildModuleContextSummaries, formatModuleContextForPrompt } from './module-context-builder'
+import {
+  buildModuleContextSummaries,
+  formatModuleContextForPrompt,
+  buildModuleSummaryForModule,
+  mergeModuleSummary,
+} from './module-context-builder'
 import {
   buildCrossModuleInsights,
   formatCrossModuleInsightsForPrompt,
@@ -18,7 +23,9 @@ import {
   filterCrossModuleInsightsForQuestion,
   filterModulesForQuestion,
   formatTopicFilterNote,
+  detectQuestionTopics,
 } from './topic-module-filter'
+import { fetchModuleDataForContext } from './fetch-user-data'
 import type {
   AssembleContextOptions,
   AssembledContext,
@@ -230,6 +237,22 @@ export async function assembleAIContext(
   if (messages?.length) layers.push('ephemeral')
 
   const lastUserMessage = [...(messages ?? [])].reverse().find((m) => m.role === 'user')?.content
+
+  const wellnessTopics = lastUserMessage ? detectQuestionTopics(lastUserMessage) : []
+  const needsLiveFitness =
+    wellnessTopics.includes('wellness') &&
+    (structuredState?.installedModules?.includes('fitness-tracker') ?? false)
+
+  if (needsLiveFitness && moduleContext) {
+    const liveFitness = await fetchModuleDataForContext(adminSupabase, userId, 'fitness-tracker')
+    if (liveFitness) {
+      moduleContext = mergeModuleSummary(
+        moduleContext,
+        buildModuleSummaryForModule('fitness-tracker', liveFitness.data, undefined)
+      )
+      if (!layers.includes('modules')) layers.push('modules')
+    }
+  }
 
   let modulesForPrompt = moduleContext ?? []
   let crossForPrompt = crossModuleInsights
