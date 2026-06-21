@@ -1,8 +1,8 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
 import { getProjectCategoryEmoji } from '@/lib/projects/category-emoji'
+import { ExpandableDescription } from '@/components/ui/expandable-description'
 
 type ProjectCardContentProps = {
   category: string
@@ -27,10 +27,6 @@ export function ProjectCardContent({
   onToggleExpand,
   viewDetailsLabel = 'View details',
 }: ProjectCardContentProps) {
-  const shouldTruncate = description.length > 120
-  const displayDescription =
-    shouldTruncate && !expanded ? `${description.substring(0, 120).trim()}...` : description
-
   return (
     <div className="mb-4 w-full min-w-0">
       <div
@@ -58,30 +54,12 @@ export function ProjectCardContent({
 
         {badges ? <div className="flex min-w-0 flex-wrap items-center gap-2">{badges}</div> : null}
 
-        <div className="min-w-0 w-full space-y-2">
-          <p className="w-full text-sm leading-relaxed text-gray-600 dark:text-white/75">
-            {displayDescription}
-          </p>
-          {shouldTruncate && onToggleExpand ? (
-            <button
-              type="button"
-              onClick={onToggleExpand}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-[hsl(43_80%_62%)] dark:hover:text-[hsl(43_76%_52%)]"
-            >
-              {expanded ? (
-                <>
-                  <ChevronUp className="h-3 w-3" />
-                  Show Less
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="h-3 w-3" />
-                  {viewDetailsLabel}
-                </>
-              )}
-            </button>
-          ) : null}
-        </div>
+        <ExpandableDescription
+          description={description}
+          expanded={expanded}
+          onToggleExpand={onToggleExpand}
+          viewDetailsLabel={viewDetailsLabel}
+        />
       </div>
     </div>
   )

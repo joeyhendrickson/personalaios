@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import {
   LIFESTACKS_WAKE_WORD_PAUSE_EVENT,
   LIFESTACKS_WAKE_WORD_RESUME_EVENT,
   openLifestacksAdvisor,
+  pauseWakeWordListener,
 } from '@/lib/voice/advisor-events'
 import {
   containsWakePhrase,
@@ -17,12 +18,17 @@ type HeyLifestacksListenerProps = {
 }
 
 const WAKE_COOLDOWN_MS = 4000
+const RESTART_DELAY_MS = 350
 
 export function HeyLifestacksListener({ enabled }: HeyLifestacksListenerProps) {
-  const [paused, setPaused] = useState(false)
+  const enabledRef = useRef(enabled)
+  const pausedRef = useRef(false)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const lastWakeAtRef = useRef(0)
   const restartingRef = useRef(false)
+  const permissionBlockedRef = useRef(false)
+
+  enabledRef.current = enabled
 
   const stopRecognition = useCallback(() => {
     const recognition = recognitionRef.current
@@ -35,15 +41,25 @@ export function HeyLifestacksListener({ enabled }: HeyLifestacksListenerProps) {
   }, [])
 
   const startRecognition = useCallback(() => {
-    if (!enabled || paused || !isWakeWordSupported()) return
+    if (!enabledRef.current || pausedRef.current || !isWakeWordSupported()) return
     const recognition = recognitionRef.current
     if (!recognition || restartingRef.current) return
     try {
       recognition.start()
+      permissionBlockedRef.current = false
     } catch {
       /* already running */
     }
-  }, [enabled, paused])
+  }, [])
+
+  const scheduleRestart = useCallback(() => {
+    if (!enabledRef.current || pausedRef.current) return
+    restartingRef.current = true
+    window.setTimeout(() => {
+      restartingRef.current = false
+      startRecognition()
+    }, RESTART_DELAY_MS)
+  }, [startRecognition])
 
   useEffect(() => {
     if (!isWakeWordSupported()) return
@@ -66,6 +82,8 @@ export function HeyLifestacksListener({ enabled }: HeyLifestacksListenerProps) {
       lastWakeAtRef.current = now
 
       const remainder = extractRemainderAfterWakePhrase(transcript)
+      pausedRef.current = true
+      pauseWakeWordListener()
       stopRecognition()
       openLifestacksAdvisor({
         initialMessage: remainder || undefined,
@@ -75,17 +93,16 @@ export function HeyLifestacksListener({ enabled }: HeyLifestacksListenerProps) {
 
     recognition.onerror = (event) => {
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        permissionBlockedRef.current = true
         stopRecognition()
+        return
       }
+      if (event.error === 'aborted') return
+      scheduleRestart()
     }
 
     recognition.onend = () => {
-      if (!enabled || paused) return
-      restartingRef.current = true
-      window.setTimeout(() => {
-        restartingRef.current = false
-        startRecognition()
-      }, 350)
+      scheduleRestart()
     }
 
     recognitionRef.current = recognition
@@ -94,26 +111,46 @@ export function HeyLifestacksListener({ enabled }: HeyLifestacksListenerProps) {
       stopRecognition()
       recognitionRef.current = null
     }
-  }, [enabled, paused, startRecognition, stopRecognition])
+  }, [scheduleRestart, stopRecognition])
 
   useEffect(() => {
-    if (enabled && !paused) {
+    if (enabled && !pausedRef.current) {
       startRecognition()
     } else {
       stopRecognition()
     }
-  }, [enabled, paused, startRecognition, stopRecognition])
+  }, [enabled, startRecognition, stopRecognition])
 
   useEffect(() => {
-    const onPause = () => setPaused(true)
-    const onResume = () => setPaused(false)
+    const onPause = () => {
+      pausedRef.current = true
+      stopRecognition()
+    }
+    const onResume = () => {
+      pausedRef.current = false
+      if (enabledRef.current) {
+        startRecognition()
+      }
+    }
     window.addEventListener(LIFESTACKS_WAKE_WORD_PAUSE_EVENT, onPause)
     window.addEventListener(LIFESTACKS_WAKE_WORD_RESUME_EVENT, onResume)
     return () => {
       window.removeEventListener(LIFESTACKS_WAKE_WORD_PAUSE_EVENT, onPause)
       window.removeEventListener(LIFESTACKS_WAKE_WORD_RESUME_EVENT, onResume)
     }
-  }, [])
+  }, [startRecognition, stopRecognition])
+
+  useEffect(() => {
+    if (!enabled) return
+
+    const retryAfterGesture = () => {
+      if (!permissionBlockedRef.current || !enabledRef.current || pausedRef.current) return
+      startRecognition()
+    }
+
+    document.addEventListener('pointerdown', retryAfterGesture)
+    return () => document.removeEventListener('pointerdown', retryAfterGesture)
+  }, [enabled, startRecognition])
 
   return null
 }

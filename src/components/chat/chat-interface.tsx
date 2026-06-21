@@ -146,10 +146,17 @@ export function ChatInterface({
   }, [isExpanded])
 
   useEffect(() => {
+    if (isExpanded) {
+      pauseWakeWordListener()
+    } else if (wakeWordEnabled) {
+      resumeWakeWordListener()
+    }
+  }, [isExpanded, wakeWordEnabled])
+
+  useEffect(() => {
     if (!isExpanded || !pendingOpenRef.current) return
     const detail = pendingOpenRef.current
     pendingOpenRef.current = null
-    pauseWakeWordListener()
 
     const timer = window.setTimeout(() => {
       if (detail.initialMessage?.trim()) {
@@ -161,12 +168,6 @@ export function ChatInterface({
 
     return () => window.clearTimeout(timer)
   }, [isExpanded])
-
-  useEffect(() => {
-    if (!isExpanded && wakeWordEnabled) {
-      resumeWakeWordListener()
-    }
-  }, [isExpanded, wakeWordEnabled])
 
   // Warm cross-module context cache when Advisor opens (skip if refreshed within 24 hours)
   useEffect(() => {

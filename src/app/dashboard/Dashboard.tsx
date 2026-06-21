@@ -72,6 +72,7 @@ import { useActivityTracking } from '@/hooks/use-activity-tracking'
 import { useAdminAuth } from '@/hooks/use-admin-auth'
 import { useGuardedAsync } from '@/hooks/use-guarded-async'
 import { parseIntFromForm } from '@/lib/form/numeric-input'
+import { ExpandableDescription } from '@/components/ui/expandable-description'
 
 // Type definitions
 
@@ -2329,9 +2330,18 @@ export default function Dashboard() {
                                     <h3 className="font-semibold text-gray-900 mb-2">
                                       {(goal as any).title}
                                     </h3>
-                                    <p className="text-sm text-gray-600 mb-2">
-                                      {(goal as any).description}
-                                    </p>
+                                    <ExpandableDescription
+                                      description={(goal as any).description}
+                                      expanded={expandedDescriptions[(goal as any).id]}
+                                      onToggleExpand={() =>
+                                        setExpandedDescriptions((prev) => ({
+                                          ...prev,
+                                          [(goal as any).id]: !prev[(goal as any).id],
+                                        }))
+                                      }
+                                      viewDetailsLabel={t('projects.viewDetails')}
+                                      className="mb-2"
+                                    />
                                     <div className="flex items-center space-x-2 text-xs text-gray-500">
                                       <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
                                         {(goal as any).goal_type}
@@ -2478,9 +2488,18 @@ export default function Dashboard() {
                                       <h3 className="font-semibold text-gray-900 mb-1">
                                         {(goal as any).title}
                                       </h3>
-                                      <p className="text-sm text-gray-600 mb-2">
-                                        {(goal as any).description}
-                                      </p>
+                                      <ExpandableDescription
+                                        description={(goal as any).description}
+                                        expanded={expandedDescriptions[(goal as any).id]}
+                                        onToggleExpand={() =>
+                                          setExpandedDescriptions((prev) => ({
+                                            ...prev,
+                                            [(goal as any).id]: !prev[(goal as any).id],
+                                          }))
+                                        }
+                                        viewDetailsLabel={t('projects.viewDetails')}
+                                        className="mb-2"
+                                      />
                                       <div className="flex items-center space-x-2 text-xs text-gray-500">
                                         <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
                                           {(goal as any).goal_type}
