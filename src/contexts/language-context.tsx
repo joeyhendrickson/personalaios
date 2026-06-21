@@ -131,6 +131,7 @@ const translations = {
     'chat.quickActions.happyDay': 'Happy Day',
     'chat.quickActions.checkIn': 'Check-In',
     'chat.quickActions.wellnessUpdate': 'Wellness Update',
+    'chat.quickActions.menuTitle': 'Quick prompts',
     'chat.wakeWord.label': 'Hey Lifestacks',
     'chat.wakeWord.hint':
       'Listen for "Hey Lifestacks" to open the Advisor on this tab (requires microphone permission).',
@@ -436,6 +437,7 @@ const translations = {
     'chat.quickActions.happyDay': 'Día Feliz',
     'chat.quickActions.checkIn': 'Registro',
     'chat.quickActions.wellnessUpdate': 'Actualización de Bienestar',
+    'chat.quickActions.menuTitle': 'Indicaciones rápidas',
     'chat.wakeWord.label': 'Hey Lifestacks',
     'chat.wakeWord.hint':
       'Escucha "Hey Lifestacks" para abrir el Asesor en esta pestaña (requiere permiso del micrófono).',

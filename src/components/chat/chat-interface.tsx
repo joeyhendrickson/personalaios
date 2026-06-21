@@ -38,6 +38,7 @@ import {
   Save,
   History,
   Trash2,
+  Zap,
 } from 'lucide-react'
 
 interface ChatMessage {
@@ -342,6 +343,8 @@ export function ChatInterface({
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [savedSessions, setSavedSessions] = useState<SavedChatSession[]>([])
   const [showSessions, setShowSessions] = useState(false)
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false)
+  const quickActionsRef = useRef<HTMLDivElement>(null)
   const [isSavingChat, setIsSavingChat] = useState(false)
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -521,6 +524,20 @@ export function ChatInterface({
   useEffect(() => {
     if (showSessions) void loadSessions()
   }, [showSessions])
+
+  useEffect(() => {
+    if (!quickActionsOpen) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (quickActionsRef.current?.contains(event.target as Node)) return
+      setQuickActionsOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [quickActionsOpen])
+
+  useEffect(() => {
+    if (!isExpanded) setQuickActionsOpen(false)
+  }, [isExpanded])
 
   const saveCurrentChat = async () => {
     if (!hasRealConversation) {
@@ -788,7 +805,6 @@ export function ChatInterface({
 First, let me review your priorities, tasks, and goals for today...
 
 Is there a specific area you'd like to focus on today? (e.g., a particular project, goal category, or type of work)`,
-      color: 'bg-black hover:bg-gray-800',
     },
     {
       label: t('chat.quickActions.happyDay'),
@@ -802,7 +818,6 @@ Is there a specific area you'd like to focus on today? (e.g., a particular proje
 5. ✨ Fun things aligned with your interests and projects
 
 Let me gather this information for you...`,
-      color: 'bg-black hover:bg-gray-800',
     },
     {
       label: t('chat.quickActions.checkIn'),
@@ -815,7 +830,6 @@ Let me gather this information for you...`,
 🎯 Strategic recommendations if you're stuck
 
 Analyzing your day's progress now...`,
-      color: 'bg-black hover:bg-gray-800',
     },
     {
       label: t('chat.quickActions.wellnessUpdate'),
@@ -829,7 +843,6 @@ Are you experiencing:
 - Need for rest or recovery?
 
 Tell me what you're feeling, and I'll provide personalized suggestions for better energy, health improvement, or how to rest and heal while staying on track for the day.`,
-      color: 'bg-black hover:bg-gray-800',
     },
   ]
 
@@ -850,6 +863,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
   const handleQuickAction = (prompt: string) => {
     setInput(prompt)
+    setQuickActionsOpen(false)
   }
 
   // Submit message function (extracted from handleSubmit for reuse)
@@ -1361,6 +1375,43 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
       >
         <h3 className="font-semibold truncate">Advisor</h3>
         <div className="flex items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="relative" ref={quickActionsRef}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setShowSessions(false)
+                setQuickActionsOpen((open) => !open)
+              }}
+              className={`text-white hover:bg-gray-800 h-8 px-2 ${quickActionsOpen ? 'bg-gray-800' : ''}`}
+              title={t('chat.quickActions.menuTitle')}
+              aria-label={t('chat.quickActions.menuTitle')}
+              aria-expanded={quickActionsOpen}
+              aria-haspopup="menu"
+            >
+              <Zap className="w-4 h-4" />
+            </Button>
+            {quickActionsOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full z-50 mt-1 w-56 rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+              >
+                {quickActions.map((action, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    role="menuitem"
+                    disabled={isLoading}
+                    onClick={() => handleQuickAction(action.prompt)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 disabled:opacity-50 touch-manipulation"
+                  >
+                    <action.icon className="h-4 w-4 shrink-0" />
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -1383,7 +1434,10 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setShowSessions((v) => !v)}
+            onClick={() => {
+              setQuickActionsOpen(false)
+              setShowSessions((v) => !v)
+            }}
             className={`text-white hover:bg-gray-800 h-8 px-2 ${showSessions ? 'bg-gray-800' : ''}`}
             title="Saved chats"
           >
@@ -1593,21 +1647,6 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
             </p>
           </div>
         )}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          {quickActions.map((action, index) => (
-            <Button
-              key={index}
-              variant="outline"
-              size="default"
-              onClick={() => handleQuickAction(action.prompt)}
-              className={`${action.color} text-white border-0 hover:opacity-90 h-10`}
-              disabled={isLoading}
-            >
-              <action.icon className="w-4 h-4 mr-2" />
-              {action.label}
-            </Button>
-          ))}
-        </div>
 
         {/* Wake word + voice session */}
         <div className="mb-3 flex flex-col gap-2">
