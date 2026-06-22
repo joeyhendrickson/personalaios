@@ -807,6 +807,26 @@ export default function Dashboard() {
     }
   }
 
+  const handleDismissBudgetGoalRecommendation = async (budgetGoalId: string) => {
+    try {
+      const response = await fetch('/api/budget/goals/recommendations', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ budget_goal_id: budgetGoalId }),
+      })
+
+      if (response.ok) {
+        setBudgetGoalRecommendations((prev) => prev.filter((rec) => rec.id !== budgetGoalId))
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to dismiss recommendation')
+      }
+    } catch (error) {
+      console.error('Error dismissing budget goal recommendation:', error)
+      alert('Failed to dismiss recommendation')
+    }
+  }
+
   const fetchPriorities = async (skipSync = false) => {
     try {
       console.log('Fetching priorities...')
@@ -2439,12 +2459,26 @@ export default function Dashboard() {
                                         )}
                                       </div>
                                     </div>
-                                    <button
-                                      onClick={() => handleAddBudgetGoalToDashboard(rec.id)}
-                                      className="ml-3 px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors"
-                                    >
-                                      Add to Goals
-                                    </button>
+                                    <div className="ml-3 flex shrink-0 items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleDismissBudgetGoalRecommendation(rec.id)
+                                        }
+                                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-100 transition-colors touch-manipulation"
+                                        title="Remove suggestion"
+                                        aria-label="Remove suggestion"
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAddBudgetGoalToDashboard(rec.id)}
+                                        className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors touch-manipulation"
+                                      >
+                                        Add to Goals
+                                      </button>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
