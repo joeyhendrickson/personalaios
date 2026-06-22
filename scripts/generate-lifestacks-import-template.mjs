@@ -123,15 +123,7 @@ const habits = [
 ]
 
 const education = [
-  [
-    'title',
-    'description',
-    'points_value',
-    'cost',
-    'priority_level',
-    'status',
-    'target_date',
-  ],
+  ['title', 'description', 'points_value', 'cost', 'priority_level', 'status', 'target_date'],
   [
     'AWS Solutions Architect',
     'Complete certification prep and exam',
