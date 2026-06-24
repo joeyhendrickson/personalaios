@@ -1239,33 +1239,73 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
     document.addEventListener('mouseup', handleMouseUp)
   }
 
-  // Resize handlers
-  const handleMouseDown = (
-    e: React.MouseEvent,
-    direction: 'se' | 'sw' | 'ne' | 'nw' | 'e' | 'w' | 'n' | 's'
-  ) => {
+  // Resize from corners — dragged edges follow the cursor; opposite corner stays anchored
+  const handleMouseDown = (e: React.MouseEvent, direction: 'se' | 'sw' | 'ne' | 'nw') => {
     e.preventDefault()
+    e.stopPropagation()
     setIsResizing(true)
 
-    const startX = e.clientX
-    const startY = e.clientY
-    const startWidth = dimensions.width
-    const startHeight = dimensions.height
+    const startMouseX = e.clientX
+    const startMouseY = e.clientY
+    const startLeft = position.x
+    const startTop = position.y
+    const startRight = position.x + dimensions.width
+    const startBottom = position.y + dimensions.height
+    const minWidth = 300
+    const minHeight = 400
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const deltaX = e.clientX - startX
-      const deltaY = e.clientY - startY
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      moveEvent.preventDefault()
+      const deltaX = moveEvent.clientX - startMouseX
+      const deltaY = moveEvent.clientY - startMouseY
 
-      let newWidth = startWidth
-      let newHeight = startHeight
+      let left = startLeft
+      let top = startTop
+      let right = startRight
+      let bottom = startBottom
 
-      // Handle different resize directions
-      if (direction.includes('e')) newWidth = Math.max(300, startWidth + deltaX)
-      if (direction.includes('w')) newWidth = Math.max(300, startWidth - deltaX)
-      if (direction.includes('s')) newHeight = Math.max(400, startHeight + deltaY)
-      if (direction.includes('n')) newHeight = Math.max(400, startHeight - deltaY)
+      if (direction.includes('w')) left = startLeft + deltaX
+      if (direction.includes('e')) right = startRight + deltaX
+      if (direction.includes('n')) top = startTop + deltaY
+      if (direction.includes('s')) bottom = startBottom + deltaY
 
-      setDimensions({ width: newWidth, height: newHeight })
+      if (right - left < minWidth) {
+        if (direction.includes('w')) left = right - minWidth
+        else right = left + minWidth
+      }
+      if (bottom - top < minHeight) {
+        if (direction.includes('n')) top = bottom - minHeight
+        else bottom = top + minHeight
+      }
+
+      if (left < 0) {
+        if (direction.includes('w')) left = 0
+        else right = Math.max(right, minWidth)
+      }
+      if (top < 0) {
+        if (direction.includes('n')) top = 0
+        else bottom = Math.max(bottom, minHeight)
+      }
+      if (right > window.innerWidth) {
+        if (direction.includes('e')) right = window.innerWidth
+        else left = Math.min(left, window.innerWidth - minWidth)
+      }
+      if (bottom > window.innerHeight) {
+        if (direction.includes('s')) bottom = window.innerHeight
+        else top = Math.min(top, window.innerHeight - minHeight)
+      }
+
+      if (right - left < minWidth) {
+        if (direction.includes('w')) left = right - minWidth
+        else right = left + minWidth
+      }
+      if (bottom - top < minHeight) {
+        if (direction.includes('n')) top = bottom - minHeight
+        else bottom = top + minHeight
+      }
+
+      setDimensions({ width: right - left, height: bottom - top })
+      setPosition({ x: left, y: top })
     }
 
     const handleMouseUp = () => {
@@ -1687,25 +1727,25 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
         </form>
       </div>
 
-      {/* Resize handles — corners only; wrapper passes clicks through to messages */}
+      {/* Resize handles — corners; larger hit targets on top-left for easier grab */}
       <div
-        className={`pointer-events-none absolute inset-0 z-[2] ${isResizing ? 'select-none' : ''}`}
+        className={`pointer-events-none absolute inset-0 z-[3] ${isResizing ? 'select-none' : ''}`}
         aria-hidden
       >
         <div
-          className="pointer-events-auto absolute top-0 right-0 h-3 w-3 cursor-nesw-resize"
+          className="pointer-events-auto absolute top-0 right-0 h-4 w-4 cursor-nesw-resize"
           onMouseDown={(e) => handleMouseDown(e, 'ne')}
         />
         <div
-          className="pointer-events-auto absolute top-0 left-0 h-3 w-3 cursor-nwse-resize"
+          className="pointer-events-auto absolute top-0 left-0 h-5 w-5 cursor-nwse-resize"
           onMouseDown={(e) => handleMouseDown(e, 'nw')}
         />
         <div
-          className="pointer-events-auto absolute bottom-0 right-0 h-3 w-3 cursor-nwse-resize"
+          className="pointer-events-auto absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize"
           onMouseDown={(e) => handleMouseDown(e, 'se')}
         />
         <div
-          className="pointer-events-auto absolute bottom-0 left-0 h-3 w-3 cursor-nesw-resize"
+          className="pointer-events-auto absolute bottom-0 left-0 h-4 w-4 cursor-nesw-resize"
           onMouseDown={(e) => handleMouseDown(e, 'sw')}
         />
       </div>
