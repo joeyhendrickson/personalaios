@@ -23,14 +23,18 @@ import {
   Eye,
   EyeOff,
   CalendarCheck,
+  MessageSquare,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import DisciplineTrophies from '@/components/discipline/discipline-trophies'
 import TotalHabitTrophies from '@/components/trophies/total-habit-trophies'
 import SigninStreakTrophies from '@/components/trophies/signin-streak-trophies'
+import { useChatContext } from '@/components/chat/chat-provider'
+import { WakeWordToggle } from '@/components/chat/wake-word-toggle'
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
+  const { wakeWordEnabled, setWakeWordEnabled, wakeWordSupported } = useChatContext()
   const router = useRouter()
   const [stats, setStats] = useState({
     /** Rows in `goals` (user goals feature), not dashboard `projects`. */
@@ -551,6 +555,25 @@ export default function ProfilePage() {
 
           {/* Discipline Trophies Section (Per-Habit) */}
           <DisciplineTrophies />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <MessageSquare className="h-5 w-5 mr-2" />
+                Voice & Advisor
+              </CardTitle>
+              <CardDescription>
+                Control hands-free access to the Lifestacks Advisor from anywhere in the app.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <WakeWordToggle
+                enabled={wakeWordEnabled}
+                supported={wakeWordSupported}
+                onChange={setWakeWordEnabled}
+              />
+            </CardContent>
+          </Card>
 
           {/* Quick Actions */}
           <Card>

@@ -1668,12 +1668,6 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <WakeWordToggle
-                enabled={wakeWordEnabled}
-                supported={wakeWordSupported}
-                onChange={setWakeWordEnabled}
-                compact
-              />
               <div className="relative">
                 <button
                   onClick={() => setNavMenuOpen(!navMenuOpen)}
@@ -1717,6 +1711,17 @@ export default function Dashboard() {
                           {t('nav.profile')}
                         </span>
                       </Link>
+                      <div
+                        className="border-t border-gray-100 px-4 py-2.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <WakeWordToggle
+                          enabled={wakeWordEnabled}
+                          supported={wakeWordSupported}
+                          onChange={setWakeWordEnabled}
+                          compact
+                        />
+                      </div>
                       <Link href="/dashboard/ai-usage" onClick={() => setNavMenuOpen(false)}>
                         <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
                           <Receipt className="h-4 w-4 text-gray-500" />

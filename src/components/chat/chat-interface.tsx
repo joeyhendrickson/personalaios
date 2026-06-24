@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useLanguage } from '@/contexts/language-context'
 import { useChatContext } from '@/components/chat/chat-context'
-import { WakeWordToggle } from '@/components/chat/wake-word-toggle'
 import {
   VoiceSessionControl,
   type VoiceSessionPhase,
@@ -28,7 +27,6 @@ import {
 import {
   Send,
   Plus,
-  Target,
   Lightbulb,
   Calendar,
   Clock,
@@ -97,7 +95,7 @@ export function ChatInterface({
 }: ChatInterfaceProps) {
   const { language, t } = useLanguage()
   const pathname = usePathname()
-  const { wakeWordEnabled, setWakeWordEnabled, wakeWordSupported } = useChatContext()
+  const { wakeWordEnabled } = useChatContext()
   void onTaskCompleted
   const [dimensions, setDimensions] = useState({ width: 384, height: 600 }) // w-96 = 384px
   const [position, setPosition] = useState({ x: 16, y: 16 })
@@ -1669,32 +1667,8 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
       {/* Quick Actions */}
       <div className="p-6 border-t bg-gray-50">
-        {!onboardingActive && (
-          <div className="mb-4">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-10 touch-manipulation border-blue-300 bg-blue-50 text-blue-900 hover:bg-blue-100"
-              disabled={isLoading || messages.filter((m) => m.role === 'user').length === 0}
-              onClick={() => void generateDashboardPlanFromChat()}
-            >
-              <Target className="w-4 h-4 mr-2" />
-              Add conversation to dashboard
-            </Button>
-            <p className="mt-1 text-xs text-gray-500 text-center">
-              Creates linked goals, projects, and tasks for you to confirm — or say &quot;add to
-              dashboard&quot; / &quot;yes, add it all&quot;
-            </p>
-          </div>
-        )}
-
-        {/* Wake word + voice session */}
-        <div className="mb-3 flex flex-col gap-2">
-          <WakeWordToggle
-            enabled={wakeWordEnabled}
-            supported={wakeWordSupported}
-            onChange={setWakeWordEnabled}
-          />
+        {/* Voice session */}
+        <div className="mb-3">
           <VoiceSessionControl
             supported={speechSupported}
             active={voiceSessionActive}
