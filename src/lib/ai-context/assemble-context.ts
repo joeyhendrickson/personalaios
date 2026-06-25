@@ -3,6 +3,7 @@
  * Use assembleAIContext() for all AI prompts to get token-efficient context.
  */
 import { createClient } from '@/lib/supabase/server'
+import { buildAdvisorSourceChips } from '@/lib/advisor/source-chips'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import {
   fetchRawUserData,
@@ -294,6 +295,7 @@ export async function assembleAIContext(
   if (ephemeralStr) parts.push(ephemeralStr)
 
   const systemContext = parts.filter(Boolean).join('\n\n')
+  const sourceChips = buildAdvisorSourceChips(moduleContext ?? [], modulesIncluded)
 
   return {
     systemContext,
@@ -302,5 +304,6 @@ export async function assembleAIContext(
     layersIncluded: [...new Set(layers)],
     modulesIncluded,
     topicFilterApplied,
+    sourceChips,
   }
 }

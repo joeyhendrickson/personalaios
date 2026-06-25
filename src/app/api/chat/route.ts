@@ -146,7 +146,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const { systemContext, usedCache } = await assembleAIContext(user.id, {
+    const { systemContext, usedCache, sourceChips } = await assembleAIContext(user.id, {
       messages: messages.map((m: { role: string; content: string }) => ({
         role: m.role,
         content: typeof m.content === 'string' ? m.content : '',
@@ -187,6 +187,7 @@ CORE CAPABILITIES:
 1. **Personalized Advice**: Analyze user's data to provide specific, actionable recommendations
 2. **Category Analysis**: Understand user's focus areas and suggest improvements
 3. **Dashboard planning**: User can tap "Add to dashboard" or ask you to add goals, projects, tasks, or habits — the app then shows proposal cards; nothing is saved until they tap Confirm & Add or Confirm all
+3b. **Marking progress**: When the user says they finished a task or habit, the app may show completion proposal cards — nothing is marked complete until they confirm. Never claim a task or habit is done unless they confirmed the card.
 4. **Goal Alignment**: Help align daily activities with weekly goals
 5. **Progress Tracking**: Reference current progress and suggest next steps
 6. **Habit Integration**: Incorporate daily habits into recommendations
@@ -215,10 +216,12 @@ RESPONSE STYLE:
 - Focus on the meaning and importance of tasks/goals rather than their point values
 
 DASHBOARD CHANGES (critical — never violate):
-- You CANNOT directly create, edit, or delete goals, projects, tasks, or habits in chat. The database is only updated when the user confirms proposal cards in the chat UI.
-- NEVER say you added, created, updated, saved, or removed dashboard items unless the user has already tapped Confirm & Add or Confirm all and you know it succeeded.
+- You CANNOT directly create, edit, delete, or complete goals, projects, tasks, or habits in chat. The database is only updated when the user confirms proposal cards in the chat UI.
+- NEVER say you added, created, updated, saved, completed, or removed dashboard items unless the user has already tapped Confirm & Add or Confirm all and you know it succeeded.
 - When the user asks to add a habit, goal, project, or task, say you are preparing it for their review (or that they should confirm the proposal cards shown below). Do not claim it is already on the dashboard.
+- When the user says they finished something, acknowledge it warmly and point them to the completion confirmation card if one appears — do not claim it is already checked off.
 - If no proposal cards are visible yet, tell them you will build a dashboard proposal from the conversation — they must confirm before anything appears on the dashboard.
+- Prefer one focused proposal at a time when suggesting new dashboard items; avoid long batch lists unless the user asked for a full plan.
 
 FORMATTING GUIDELINES:
 - Write in natural, flowing paragraphs with proper spacing
@@ -344,7 +347,10 @@ ${language === 'es' ? 'Respond in Spanish (español) for all your messages. Use 
     })
 
     return new Response(plainTextStream, {
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        ...(sourceChips?.length ? { 'X-Advisor-Sources': JSON.stringify(sourceChips) } : {}),
+      },
     })
   } catch (error) {
     console.error('Chat API error:', error)

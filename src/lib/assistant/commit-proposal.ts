@@ -4,6 +4,8 @@ import {
   createProjectPayloadSchema,
   createTaskPayloadSchema,
   createHabitPayloadSchema,
+  completeTaskPayloadSchema,
+  completeHabitPayloadSchema,
   type ActionProposalRow,
 } from '@/lib/assistant/proposal-schemas'
 import { getOrCreateCurrentWeek } from '@/lib/assistant/get-current-week'
@@ -187,6 +189,81 @@ export async function commitProposal(
     return { kind: 'habit', record: habit as Record<string, unknown> }
   }
 
+  if (proposal.action_type === 'complete_task') {
+    const payload = completeTaskPayloadSchema.parse(proposal.payload)
+    const { data: existing, error: fetchErr } = await supabase
+      .from('tasks')
+      .select('id, title, status')
+      .eq('id', payload.task_id)
+      .eq('user_id', userId)
+      .single()
+
+    if (fetchErr || !existing) throw new Error('Task not found')
+    if (existing.status === 'completed') throw new Error('Task is already completed')
+
+    const { data: task, error } = await supabase
+      .from('tasks')
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .eq('id', payload.task_id)
+      .eq('user_id', userId)
+      .select()
+      .single()
+
+    if (error) throw new Error(error.message)
+    return { kind: 'completed_task', record: task as Record<string, unknown> }
+  }
+
+  if (proposal.action_type === 'complete_habit') {
+    const payload = completeHabitPayloadSchema.parse(proposal.payload)
+
+    const { data: habit, error: fetchError } = await supabase
+      .from('daily_habits')
+      .select('*')
+      .eq('id', payload.habit_id)
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .single()
+
+    if (fetchError || !habit) throw new Error('Habit not found')
+
+    const today = new Date()
+    const startOfDay = new Date(today)
+    startOfDay.setHours(0, 0, 0, 0)
+    const endOfDay = new Date(today)
+    endOfDay.setHours(23, 59, 59, 999)
+
+    const { data: todayCompletions, error: todayError } = await supabase
+      .from('habit_completions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('habit_id', payload.habit_id)
+      .gte('completed_at', startOfDay.toISOString())
+      .lte('completed_at', endOfDay.toISOString())
+
+    if (todayError) throw new Error('Failed to check habit status')
+    if (todayCompletions && todayCompletions.length > 0) {
+      throw new Error('Habit already completed today')
+    }
+
+    const { data: completion, error: completionError } = await supabase
+      .from('habit_completions')
+      .insert({
+        user_id: userId,
+        habit_id: payload.habit_id,
+        points_awarded: habit.points_per_completion,
+        completed_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (completionError) throw new Error(completionError.message)
+
+    return {
+      kind: 'completed_habit',
+      record: { habit, completion } as Record<string, unknown>,
+    }
+  }
+
   throw new Error(`Unsupported action_type: ${proposal.action_type}`)
 }
 
@@ -239,6 +316,8 @@ const ACTION_ORDER: Record<ActionProposalRow['action_type'], number> = {
   create_project: 1,
   create_task: 2,
   create_habit: 3,
+  complete_task: 4,
+  complete_habit: 5,
 }
 
 export function sortProposalsForCommit(rows: ActionProposalRow[]) {

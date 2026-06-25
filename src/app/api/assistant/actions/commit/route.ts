@@ -91,6 +91,8 @@ export async function POST(req: Request) {
       project: result.kind === 'project' ? result.record : undefined,
       task: result.kind === 'task' ? result.record : undefined,
       habit: result.kind === 'habit' ? result.record : undefined,
+      completedTask: result.kind === 'completed_task' ? result.record : undefined,
+      completedHabit: result.kind === 'completed_habit' ? result.record : undefined,
     })
   } catch (e) {
     return NextResponse.json(

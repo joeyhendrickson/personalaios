@@ -139,4 +139,6 @@ export interface AssembledContext {
   /** Module IDs included after topic filtering (if applied) */
   modulesIncluded?: string[]
   topicFilterApplied?: boolean
+  /** Short labels for UI source chips under Advisor replies */
+  sourceChips?: Array<{ moduleId: string; label: string }>
 }

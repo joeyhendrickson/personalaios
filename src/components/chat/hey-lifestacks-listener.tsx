@@ -87,7 +87,7 @@ export function HeyLifestacksListener({ enabled }: HeyLifestacksListenerProps) {
       stopRecognition()
       openLifestacksAdvisor({
         initialMessage: remainder || undefined,
-        startListening: remainder ? false : true,
+        startListening: true,
       })
     }
 

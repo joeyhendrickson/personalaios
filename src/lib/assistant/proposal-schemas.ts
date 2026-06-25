@@ -67,6 +67,16 @@ export const createHabitPayloadSchema = z.object({
   points_per_completion: z.number().int().min(5).max(100).default(25),
 })
 
+export const completeTaskPayloadSchema = z.object({
+  task_id: z.string().uuid(),
+  title: z.string().min(1).max(255),
+})
+
+export const completeHabitPayloadSchema = z.object({
+  habit_id: z.string().uuid(),
+  title: z.string().min(1).max(255),
+})
+
 export const aiPlanItemSchema = z.discriminatedUnion('type', [
   z
     .object({
@@ -97,7 +107,13 @@ export const aiPlanResponseSchema = z.object({
 export type ActionProposalRow = {
   id: string
   user_id: string
-  action_type: 'create_goal' | 'create_project' | 'create_task' | 'create_habit'
+  action_type:
+    | 'create_goal'
+    | 'create_project'
+    | 'create_task'
+    | 'create_habit'
+    | 'complete_task'
+    | 'complete_habit'
   payload: Record<string, unknown>
   status: string
   plan_group_id: string | null
@@ -153,6 +169,10 @@ export function formatProposalPreview(
       ]
         .filter(Boolean)
         .join('\n')
+    case 'complete_task':
+      return `Mark task complete: ${payload.title}`
+    case 'complete_habit':
+      return `Log habit for today: ${payload.title}`
     default:
       return JSON.stringify(payload, null, 2)
   }

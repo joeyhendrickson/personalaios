@@ -19,6 +19,7 @@ import {
 } from '@/lib/voice/voice-session'
 import { useVoiceSessionAudio } from '@/lib/voice/use-voice-session-audio'
 import { detectDashboardIntent } from '@/lib/assistant/detect-dashboard-intent'
+import { detectCompletionIntent } from '@/lib/assistant/detect-completion-intent'
 import {
   pauseWakeWordListener,
   resumeWakeWordListener,
@@ -43,6 +44,7 @@ interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  sourceChips?: Array<{ moduleId: string; label: string }>
 }
 
 const WELCOME_MESSAGE: ChatMessage = {
@@ -53,6 +55,7 @@ const WELCOME_MESSAGE: ChatMessage = {
 • Plan your day and prioritize tasks based on your goals
 • Analyze your progress and suggest improvements
 • Turn a conversation into linked goals, projects, tasks, and habits — ask me to add them to your dashboard, then confirm the proposal cards (nothing is saved until you tap Confirm & Add).
+• Mark tasks or habits complete — say "I finished [name]" and confirm the completion card.
 • Focus on specific areas like "Good Living" or "Enjoyment"
 • Track your habits, education, and priorities
 • Provide personalized advice based on your data
@@ -71,7 +74,13 @@ type OnboardingChoice = { id: 'new' | 'returning'; label: string }
 type GoalProposal = { id: string; preview: string; payload: Record<string, unknown> }
 type DashboardProposal = {
   id: string
-  action_type: 'create_goal' | 'create_project' | 'create_task' | 'create_habit'
+  action_type:
+    | 'create_goal'
+    | 'create_project'
+    | 'create_task'
+    | 'create_habit'
+    | 'complete_task'
+    | 'complete_habit'
   preview: string
   sort_order: number
 }
@@ -159,7 +168,11 @@ export function ChatInterface({
 
     const timer = window.setTimeout(() => {
       if (detail.initialMessage?.trim()) {
-        void submitMessageRef.current(detail.initialMessage.trim())
+        void submitMessageRef.current(detail.initialMessage.trim()).finally(() => {
+          if (detail.startListening === true) {
+            startListeningRef.current()
+          }
+        })
       } else if (detail.startListening === true) {
         startListeningRef.current()
       }
@@ -359,6 +372,7 @@ export function ChatInterface({
     summary: string
     proposals: DashboardProposal[]
   } | null>(null)
+  const [pendingActionProposals, setPendingActionProposals] = useState<DashboardProposal[]>([])
 
   const refreshDashboard = () => {
     onGoalCreated?.()
@@ -597,6 +611,7 @@ export function ChatInterface({
       setShowSessions(false)
       setGoalProposals([])
       setDashboardPlan(null)
+      setPendingActionProposals([])
     } catch {
       alert('Could not load that chat.')
     } finally {
@@ -625,6 +640,7 @@ export function ChatInterface({
     setCurrentSessionId(null)
     setGoalProposals([])
     setDashboardPlan(null)
+    setPendingActionProposals([])
     setShowSessions(false)
   }
 
@@ -665,26 +681,41 @@ export function ChatInterface({
               }
             : null
         )
-        const label =
-          payload.kind === 'habit'
-            ? 'habit'
-            : payload.kind === 'project'
-              ? 'project'
-              : payload.kind === 'task'
-                ? 'task'
-                : 'goal'
+        setPendingActionProposals((prev) => prev.filter((p) => p.id !== proposalId))
+
+        const kind = payload.kind as string
         const title =
+          (payload.completedHabit?.habit?.title as string) ||
+          (payload.completedTask?.title as string) ||
           (payload.habit?.title as string) ||
           (payload.project?.title as string) ||
           (payload.task?.title as string) ||
           (payload.goal?.title as string) ||
           'item'
+
+        let content = ''
+        if (kind === 'completed_task') {
+          content = `Marked task complete: ${title}.`
+        } else if (kind === 'completed_habit') {
+          content = `Logged habit for today: ${title}.`
+        } else {
+          const label =
+            kind === 'habit'
+              ? 'habit'
+              : kind === 'project'
+                ? 'project'
+                : kind === 'task'
+                  ? 'task'
+                  : 'goal'
+          content = `Added ${label} to your dashboard: ${title}.`
+        }
+
         setMessages((prev) => [
           ...prev,
           {
             id: Date.now().toString(),
             role: 'assistant',
-            content: `Added ${label} to your dashboard: ${title}.`,
+            content,
           },
         ])
         refreshDashboard()
@@ -694,9 +725,61 @@ export function ChatInterface({
           {
             id: Date.now().toString(),
             role: 'assistant',
-            content: `Could not add item: ${payload.error || 'Unknown error'}`,
+            content: `Could not apply that action: ${payload.error || 'Unknown error'}`,
           },
         ])
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const proposeCompletionFromMessage = async (
+    messageText: string
+  ): Promise<{ note?: string; proposalCount: number }> => {
+    if (!detectCompletionIntent(messageText)) return { proposalCount: 0 }
+    try {
+      const r = await fetch('/api/assistant/actions/propose-completion', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: messageText }),
+      })
+      const payload = await r.json()
+      if (!r.ok) return { proposalCount: 0 }
+
+      const proposals = (payload.proposals || []) as Array<{
+        id: string
+        action_type: 'complete_task' | 'complete_habit'
+        preview: string
+      }>
+
+      if (proposals.length > 0) {
+        setPendingActionProposals((prev) => [
+          ...prev,
+          ...proposals.map((p) => ({
+            id: p.id,
+            action_type: p.action_type,
+            preview: p.preview,
+            sort_order: 0,
+          })),
+        ])
+        return { proposalCount: proposals.length }
+      }
+
+      if (payload.message) return { note: payload.message as string, proposalCount: 0 }
+      return { proposalCount: 0 }
+    } catch {
+      return { proposalCount: 0 }
+    }
+  }
+
+  const commitAllPendingActions = async () => {
+    if (pendingActionProposals.length === 0) return
+    setIsLoading(true)
+    try {
+      for (const p of pendingActionProposals) {
+        await commitProposalById(p.id)
       }
     } finally {
       setIsLoading(false)
@@ -798,49 +881,22 @@ export function ChatInterface({
     {
       label: t('chat.quickActions.wakeUp'),
       icon: Clock,
-      prompt: `Good morning! Let me give you a clear view of your day's plan.
-
-First, let me review your priorities, tasks, and goals for today...
-
-Is there a specific area you'd like to focus on today? (e.g., a particular project, goal category, or type of work)`,
+      mode: 'wake' as const,
     },
     {
       label: t('chat.quickActions.happyDay'),
       icon: Heart,
-      prompt: `Let me help you plan a happy, balanced day! I'll review:
-
-1. 🔥 Emergency/Fire items that need attention
-2. 👥 Social opportunities (friends from your relationship manager, if available)
-3. 🎉 Nearby events matching your interests (based on your location data)
-4. 😌 Relaxing activities from your habits list
-5. ✨ Fun things aligned with your interests and projects
-
-Let me gather this information for you...`,
+      mode: 'happy' as const,
     },
     {
       label: t('chat.quickActions.checkIn'),
       icon: CheckCircle2,
-      prompt: `Time for a progress check-in! Let me review:
-
-✅ What you've completed today
-📊 Your points and priority progress
-⏳ Pending priorities still on your list
-🎯 Strategic recommendations if you're stuck
-
-Analyzing your day's progress now...`,
+      mode: 'checkin' as const,
     },
     {
       label: t('chat.quickActions.wellnessUpdate'),
       icon: Activity,
-      prompt: `I'm here to help with your wellness and energy. 
-
-Are you experiencing:
-- Low energy or fatigue?
-- Health issues or discomfort?
-- Mental fog or difficulty focusing?
-- Need for rest or recovery?
-
-Tell me what you're feeling, and I'll provide personalized suggestions for better energy, health improvement, or how to rest and heal while staying on track for the day.`,
+      mode: 'wellness' as const,
     },
   ]
 
@@ -859,9 +915,21 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
     await submitMessage(input.trim())
   }
 
-  const handleQuickAction = (prompt: string) => {
-    setInput(prompt)
+  const handleQuickAction = async (mode: 'wake' | 'happy' | 'checkin' | 'wellness') => {
     setQuickActionsOpen(false)
+    try {
+      const r = await fetch(`/api/advisor/briefing?mode=${mode}`, { credentials: 'same-origin' })
+      const data = r.ok ? await r.json() : null
+      const prompt =
+        (data?.formattedPrompt as string | undefined) ||
+        'Give me a concise briefing based on my dashboard data.'
+      if (!voiceSessionActiveRef.current && wakeWordEnabled) {
+        startVoiceSession()
+      }
+      await submitMessage(prompt)
+    } catch {
+      await submitMessage('Give me a concise briefing based on my dashboard data.')
+    }
   }
 
   // Submit message function (extracted from handleSubmit for reuse)
@@ -874,12 +942,28 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
     const intent = detectDashboardIntent(trimmed, {
       hasDashboardPlan: Boolean(dashboardPlan),
       hasGoalProposals: goalProposals.length > 0,
+      hasPendingActions: pendingActionProposals.length > 0,
     })
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: trimmed,
+    }
+
+    if (intent?.type === 'dismiss_actions') {
+      setMessages((prev) => [...prev, userMessage])
+      setInput('')
+      setPendingActionProposals([])
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: 'Okay — I dismissed those action cards.',
+        },
+      ])
+      return
     }
 
     if (intent?.type === 'dismiss_plan') {
@@ -902,6 +986,10 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
       setInput('')
       if (dashboardPlan) {
         await commitFullDashboardPlan()
+        return
+      }
+      if (pendingActionProposals.length > 0) {
+        await commitAllPendingActions()
         return
       }
       if (goalProposals.length > 0) {
@@ -931,6 +1019,8 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
     setIsLoading(true)
     pauseRecognitionForAssistant()
 
+    const completionNotePromise = proposeCompletionFromMessage(trimmed)
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -947,6 +1037,16 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      let sourceChips: Array<{ moduleId: string; label: string }> = []
+      const sourcesHeader = response.headers.get('X-Advisor-Sources')
+      if (sourcesHeader) {
+        try {
+          sourceChips = JSON.parse(sourcesHeader) as Array<{ moduleId: string; label: string }>
+        } catch {
+          sourceChips = []
+        }
       }
 
       const assistantMessageId = (Date.now() + 1).toString()
@@ -998,6 +1098,34 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
             msg.id === assistantMessageId ? { ...msg, content: finalContent } : msg
           )
         )
+      }
+
+      if (sourceChips.length > 0) {
+        setMessages((prev) =>
+          prev.map((msg) => (msg.id === assistantMessageId ? { ...msg, sourceChips } : msg))
+        )
+      }
+
+      const completionResult = await completionNotePromise
+      if (completionResult.proposalCount > 0) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 2).toString(),
+            role: 'assistant',
+            content:
+              'I found possible matches — tap Confirm on the card below to mark it complete. Nothing changes until you confirm.',
+          },
+        ])
+      } else if (completionResult.note) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 2).toString(),
+            role: 'assistant',
+            content: completionResult.note!,
+          },
+        ])
       }
 
       // Speak when voice session is active (hands-free conversation loop)
@@ -1383,6 +1511,19 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
             }}
             dangerouslySetInnerHTML={{ __html: formattedContent }}
           />
+          {message.sourceChips && message.sourceChips.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {message.sourceChips.map((chip) => (
+                <span
+                  key={`${message.id}-${chip.moduleId}`}
+                  className="inline-flex max-w-full items-center rounded-full border border-gray-300 bg-white px-2.5 py-0.5 text-xs text-gray-600"
+                  title={chip.label}
+                >
+                  {chip.label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     )
@@ -1440,7 +1581,7 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
                     type="button"
                     role="menuitem"
                     disabled={isLoading}
-                    onClick={() => handleQuickAction(action.prompt)}
+                    onClick={() => void handleQuickAction(action.mode)}
                     className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 disabled:opacity-50 touch-manipulation"
                   >
                     <action.icon className="h-4 w-4 shrink-0" />
@@ -1576,6 +1717,61 @@ Tell me what you're feeling, and I'll provide personalized suggestions for bette
                     variant="outline"
                     disabled={isLoading}
                     onClick={() => setGoalProposals((prev) => prev.filter((x) => x.id !== p.id))}
+                  >
+                    Skip
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {pendingActionProposals.length > 0 && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-4 space-y-3">
+            <div className="text-sm font-medium text-emerald-950">Confirm completion</div>
+            <p className="text-sm text-emerald-900">
+              Review each match below. Nothing is marked complete until you confirm.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                disabled={isLoading}
+                className="touch-manipulation"
+                onClick={() => void commitAllPendingActions()}
+              >
+                Confirm all
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isLoading}
+                onClick={() => setPendingActionProposals([])}
+              >
+                Dismiss
+              </Button>
+            </div>
+            {pendingActionProposals.map((p) => (
+              <div key={p.id} className="rounded-lg border bg-white p-3">
+                <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                  {p.action_type === 'complete_habit' ? 'habit' : 'task'}
+                </div>
+                <div className="text-sm whitespace-pre-wrap text-gray-900">{p.preview}</div>
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    size="sm"
+                    disabled={isLoading}
+                    className="touch-manipulation"
+                    onClick={() => void commitProposalById(p.id)}
+                  >
+                    Confirm
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isLoading}
+                    onClick={() =>
+                      setPendingActionProposals((prev) => prev.filter((x) => x.id !== p.id))
+                    }
                   >
                     Skip
                   </Button>

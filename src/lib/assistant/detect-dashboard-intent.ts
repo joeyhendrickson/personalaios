@@ -6,6 +6,7 @@ export type DashboardIntent =
   | { type: 'commit_all' }
   | { type: 'propose_plan' }
   | { type: 'dismiss_plan' }
+  | { type: 'dismiss_actions' }
   | null
 
 const COMMIT_ALL_PATTERNS = [
@@ -55,10 +56,20 @@ function matchesAny(text: string, patterns: RegExp[]): boolean {
 
 export function detectDashboardIntent(
   message: string,
-  state: { hasDashboardPlan: boolean; hasGoalProposals: boolean }
+  state: {
+    hasDashboardPlan: boolean
+    hasGoalProposals: boolean
+    hasPendingActions?: boolean
+  }
 ): DashboardIntent {
   const t = message.trim()
   if (!t) return null
+
+  if (state.hasPendingActions) {
+    if (matchesAny(t, DISMISS_PATTERNS)) return { type: 'dismiss_actions' }
+    if (matchesAny(t, COMMIT_ALL_PATTERNS)) return { type: 'commit_all' }
+    if (/confirm\s+all/i.test(t)) return { type: 'commit_all' }
+  }
 
   if (state.hasDashboardPlan) {
     if (matchesAny(t, DISMISS_PATTERNS)) return { type: 'dismiss_plan' }
