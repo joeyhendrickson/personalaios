@@ -47,6 +47,25 @@ interface ChatMessage {
   sourceChips?: Array<{ moduleId: string; label: string }>
 }
 
+function formatAdvisorChatError(error: unknown, status?: number): string {
+  if (status === 401) {
+    return 'Your session expired. Refresh the page, sign in again, and retry.'
+  }
+  if (status === 403) {
+    return 'You do not have access to the Advisor right now. Check your subscription or trial status.'
+  }
+  if (status === 429) {
+    return 'The Advisor is rate-limited. Wait a moment and try again.'
+  }
+  if (status != null && status >= 500) {
+    return 'The Advisor hit a server error. Try again in a minute. If it persists, check Vercel logs for /api/chat.'
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return `Could not get a reply: ${error.message}`
+  }
+  return 'Could not get a reply. Try again in a moment.'
+}
+
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
   role: 'assistant',
@@ -489,6 +508,20 @@ export function ChatInterface({
         body: JSON.stringify({ answer }),
       })
       const payload = await r.json()
+      if (!r.ok) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: formatAdvisorChatError(
+              new Error((payload.error as string) || 'Onboarding request failed'),
+              r.status
+            ),
+          },
+        ])
+        return
+      }
       if (payload.status === 'question') {
         setOnboardingPrompt(payload.question || null)
         setOnboardingChoices(null)
@@ -512,6 +545,19 @@ export function ChatInterface({
             content: payload.message || 'Here are some goal options to confirm.',
           },
         ])
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content:
+              'Setup could not continue. You can keep using the Advisor — ask me anything about your day or goals.',
+          },
+        ])
+        setOnboardingActive(false)
+        setOnboardingPrompt(null)
+        setOnboardingChoices(null)
       }
     } finally {
       setIsLoading(false)
@@ -934,7 +980,7 @@ export function ChatInterface({
 
   // Submit message function (extracted from handleSubmit for reuse)
   const submitMessage = async (messageText: string) => {
-    if (!messageText.trim() || isLoading) return
+    if (!messageText.trim() || isLoadingRef.current) return
 
     console.log('=== SUBMIT MESSAGE CALLED ===', { messageText, isLoading })
 
@@ -1020,6 +1066,7 @@ export function ChatInterface({
     pauseRecognitionForAssistant()
 
     const completionNotePromise = proposeCompletionFromMessage(trimmed)
+    let assistantMessageId: string | null = null
 
     try {
       const response = await fetch('/api/chat', {
@@ -1036,7 +1083,12 @@ export function ChatInterface({
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const body = await response.text().catch(() => '')
+        const err = new Error(body.trim() || `HTTP error! status: ${response.status}`) as Error & {
+          status?: number
+        }
+        err.status = response.status
+        throw err
       }
 
       let sourceChips: Array<{ moduleId: string; label: string }> = []
@@ -1049,7 +1101,7 @@ export function ChatInterface({
         }
       }
 
-      const assistantMessageId = (Date.now() + 1).toString()
+      assistantMessageId = (Date.now() + 1).toString()
       const assistantMessage: ChatMessage = {
         id: assistantMessageId,
         role: 'assistant',
@@ -1149,7 +1201,23 @@ export function ChatInterface({
       }
     } catch (error) {
       console.error('Error sending message:', error)
-      setMessages((prev) => prev.slice(0, -1)) // Remove the assistant message on error
+      const status = (error as Error & { status?: number }).status
+      const errorText = formatAdvisorChatError(error, status)
+      setMessages((prev) => {
+        if (assistantMessageId) {
+          return prev.map((msg) =>
+            msg.id === assistantMessageId ? { ...msg, content: errorText } : msg
+          )
+        }
+        return [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: errorText,
+          },
+        ]
+      })
       if (voiceSessionActiveRef.current) {
         resumeRecognitionAfterAssistant()
       }

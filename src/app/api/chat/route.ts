@@ -6,7 +6,6 @@ import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
 import {
-  advisorMaxOutputTokens,
   buildAdvisorLengthInstructions,
   isFactualDataQuestion,
   userWantsMoreDetail,
@@ -170,11 +169,9 @@ export async function POST(req: Request) {
 
     const startMs = Date.now()
     const modelId = resolveOpenAIModelId()
-    const maxTokens = advisorMaxOutputTokens(wantsMoreDetail, factualQuestion)
     const result = await streamText({
       model: defaultOpenaiModel(),
       messages,
-      ...(maxTokens != null ? { maxTokens } : {}),
       system: `You are the Lifestacks Advisor — an intelligent AI assistant for a Personal AI OS. You have access to the user's dashboard data AND detailed MODULE CONTEXT from their installed life modules. Ground advice in real data; help the user feel known.
 
 ${systemContext}
