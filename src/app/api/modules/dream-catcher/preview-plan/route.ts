@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { buildDashboardPlanPreview } from '@/lib/dream-catcher/dashboard-plan-preview'
-import { generateOnboardingPlan, type SeedGoal } from '@/lib/dream-catcher/generate-onboarding-plan'
+import {
+  assessmentDataToPlanInput,
+  generateOnboardingPlan,
+} from '@/lib/dream-catcher/generate-onboarding-plan'
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,30 +18,24 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const {
-      goals,
-      vision_statement,
-      personality_traits,
-      dreams_discovered,
-    }: {
-      goals?: SeedGoal[]
+    const { assessment_data, vision_statement } = body as {
+      assessment_data?: Record<string, unknown>
       vision_statement?: string
-      personality_traits?: string[]
-      dreams_discovered?: string[]
-    } = body
+    }
 
-    if (!goals || !Array.isArray(goals) || goals.length === 0) {
+    const raw = assessment_data ?? body
+    const planInput = assessmentDataToPlanInput(raw)
+
+    if (!planInput.seedGoals?.length) {
       return NextResponse.json({ error: 'Goals are required' }, { status: 400 })
     }
 
-    const plan = await generateOnboardingPlan({
-      visionStatement: vision_statement,
-      dreams: dreams_discovered,
-      personalityTraits: personality_traits,
-      seedGoals: goals,
-    })
+    if (vision_statement && !planInput.visionStatement) {
+      planInput.visionStatement = vision_statement
+    }
 
-    const preview = buildDashboardPlanPreview(plan, vision_statement)
+    const plan = await generateOnboardingPlan(planInput)
+    const preview = buildDashboardPlanPreview(plan, planInput.visionStatement)
 
     return NextResponse.json({
       success: true,

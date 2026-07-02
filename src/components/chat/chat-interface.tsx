@@ -25,10 +25,12 @@ import {
   resumeWakeWordListener,
   type OpenAdvisorDetail,
 } from '@/lib/voice/advisor-events'
+import { AdvisorEvidencePanel } from '@/components/chat/advisor-evidence-panel'
+import { decodeAdvisorEvidenceHeader } from '@/lib/advisor/evidence'
+import type { AdvisorEvidence } from '@/types/advisor-evidence'
 import {
   Send,
   Plus,
-  Lightbulb,
   Calendar,
   Clock,
   Heart,
@@ -38,13 +40,23 @@ import {
   History,
   Trash2,
   Zap,
+  Microscope,
 } from 'lucide-react'
+
+const ADVISOR_EVIDENCE_ENABLED_KEY = 'lifestacks-advisor-evidence-enabled'
+
+type SubmitMessageOptions = {
+  contextAdjustments?: string
+  skipUserMessage?: boolean
+  historyOverride?: ChatMessage[]
+}
 
 interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
   sourceChips?: Array<{ moduleId: string; label: string }>
+  evidence?: AdvisorEvidence
 }
 
 function formatAdvisorChatError(error: unknown, status?: number): string {
@@ -378,7 +390,39 @@ export function ChatInterface({
   const [isSavingChat, setIsSavingChat] = useState(false)
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [evidenceViewEnabled, setEvidenceViewEnabled] = useState(false)
+  const [advisorPanelTab, setAdvisorPanelTab] = useState<'chat' | 'evidence'>('chat')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    try {
+      setEvidenceViewEnabled(localStorage.getItem(ADVISOR_EVIDENCE_ENABLED_KEY) === '1')
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const toggleEvidenceView = () => {
+    setEvidenceViewEnabled((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem(ADVISOR_EVIDENCE_ENABLED_KEY, next ? '1' : '0')
+      } catch {
+        // ignore
+      }
+      if (!next) setAdvisorPanelTab('chat')
+      return next
+    })
+  }
+
+  const latestAssistantEvidence = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant' && messages[i].id !== 'welcome') {
+        return messages[i].evidence ?? null
+      }
+    }
+    return null
+  })()
 
   // Assistant onboarding state (new users / empty dashboard)
   const [onboardingActive, setOnboardingActive] = useState(false)
@@ -979,93 +1023,112 @@ export function ChatInterface({
   }
 
   // Submit message function (extracted from handleSubmit for reuse)
-  const submitMessage = async (messageText: string) => {
+  const submitMessage = async (messageText: string, options?: SubmitMessageOptions) => {
     if (!messageText.trim() || isLoadingRef.current) return
 
-    console.log('=== SUBMIT MESSAGE CALLED ===', { messageText, isLoading })
+    console.log('=== SUBMIT MESSAGE CALLED ===', { messageText, isLoading, options })
 
     const trimmed = messageText.trim()
-    const intent = detectDashboardIntent(trimmed, {
-      hasDashboardPlan: Boolean(dashboardPlan),
-      hasGoalProposals: goalProposals.length > 0,
-      hasPendingActions: pendingActionProposals.length > 0,
-    })
+    const baseHistory = options?.historyOverride ?? messages
 
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: trimmed,
-    }
+    if (!options?.skipUserMessage) {
+      const intent = detectDashboardIntent(trimmed, {
+        hasDashboardPlan: Boolean(dashboardPlan),
+        hasGoalProposals: goalProposals.length > 0,
+        hasPendingActions: pendingActionProposals.length > 0,
+      })
 
-    if (intent?.type === 'dismiss_actions') {
-      setMessages((prev) => [...prev, userMessage])
-      setInput('')
-      setPendingActionProposals([])
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: 'Okay — I dismissed those action cards.',
-        },
-      ])
-      return
-    }
+      const userMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: trimmed,
+      }
 
-    if (intent?.type === 'dismiss_plan') {
-      setMessages((prev) => [...prev, userMessage])
-      setInput('')
-      setDashboardPlan(null)
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: 'Okay — I dismissed the dashboard plan. Let me know if you want to revise it.',
-        },
-      ])
-      return
-    }
-
-    if (intent?.type === 'commit_all') {
-      setMessages((prev) => [...prev, userMessage])
-      setInput('')
-      if (dashboardPlan) {
-        await commitFullDashboardPlan()
+      if (intent?.type === 'dismiss_actions') {
+        setMessages((prev) => [...prev, userMessage])
+        setInput('')
+        setPendingActionProposals([])
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: 'Okay — I dismissed those action cards.',
+          },
+        ])
         return
       }
-      if (pendingActionProposals.length > 0) {
-        await commitAllPendingActions()
+
+      if (intent?.type === 'dismiss_plan') {
+        setMessages((prev) => [...prev, userMessage])
+        setInput('')
+        setDashboardPlan(null)
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: 'Okay — I dismissed the dashboard plan. Let me know if you want to revise it.',
+          },
+        ])
         return
       }
-      if (goalProposals.length > 0) {
-        setIsLoading(true)
-        try {
-          for (const p of goalProposals) {
-            await commitProposalById(p.id)
-          }
-        } finally {
-          setIsLoading(false)
+
+      if (intent?.type === 'commit_all') {
+        setMessages((prev) => [...prev, userMessage])
+        setInput('')
+        if (dashboardPlan) {
+          await commitFullDashboardPlan()
+          return
         }
+        if (pendingActionProposals.length > 0) {
+          await commitAllPendingActions()
+          return
+        }
+        if (goalProposals.length > 0) {
+          setIsLoading(true)
+          try {
+            for (const p of goalProposals) {
+              await commitProposalById(p.id)
+            }
+          } finally {
+            setIsLoading(false)
+          }
+          return
+        }
+      }
+
+      if (intent?.type === 'propose_plan') {
+        const nextMessages = [...messages, userMessage]
+        setMessages(nextMessages)
+        setInput('')
+        await generateDashboardPlanFromChat(nextMessages)
         return
       }
-    }
 
-    if (intent?.type === 'propose_plan') {
-      const nextMessages = [...messages, userMessage]
-      setMessages(nextMessages)
+      setMessages((prev) => [...prev, userMessage])
       setInput('')
-      await generateDashboardPlanFromChat(nextMessages)
-      return
     }
 
-    setMessages((prev) => [...prev, userMessage])
-    setInput('')
     isLoadingRef.current = true
     setIsLoading(true)
     pauseRecognitionForAssistant()
 
-    const completionNotePromise = proposeCompletionFromMessage(trimmed)
+    const apiHistory = options?.historyOverride ?? messages
+    const apiMessages = options?.skipUserMessage
+      ? apiHistory
+      : [
+          ...apiHistory,
+          {
+            id: Date.now().toString(),
+            role: 'user' as const,
+            content: trimmed,
+          },
+        ]
+
+    const completionNotePromise = options?.skipUserMessage
+      ? Promise.resolve({ proposalCount: 0 })
+      : proposeCompletionFromMessage(trimmed)
     let assistantMessageId: string | null = null
 
     try {
@@ -1076,9 +1139,10 @@ export function ChatInterface({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          messages: [...messages, userMessage],
+          messages: apiMessages,
           language: language,
           currentModule: currentModuleFromPath,
+          contextAdjustments: options?.contextAdjustments,
         }),
       })
 
@@ -1092,14 +1156,24 @@ export function ChatInterface({
       }
 
       let sourceChips: Array<{ moduleId: string; label: string }> = []
+      let evidence: AdvisorEvidence | null = null
       const sourcesHeader = response.headers.get('X-Advisor-Sources')
       if (sourcesHeader) {
         try {
-          sourceChips = JSON.parse(sourcesHeader) as Array<{ moduleId: string; label: string }>
+          sourceChips = JSON.parse(decodeURIComponent(sourcesHeader)) as Array<{
+            moduleId: string
+            label: string
+          }>
         } catch {
-          sourceChips = []
+          try {
+            sourceChips = JSON.parse(sourcesHeader) as Array<{ moduleId: string; label: string }>
+          } catch {
+            sourceChips = []
+          }
         }
       }
+
+      evidence = decodeAdvisorEvidenceHeader(response.headers.get('X-Advisor-Evidence'))
 
       assistantMessageId = (Date.now() + 1).toString()
       const assistantMessage: ChatMessage = {
@@ -1152,10 +1226,22 @@ export function ChatInterface({
         )
       }
 
-      if (sourceChips.length > 0) {
+      if (sourceChips.length > 0 || evidence) {
         setMessages((prev) =>
-          prev.map((msg) => (msg.id === assistantMessageId ? { ...msg, sourceChips } : msg))
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? {
+                  ...msg,
+                  ...(sourceChips.length > 0 ? { sourceChips } : {}),
+                  ...(evidence ? { evidence } : {}),
+                }
+              : msg
+          )
         )
+      }
+
+      if (evidenceViewEnabled) {
+        setAdvisorPanelTab('evidence')
       }
 
       const completionResult = await completionNotePromise
@@ -1227,6 +1313,30 @@ export function ChatInterface({
     }
   }
   submitMessageRef.current = submitMessage
+
+  const handleRecomputeWithAdjustments = (adjustmentText: string) => {
+    const userTurns = messages.filter((m) => m.role === 'user' && m.id !== 'welcome')
+    const lastUser = userTurns[userTurns.length - 1]
+    if (!lastUser) return
+
+    let lastAssistantIdx = -1
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant' && messages[i].id !== 'welcome') {
+        lastAssistantIdx = i
+        break
+      }
+    }
+    if (lastAssistantIdx < 0) return
+
+    const historyOverride = messages.slice(0, lastAssistantIdx)
+    setMessages(historyOverride)
+    setAdvisorPanelTab('chat')
+    void submitMessage(lastUser.content, {
+      contextAdjustments: adjustmentText,
+      skipUserMessage: true,
+      historyOverride,
+    })
+  }
 
   const startVoiceSession = () => {
     if (!recognitionRef.current || voiceSessionActive) return
@@ -1622,6 +1732,21 @@ export function ChatInterface({
       >
         <h3 className="font-semibold truncate">Advisor</h3>
         <div className="flex items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleEvidenceView}
+            className={`text-white hover:bg-gray-800 h-8 px-2 ${evidenceViewEnabled ? 'bg-gray-800' : ''}`}
+            title={
+              evidenceViewEnabled
+                ? 'Hide evidence view'
+                : 'Show evidence view (model logic & module facts)'
+            }
+            aria-label="Toggle advisor evidence view"
+            aria-pressed={evidenceViewEnabled}
+          >
+            <Microscope className="w-4 h-4" />
+          </Button>
           <div className="relative" ref={quickActionsRef}>
             <Button
               variant="ghost"
@@ -1749,221 +1874,262 @@ export function ChatInterface({
         </div>
       )}
 
-      {/* Messages */}
-      <div className="advisor-chat-messages flex-1 overflow-y-auto p-4 space-y-4 relative z-[1] select-text">
-        {onboardingActive && onboardingPrompt && (
-          <div className="bg-white border rounded-lg p-4">
-            <div className="text-sm font-medium mb-2">Getting you set up</div>
-            <div className="text-sm text-gray-800 whitespace-pre-wrap">{onboardingPrompt}</div>
-            {onboardingChoices && onboardingChoices.length > 0 && (
-              <div className="mt-3 flex gap-2">
-                {onboardingChoices.map((c) => (
-                  <Button
-                    key={c.id}
-                    variant="outline"
-                    disabled={isLoading}
-                    onClick={() => void sendOnboardingChoice(c.id)}
-                  >
-                    {c.label}
-                  </Button>
+      {evidenceViewEnabled && (
+        <div className="flex shrink-0 border-b bg-gray-50 px-2 pt-2">
+          <div className="flex w-full rounded-md bg-gray-200/80 p-0.5">
+            <button
+              type="button"
+              onClick={() => setAdvisorPanelTab('chat')}
+              className={`flex-1 rounded px-3 py-1.5 text-sm font-medium touch-manipulation ${
+                advisorPanelTab === 'chat'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Chat
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdvisorPanelTab('evidence')}
+              className={`flex-1 rounded px-3 py-1.5 text-sm font-medium touch-manipulation ${
+                advisorPanelTab === 'evidence'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Evidence
+            </button>
+          </div>
+        </div>
+      )}
+
+      {evidenceViewEnabled && advisorPanelTab === 'evidence' ? (
+        <AdvisorEvidencePanel
+          evidence={latestAssistantEvidence}
+          isLoading={isLoading}
+          onRecompute={handleRecomputeWithAdjustments}
+        />
+      ) : (
+        <>
+          {/* Messages */}
+          <div className="advisor-chat-messages flex-1 overflow-y-auto p-4 space-y-4 relative z-[1] select-text">
+            {onboardingActive && onboardingPrompt && (
+              <div className="bg-white border rounded-lg p-4">
+                <div className="text-sm font-medium mb-2">Getting you set up</div>
+                <div className="text-sm text-gray-800 whitespace-pre-wrap">{onboardingPrompt}</div>
+                {onboardingChoices && onboardingChoices.length > 0 && (
+                  <div className="mt-3 flex gap-2">
+                    {onboardingChoices.map((c) => (
+                      <Button
+                        key={c.id}
+                        variant="outline"
+                        disabled={isLoading}
+                        onClick={() => void sendOnboardingChoice(c.id)}
+                      >
+                        {c.label}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {onboardingActive && goalProposals.length > 0 && (
+              <div className="space-y-3">
+                {goalProposals.map((p) => (
+                  <div key={p.id} className="bg-gray-50 border rounded-lg p-4">
+                    <div className="text-sm whitespace-pre-wrap text-gray-900">{p.preview}</div>
+                    <div className="mt-3 flex gap-2">
+                      <Button disabled={isLoading} onClick={() => void commitGoalProposal(p.id)}>
+                        Confirm & Add
+                      </Button>
+                      <Button
+                        variant="outline"
+                        disabled={isLoading}
+                        onClick={() =>
+                          setGoalProposals((prev) => prev.filter((x) => x.id !== p.id))
+                        }
+                      >
+                        Skip
+                      </Button>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
-          </div>
-        )}
 
-        {onboardingActive && goalProposals.length > 0 && (
-          <div className="space-y-3">
-            {goalProposals.map((p) => (
-              <div key={p.id} className="bg-gray-50 border rounded-lg p-4">
-                <div className="text-sm whitespace-pre-wrap text-gray-900">{p.preview}</div>
-                <div className="mt-3 flex gap-2">
-                  <Button disabled={isLoading} onClick={() => void commitGoalProposal(p.id)}>
-                    Confirm & Add
-                  </Button>
-                  <Button
-                    variant="outline"
-                    disabled={isLoading}
-                    onClick={() => setGoalProposals((prev) => prev.filter((x) => x.id !== p.id))}
-                  >
-                    Skip
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {pendingActionProposals.length > 0 && (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-4 space-y-3">
-            <div className="text-sm font-medium text-emerald-950">Confirm completion</div>
-            <p className="text-sm text-emerald-900">
-              Review each match below. Nothing is marked complete until you confirm.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                disabled={isLoading}
-                className="touch-manipulation"
-                onClick={() => void commitAllPendingActions()}
-              >
-                Confirm all
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={isLoading}
-                onClick={() => setPendingActionProposals([])}
-              >
-                Dismiss
-              </Button>
-            </div>
-            {pendingActionProposals.map((p) => (
-              <div key={p.id} className="rounded-lg border bg-white p-3">
-                <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-                  {p.action_type === 'complete_habit' ? 'habit' : 'task'}
-                </div>
-                <div className="text-sm whitespace-pre-wrap text-gray-900">{p.preview}</div>
-                <div className="mt-3 flex gap-2">
+            {pendingActionProposals.length > 0 && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-4 space-y-3">
+                <div className="text-sm font-medium text-emerald-950">Confirm completion</div>
+                <p className="text-sm text-emerald-900">
+                  Review each match below. Nothing is marked complete until you confirm.
+                </p>
+                <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
                     disabled={isLoading}
                     className="touch-manipulation"
-                    onClick={() => void commitProposalById(p.id)}
+                    onClick={() => void commitAllPendingActions()}
                   >
-                    Confirm
+                    Confirm all
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     disabled={isLoading}
-                    onClick={() =>
-                      setPendingActionProposals((prev) => prev.filter((x) => x.id !== p.id))
-                    }
+                    onClick={() => setPendingActionProposals([])}
                   >
-                    Skip
+                    Dismiss
                   </Button>
                 </div>
+                {pendingActionProposals.map((p) => (
+                  <div key={p.id} className="rounded-lg border bg-white p-3">
+                    <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      {p.action_type === 'complete_habit' ? 'habit' : 'task'}
+                    </div>
+                    <div className="text-sm whitespace-pre-wrap text-gray-900">{p.preview}</div>
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        size="sm"
+                        disabled={isLoading}
+                        className="touch-manipulation"
+                        onClick={() => void commitProposalById(p.id)}
+                      >
+                        Confirm
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isLoading}
+                        onClick={() =>
+                          setPendingActionProposals((prev) => prev.filter((x) => x.id !== p.id))
+                        }
+                      >
+                        Skip
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        {dashboardPlan && dashboardPlan.proposals.length > 0 && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50/80 p-4 space-y-3">
-            <div className="text-sm font-medium text-blue-950">
-              Dashboard plan (review before adding)
-            </div>
-            <p className="text-sm text-blue-900 whitespace-pre-wrap">{dashboardPlan.summary}</p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                disabled={isLoading}
-                className="touch-manipulation"
-                onClick={() => void commitFullDashboardPlan()}
-              >
-                Confirm all
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={isLoading}
-                onClick={() => setDashboardPlan(null)}
-              >
-                Dismiss plan
-              </Button>
-            </div>
-            {dashboardPlan.proposals.map((p) => (
-              <div key={p.id} className="rounded-lg border bg-white p-3">
-                <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-                  {p.action_type.replace('create_', '')}
+            {dashboardPlan && dashboardPlan.proposals.length > 0 && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50/80 p-4 space-y-3">
+                <div className="text-sm font-medium text-blue-950">
+                  Dashboard plan (review before adding)
                 </div>
-                <div className="text-sm whitespace-pre-wrap text-gray-900">{p.preview}</div>
-                <div className="mt-3 flex gap-2">
+                <p className="text-sm text-blue-900 whitespace-pre-wrap">{dashboardPlan.summary}</p>
+                <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
                     disabled={isLoading}
                     className="touch-manipulation"
-                    onClick={() => void commitProposalById(p.id)}
+                    onClick={() => void commitFullDashboardPlan()}
                   >
-                    Confirm & Add
+                    Confirm all
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     disabled={isLoading}
-                    onClick={() =>
-                      setDashboardPlan((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              proposals: prev.proposals.filter((x) => x.id !== p.id),
-                            }
-                          : null
-                      )
-                    }
+                    onClick={() => setDashboardPlan(null)}
                   >
-                    Skip
+                    Dismiss plan
                   </Button>
                 </div>
+                {dashboardPlan.proposals.map((p) => (
+                  <div key={p.id} className="rounded-lg border bg-white p-3">
+                    <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      {p.action_type.replace('create_', '')}
+                    </div>
+                    <div className="text-sm whitespace-pre-wrap text-gray-900">{p.preview}</div>
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        size="sm"
+                        disabled={isLoading}
+                        className="touch-manipulation"
+                        onClick={() => void commitProposalById(p.id)}
+                      >
+                        Confirm & Add
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isLoading}
+                        onClick={() =>
+                          setDashboardPlan((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  proposals: prev.proposals.filter((x) => x.id !== p.id),
+                                }
+                              : null
+                          )
+                        }
+                      >
+                        Skip
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
+            )}
+
+            {messages.map((message) => (
+              <div key={message.id}>{formatMessage(message)}</div>
             ))}
-          </div>
-        )}
 
-        {messages.map((message) => (
-          <div key={message.id}>{formatMessage(message)}</div>
-        ))}
-
-        {isLoading && (
-          <div className="flex justify-start mb-4">
-            <div className="bg-gray-100 rounded-lg px-4 py-2">
-              <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                <span>Thinking...</span>
+            {isLoading && (
+              <div className="flex justify-start mb-4">
+                <div className="bg-gray-100 rounded-lg px-4 py-2">
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                    <span>Thinking...</span>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
+
+            <div ref={messagesEndRef} />
           </div>
-        )}
 
-        <div ref={messagesEndRef} />
-      </div>
+          {/* Quick Actions */}
+          <div className="p-6 border-t bg-gray-50">
+            {/* Voice session */}
+            <div className="mb-3">
+              <VoiceSessionControl
+                supported={speechSupported}
+                active={voiceSessionActive}
+                phase={voiceSessionPhase}
+                previewText={voiceSessionActive && input ? input : undefined}
+                waveformLevels={voiceWaveformLevels}
+                disabled={isLoading && !voiceSessionActive}
+                onStart={startVoiceSession}
+                onEnd={endVoiceSession}
+                onInterrupt={interruptAssistantSpeech}
+              />
+            </div>
 
-      {/* Quick Actions */}
-      <div className="p-6 border-t bg-gray-50">
-        {/* Voice session */}
-        <div className="mb-3">
-          <VoiceSessionControl
-            supported={speechSupported}
-            active={voiceSessionActive}
-            phase={voiceSessionPhase}
-            previewText={voiceSessionActive && input ? input : undefined}
-            waveformLevels={voiceWaveformLevels}
-            disabled={isLoading && !voiceSessionActive}
-            onStart={startVoiceSession}
-            onEnd={endVoiceSession}
-            onInterrupt={interruptAssistantSpeech}
-          />
-        </div>
-
-        {/* Input */}
-        <form ref={formRef} onSubmit={handleSubmit} className="flex space-x-3">
-          <Input
-            value={input}
-            onChange={(e) => {
-              stopAllChatAudio()
-              invalidatePendingSpeech()
-              setInput(e.target.value)
-            }}
-            placeholder="Ask me anything about your strategy for the day..."
-            className="flex-1 h-12 text-base"
-            disabled={isLoading}
-          />
-          <Button type="submit" disabled={isLoading || !input.trim()} className="h-12 px-6">
-            <Send className="w-5 h-5" />
-          </Button>
-        </form>
-      </div>
+            {/* Input */}
+            <form ref={formRef} onSubmit={handleSubmit} className="flex space-x-3">
+              <Input
+                value={input}
+                onChange={(e) => {
+                  stopAllChatAudio()
+                  invalidatePendingSpeech()
+                  setInput(e.target.value)
+                }}
+                placeholder="Ask me anything about your strategy for the day..."
+                className="flex-1 h-12 text-base"
+                disabled={isLoading}
+              />
+              <Button type="submit" disabled={isLoading || !input.trim()} className="h-12 px-6">
+                <Send className="w-5 h-5" />
+              </Button>
+            </form>
+          </div>
+        </>
+      )}
 
       {/* Resize handles — corners; larger hit targets on top-left for easier grab */}
       <div

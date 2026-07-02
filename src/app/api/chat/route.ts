@@ -5,6 +5,7 @@ import { ADVISOR_CROSS_MODULE_GUIDELINES } from '@/lib/ai-context/advisory-guide
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
+import { encodeAdvisorEvidenceHeader } from '@/lib/advisor/evidence'
 import {
   buildAdvisorLengthInstructions,
   isFactualDataQuestion,
@@ -104,7 +105,12 @@ export async function POST(req: Request) {
   const requestStartMs = Date.now()
   let logUserId: string | null = null
   try {
-    const { messages: rawMessages, language = 'en', currentModule } = await req.json()
+    const {
+      messages: rawMessages,
+      language = 'en',
+      currentModule,
+      contextAdjustments,
+    } = await req.json()
     const messages = sanitizeChatMessages(rawMessages)
     console.log('Chat API called with messages:', messages.length, 'language:', language)
 
@@ -145,12 +151,13 @@ export async function POST(req: Request) {
       }
     }
 
-    const { systemContext, usedCache, sourceChips } = await assembleAIContext(user.id, {
+    const { systemContext, usedCache, sourceChips, evidence } = await assembleAIContext(user.id, {
       messages: messages.map((m: { role: string; content: string }) => ({
         role: m.role,
         content: typeof m.content === 'string' ? m.content : '',
       })),
       currentModule: typeof currentModule === 'string' ? currentModule : undefined,
+      contextAdjustments: typeof contextAdjustments === 'string' ? contextAdjustments : undefined,
     })
 
     if (usedCache) {
@@ -346,7 +353,10 @@ ${language === 'es' ? 'Respond in Spanish (español) for all your messages. Use 
     return new Response(plainTextStream, {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
-        ...(sourceChips?.length ? { 'X-Advisor-Sources': JSON.stringify(sourceChips) } : {}),
+        ...(sourceChips?.length
+          ? { 'X-Advisor-Sources': encodeURIComponent(JSON.stringify(sourceChips)) }
+          : {}),
+        ...(evidence ? { 'X-Advisor-Evidence': encodeAdvisorEvidenceHeader(evidence) } : {}),
       },
     })
   } catch (error) {

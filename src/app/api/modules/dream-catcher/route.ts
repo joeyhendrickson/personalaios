@@ -181,29 +181,39 @@ USER'S CURRENT MESSAGE:
 INSTRUCTIONS:
 1. Be warm, concise, and encouraging — no long lectures
 2. Ask ONE question at a time in intake phase only
-3. Extract and merge assessment_data fields as you learn
-4. Use next_phase values only from: intake, vision, goals, confirm
-5. In goals phase, produce goals_generated (3-5 goals, not 8-12)
-6. In confirm phase, do not ask questions — point user to the preview panel
+3. Extract and merge assessment_data fields as you learn (see extraction map in phase instructions)
+4. Use next_phase values only from: intake, vision, goals, summary, confirm
+5. In goals phase, produce goals_generated (3-6 measurable goals with target_value + target_unit when possible)
+6. In summary phase, write life_plan_summary — who they are and what they are building — then move to confirm
+7. In confirm phase, do not ask questions — point user to the Life Plan preview panel
 
 RESPONSE FORMAT (JSON only):
 {
   "message": "Your conversational response",
-  "next_phase": "intake|vision|goals|confirm",
+  "next_phase": "intake|vision|goals|summary|confirm",
   "intake_question_index": ${normalizedPhase === 'intake' ? intakeQuestionIndex + 1 : intakeQuestionIndex} (increment by 1 after each intake answer; max ${INTAKE_QUESTION_COUNT}),
   "assessment_data": {
     "personality_traits": [],
     "personal_insights": [],
-    "influences_identified": [],
+    "measurement_preferences": [],
     "dreams_discovered": [],
     "vision_statement": "",
+    "life_plan_summary": "",
     "goals_generated": [
-      { "goal": "...", "category": "...", "priority": "high|medium|low", "timeline": "..." }
-    ]
+      { "goal": "...", "category": "...", "priority": "high|medium|low", "timeline": "...", "target_value": 0, "target_unit": "..." }
+    ],
+    "project_ideas": [{ "title": "...", "description": "...", "category": "...", "linked_goal": "..." }],
+    "habit_ideas": [{ "title": "...", "description": "..." }],
+    "task_ideas": [{ "title": "...", "description": "...", "category": "..." }],
+    "education_items": [{ "title": "...", "description": "...", "target_date": "YYYY-MM-DD", "priority_level": 3 }],
+    "fitness_profile": { "goals": [], "baseline": {} },
+    "ruminations": [{ "description": "...", "severity": "low|medium|high", "fear_type": "...", "coping_strategies": [] }],
+    "gratitude_starters": { "items": [], "practice_idea": "...", "reflection": "..." },
+    "key_relationships": [{ "name": "...", "relationship_type": "friend|family|...", "notes": "...", "contact_frequency_days": 14, "priority_level": 3 }]
   }
 }
 
-Merge assessment_data with existing data — append arrays, do not wipe prior entries.
+Merge assessment_data with existing data — append arrays, shallow-merge nested objects (fitness_profile, gratitude_starters), do not wipe prior entries.
 `
 
   // Use AI to generate response
@@ -259,12 +269,25 @@ Merge assessment_data with existing data — append arrays, do not wipe prior en
       parsedResponse.personality_question_index ?? intakeQuestionIndex
   }
 
-  // Merge assessment data (append arrays, preserve existing fields)
+  // Merge assessment data (append arrays, shallow-merge objects, preserve existing fields)
   if (parsedResponse.assessment_data) {
     const merged = { ...assessmentData }
     for (const [key, value] of Object.entries(parsedResponse.assessment_data)) {
-      if (Array.isArray(value) && Array.isArray(merged[key])) {
-        merged[key] = [...new Set([...(merged[key] as unknown[]), ...value])]
+      if (Array.isArray(value)) {
+        const prev = Array.isArray(merged[key]) ? (merged[key] as unknown[]) : []
+        merged[key] = [...new Set([...prev, ...value])]
+      } else if (
+        value !== null &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        merged[key] &&
+        typeof merged[key] === 'object' &&
+        !Array.isArray(merged[key])
+      ) {
+        merged[key] = {
+          ...(merged[key] as Record<string, unknown>),
+          ...(value as Record<string, unknown>),
+        }
       } else if (value !== undefined && value !== null && value !== '') {
         merged[key] = value
       }

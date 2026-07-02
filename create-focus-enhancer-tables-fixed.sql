@@ -1,8 +1,7 @@
--- Create tables for Focus Enhancer app
--- This migration creates tables to store screen time analysis and therapeutic conversations
+-- Create tables for Focus Enhancer app (idempotent — safe to re-run)
+-- Stores screen time analysis, therapeutic conversations, and fear/rumination insights.
 
--- Table to store screen time analyses
-CREATE TABLE focus_analyses (
+CREATE TABLE IF NOT EXISTS focus_analyses (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   app_usage_data JSONB NOT NULL,
@@ -12,24 +11,23 @@ CREATE TABLE focus_analyses (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enable RLS
 ALTER TABLE focus_analyses ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for focus_analyses
+DROP POLICY IF EXISTS "Users can view their own focus analyses" ON focus_analyses;
+DROP POLICY IF EXISTS "Users can insert their own focus analyses" ON focus_analyses;
+DROP POLICY IF EXISTS "Users can update their own focus analyses" ON focus_analyses;
+DROP POLICY IF EXISTS "Users can delete their own focus analyses" ON focus_analyses;
+
 CREATE POLICY "Users can view their own focus analyses" ON focus_analyses
-FOR SELECT USING (auth.uid() = user_id);
-
+  FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert their own focus analyses" ON focus_analyses
-FOR INSERT WITH CHECK (auth.uid() = user_id);
-
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own focus analyses" ON focus_analyses
-FOR UPDATE USING (auth.uid() = user_id);
-
+  FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own focus analyses" ON focus_analyses
-FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING (auth.uid() = user_id);
 
--- Table to store therapeutic conversations
-CREATE TABLE focus_conversations (
+CREATE TABLE IF NOT EXISTS focus_conversations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   user_message TEXT NOT NULL,
@@ -39,24 +37,24 @@ CREATE TABLE focus_conversations (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enable RLS
 ALTER TABLE focus_conversations ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for focus_conversations
+DROP POLICY IF EXISTS "Users can view their own focus conversations" ON focus_conversations;
+DROP POLICY IF EXISTS "Users can insert their own focus conversations" ON focus_conversations;
+DROP POLICY IF EXISTS "Users can update their own focus conversations" ON focus_conversations;
+DROP POLICY IF EXISTS "Users can delete their own focus conversations" ON focus_conversations;
+
 CREATE POLICY "Users can view their own focus conversations" ON focus_conversations
-FOR SELECT USING (auth.uid() = user_id);
-
+  FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert their own focus conversations" ON focus_conversations
-FOR INSERT WITH CHECK (auth.uid() = user_id);
-
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own focus conversations" ON focus_conversations
-FOR UPDATE USING (auth.uid() = user_id);
-
+  FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own focus conversations" ON focus_conversations
-FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING (auth.uid() = user_id);
 
--- Table to track identified fears and insecurities
-CREATE TABLE user_fears_insights (
+-- Dream Catcher writes starter ruminations here
+CREATE TABLE IF NOT EXISTS user_fears_insights (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   fear_type TEXT NOT NULL,
@@ -69,24 +67,23 @@ CREATE TABLE user_fears_insights (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enable RLS
 ALTER TABLE user_fears_insights ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for user_fears_insights
+DROP POLICY IF EXISTS "Users can view their own fears insights" ON user_fears_insights;
+DROP POLICY IF EXISTS "Users can insert their own fears insights" ON user_fears_insights;
+DROP POLICY IF EXISTS "Users can update their own fears insights" ON user_fears_insights;
+DROP POLICY IF EXISTS "Users can delete their own fears insights" ON user_fears_insights;
+
 CREATE POLICY "Users can view their own fears insights" ON user_fears_insights
-FOR SELECT USING (auth.uid() = user_id);
-
+  FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert their own fears insights" ON user_fears_insights
-FOR INSERT WITH CHECK (auth.uid() = user_id);
-
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own fears insights" ON user_fears_insights
-FOR UPDATE USING (auth.uid() = user_id);
-
+  FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own fears insights" ON user_fears_insights
-FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING (auth.uid() = user_id);
 
--- Table to track focus improvement suggestions
-CREATE TABLE focus_suggestions (
+CREATE TABLE IF NOT EXISTS focus_suggestions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   suggestion_type TEXT CHECK (suggestion_type IN ('goal', 'habit', 'project', 'feature')) NOT NULL,
@@ -100,24 +97,23 @@ CREATE TABLE focus_suggestions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enable RLS
 ALTER TABLE focus_suggestions ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for focus_suggestions
+DROP POLICY IF EXISTS "Users can view their own focus suggestions" ON focus_suggestions;
+DROP POLICY IF EXISTS "Users can insert their own focus suggestions" ON focus_suggestions;
+DROP POLICY IF EXISTS "Users can update their own focus suggestions" ON focus_suggestions;
+DROP POLICY IF EXISTS "Users can delete their own focus suggestions" ON focus_suggestions;
+
 CREATE POLICY "Users can view their own focus suggestions" ON focus_suggestions
-FOR SELECT USING (auth.uid() = user_id);
-
+  FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert their own focus suggestions" ON focus_suggestions
-FOR INSERT WITH CHECK (auth.uid() = user_id);
-
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own focus suggestions" ON focus_suggestions
-FOR UPDATE USING (auth.uid() = user_id);
-
+  FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own focus suggestions" ON focus_suggestions
-FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING (auth.uid() = user_id);
 
--- Table to store complete analysis summaries
-CREATE TABLE focus_analysis_summaries (
+CREATE TABLE IF NOT EXISTS focus_analysis_summaries (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -133,37 +129,35 @@ CREATE TABLE focus_analysis_summaries (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enable RLS
 ALTER TABLE focus_analysis_summaries ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for focus_analysis_summaries
+DROP POLICY IF EXISTS "Users can view their own analysis summaries" ON focus_analysis_summaries;
+DROP POLICY IF EXISTS "Users can insert their own analysis summaries" ON focus_analysis_summaries;
+DROP POLICY IF EXISTS "Users can update their own analysis summaries" ON focus_analysis_summaries;
+DROP POLICY IF EXISTS "Users can delete their own analysis summaries" ON focus_analysis_summaries;
+
 CREATE POLICY "Users can view their own analysis summaries" ON focus_analysis_summaries
-FOR SELECT USING (auth.uid() = user_id);
-
+  FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert their own analysis summaries" ON focus_analysis_summaries
-FOR INSERT WITH CHECK (auth.uid() = user_id);
-
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own analysis summaries" ON focus_analysis_summaries
-FOR UPDATE USING (auth.uid() = user_id);
-
+  FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own analysis summaries" ON focus_analysis_summaries
-FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING (auth.uid() = user_id);
 
--- Create indexes for better performance
-CREATE INDEX idx_focus_analyses_user_id ON focus_analyses(user_id);
-CREATE INDEX idx_focus_analyses_created_at ON focus_analyses(created_at);
-CREATE INDEX idx_focus_conversations_user_id ON focus_conversations(user_id);
-CREATE INDEX idx_focus_conversations_created_at ON focus_conversations(created_at);
-CREATE INDEX idx_user_fears_insights_user_id ON user_fears_insights(user_id);
-CREATE INDEX idx_user_fears_insights_severity ON user_fears_insights(severity);
-CREATE INDEX idx_focus_suggestions_user_id ON focus_suggestions(user_id);
-CREATE INDEX idx_focus_suggestions_type ON focus_suggestions(suggestion_type);
-CREATE INDEX idx_focus_suggestions_implemented ON focus_suggestions(is_implemented);
-CREATE INDEX idx_focus_analysis_summaries_user_id ON focus_analysis_summaries(user_id);
-CREATE INDEX idx_focus_analysis_summaries_timestamp ON focus_analysis_summaries(timestamp);
-CREATE INDEX idx_focus_analysis_summaries_created_at ON focus_analysis_summaries(created_at);
+CREATE INDEX IF NOT EXISTS idx_focus_analyses_user_id ON focus_analyses(user_id);
+CREATE INDEX IF NOT EXISTS idx_focus_analyses_created_at ON focus_analyses(created_at);
+CREATE INDEX IF NOT EXISTS idx_focus_conversations_user_id ON focus_conversations(user_id);
+CREATE INDEX IF NOT EXISTS idx_focus_conversations_created_at ON focus_conversations(created_at);
+CREATE INDEX IF NOT EXISTS idx_user_fears_insights_user_id ON user_fears_insights(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_fears_insights_severity ON user_fears_insights(severity);
+CREATE INDEX IF NOT EXISTS idx_focus_suggestions_user_id ON focus_suggestions(user_id);
+CREATE INDEX IF NOT EXISTS idx_focus_suggestions_type ON focus_suggestions(suggestion_type);
+CREATE INDEX IF NOT EXISTS idx_focus_suggestions_implemented ON focus_suggestions(is_implemented);
+CREATE INDEX IF NOT EXISTS idx_focus_analysis_summaries_user_id ON focus_analysis_summaries(user_id);
+CREATE INDEX IF NOT EXISTS idx_focus_analysis_summaries_timestamp ON focus_analysis_summaries(timestamp);
+CREATE INDEX IF NOT EXISTS idx_focus_analysis_summaries_created_at ON focus_analysis_summaries(created_at);
 
--- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -172,7 +166,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Trigger to automatically update updated_at
-CREATE TRIGGER update_user_fears_insights_updated_at 
-    BEFORE UPDATE ON user_fears_insights 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DROP TRIGGER IF EXISTS update_user_fears_insights_updated_at ON user_fears_insights;
+CREATE TRIGGER update_user_fears_insights_updated_at
+  BEFORE UPDATE ON user_fears_insights
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

@@ -166,6 +166,19 @@ export interface FilterModulesResult {
   detectedTopics: string[]
 }
 
+export function applyModulePriority(
+  summaries: ModuleContextSummary[],
+  modulePriority: string[] | undefined
+): ModuleContextSummary[] {
+  if (!modulePriority?.length) return summaries
+  const rank = new Map(modulePriority.map((id, i) => [id, i]))
+  return [...summaries].sort((a, b) => {
+    const ar = rank.has(a.moduleId) ? rank.get(a.moduleId)! : 1000 + summaries.indexOf(a)
+    const br = rank.has(b.moduleId) ? rank.get(b.moduleId)! : 1000 + summaries.indexOf(b)
+    return ar - br
+  })
+}
+
 export function filterModulesForQuestion(
   userMessage: string | undefined,
   allSummaries: ModuleContextSummary[],
@@ -173,6 +186,7 @@ export function filterModulesForQuestion(
     currentModule?: string
     crossModuleInsights?: CrossModuleInsightsSummary | null
     maxModules?: number
+    modulePriority?: string[]
   }
 ): FilterModulesResult {
   const withData = allSummaries.filter((s) => s.hasData)
@@ -184,9 +198,10 @@ export function filterModulesForQuestion(
   const message = userMessage?.trim() ?? ''
 
   if (!message || isBroadQuestion(message)) {
+    const filtered = applyModulePriority(withData, options?.modulePriority)
     return {
-      filtered: withData,
-      includedModuleIds: withData.map((s) => s.moduleId),
+      filtered,
+      includedModuleIds: filtered.map((s) => s.moduleId),
       isBroad: true,
       detectedTopics: [],
     }
@@ -217,6 +232,8 @@ export function filterModulesForQuestion(
   } else if (filtered.length > maxModules) {
     filtered = filtered.slice(0, maxModules)
   }
+
+  filtered = applyModulePriority(filtered, options?.modulePriority)
 
   return {
     filtered,

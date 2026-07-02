@@ -39,25 +39,14 @@ interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
-  phase?:
-    | 'intake'
-    | 'vision'
-    | 'goals'
-    | 'confirm'
-    | 'personality'
-    | 'assessment'
-    | 'influences'
-    | 'executive-skills'
-    | 'executive-blocking'
-    | 'dreams'
-    | 'vision'
-    | 'goals'
+  phase?: 'intake' | 'vision' | 'goals' | 'summary' | 'confirm'
 }
 
 interface AssessmentData {
   personality_traits?: string[]
   personal_insights?: string[]
   influences_identified?: string[]
+  measurement_preferences?: string[]
   executive_skills?: {
     strengths: string[]
     areas_for_development: string[]
@@ -71,12 +60,74 @@ interface AssessmentData {
   }>
   dreams_discovered?: string[]
   vision_statement?: string
+  life_plan_summary?: string
   goals_generated?: Array<{
     goal: string
     category: string
     priority: string
     timeline: string
+    target_value?: number
+    target_unit?: string
   }>
+  project_ideas?: Array<{
+    title: string
+    description?: string
+    category?: string
+    linked_goal?: string
+  }>
+  habit_ideas?: Array<{ title: string; description?: string }>
+  task_ideas?: Array<{ title: string; description?: string; category?: string }>
+  education_items?: Array<{
+    title: string
+    description?: string
+    target_date?: string
+    priority_level?: number
+  }>
+  fitness_profile?: { goals?: Array<Record<string, unknown>>; baseline?: Record<string, unknown> }
+  ruminations?: Array<{
+    description: string
+    severity?: string
+    fear_type?: string
+    coping_strategies?: string[]
+  }>
+  gratitude_starters?: { items?: string[]; practice_idea?: string; reflection?: string }
+  key_relationships?: Array<{
+    name: string
+    relationship_type?: string
+    notes?: string
+    contact_frequency_days?: number
+    priority_level?: number
+  }>
+}
+
+function mergeAssessmentData(
+  existing: AssessmentData,
+  incoming: Record<string, unknown>
+): AssessmentData {
+  const merged = { ...existing }
+  for (const [key, value] of Object.entries(incoming)) {
+    if (Array.isArray(value)) {
+      const prev = Array.isArray(merged[key as keyof AssessmentData])
+        ? (merged[key as keyof AssessmentData] as unknown[])
+        : []
+      merged[key as keyof AssessmentData] = [...new Set([...prev, ...value])] as never
+    } else if (
+      value !== null &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      merged[key as keyof AssessmentData] &&
+      typeof merged[key as keyof AssessmentData] === 'object' &&
+      !Array.isArray(merged[key as keyof AssessmentData])
+    ) {
+      merged[key as keyof AssessmentData] = {
+        ...(merged[key as keyof AssessmentData] as Record<string, unknown>),
+        ...(value as Record<string, unknown>),
+      } as never
+    } else if (value !== undefined && value !== null && value !== '') {
+      merged[key as keyof AssessmentData] = value as never
+    }
+  }
+  return merged
 }
 
 function DreamCatcherModuleContent() {
@@ -89,16 +140,7 @@ function DreamCatcherModuleContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingSession, setIsLoadingSession] = useState(false)
   const [currentPhase, setCurrentPhase] = useState<
-    | 'intake'
-    | 'vision'
-    | 'goals'
-    | 'confirm'
-    | 'personality'
-    | 'assessment'
-    | 'influences'
-    | 'executive-skills'
-    | 'executive-blocking'
-    | 'dreams'
+    'intake' | 'vision' | 'goals' | 'summary' | 'confirm'
   >('intake')
   const [assessmentData, setAssessmentData] = useState<AssessmentData>({})
   const [intakeQuestionIndex, setIntakeQuestionIndex] = useState(0)
@@ -527,8 +569,8 @@ function DreamCatcherModuleContent() {
   useEffect(() => {
     if (!sessionId && !isLoadingSession && messages.length === 0) {
       const welcomeContent = isNewUser
-        ? `Welcome to LifeStacks! I'll ask ${INTAKE_QUESTION_COUNT} quick questions about what matters to you, then we'll draft your vision and goals.\n\nAt the end you'll review a preview of your starter dashboard — goals, projects, tasks, and habits — and confirm before anything is created.\n\nHere's the first question: What matters most to you right now? Tell me about your top priorities in your own words.`
-        : `Welcome back to Dream Catcher! We'll keep this short — a few questions, your vision, and goals. You'll review a dashboard preview and confirm before anything is added. Your existing goals, projects, tasks, and habits stay as they are.\n\nWhat matters most to you right now? Tell me about your top priorities in your own words.`
+        ? `Welcome to LifeStacks! I'll ask ${INTAKE_QUESTION_COUNT} thoughtful questions about your goals, habits, fitness, relationships, and what gets in your way.\n\nThen we'll craft your vision and Life Plan — distributed across your dashboard (goals, projects, tasks, habits, education) and life modules (Fitness Tracker, Gratitude Journal, Relationship Manager, Focus Enhancer).\n\nAt the end I'll summarize who you are and what you're building, then you'll review and confirm before anything is created.\n\nHere's the first question: What matters most to you right now? Tell me about your top priorities in your own words.`
+        : `Welcome back to Dream Catcher! We'll walk through ${INTAKE_QUESTION_COUNT} questions to refresh your Life Plan — dashboard items and life modules. You'll review everything and confirm before anything is added. Your existing data stays as it is.\n\nWhat matters most to you right now? Tell me about your top priorities in your own words.`
 
       const welcomeMessage: ChatMessage = {
         id: 'welcome',
@@ -551,10 +593,8 @@ function DreamCatcherModuleContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          goals: data.goals_generated,
+          assessment_data: data,
           vision_statement: data.vision_statement,
-          personality_traits: data.personality_traits,
-          dreams_discovered: data.dreams_discovered,
         }),
       })
       if (!response.ok) {
@@ -661,22 +701,12 @@ function DreamCatcherModuleContent() {
 
         let mergedAssessment = assessmentData
         if (data.assessment_data) {
-          mergedAssessment = { ...assessmentData }
-          for (const [key, value] of Object.entries(data.assessment_data)) {
-            if (
-              Array.isArray(value) &&
-              Array.isArray(mergedAssessment[key as keyof AssessmentData])
-            ) {
-              const existing = mergedAssessment[key as keyof AssessmentData] as unknown[]
-              mergedAssessment = {
-                ...mergedAssessment,
-                [key]: [...new Set([...existing, ...value])],
-              }
-            } else if (value !== undefined && value !== null && value !== '') {
-              mergedAssessment = { ...mergedAssessment, [key]: value }
-            }
-          }
+          mergedAssessment = mergeAssessmentData(assessmentData, data.assessment_data)
           setAssessmentData(mergedAssessment)
+        }
+
+        if (nextPhase === 'summary' || nextPhase === 'goals') {
+          setShowResults(true)
         }
 
         if (nextPhase === 'confirm') {
@@ -685,7 +715,7 @@ function DreamCatcherModuleContent() {
         }
 
         if (mergedAssessment.goals_generated && mergedAssessment.goals_generated.length > 0) {
-          if (nextPhase === 'confirm' || nextPhase === 'goals') {
+          if (nextPhase === 'confirm' || nextPhase === 'summary' || nextPhase === 'goals') {
             void loadDashboardPreview(mergedAssessment)
           }
         }
@@ -971,10 +1001,8 @@ function DreamCatcherModuleContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          goals: assessmentData.goals_generated,
+          assessment_data: assessmentData,
           vision_statement: assessmentData.vision_statement,
-          personality_traits: assessmentData.personality_traits,
-          dreams_discovered: assessmentData.dreams_discovered,
           is_new_user: isNewUser,
           plan: planToCommit,
         }),
@@ -992,7 +1020,7 @@ function DreamCatcherModuleContent() {
           `Dashboard updated: ${c.goals_added ?? data.goals_added ?? 0} goals, ${c.projects_added ?? 0} projects, ${c.tasks_added ?? 0} tasks, ${c.habits_added ?? 0} habits added.`
       )
 
-      router.push('/dashboard?onboarded=true')
+      router.push('/dashboard?onboarded=true&lifePlan=1')
     } catch (error) {
       console.error('Error setting up dashboard:', error)
       alert(
@@ -1037,6 +1065,14 @@ function DreamCatcherModuleContent() {
         borderClass: 'border-orange-200',
         borderActiveClass: 'border-orange-300',
         textClass: 'text-orange-700',
+      },
+      summary: {
+        name: 'Life Plan',
+        icon: <Sparkles className="h-4 w-4" />,
+        bgClass: 'bg-blue-100',
+        borderClass: 'border-blue-200',
+        borderActiveClass: 'border-blue-300',
+        textClass: 'text-blue-700',
       },
       confirm: {
         name: 'Confirm',
@@ -1520,7 +1556,7 @@ function DreamCatcherModuleContent() {
                     ) : (
                       <>
                         <CheckCircle className="h-4 w-4" />
-                        <span>Confirm & Set Up Dashboard</span>
+                        <span>Confirm & Setup My Dashboard</span>
                       </>
                     )}
                   </button>
@@ -1545,14 +1581,26 @@ function DreamCatcherModuleContent() {
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Confirm Your Dashboard Plan</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Confirm Your Life Plan</h2>
                 <p className="text-sm text-gray-600">
                   {isNewUser
-                    ? 'This will create your starter dashboard.'
+                    ? 'This creates your starter dashboard and life modules from your answers.'
                     : 'New items will be added alongside what you already have.'}
                 </p>
               </div>
             </div>
+
+            {(assessmentData.life_plan_summary || dashboardPreview?.life_plan_summary) && (
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="font-semibold text-gray-900 mb-2 flex items-center">
+                  <Sparkles className="h-4 w-4 mr-2 text-blue-600" />
+                  Your Life Plan Summary
+                </h3>
+                <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
+                  {assessmentData.life_plan_summary || dashboardPreview?.life_plan_summary}
+                </p>
+              </div>
+            )}
 
             {assessmentData.vision_statement && (
               <div className="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
@@ -1566,7 +1614,7 @@ function DreamCatcherModuleContent() {
             {isLoadingPreview && (
               <div className="flex items-center gap-2 text-sm text-gray-600 py-8 justify-center">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Building your dashboard preview...
+                Building your Life Plan preview...
               </div>
             )}
 
@@ -1586,12 +1634,16 @@ function DreamCatcherModuleContent() {
             {dashboardPreview && (
               <>
                 <p className="text-sm text-gray-700 mb-4">{dashboardPreview.summary}</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                   {[
                     { label: 'Goals', count: dashboardPreview.totals.goals },
                     { label: 'Projects', count: dashboardPreview.totals.projects },
                     { label: 'Tasks', count: dashboardPreview.totals.tasks },
                     { label: 'Habits', count: dashboardPreview.totals.habits },
+                    { label: 'Education', count: dashboardPreview.totals.education },
+                    { label: 'Fitness', count: dashboardPreview.totals.fitness_goals },
+                    { label: 'Focus', count: dashboardPreview.totals.ruminations },
+                    { label: 'People', count: dashboardPreview.totals.relationships },
                   ].map((stat) => (
                     <div
                       key={stat.label}
@@ -1603,13 +1655,28 @@ function DreamCatcherModuleContent() {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 max-h-80 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 max-h-96 overflow-y-auto">
                   <div>
                     <h4 className="font-medium text-gray-900 mb-2">Goals</h4>
                     <ul className="space-y-1 text-sm text-gray-700">
                       {dashboardPreview.goals.map((g, i) => (
                         <li key={i} className="border-b border-gray-100 pb-1">
                           {g.title}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Projects & tasks</h4>
+                    <ul className="space-y-1 text-sm text-gray-700">
+                      {dashboardPreview.projects.slice(0, 5).map((p, i) => (
+                        <li key={i} className="border-b border-gray-100 pb-1">
+                          {p.title}
+                        </li>
+                      ))}
+                      {dashboardPreview.tasks.slice(0, 3).map((t, i) => (
+                        <li key={`t-${i}`} className="text-xs text-gray-500 pl-2">
+                          → {t.title}
                         </li>
                       ))}
                     </ul>
@@ -1624,6 +1691,67 @@ function DreamCatcherModuleContent() {
                       ))}
                     </ul>
                   </div>
+                  {dashboardPreview.education.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Education</h4>
+                      <ul className="space-y-1 text-sm text-gray-700">
+                        {dashboardPreview.education.map((e, i) => (
+                          <li key={i} className="border-b border-gray-100 pb-1">
+                            {e.title}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {dashboardPreview.fitness_goals.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Fitness goals</h4>
+                      <ul className="space-y-1 text-sm text-gray-700">
+                        {dashboardPreview.fitness_goals.map((f, i) => (
+                          <li key={i} className="border-b border-gray-100 pb-1">
+                            {f.description || f.goal_type}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {dashboardPreview.ruminations.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Focus ruminations</h4>
+                      <ul className="space-y-1 text-sm text-gray-700">
+                        {dashboardPreview.ruminations.map((r, i) => (
+                          <li key={i} className="border-b border-gray-100 pb-1">
+                            {r.description}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {dashboardPreview.gratitude.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Gratitude starter</h4>
+                      <ul className="space-y-1 text-sm text-gray-700">
+                        {dashboardPreview.gratitude[0]?.items.map((item, i) => (
+                          <li key={i} className="border-b border-gray-100 pb-1">
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {dashboardPreview.relationships.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Key relationships</h4>
+                      <ul className="space-y-1 text-sm text-gray-700">
+                        {dashboardPreview.relationships.map((r, i) => (
+                          <li key={i} className="border-b border-gray-100 pb-1">
+                            {r.name}
+                            {r.relationship_type ? ` (${r.relationship_type})` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -1642,7 +1770,7 @@ function DreamCatcherModuleContent() {
                 ) : (
                   <>
                     <CheckCircle className="h-5 w-5" />
-                    <span>Confirm & Set Up Dashboard</span>
+                    <span>Confirm & Setup My Dashboard</span>
                   </>
                 )}
               </button>
@@ -1654,6 +1782,37 @@ function DreamCatcherModuleContent() {
                 Save for later
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Life Plan summary — shown during summary phase before confirm */}
+        {showResults && assessmentData.life_plan_summary && !showConfirmation && (
+          <div className="mt-8 bg-white/90 backdrop-blur-sm rounded-lg border border-blue-200 p-6 shadow-lg">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Sparkles className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Who You Are & What You&apos;re Building
+                </h2>
+                <p className="text-sm text-gray-600">
+                  Review this summary — next you&apos;ll confirm your full Life Plan on the
+                  dashboard.
+                </p>
+              </div>
+            </div>
+            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed mb-4">
+              {assessmentData.life_plan_summary}
+            </p>
+            {assessmentData.vision_statement && (
+              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <h3 className="font-semibold text-gray-900 mb-1">Your Vision</h3>
+                <p className="text-gray-700 italic">
+                  &ldquo;{assessmentData.vision_statement}&rdquo;
+                </p>
+              </div>
+            )}
           </div>
         )}
 

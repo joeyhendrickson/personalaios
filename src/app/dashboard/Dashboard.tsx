@@ -387,6 +387,13 @@ export default function Dashboard() {
 
     checkTrialStatus()
   }, [searchParams, user])
+
+  useEffect(() => {
+    if (searchParams.get('onboarded') === 'true' && searchParams.get('lifePlan') === '1') {
+      setShowLifePlanWelcome(true)
+      router.replace('/dashboard', { scroll: false })
+    }
+  }, [searchParams, router])
   const [pointsData, setPointsData] = useState<{
     dailyPoints: number
     weeklyPoints: number
@@ -470,6 +477,7 @@ export default function Dashboard() {
   const [showManualPriorityForm, setShowManualPriorityForm] = useState(false)
   const [showConversationalPriorityInput, setShowConversationalPriorityInput] = useState(false)
   const [navMenuOpen, setNavMenuOpen] = useState(false)
+  const [showLifePlanWelcome, setShowLifePlanWelcome] = useState(false)
   const [newGoal, setNewGoal] = useState({
     title: '',
     description: '',
@@ -1793,6 +1801,32 @@ export default function Dashboard() {
 
       {/* Trial Status Banner */}
       {trialUser && <TrialStatusBanner email={trialUser.email} />}
+
+      {showLifePlanWelcome && (
+        <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+          <div className="container mx-auto px-6 py-4 flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <CheckCircle className="h-6 w-6 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">Your Life Plan is ready</p>
+                <p className="text-sm text-purple-100 mt-1">
+                  Goals, projects, tasks, habits, and education are below. Fitness, gratitude,
+                  relationships, and focus ruminations were added to their modules — explore them
+                  from Modules when you are ready.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowLifePlanWelcome(false)}
+              className="text-white/80 hover:text-white flex-shrink-0"
+              aria-label="Dismiss"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="container mx-auto px-6 pt-8 pb-24">
         {/* Vision statement (from Dream Catcher; editable & AI-updatable) */}

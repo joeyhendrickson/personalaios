@@ -18,7 +18,7 @@ const MODULE_LABELS: Record<string, string> = {
   'dream-catcher': 'Dreams',
 }
 
-function moduleLabel(moduleId: string): string {
+export function moduleLabel(moduleId: string): string {
   if (MODULE_LABELS[moduleId]) return MODULE_LABELS[moduleId]
   return moduleId
     .split('-')

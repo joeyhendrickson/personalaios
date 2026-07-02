@@ -12,8 +12,8 @@ function norm(title: string) {
 
 export type CommitOnboardingPlanOptions = {
   visionStatement?: string
+  lifePlanSummary?: string
   isNewUser?: boolean
-  /** When false, never overwrite an existing vision statement. */
   overwriteVision?: boolean
 }
 
@@ -23,6 +23,11 @@ export type CommitOnboardingPlanResult = {
     projects_added: number
     tasks_added: number
     habits_added: number
+    education_added: number
+    fitness_goals_added: number
+    ruminations_added: number
+    gratitude_added: number
+    relationships_added: number
   }
   errors: string[]
 }
@@ -41,12 +46,20 @@ export async function commitOnboardingPlan(
     { data: existingHabits },
     { data: existingTasks },
     { data: existingVision },
+    { data: existingEducation },
+    { data: existingFitness },
+    { data: existingFears },
+    { data: existingRelationships },
   ] = await Promise.all([
     supabase.from('goals').select('id, title').eq('user_id', userId),
     supabase.from('projects').select('id, title').eq('user_id', userId),
     supabase.from('daily_habits').select('title').eq('user_id', userId),
     supabase.from('tasks').select('title, weekly_goal_id').eq('user_id', userId),
     supabase.from('user_vision').select('vision_statement').eq('user_id', userId).maybeSingle(),
+    supabase.from('education_items').select('title').eq('user_id', userId),
+    supabase.from('fitness_goals').select('id, description, goal_type').eq('user_id', userId),
+    supabase.from('user_fears_insights').select('description').eq('user_id', userId),
+    supabase.from('relationships').select('name').eq('user_id', userId).eq('is_active', true),
   ])
 
   existingGoals?.forEach((g) => g.title && ctx.goalTitleToId.set(norm(g.title), g.id))
@@ -60,12 +73,33 @@ export async function commitOnboardingPlan(
       .map((t) => `${norm(t.title || '')}:${t.weekly_goal_id || ''}`)
       .filter((k) => !k.startsWith(':'))
   )
+  const existingEducationTitles = new Set(
+    (existingEducation || []).map((e) => norm(e.title || '')).filter(Boolean)
+  )
+  const existingFearDescriptions = new Set(
+    (existingFears || []).map((f) => norm(f.description || '')).filter(Boolean)
+  )
+  const existingRelationshipNames = new Set(
+    (existingRelationships || []).map((r) => norm(r.name || '')).filter(Boolean)
+  )
 
-  const counts = { goals_added: 0, projects_added: 0, tasks_added: 0, habits_added: 0 }
+  const counts = {
+    goals_added: 0,
+    projects_added: 0,
+    tasks_added: 0,
+    habits_added: 0,
+    education_added: 0,
+    fitness_goals_added: 0,
+    ruminations_added: 0,
+    gratitude_added: 0,
+    relationships_added: 0,
+  }
   const errors: string[] = []
 
   const hierarchyItems = plan.items
-    .filter((i) => i.type !== 'create_habit')
+    .filter(
+      (i) => i.type === 'create_goal' || i.type === 'create_project' || i.type === 'create_task'
+    )
     .sort(
       (a, b) =>
         HIERARCHY_ORDER[a.type as keyof typeof HIERARCHY_ORDER] -
@@ -137,6 +171,88 @@ export async function commitOnboardingPlan(
     }
   }
 
+  for (const item of plan.items) {
+    if (item.type === 'create_education_item') {
+      if (existingEducationTitles.has(norm(item.title))) continue
+      const { error } = await supabase.from('education_items').insert({
+        user_id: userId,
+        title: item.title,
+        description: item.description ?? '',
+        points_value: item.points_value ?? 100,
+        priority_level: item.priority_level ?? 3,
+        target_date: item.target_date ?? null,
+        status: 'pending',
+        is_active: true,
+      })
+      if (error) errors.push(`education "${item.title}": ${error.message}`)
+      else counts.education_added++
+    }
+
+    if (item.type === 'create_fitness_goal') {
+      const { error } = await supabase.from('fitness_goals').insert({
+        user_id: userId,
+        goal_type: item.goal_type,
+        description: item.description ?? null,
+        target_weight: item.target_weight ?? null,
+        current_weight: item.current_weight ?? null,
+        target_body_fat_percentage: item.target_body_fat_percentage ?? null,
+        current_body_fat_percentage: item.current_body_fat_percentage ?? null,
+        target_areas: item.target_areas ?? [],
+        timeline_weeks: item.timeline_weeks ?? 12,
+        priority_level: item.priority_level ?? 'medium',
+        is_active: true,
+      })
+      if (error) errors.push(`fitness goal: ${error.message}`)
+      else counts.fitness_goals_added++
+    }
+
+    if (item.type === 'create_fear_insight') {
+      if (existingFearDescriptions.has(norm(item.description))) continue
+      const { error } = await supabase.from('user_fears_insights').insert({
+        user_id: userId,
+        fear_type: item.fear_type.slice(0, 80),
+        description: item.description.slice(0, 2000),
+        severity: item.severity,
+        related_apps: [],
+        coping_strategies: item.coping_strategies ?? [],
+        progress_notes: 'Starter rumination from Dream Catcher onboarding.',
+      })
+      if (error) errors.push(`rumination: ${error.message}`)
+      else counts.ruminations_added++
+    }
+
+    if (item.type === 'create_gratitude_starter') {
+      const today = new Date().toISOString().split('T')[0]
+      const { error } = await supabase.from('gratitude_journal_entries').upsert(
+        {
+          user_id: userId,
+          entry_date: today,
+          gratitude_items: item.gratitude_items,
+          reflection: item.reflection ?? 'Starter entry from Dream Catcher — edit anytime.',
+          mood_rating: null,
+        },
+        { onConflict: 'user_id,entry_date' }
+      )
+      if (error) errors.push(`gratitude: ${error.message}`)
+      else counts.gratitude_added++
+    }
+
+    if (item.type === 'create_relationship') {
+      if (existingRelationshipNames.has(norm(item.name))) continue
+      const { error } = await supabase.from('relationships').insert({
+        user_id: userId,
+        name: item.name,
+        relationship_type: item.relationship_type,
+        contact_frequency_days: item.contact_frequency_days ?? 14,
+        notes: item.notes ?? 'Added from Dream Catcher Life Plan.',
+        priority_level: item.priority_level ?? 3,
+        is_active: true,
+      })
+      if (error) errors.push(`relationship "${item.name}": ${error.message}`)
+      else counts.relationships_added++
+    }
+  }
+
   const visionStatement = options.visionStatement?.trim()
   const hasExistingVision = Boolean(existingVision?.vision_statement?.trim())
   const shouldWriteVision =
@@ -163,6 +279,8 @@ export async function commitOnboardingPlan(
       console.error('Failed to persist vision during onboarding commit:', visionErr)
     }
   }
+
+  void options.lifePlanSummary
 
   return { counts, errors }
 }

@@ -127,6 +127,10 @@ export interface AssembleContextOptions {
   preferLiveIfStale?: boolean
   /** Filter module context to question-relevant modules (default: true when messages present) */
   filterModulesByQuestion?: boolean
+  /** Boost module order (e.g. fitness-tracker before budget-optimizer) */
+  modulePriority?: string[]
+  /** User adjustment note from Evidence tab */
+  contextAdjustments?: string
 }
 
 export interface AssembledContext {
@@ -141,4 +145,6 @@ export interface AssembledContext {
   topicFilterApplied?: boolean
   /** Short labels for UI source chips under Advisor replies */
   sourceChips?: Array<{ moduleId: string; label: string }>
+  /** Transparency payload for Evidence tab */
+  evidence?: AdvisorEvidence
 }

@@ -23,8 +23,10 @@ import {
 import {
   filterCrossModuleInsightsForQuestion,
   filterModulesForQuestion,
+  applyModulePriority,
   formatTopicFilterNote,
   detectQuestionTopics,
+  type FilterModulesResult,
 } from './topic-module-filter'
 import { fetchModuleDataForContext } from './fetch-user-data'
 import type {
@@ -37,6 +39,12 @@ import type {
   ModuleContextSummary,
   CrossModuleInsightsSummary,
 } from '@/types/context-cache'
+import type { AdvisorEvidence } from '@/types/advisor-evidence'
+import {
+  parseContextAdjustments,
+  formatContextAdjustmentsPrompt,
+} from '@/lib/advisor/context-adjustments'
+import { buildAdvisorEvidence } from '@/lib/advisor/evidence'
 
 /** Max age in hours for cache to be considered fresh */
 const CACHE_FRESH_HOURS = 24
@@ -169,7 +177,15 @@ export async function assembleAIContext(
     currentModule,
     preferLiveIfStale = false,
     filterModulesByQuestion = true,
+    modulePriority: optionModulePriority,
+    contextAdjustments,
   } = options
+
+  const parsedAdjustments = parseContextAdjustments(contextAdjustments)
+  const modulePriority = [
+    ...(parsedAdjustments?.modulePriority ?? []),
+    ...(optionModulePriority ?? []),
+  ].filter((id, i, arr) => arr.indexOf(id) === i)
 
   const supabase = await createClient()
   const {
@@ -240,8 +256,9 @@ export async function assembleAIContext(
   const lastUserMessage = [...(messages ?? [])].reverse().find((m) => m.role === 'user')?.content
 
   const wellnessTopics = lastUserMessage ? detectQuestionTopics(lastUserMessage) : []
+  const prioritizeWellness = parsedAdjustments?.prioritizeTopics.includes('wellness') ?? false
   const needsLiveFitness =
-    wellnessTopics.includes('wellness') &&
+    (wellnessTopics.includes('wellness') || prioritizeWellness) &&
     (structuredState?.installedModules?.includes('fitness-tracker') ?? false)
 
   if (needsLiveFitness && moduleContext) {
@@ -260,23 +277,56 @@ export async function assembleAIContext(
   let topicFilterApplied = false
   let modulesIncluded: string[] | undefined
   let topicFilterNote = ''
+  let filterResult: FilterModulesResult = {
+    filtered: [],
+    includedModuleIds: [],
+    isBroad: true,
+    detectedTopics: [],
+  }
 
   if (filterModulesByQuestion && moduleContext?.length && lastUserMessage) {
-    const filterResult = filterModulesForQuestion(lastUserMessage, moduleContext, {
+    filterResult = filterModulesForQuestion(lastUserMessage, moduleContext, {
       currentModule,
       crossModuleInsights,
+      modulePriority: modulePriority.length ? modulePriority : undefined,
     })
+    if (parsedAdjustments?.prioritizeTopics.length) {
+      filterResult = {
+        ...filterResult,
+        detectedTopics: [
+          ...new Set([...parsedAdjustments.prioritizeTopics, ...filterResult.detectedTopics]),
+        ],
+      }
+    }
     modulesForPrompt = filterResult.filtered
     modulesIncluded = filterResult.includedModuleIds
-    topicFilterApplied = !filterResult.isBroad
+    topicFilterApplied = !filterResult.isBroad || modulePriority.length > 0
     topicFilterNote = formatTopicFilterNote(filterResult)
+    if (modulePriority.length) {
+      topicFilterNote = [
+        topicFilterNote,
+        `USER MODULE PRIORITY: ${modulePriority.join(' → ')} (read and weight in this order).`,
+      ]
+        .filter(Boolean)
+        .join('\n')
+    }
     crossForPrompt = filterCrossModuleInsightsForQuestion(
       crossModuleInsights,
       filterResult.detectedTopics,
-      filterResult.isBroad
+      filterResult.isBroad && modulePriority.length === 0
     )
   } else if (moduleContext?.length) {
     modulesIncluded = moduleContext.filter((m) => m.hasData).map((m) => m.moduleId)
+    modulesForPrompt = applyModulePriority(
+      moduleContext.filter((m) => m.hasData),
+      modulePriority.length ? modulePriority : undefined
+    )
+    filterResult = {
+      filtered: modulesForPrompt,
+      includedModuleIds: modulesForPrompt.map((m) => m.moduleId),
+      isBroad: true,
+      detectedTopics: parsedAdjustments?.prioritizeTopics ?? [],
+    }
   }
 
   const parts: string[] = []
@@ -288,6 +338,9 @@ export async function assembleAIContext(
 
   if (topicFilterNote) parts.push(topicFilterNote)
 
+  const adjustmentsPrompt = formatContextAdjustmentsPrompt(parsedAdjustments)
+  if (adjustmentsPrompt) parts.push(adjustmentsPrompt)
+
   parts.push(formatModuleContextForPrompt(modulesForPrompt))
   parts.push(formatCrossModuleInsightsForPrompt(crossForPrompt))
   if (currentModule) parts.push(`CURRENT MODULE: ${currentModule}`)
@@ -296,6 +349,20 @@ export async function assembleAIContext(
 
   const systemContext = parts.filter(Boolean).join('\n\n')
   const sourceChips = buildAdvisorSourceChips(moduleContext ?? [], modulesIncluded)
+  const moduleOrder = modulesForPrompt.map((m) => m.moduleId)
+  const evidence = buildAdvisorEvidence({
+    filterResult,
+    allModuleContext: moduleContext ?? [],
+    modulesForPrompt,
+    modulesIncluded: modulesIncluded ?? [],
+    moduleOrder,
+    topicFilterApplied,
+    layersIncluded: [...new Set(layers)],
+    usedCache,
+    cacheAgeHours,
+    contextAdjustments,
+    appliedAdjustments: parsedAdjustments?.promptLines,
+  })
 
   return {
     systemContext,
@@ -305,5 +372,6 @@ export async function assembleAIContext(
     modulesIncluded,
     topicFilterApplied,
     sourceChips,
+    evidence,
   }
 }
