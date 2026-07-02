@@ -78,6 +78,7 @@ export async function POST(req: Request) {
       id: string
       action_type: string
       preview: string
+      payload: Record<string, unknown>
       sort_order: number
     }> = []
 
@@ -110,6 +111,7 @@ export async function POST(req: Request) {
           actionType as 'create_goal' | 'create_project' | 'create_task' | 'create_habit',
           payload as Record<string, unknown>
         ),
+        payload: payload as Record<string, unknown>,
         sort_order: sortOrder,
       })
       sortOrder += 1

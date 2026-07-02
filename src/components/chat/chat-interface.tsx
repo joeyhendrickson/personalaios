@@ -20,6 +20,8 @@ import {
 import { useVoiceSessionAudio } from '@/lib/voice/use-voice-session-audio'
 import { detectDashboardIntent } from '@/lib/assistant/detect-dashboard-intent'
 import { detectCompletionIntent } from '@/lib/assistant/detect-completion-intent'
+import { DashboardProposalCard } from '@/components/chat/dashboard-proposal-card'
+import { buildProposalDisplayModel } from '@/lib/assistant/proposal-display'
 import {
   pauseWakeWordListener,
   resumeWakeWordListener,
@@ -31,6 +33,7 @@ import type { AdvisorEvidence } from '@/types/advisor-evidence'
 import {
   Send,
   Plus,
+  LayoutDashboard,
   Calendar,
   Clock,
   Heart,
@@ -85,7 +88,7 @@ const WELCOME_MESSAGE: ChatMessage = {
 
 • Plan your day and prioritize tasks based on your goals
 • Analyze your progress and suggest improvements
-• Turn a conversation into linked goals, projects, tasks, and habits — ask me to add them to your dashboard, then confirm the proposal cards (nothing is saved until you tap Confirm & Add).
+• Turn a conversation into linked goals, projects, tasks, and habits — discuss what you want, then tap Add to Dashboard to generate proposal cards for each section. Nothing is saved until you confirm each card.
 • Mark tasks or habits complete — say "I finished [name]" and confirm the completion card.
 • Focus on specific areas like "Good Living" or "Enjoyment"
 • Track your habits, education, and priorities
@@ -113,6 +116,7 @@ type DashboardProposal = {
     | 'complete_task'
     | 'complete_habit'
   preview: string
+  payload?: Record<string, unknown>
   sort_order: number
 }
 
@@ -842,6 +846,7 @@ export function ChatInterface({
         id: string
         action_type: 'complete_task' | 'complete_habit'
         preview: string
+        payload?: Record<string, unknown>
       }>
 
       if (proposals.length > 0) {
@@ -851,6 +856,7 @@ export function ChatInterface({
             id: p.id,
             action_type: p.action_type,
             preview: p.preview,
+            payload: p.payload,
             sort_order: 0,
           })),
         ])
@@ -942,14 +948,26 @@ export function ChatInterface({
         setDashboardPlan({
           planGroupId: payload.planGroupId,
           summary: payload.summary,
-          proposals: payload.proposals,
+          proposals: (payload.proposals as DashboardProposal[]) || [],
         })
+        const proposalList = (payload.proposals as DashboardProposal[]) || []
+        const sectionCounts = proposalList.reduce(
+          (acc, p) => {
+            const key = buildProposalDisplayModel(p.action_type, p.payload || {}).sectionTitle
+            acc[key] = (acc[key] || 0) + 1
+            return acc
+          },
+          {} as Record<string, number>
+        )
+        const sectionSummary = Object.entries(sectionCounts)
+          .map(([section, count]) => `${count} ${section}`)
+          .join(', ')
         setMessages((prev) => [
           ...prev,
           {
             id: Date.now().toString(),
             role: 'assistant',
-            content: `${payload.summary}\n\nReview each item below — including habits for your Habits section. Use Confirm & Add on each item, or Confirm all. Nothing is saved until you confirm.`,
+            content: `${payload.summary}\n\nProposal cards are ready (${sectionSummary}). Review each card below — it shows the dashboard section and exactly what will be added. Tap the button on each card to add it, or use Confirm all. Nothing is saved until you confirm.`,
           },
         ])
       } else {
@@ -1938,23 +1956,18 @@ export function ChatInterface({
             {onboardingActive && goalProposals.length > 0 && (
               <div className="space-y-3">
                 {goalProposals.map((p) => (
-                  <div key={p.id} className="bg-gray-50 border rounded-lg p-4">
-                    <div className="text-sm whitespace-pre-wrap text-gray-900">{p.preview}</div>
-                    <div className="mt-3 flex gap-2">
-                      <Button disabled={isLoading} onClick={() => void commitGoalProposal(p.id)}>
-                        Confirm & Add
-                      </Button>
-                      <Button
-                        variant="outline"
-                        disabled={isLoading}
-                        onClick={() =>
-                          setGoalProposals((prev) => prev.filter((x) => x.id !== p.id))
-                        }
-                      >
-                        Skip
-                      </Button>
-                    </div>
-                  </div>
+                  <DashboardProposalCard
+                    key={p.id}
+                    proposal={{
+                      id: p.id,
+                      action_type: 'create_goal',
+                      preview: p.preview,
+                      payload: p.payload,
+                    }}
+                    disabled={isLoading}
+                    onConfirm={(id) => void commitGoalProposal(id)}
+                    onSkip={(id) => setGoalProposals((prev) => prev.filter((x) => x.id !== id))}
+                  />
                 ))}
               </div>
             )}
@@ -1963,7 +1976,8 @@ export function ChatInterface({
               <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-4 space-y-3">
                 <div className="text-sm font-medium text-emerald-950">Confirm completion</div>
                 <p className="text-sm text-emerald-900">
-                  Review each match below. Nothing is marked complete until you confirm.
+                  Each card shows which dashboard section will be updated. Nothing changes until you
+                  confirm.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -1984,42 +1998,27 @@ export function ChatInterface({
                   </Button>
                 </div>
                 {pendingActionProposals.map((p) => (
-                  <div key={p.id} className="rounded-lg border bg-white p-3">
-                    <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-                      {p.action_type === 'complete_habit' ? 'habit' : 'task'}
-                    </div>
-                    <div className="text-sm whitespace-pre-wrap text-gray-900">{p.preview}</div>
-                    <div className="mt-3 flex gap-2">
-                      <Button
-                        size="sm"
-                        disabled={isLoading}
-                        className="touch-manipulation"
-                        onClick={() => void commitProposalById(p.id)}
-                      >
-                        Confirm
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isLoading}
-                        onClick={() =>
-                          setPendingActionProposals((prev) => prev.filter((x) => x.id !== p.id))
-                        }
-                      >
-                        Skip
-                      </Button>
-                    </div>
-                  </div>
+                  <DashboardProposalCard
+                    key={p.id}
+                    proposal={p}
+                    disabled={isLoading}
+                    onConfirm={(id) => void commitProposalById(id)}
+                    onSkip={(id) =>
+                      setPendingActionProposals((prev) => prev.filter((x) => x.id !== id))
+                    }
+                  />
                 ))}
               </div>
             )}
 
             {dashboardPlan && dashboardPlan.proposals.length > 0 && (
               <div className="rounded-lg border border-blue-200 bg-blue-50/80 p-4 space-y-3">
-                <div className="text-sm font-medium text-blue-950">
-                  Dashboard plan (review before adding)
-                </div>
+                <div className="text-sm font-medium text-blue-950">Dashboard proposals</div>
                 <p className="text-sm text-blue-900 whitespace-pre-wrap">{dashboardPlan.summary}</p>
+                <p className="text-xs text-blue-800">
+                  Each card lists the dashboard section (Goals, Projects, Tasks, Habits, or
+                  Education) and the fields that will be added. Nothing is saved until you confirm.
+                </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
@@ -2039,39 +2038,22 @@ export function ChatInterface({
                   </Button>
                 </div>
                 {dashboardPlan.proposals.map((p) => (
-                  <div key={p.id} className="rounded-lg border bg-white p-3">
-                    <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-                      {p.action_type.replace('create_', '')}
-                    </div>
-                    <div className="text-sm whitespace-pre-wrap text-gray-900">{p.preview}</div>
-                    <div className="mt-3 flex gap-2">
-                      <Button
-                        size="sm"
-                        disabled={isLoading}
-                        className="touch-manipulation"
-                        onClick={() => void commitProposalById(p.id)}
-                      >
-                        Confirm & Add
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isLoading}
-                        onClick={() =>
-                          setDashboardPlan((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  proposals: prev.proposals.filter((x) => x.id !== p.id),
-                                }
-                              : null
-                          )
-                        }
-                      >
-                        Skip
-                      </Button>
-                    </div>
-                  </div>
+                  <DashboardProposalCard
+                    key={p.id}
+                    proposal={p}
+                    disabled={isLoading}
+                    onConfirm={(id) => void commitProposalById(id)}
+                    onSkip={(id) =>
+                      setDashboardPlan((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              proposals: prev.proposals.filter((x) => x.id !== id),
+                            }
+                          : null
+                      )
+                    }
+                  />
                 ))}
               </div>
             )}
@@ -2096,6 +2078,25 @@ export function ChatInterface({
 
           {/* Quick Actions */}
           <div className="p-6 border-t bg-gray-50">
+            {!onboardingActive && (
+              <div className="mb-3">
+                <Button
+                  type="button"
+                  variant="default"
+                  disabled={isLoading || messages.filter((m) => m.role === 'user').length === 0}
+                  className="w-full h-11 touch-manipulation bg-blue-600 hover:bg-blue-700"
+                  onClick={() => void generateDashboardPlanFromChat()}
+                >
+                  <LayoutDashboard className="mr-2 h-4 w-4" />
+                  Add to Dashboard
+                </Button>
+                <p className="mt-1.5 text-xs text-gray-600 text-center">
+                  Build proposal cards from this conversation — Goals, Projects, Tasks, Habits, or
+                  Education. Review each card before anything is saved.
+                </p>
+              </div>
+            )}
+
             {/* Voice session */}
             <div className="mb-3">
               <VoiceSessionControl

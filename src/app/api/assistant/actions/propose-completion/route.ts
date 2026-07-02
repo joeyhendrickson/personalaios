@@ -60,6 +60,7 @@ export async function POST(req: Request) {
       id: string
       action_type: 'complete_task' | 'complete_habit'
       preview: string
+      payload: Record<string, unknown>
       title: string
       score: number
     }> = []
@@ -88,6 +89,7 @@ export async function POST(req: Request) {
         id: data.id as string,
         action_type: actionType,
         preview: formatProposalPreview(actionType, payload),
+        payload,
         title: match.title,
         score: match.score,
       })
