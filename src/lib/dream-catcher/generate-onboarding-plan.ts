@@ -246,6 +246,7 @@ export function buildFallbackPlan(input: DreamCatcherAssessmentInput): Onboardin
       type: 'create_education_item',
       title: edu.title.slice(0, 255),
       description: edu.description,
+      points_value: 100,
       priority_level: edu.priority_level ?? 3,
       target_date: edu.target_date ?? null,
     })

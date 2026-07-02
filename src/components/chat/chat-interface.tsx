@@ -1126,9 +1126,10 @@ export function ChatInterface({
           },
         ]
 
-    const completionNotePromise = options?.skipUserMessage
-      ? Promise.resolve({ proposalCount: 0 })
-      : proposeCompletionFromMessage(trimmed)
+    const completionNotePromise: Promise<{ note?: string; proposalCount: number }> =
+      options?.skipUserMessage
+        ? Promise.resolve({ proposalCount: 0 })
+        : proposeCompletionFromMessage(trimmed)
     let assistantMessageId: string | null = null
 
     try {

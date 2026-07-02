@@ -3,6 +3,8 @@
  * Four-layer model: static profile, structured state, derived insights, ephemeral
  */
 
+import type { AdvisorEvidence } from '@/types/advisor-evidence'
+
 export interface StaticProfileSummary {
   name?: string
   personalityTraits?: string[]
