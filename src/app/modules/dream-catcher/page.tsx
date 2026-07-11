@@ -1045,42 +1045,42 @@ function DreamCatcherModuleContent() {
       intake: {
         name: 'Quick Intake',
         icon: <User className="h-4 w-4" />,
-        bgClass: 'bg-purple-100',
-        borderClass: 'border-purple-200',
-        borderActiveClass: 'border-purple-300',
-        textClass: 'text-purple-700',
+        bgClass: 'bg-amber-100',
+        borderClass: 'border-amber-200',
+        borderActiveClass: 'border-amber-300',
+        textClass: 'text-amber-800',
       },
       vision: {
         name: 'Vision',
         icon: <Eye className="h-4 w-4" />,
-        bgClass: 'bg-pink-100',
-        borderClass: 'border-pink-200',
-        borderActiveClass: 'border-pink-300',
-        textClass: 'text-pink-700',
+        bgClass: 'bg-sky-100',
+        borderClass: 'border-sky-200',
+        borderActiveClass: 'border-sky-300',
+        textClass: 'text-sky-800',
       },
       goals: {
         name: 'Goals',
         icon: <Target className="h-4 w-4" />,
-        bgClass: 'bg-orange-100',
-        borderClass: 'border-orange-200',
-        borderActiveClass: 'border-orange-300',
-        textClass: 'text-orange-700',
+        bgClass: 'bg-amber-50',
+        borderClass: 'border-amber-200',
+        borderActiveClass: 'border-amber-300',
+        textClass: 'text-amber-800',
       },
       summary: {
         name: 'Life Plan',
         icon: <Sparkles className="h-4 w-4" />,
-        bgClass: 'bg-blue-100',
-        borderClass: 'border-blue-200',
-        borderActiveClass: 'border-blue-300',
-        textClass: 'text-blue-700',
+        bgClass: 'bg-sky-50',
+        borderClass: 'border-sky-200',
+        borderActiveClass: 'border-sky-300',
+        textClass: 'text-sky-800',
       },
       confirm: {
         name: 'Confirm',
         icon: <CheckCircle className="h-4 w-4" />,
-        bgClass: 'bg-green-100',
-        borderClass: 'border-green-200',
-        borderActiveClass: 'border-green-300',
-        textClass: 'text-green-700',
+        bgClass: 'bg-sky-100',
+        borderClass: 'border-sky-200',
+        borderActiveClass: 'border-sky-300',
+        textClass: 'text-sky-800',
       },
     }
     return phases[normalized as keyof typeof phases] || phases.intake
@@ -1093,7 +1093,7 @@ function DreamCatcherModuleContent() {
   )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-sky-50">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200">
         <div className="container mx-auto px-6 py-6">

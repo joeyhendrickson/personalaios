@@ -7,25 +7,36 @@
   --gold-foreground: 0 0% 0%;
   --gold-muted: 43 45% 38%;
   --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
+  --foreground: 0 0% 4%;
   --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
+  --card-foreground: 0 0% 4%;
   --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
-  --primary: 240 9% 9%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 240 4.8% 95.9%;
-  --secondary-foreground: 240 5.9% 10%;
-  --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 46.1%;
-  --accent: 240 4.8% 95.9%;
-  --accent-foreground: 240 5.9% 10%;
-  --destructive: 0 84.2% 60.2%;
+  --popover-foreground: 0 0% 4%;
+  --primary: 43 76% 52%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 43 20% 96%;
+  --secondary-foreground: 0 0% 4%;
+  --muted: 204 30% 96%;
+  --muted-foreground: 0 0% 40%;
+  --accent: 204 100% 97%;
+  --accent-foreground: 0 0% 4%;
+  --destructive: 0 0% 15%;
   --destructive-foreground: 0 0% 98%;
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
-  --ring: 240 10% 3.9%;
+  --border: 43 18% 88%;
+  --input: 43 12% 90%;
+  --ring: 43 76% 52%;
   --radius: 0.5rem;
+  --brand-blue-50: 204 100% 97%;
+  --brand-blue-100: 204 94% 94%;
+  --brand-blue-200: 204 90% 85%;
+  --brand-blue-600: 204 80% 38%;
+  --brand-blue-700: 204 75% 30%;
+  --brand-blue-800: 204 70% 24%;
+  --brand-gold-50: 43 60% 96%;
+  --brand-gold-100: 43 55% 90%;
+  --brand-gold-200: 43 45% 82%;
+  --brand-gold-600: 43 76% 38%;
+  --brand-gold-700: 43 70% 32%;
 }
 
 .dark {
@@ -1481,4 +1492,250 @@ body {
 
 .advisor-chat-message-body em {
   font-style: italic;
+}
+
+/* ---------------------------------------------------------------------------
+ * LifeStacks brand palette (light mode): black, gold, light blue.
+ * Remaps legacy green/purple/orange/red utility classes app-wide.
+ * ------------------------------------------------------------------------- */
+
+.bg-green-50,
+.bg-green-50\/30,
+.bg-green-50\/40,
+.bg-green-50\/50,
+.bg-green-50\/70,
+.bg-emerald-50,
+.bg-emerald-50\/30,
+.bg-emerald-100 {
+  background-color: hsl(var(--brand-blue-50)) !important;
+}
+
+.bg-green-100,
+.bg-green-200,
+.bg-emerald-100,
+.bg-emerald-200 {
+  background-color: hsl(var(--brand-blue-100)) !important;
+}
+
+.border-green-100,
+.border-green-200,
+.border-green-300,
+.border-green-400,
+.border-green-500,
+.border-emerald-100,
+.border-emerald-200,
+.border-emerald-300 {
+  border-color: hsl(var(--brand-blue-200)) !important;
+}
+
+.text-green-400,
+.text-green-500,
+.text-green-600,
+.text-green-700,
+.text-green-800,
+.text-green-900,
+.text-emerald-600,
+.text-emerald-700,
+.text-emerald-800,
+.text-emerald-900 {
+  color: hsl(var(--brand-blue-700)) !important;
+}
+
+.bg-purple-50,
+.bg-purple-50\/30,
+.bg-purple-50\/40,
+.bg-purple-50\/50,
+.bg-pink-50,
+.bg-pink-100 {
+  background-color: hsl(var(--brand-gold-50)) !important;
+}
+
+.bg-purple-100,
+.bg-purple-200,
+.bg-pink-200 {
+  background-color: hsl(var(--brand-gold-100)) !important;
+}
+
+.border-purple-100,
+.border-purple-200,
+.border-purple-300,
+.border-purple-400,
+.border-purple-500,
+.border-pink-200,
+.border-pink-300 {
+  border-color: hsl(var(--brand-gold-200)) !important;
+}
+
+.text-purple-400,
+.text-purple-500,
+.text-purple-600,
+.text-purple-700,
+.text-purple-800,
+.text-purple-900,
+.text-pink-600,
+.text-pink-700,
+.text-pink-800 {
+  color: hsl(var(--brand-gold-700)) !important;
+}
+
+.bg-orange-50,
+.bg-orange-100,
+.bg-orange-200,
+.bg-amber-50,
+.bg-amber-50\/30,
+.bg-amber-50\/40,
+.bg-amber-50\/50,
+.bg-amber-50\/70,
+.bg-amber-100,
+.bg-amber-200,
+.bg-yellow-50,
+.bg-yellow-100,
+.bg-yellow-200 {
+  background-color: hsl(var(--brand-gold-50)) !important;
+}
+
+.border-orange-100,
+.border-orange-200,
+.border-orange-300,
+.border-orange-400,
+.border-amber-100,
+.border-amber-200,
+.border-amber-300,
+.border-yellow-200,
+.border-yellow-400 {
+  border-color: hsl(var(--brand-gold-200)) !important;
+}
+
+.text-orange-400,
+.text-orange-500,
+.text-orange-600,
+.text-orange-700,
+.text-orange-800,
+.text-amber-600,
+.text-amber-700,
+.text-amber-800,
+.text-amber-900,
+.text-amber-950,
+.text-yellow-600,
+.text-yellow-700,
+.text-yellow-800 {
+  color: hsl(var(--brand-gold-700)) !important;
+}
+
+.bg-red-50,
+.bg-red-50\/30,
+.bg-red-100,
+.bg-red-200 {
+  background-color: hsl(0 0% 96%) !important;
+}
+
+.border-red-100,
+.border-red-200,
+.border-red-300,
+.border-red-400,
+.border-red-500 {
+  border-color: hsl(0 0% 80%) !important;
+}
+
+.text-red-400,
+.text-red-500,
+.text-red-600,
+.text-red-700,
+.text-red-800,
+.text-red-900 {
+  color: hsl(0 0% 25%) !important;
+}
+
+.bg-green-500,
+.bg-green-600,
+.bg-green-700,
+.bg-emerald-500,
+.bg-emerald-600,
+.bg-purple-500,
+.bg-purple-600,
+.bg-purple-700,
+.bg-orange-500,
+.bg-orange-600,
+.bg-red-500,
+.bg-red-600,
+.bg-red-700 {
+  background-color: hsl(0 0% 9%) !important;
+  color: hsl(0 0% 100%) !important;
+}
+
+.h-1.bg-green-500,
+.h-1\.5.bg-green-500,
+.h-2.bg-green-500,
+.h-3.bg-green-500,
+.bg-green-500.h-2,
+.bg-green-500.rounded-full,
+.project-progress-fill.bg-green-500,
+.bg-green-500.border-green-500 {
+  background-color: hsl(204 80% 48%) !important;
+}
+
+.border-green-500:not(.bg-green-500) {
+  border-color: hsl(204 80% 48%) !important;
+}
+
+.hover\:bg-green-50:hover,
+.hover\:bg-green-100:hover,
+.hover\:bg-green-200:hover,
+.hover\:bg-emerald-50:hover,
+.hover\:bg-emerald-100:hover {
+  background-color: hsl(var(--brand-blue-100)) !important;
+}
+
+.hover\:bg-green-600:hover,
+.hover\:bg-green-700:hover,
+.hover\:bg-emerald-700:hover,
+.hover\:bg-purple-600:hover,
+.hover\:bg-purple-700:hover,
+.hover\:bg-orange-600:hover,
+.hover\:bg-red-50:hover,
+.hover\:bg-red-100:hover,
+.hover\:bg-red-200:hover {
+  background-color: hsl(0 0% 15%) !important;
+}
+
+.hover\:bg-purple-50:hover,
+.hover\:bg-purple-100:hover,
+.hover\:bg-amber-50:hover,
+.hover\:bg-amber-100:hover,
+.hover\:bg-orange-200:hover {
+  background-color: hsl(var(--brand-gold-100)) !important;
+}
+
+.hover\:text-green-600:hover,
+.hover\:text-green-700:hover,
+.hover\:text-green-800:hover,
+.hover\:text-emerald-600:hover {
+  color: hsl(var(--brand-blue-800)) !important;
+}
+
+.hover\:text-purple-600:hover,
+.hover\:text-purple-700:hover,
+.hover\:text-purple-800:hover,
+.hover\:text-amber-700:hover {
+  color: hsl(var(--brand-gold-600)) !important;
+}
+
+.hover\:text-red-600:hover,
+.hover\:text-red-700:hover,
+.hover\:text-red-800:hover {
+  color: hsl(0 0% 9%) !important;
+}
+
+.hover\:border-green-400:hover {
+  border-color: hsl(204 80% 48%) !important;
+}
+
+.from-purple-50.via-pink-50.to-blue-50 {
+  --tw-gradient-from: hsl(var(--brand-gold-50)) var(--tw-gradient-from-position) !important;
+  --tw-gradient-via: hsl(0 0% 100%) var(--tw-gradient-via-position) !important;
+  --tw-gradient-to: hsl(var(--brand-blue-50)) var(--tw-gradient-to-position) !important;
+}
+
+.text-purple-100 {
+  color: hsl(43 40% 90%) !important;
 }

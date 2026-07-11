@@ -26,12 +26,12 @@ const SECTION_STYLES: Record<
   DashboardSectionKey | 'completion',
   { badge: string; icon: typeof Target }
 > = {
-  goals: { badge: 'bg-red-100 text-red-800 border-red-200', icon: Target },
-  projects: { badge: 'bg-green-100 text-green-800 border-green-200', icon: LayoutList },
-  tasks: { badge: 'bg-blue-100 text-blue-800 border-blue-200', icon: CheckSquare },
-  habits: { badge: 'bg-purple-100 text-purple-800 border-purple-200', icon: Repeat },
+  goals: { badge: 'bg-amber-100 text-amber-900 border-amber-200', icon: Target },
+  projects: { badge: 'bg-sky-100 text-sky-800 border-sky-200', icon: LayoutList },
+  tasks: { badge: 'bg-sky-50 text-sky-700 border-sky-200', icon: CheckSquare },
+  habits: { badge: 'bg-amber-50 text-amber-800 border-amber-200', icon: Repeat },
   education: { badge: 'bg-amber-100 text-amber-900 border-amber-200', icon: GraduationCap },
-  completion: { badge: 'bg-emerald-100 text-emerald-900 border-emerald-200', icon: CheckSquare },
+  completion: { badge: 'bg-sky-100 text-sky-800 border-sky-200', icon: CheckSquare },
 }
 
 function payloadFromPreview(

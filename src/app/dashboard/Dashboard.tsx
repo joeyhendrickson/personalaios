@@ -1803,13 +1803,13 @@ export default function Dashboard() {
       {trialUser && <TrialStatusBanner email={trialUser.email} />}
 
       {showLifePlanWelcome && (
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+        <div className="bg-gradient-to-r from-black to-primary text-primary-foreground">
           <div className="container mx-auto px-6 py-4 flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
               <CheckCircle className="h-6 w-6 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold">Your Life Plan is ready</p>
-                <p className="text-sm text-purple-100 mt-1">
+                <p className="text-sm opacity-90 mt-1">
                   Goals, projects, tasks, habits, and education are below. Fitness, gratitude,
                   relationships, and focus ruminations were added to their modules — explore them
                   from Modules when you are ready.
@@ -1819,7 +1819,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setShowLifePlanWelcome(false)}
-              className="text-white/80 hover:text-white flex-shrink-0"
+              className="opacity-80 hover:opacity-100 flex-shrink-0"
               aria-label="Dismiss"
             >
               <X className="h-5 w-5" />
