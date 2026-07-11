@@ -33,12 +33,6 @@ import {
 } from '@/lib/dream-catcher/streamlined-phases'
 import type { OnboardingPlan } from '@/lib/dream-catcher/generate-onboarding-plan'
 import type { DashboardPlanPreview } from '@/lib/dream-catcher/dashboard-plan-preview'
-import {
-  LifeStacksCard,
-  LifeStacksCardBody,
-  LifeStacksCardHeader,
-  lifeStacksCardClassName,
-} from '@/components/ui/life-stacks-card'
 
 interface ChatMessage {
   id: string
@@ -1581,217 +1575,214 @@ function DreamCatcherModuleContent() {
 
         {/* Confirmation & dashboard preview */}
         {showConfirmation && assessmentData.goals_generated && (
-          <LifeStacksCard variant="glass" className="mt-8 p-0">
-            <LifeStacksCardHeader>
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-primary/15 rounded-lg border border-primary/25">
-                  <CheckCircle className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-foreground">Confirm Your Life Plan</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {isNewUser
-                      ? 'This creates your starter dashboard and life modules from your answers.'
-                      : 'New items will be added alongside what you already have.'}
-                  </p>
-                </div>
+          <div className="mt-8 bg-white/90 backdrop-blur-sm rounded-lg border border-green-200 p-6 shadow-lg">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-3 bg-green-100 rounded-lg">
+                <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
-            </LifeStacksCardHeader>
-            <LifeStacksCardBody className="pt-0">
-              {(assessmentData.life_plan_summary || dashboardPreview?.life_plan_summary) && (
-                <LifeStacksCard variant="accent" className="mb-4 p-4">
-                  <h3 className="font-semibold text-foreground mb-2 flex items-center">
-                    <Sparkles className="h-4 w-4 mr-2 text-primary" />
-                    Your Life Plan Summary
-                  </h3>
-                  <p className="text-muted-foreground whitespace-pre-wrap text-sm leading-relaxed">
-                    {assessmentData.life_plan_summary || dashboardPreview?.life_plan_summary}
-                  </p>
-                </LifeStacksCard>
-              )}
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Confirm Your Life Plan</h2>
+                <p className="text-sm text-gray-600">
+                  {isNewUser
+                    ? 'This creates your starter dashboard and life modules from your answers.'
+                    : 'New items will be added alongside what you already have.'}
+                </p>
+              </div>
+            </div>
 
-              {assessmentData.vision_statement && (
-                <LifeStacksCard variant="muted" className="mb-4 p-4">
-                  <h3 className="font-semibold text-foreground mb-1">Vision</h3>
-                  <p className="text-muted-foreground italic">
-                    &ldquo;{assessmentData.vision_statement}&rdquo;
-                  </p>
-                </LifeStacksCard>
-              )}
+            {(assessmentData.life_plan_summary || dashboardPreview?.life_plan_summary) && (
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="font-semibold text-gray-900 mb-2 flex items-center">
+                  <Sparkles className="h-4 w-4 mr-2 text-blue-600" />
+                  Your Life Plan Summary
+                </h3>
+                <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
+                  {assessmentData.life_plan_summary || dashboardPreview?.life_plan_summary}
+                </p>
+              </div>
+            )}
 
-              {isLoadingPreview && (
-                <div className="flex items-center gap-2 text-sm text-gray-600 py-8 justify-center">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Building your Life Plan preview...
-                </div>
-              )}
+            {assessmentData.vision_statement && (
+              <div className="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <h3 className="font-semibold text-gray-900 mb-1">Vision</h3>
+                <p className="text-gray-700 italic">
+                  &ldquo;{assessmentData.vision_statement}&rdquo;
+                </p>
+              </div>
+            )}
 
-              {previewError && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                  {previewError}
-                  <button
-                    type="button"
-                    onClick={() => void loadDashboardPreview(assessmentData)}
-                    className="ml-2 underline"
-                  >
-                    Retry
-                  </button>
-                </div>
-              )}
+            {isLoadingPreview && (
+              <div className="flex items-center gap-2 text-sm text-gray-600 py-8 justify-center">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Building your Life Plan preview...
+              </div>
+            )}
 
-              {dashboardPreview && (
-                <>
-                  <p className="text-sm text-gray-700 mb-4">{dashboardPreview.summary}</p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    {[
-                      { label: 'Goals', count: dashboardPreview.totals.goals },
-                      { label: 'Projects', count: dashboardPreview.totals.projects },
-                      { label: 'Tasks', count: dashboardPreview.totals.tasks },
-                      { label: 'Habits', count: dashboardPreview.totals.habits },
-                      { label: 'Education', count: dashboardPreview.totals.education },
-                      { label: 'Fitness', count: dashboardPreview.totals.fitness_goals },
-                      { label: 'Focus', count: dashboardPreview.totals.ruminations },
-                      { label: 'People', count: dashboardPreview.totals.relationships },
-                    ].map((stat) => (
-                      <div
-                        key={stat.label}
-                        className={lifeStacksCardClassName('muted', 'text-center p-3')}
-                      >
-                        <div className="text-2xl font-bold text-primary">{stat.count}</div>
-                        <div className="text-xs text-muted-foreground">{stat.label}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 max-h-96 overflow-y-auto">
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Goals</h4>
-                      <ul className="space-y-1 text-sm text-gray-700">
-                        {dashboardPreview.goals.map((g, i) => (
-                          <li key={i} className="border-b border-gray-100 pb-1">
-                            {g.title}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Projects & tasks</h4>
-                      <ul className="space-y-1 text-sm text-gray-700">
-                        {dashboardPreview.projects.slice(0, 5).map((p, i) => (
-                          <li key={i} className="border-b border-gray-100 pb-1">
-                            {p.title}
-                          </li>
-                        ))}
-                        {dashboardPreview.tasks.slice(0, 3).map((t, i) => (
-                          <li key={`t-${i}`} className="text-xs text-gray-500 pl-2">
-                            → {t.title}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Daily habits</h4>
-                      <ul className="space-y-1 text-sm text-gray-700">
-                        {dashboardPreview.habits.map((h, i) => (
-                          <li key={i} className="border-b border-gray-100 pb-1">
-                            {h.title}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    {dashboardPreview.education.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-2">Education</h4>
-                        <ul className="space-y-1 text-sm text-gray-700">
-                          {dashboardPreview.education.map((e, i) => (
-                            <li key={i} className="border-b border-gray-100 pb-1">
-                              {e.title}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {dashboardPreview.fitness_goals.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-2">Fitness goals</h4>
-                        <ul className="space-y-1 text-sm text-gray-700">
-                          {dashboardPreview.fitness_goals.map((f, i) => (
-                            <li key={i} className="border-b border-gray-100 pb-1">
-                              {f.description || f.goal_type}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {dashboardPreview.ruminations.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-2">Focus ruminations</h4>
-                        <ul className="space-y-1 text-sm text-gray-700">
-                          {dashboardPreview.ruminations.map((r, i) => (
-                            <li key={i} className="border-b border-gray-100 pb-1">
-                              {r.description}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {dashboardPreview.gratitude.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-2">Gratitude starter</h4>
-                        <ul className="space-y-1 text-sm text-gray-700">
-                          {dashboardPreview.gratitude[0]?.items.map((item, i) => (
-                            <li key={i} className="border-b border-gray-100 pb-1">
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {dashboardPreview.relationships.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-2">Key relationships</h4>
-                        <ul className="space-y-1 text-sm text-gray-700">
-                          {dashboardPreview.relationships.map((r, i) => (
-                            <li key={i} className="border-b border-gray-100 pb-1">
-                              {r.name}
-                              {r.relationship_type ? ` (${r.relationship_type})` : ''}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              <div className="flex flex-col sm:flex-row gap-3">
+            {previewError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                {previewError}
                 <button
-                  onClick={handleAutofillDashboard}
-                  disabled={isAutofilling || isLoadingPreview || !dashboardPreview}
-                  className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50"
+                  type="button"
+                  onClick={() => void loadDashboardPreview(assessmentData)}
+                  className="ml-2 underline"
                 >
-                  {isAutofilling ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      <span>Setting up your dashboard...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-5 w-5" />
-                      <span>Confirm & Setup My Dashboard</span>
-                    </>
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {dashboardPreview && (
+              <>
+                <p className="text-sm text-gray-700 mb-4">{dashboardPreview.summary}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  {[
+                    { label: 'Goals', count: dashboardPreview.totals.goals },
+                    { label: 'Projects', count: dashboardPreview.totals.projects },
+                    { label: 'Tasks', count: dashboardPreview.totals.tasks },
+                    { label: 'Habits', count: dashboardPreview.totals.habits },
+                    { label: 'Education', count: dashboardPreview.totals.education },
+                    { label: 'Fitness', count: dashboardPreview.totals.fitness_goals },
+                    { label: 'Focus', count: dashboardPreview.totals.ruminations },
+                    { label: 'People', count: dashboardPreview.totals.relationships },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="text-center p-3 bg-gray-50 rounded-lg border border-gray-200"
+                    >
+                      <div className="text-2xl font-bold text-purple-700">{stat.count}</div>
+                      <div className="text-xs text-gray-600">{stat.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 max-h-96 overflow-y-auto">
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Goals</h4>
+                    <ul className="space-y-1 text-sm text-gray-700">
+                      {dashboardPreview.goals.map((g, i) => (
+                        <li key={i} className="border-b border-gray-100 pb-1">
+                          {g.title}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Projects & tasks</h4>
+                    <ul className="space-y-1 text-sm text-gray-700">
+                      {dashboardPreview.projects.slice(0, 5).map((p, i) => (
+                        <li key={i} className="border-b border-gray-100 pb-1">
+                          {p.title}
+                        </li>
+                      ))}
+                      {dashboardPreview.tasks.slice(0, 3).map((t, i) => (
+                        <li key={`t-${i}`} className="text-xs text-gray-500 pl-2">
+                          → {t.title}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Daily habits</h4>
+                    <ul className="space-y-1 text-sm text-gray-700">
+                      {dashboardPreview.habits.map((h, i) => (
+                        <li key={i} className="border-b border-gray-100 pb-1">
+                          {h.title}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  {dashboardPreview.education.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Education</h4>
+                      <ul className="space-y-1 text-sm text-gray-700">
+                        {dashboardPreview.education.map((e, i) => (
+                          <li key={i} className="border-b border-gray-100 pb-1">
+                            {e.title}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
-                </button>
-                <button
-                  onClick={handleSaveDreams}
-                  disabled={isAutofilling}
-                  className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Save for later
-                </button>
-              </div>
-            </LifeStacksCardBody>
-          </LifeStacksCard>
+                  {dashboardPreview.fitness_goals.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Fitness goals</h4>
+                      <ul className="space-y-1 text-sm text-gray-700">
+                        {dashboardPreview.fitness_goals.map((f, i) => (
+                          <li key={i} className="border-b border-gray-100 pb-1">
+                            {f.description || f.goal_type}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {dashboardPreview.ruminations.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Focus ruminations</h4>
+                      <ul className="space-y-1 text-sm text-gray-700">
+                        {dashboardPreview.ruminations.map((r, i) => (
+                          <li key={i} className="border-b border-gray-100 pb-1">
+                            {r.description}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {dashboardPreview.gratitude.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Gratitude starter</h4>
+                      <ul className="space-y-1 text-sm text-gray-700">
+                        {dashboardPreview.gratitude[0]?.items.map((item, i) => (
+                          <li key={i} className="border-b border-gray-100 pb-1">
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {dashboardPreview.relationships.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Key relationships</h4>
+                      <ul className="space-y-1 text-sm text-gray-700">
+                        {dashboardPreview.relationships.map((r, i) => (
+                          <li key={i} className="border-b border-gray-100 pb-1">
+                            {r.name}
+                            {r.relationship_type ? ` (${r.relationship_type})` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleAutofillDashboard}
+                disabled={isAutofilling || isLoadingPreview || !dashboardPreview}
+                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors font-medium flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50"
+              >
+                {isAutofilling ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Setting up your dashboard...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-5 w-5" />
+                    <span>Confirm & Setup My Dashboard</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleSaveDreams}
+                disabled={isAutofilling}
+                className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Save for later
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Life Plan summary — shown during summary phase before confirm */}

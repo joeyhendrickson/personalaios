@@ -36,7 +36,6 @@ import {
   LogOut,
   User,
   Receipt,
-  LayoutGrid,
 } from 'lucide-react'
 import Link from 'next/link'
 import { openLifestacksAdvisor } from '@/lib/voice/advisor-events'
@@ -74,17 +73,6 @@ import { useAdminAuth } from '@/hooks/use-admin-auth'
 import { useGuardedAsync } from '@/hooks/use-guarded-async'
 import { parseIntFromForm } from '@/lib/form/numeric-input'
 import { ExpandableDescription } from '@/components/ui/expandable-description'
-import { lifeStacksCardClassName } from '@/components/ui/life-stacks-card'
-import { useDashboardLayout } from '@/hooks/use-dashboard-layout'
-import {
-  shouldShowDashboardSection,
-  shouldShowModulesHub,
-  shouldShowTodayStats,
-  shouldShowVisionSection,
-  type DashboardHomeSection,
-} from '@/lib/dashboard/dashboard-layout'
-import { DashboardHomeTabBar } from '@/components/dashboard/dashboard-home-tab-bar'
-import { DashboardModulesHub } from '@/components/dashboard/dashboard-modules-hub'
 
 // Type definitions
 
@@ -247,10 +235,12 @@ const CascadingSection = ({
   t,
 }: CascadingSectionProps) => {
   return (
-    <div className={lifeStacksCardClassName('glass', `dashboard-cascade-section ${className}`)}>
+    <div
+      className={`dashboard-cascade-section bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg ${className}`}
+    >
       {/* Title Row - Double Click to Toggle */}
       <div
-        className="dashboard-cascade-header p-6 pb-4 cursor-pointer select-none hover:bg-accent/30 transition-colors duration-200"
+        className="dashboard-cascade-header p-6 pb-4 cursor-pointer select-none hover:bg-gray-50/50 transition-colors duration-200"
         onDoubleClick={onToggle}
         title="Double-click to expand/collapse"
       >
@@ -353,7 +343,6 @@ export default function Dashboard() {
   const { wakeWordEnabled, setWakeWordEnabled, wakeWordSupported } = useChatContext()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { layoutMode, homeTab, setHomeTab, toggleLayoutMode, isOneHome } = useDashboardLayout()
   // Gate brand-new users (empty dashboard, never onboarded) into Dream Catcher
   // instead of showing them a blank dashboard.
   const [onboardingGate, setOnboardingGate] = useState(true)
@@ -438,9 +427,6 @@ export default function Dashboard() {
     accomplishments: true,
     categories: true,
   })
-
-  const showSection = (section: DashboardHomeSection) =>
-    shouldShowDashboardSection(section, layoutMode, homeTab, sectionVisibility)
 
   // State for cascading/accordion functionality
   const [expandedSections, setExpandedSections] = useState({
@@ -1715,17 +1701,6 @@ export default function Dashboard() {
                           {t('nav.modules')}
                         </span>
                       </Link>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          toggleLayoutMode()
-                          setNavMenuOpen(false)
-                        }}
-                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        <LayoutGrid className="h-4 w-4 text-gray-500" />
-                        {isOneHome ? 'Switch to classic layout' : 'Switch to One Home layout'}
-                      </button>
                       <Link href="/bug-report" onClick={() => setNavMenuOpen(false)}>
                         <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-700 hover:bg-red-50">
                           <Bug className="h-4 w-4" />
@@ -1828,13 +1803,13 @@ export default function Dashboard() {
       {trialUser && <TrialStatusBanner email={trialUser.email} />}
 
       {showLifePlanWelcome && (
-        <div className="bg-gradient-to-r from-primary to-foreground text-primary-foreground">
+        <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
           <div className="container mx-auto px-6 py-4 flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
               <CheckCircle className="h-6 w-6 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold">Your Life Plan is ready</p>
-                <p className="text-sm opacity-90 mt-1">
+                <p className="text-sm text-purple-100 mt-1">
                   Goals, projects, tasks, habits, and education are below. Fitness, gratitude,
                   relationships, and focus ruminations were added to their modules — explore them
                   from Modules when you are ready.
@@ -1844,7 +1819,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setShowLifePlanWelcome(false)}
-              className="opacity-80 hover:opacity-100 flex-shrink-0"
+              className="text-white/80 hover:text-white flex-shrink-0"
               aria-label="Dismiss"
             >
               <X className="h-5 w-5" />
@@ -1854,318 +1829,310 @@ export default function Dashboard() {
       )}
 
       <div className="container mx-auto px-6 pt-8 pb-24">
-        {isOneHome && <DashboardHomeTabBar activeTab={homeTab} onTabChange={setHomeTab} />}
-
-        {shouldShowModulesHub(layoutMode, homeTab) && <DashboardModulesHub />}
-
         {/* Vision statement (from Dream Catcher; editable & AI-updatable) */}
-        {shouldShowVisionSection(layoutMode, homeTab) && <VisionSection />}
+        <VisionSection />
 
         {/* Main Stats Row */}
-        {shouldShowTodayStats(layoutMode, homeTab) && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            {/* Daily Points Chart */}
-            <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-sm font-medium text-black">{t('radial.todayPoints')}</p>
-                    <p className="text-2xl font-bold text-black">
-                      {pointsData?.dailyPoints || 0}
-                      {pointsLoading && <span className="text-sm text-blue-400 ml-2">⟳</span>}
-                    </p>
-                    <p className="text-sm text-black mt-1">
-                      {t('radial.weeklyProgress')}: {pointsData?.weeklyPoints || 0}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <BarChart3 className="h-8 w-8 text-blue-400" />
-                    <button
-                      onClick={() => {
-                        setShowPointsDetails(true)
-                        fetchPointsHistory()
-                      }}
-                      className="text-blue-500 hover:text-blue-700 text-sm"
-                      title="View Details & Settings"
-                    >
-                      <Settings className="h-4 w-4" />
-                    </button>
-                  </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {/* Daily Points Chart */}
+          <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm font-medium text-black">{t('radial.todayPoints')}</p>
+                  <p className="text-2xl font-bold text-black">
+                    {pointsData?.dailyPoints || 0}
+                    {pointsLoading && <span className="text-sm text-blue-400 ml-2">⟳</span>}
+                  </p>
+                  <p className="text-sm text-black mt-1">
+                    {t('radial.weeklyProgress')}: {pointsData?.weeklyPoints || 0}
+                  </p>
                 </div>
-                <div className="flex justify-center">
-                  <div className="flex items-end space-x-1 h-12">
-                    {pointsData?.dailyBreakdown?.map((day, index) => {
-                      const maxPoints = Math.max(
-                        ...(pointsData.dailyBreakdown?.map((d) => d.points) || [1])
-                      )
-                      const height = maxPoints > 0 ? (day.points / maxPoints) * 100 : 0
-                      const isToday = isClient && day.dayName === currentDayName
-                      return (
-                        <div
-                          key={index}
-                          className={`rounded-t relative group ${isToday ? 'bg-blue-500' : 'bg-blue-400'}`}
-                          style={{
-                            width: '8px',
-                            height: `${height}%`,
-                            opacity: 0.7 + (index / 7) * 0.3,
-                          }}
-                          title={`${day.dayName}: ${day.points} points${isToday ? ' (Today)' : ''}`}
-                        />
-                      )
-                    }) ||
-                      [0, 0, 0, 0, 0, 0, 0].map((_, index) => (
-                        <div
-                          key={index}
-                          className="bg-gray-300 rounded-t"
-                          style={{
-                            width: '8px',
-                            height: '10%',
-                            opacity: 0.3,
-                          }}
-                        />
-                      ))}
-                  </div>
+                <div className="flex items-center space-x-2">
+                  <BarChart3 className="h-8 w-8 text-blue-400" />
+                  <button
+                    onClick={() => {
+                      setShowPointsDetails(true)
+                      fetchPointsHistory()
+                    }}
+                    className="text-blue-500 hover:text-blue-700 text-sm"
+                    title="View Details & Settings"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </button>
                 </div>
-                <div className="flex justify-between text-xs text-gray-500 mt-2">
+              </div>
+              <div className="flex justify-center">
+                <div className="flex items-end space-x-1 h-12">
                   {pointsData?.dailyBreakdown?.map((day, index) => {
+                    const maxPoints = Math.max(
+                      ...(pointsData.dailyBreakdown?.map((d) => d.points) || [1])
+                    )
+                    const height = maxPoints > 0 ? (day.points / maxPoints) * 100 : 0
                     const isToday = isClient && day.dayName === currentDayName
+                    return (
+                      <div
+                        key={index}
+                        className={`rounded-t relative group ${isToday ? 'bg-blue-500' : 'bg-blue-400'}`}
+                        style={{
+                          width: '8px',
+                          height: `${height}%`,
+                          opacity: 0.7 + (index / 7) * 0.3,
+                        }}
+                        title={`${day.dayName}: ${day.points} points${isToday ? ' (Today)' : ''}`}
+                      />
+                    )
+                  }) ||
+                    [0, 0, 0, 0, 0, 0, 0].map((_, index) => (
+                      <div
+                        key={index}
+                        className="bg-gray-300 rounded-t"
+                        style={{
+                          width: '8px',
+                          height: '10%',
+                          opacity: 0.3,
+                        }}
+                      />
+                    ))}
+                </div>
+              </div>
+              <div className="flex justify-between text-xs text-gray-500 mt-2">
+                {pointsData?.dailyBreakdown?.map((day, index) => {
+                  const isToday = isClient && day.dayName === currentDayName
+                  return (
+                    <span
+                      key={index}
+                      className={`text-center ${isToday ? 'font-bold text-blue-500' : ''}`}
+                    >
+                      {day.dayName}
+                    </span>
+                  )
+                }) ||
+                  ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => {
+                    const isToday = isClient && day === currentDayName
                     return (
                       <span
                         key={index}
                         className={`text-center ${isToday ? 'font-bold text-blue-500' : ''}`}
                       >
-                        {day.dayName}
+                        {day}
                       </span>
                     )
-                  }) ||
-                    ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => {
-                      const isToday = isClient && day === currentDayName
-                      return (
-                        <span
-                          key={index}
-                          className={`text-center ${isToday ? 'font-bold text-blue-500' : ''}`}
-                        >
-                          {day}
-                        </span>
-                      )
-                    })}
-                </div>
-                <div className="text-center mt-2">
-                  <p className="text-sm text-gray-600">
-                    Daily & Weekly Points ({userTimezone.split('/')[1]})
+                  })}
+              </div>
+              <div className="text-center mt-2">
+                <p className="text-sm text-gray-600">
+                  Daily & Weekly Points ({userTimezone.split('/')[1]})
+                </p>
+              </div>
+
+              {/* Motivational Message */}
+              {(() => {
+                const dailyPoints = pointsData?.dailyPoints || 0
+                let motivation
+                if (dailyPoints >= 500) {
+                  motivation = {
+                    message: t('radial.motivational.incredible'),
+                    emoji: '🚀',
+                    color: 'text-blue-600 bg-blue-50 border-blue-200',
+                  }
+                } else if (dailyPoints >= 300) {
+                  motivation = {
+                    message:
+                      "💪 Excellent progress! You're on fire today. Let's push for 500+ points!",
+                    emoji: '⚡',
+                    color: 'text-blue-600 bg-blue-50 border-blue-200',
+                  }
+                } else if (dailyPoints >= 200) {
+                  motivation = {
+                    message:
+                      "🎯 Great momentum! You're building serious progress. Keep attacking those projects!",
+                    emoji: '🎯',
+                    color: 'text-blue-600 bg-blue-50 border-blue-200',
+                  }
+                } else if (dailyPoints >= 100) {
+                  motivation = {
+                    message:
+                      "🌟 Good start! You're building momentum. Let's push for 300+ points today!",
+                    emoji: '⭐',
+                    color: 'text-blue-600 bg-blue-50 border-blue-200',
+                  }
+                } else if (dailyPoints > 0) {
+                  motivation = {
+                    message:
+                      "🚀 You've started! Every point counts. Let's build this into a productive day!",
+                    emoji: '💫',
+                    color: 'text-blue-600 bg-blue-50 border-blue-200',
+                  }
+                } else {
+                  motivation = {
+                    message: t('ai.readyToMakeTodayCount'),
+                    emoji: '',
+                    color: 'text-gray-600 bg-gray-50 border-gray-200',
+                  }
+                }
+
+                return (
+                  <div className={`mt-4 p-3 rounded-lg border ${motivation.color}`}>
+                    <div className="flex items-center space-x-2">
+                      {motivation.emoji && <span className="text-lg">{motivation.emoji}</span>}
+                      <p className="text-sm font-medium">{motivation.message}</p>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+
+          {/* Combined Project Progress & Recommendations */}
+          <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-black">{t('radial.weeklyProgress')}</p>
+                    <WeeklyTrophyStar />
+                  </div>
+                  <p className="text-2xl font-bold text-black">
+                    {totalCurrentPoints}/{totalTargetPoints}
                   </p>
                 </div>
-
-                {/* Motivational Message */}
-                {(() => {
-                  const dailyPoints = pointsData?.dailyPoints || 0
-                  let motivation
-                  if (dailyPoints >= 500) {
-                    motivation = {
-                      message: t('radial.motivational.incredible'),
-                      emoji: '🚀',
-                      color: 'text-blue-600 bg-blue-50 border-blue-200',
-                    }
-                  } else if (dailyPoints >= 300) {
-                    motivation = {
-                      message:
-                        "💪 Excellent progress! You're on fire today. Let's push for 500+ points!",
-                      emoji: '⚡',
-                      color: 'text-blue-600 bg-blue-50 border-blue-200',
-                    }
-                  } else if (dailyPoints >= 200) {
-                    motivation = {
-                      message:
-                        "🎯 Great momentum! You're building serious progress. Keep attacking those projects!",
-                      emoji: '🎯',
-                      color: 'text-blue-600 bg-blue-50 border-blue-200',
-                    }
-                  } else if (dailyPoints >= 100) {
-                    motivation = {
-                      message:
-                        "🌟 Good start! You're building momentum. Let's push for 300+ points today!",
-                      emoji: '⭐',
-                      color: 'text-blue-600 bg-blue-50 border-blue-200',
-                    }
-                  } else if (dailyPoints > 0) {
-                    motivation = {
-                      message:
-                        "🚀 You've started! Every point counts. Let's build this into a productive day!",
-                      emoji: '💫',
-                      color: 'text-blue-600 bg-blue-50 border-blue-200',
-                    }
-                  } else {
-                    motivation = {
-                      message: t('ai.readyToMakeTodayCount'),
-                      emoji: '',
-                      color: 'text-gray-600 bg-gray-50 border-gray-200',
-                    }
-                  }
-
-                  return (
-                    <div className={`mt-4 p-3 rounded-lg border ${motivation.color}`}>
-                      <div className="flex items-center space-x-2">
-                        {motivation.emoji && <span className="text-lg">{motivation.emoji}</span>}
-                        <p className="text-sm font-medium">{motivation.message}</p>
-                      </div>
-                    </div>
-                  )
-                })()}
-              </div>
-            </div>
-
-            {/* Combined Project Progress & Recommendations */}
-            <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-black">{t('radial.weeklyProgress')}</p>
-                      <WeeklyTrophyStar />
-                    </div>
-                    <p className="text-2xl font-bold text-black">
-                      {totalCurrentPoints}/{totalTargetPoints}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowProgressReportModal(true)}
-                      className="text-blue-500 hover:text-blue-700"
-                      title="Generate progress report"
-                    >
-                      <Settings className="h-4 w-4" />
-                    </button>
-                    <CheckCircle className="h-8 w-8 text-blue-400" />
-                  </div>
-                </div>
-                <div className="flex justify-center mb-4">
-                  <ProgressRing percentage={progressPercentage} size={100} color="#60A5FA" />
-                </div>
-
-                {/* Strategic Recommendations */}
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <Lightbulb className="h-4 w-4 text-blue-400" />
-                    <h4 className="text-sm font-semibold text-black">
-                      {t('radial.strategicInsights')}
-                    </h4>
-                  </div>
-                  {strategicLoading ? (
-                    <div className="text-center py-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mx-auto"></div>
-                      <p className="text-xs text-gray-500 mt-1">Analyzing...</p>
-                    </div>
-                  ) : strategicRecommendation ? (
-                    <div className="bg-gradient-to-r from-blue-50 to-blue-50 rounded-lg p-3 border border-blue-200">
-                      <div className="flex items-start space-x-2">
-                        <div className="bg-blue-400 rounded-full p-1 flex-shrink-0">
-                          <TrendingUp className="h-3 w-3 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
-                              {strategicRecommendation.focusArea}
-                            </span>
-                          </div>
-                          <p className="text-xs text-black leading-relaxed">
-                            {strategicRecommendation.recommendation}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-2">
-                      <Lightbulb className="h-4 w-4 text-gray-400 mx-auto mb-1" />
-                      <p className="text-xs text-gray-500">{t('ai.noInsightsAvailable')}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Task Completion */}
-            <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-sm font-medium text-black">{t('section.tasks')}</p>
-                    <p className="text-2xl font-bold text-black">
-                      {completedTasksCount}/{totalTasks}
-                    </p>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowProgressReportModal(true)}
+                    className="text-blue-500 hover:text-blue-700"
+                    title="Generate progress report"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </button>
                   <CheckCircle className="h-8 w-8 text-blue-400" />
                 </div>
-                <div className="flex justify-center">
-                  <ProgressRing percentage={taskCompletionRate} size={80} color="#60A5FA" />
-                </div>
-
-                {/* Task Advisor */}
-                <TaskAdvisor goals={goals as any} />
               </div>
-            </div>
+              <div className="flex justify-center mb-4">
+                <ProgressRing percentage={progressPercentage} size={100} color="#60A5FA" />
+              </div>
 
-            {/* Visibility Switcher */}
-            <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
-              <div className="p-6">
-                {/* Header with View Stacks, Language Toggle, and Eye Icon */}
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-sm font-medium text-black">
-                      {t('common.view')} {t('common.stacks')}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <ThemeToggle />
-                    <LanguageToggle />
-                    <Eye className="h-6 w-6 text-blue-400" />
-                  </div>
+              {/* Strategic Recommendations */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex items-center space-x-2 mb-3">
+                  <Lightbulb className="h-4 w-4 text-blue-400" />
+                  <h4 className="text-sm font-semibold text-black">
+                    {t('radial.strategicInsights')}
+                  </h4>
                 </div>
-
-                <div className="space-y-2">
-                  {Object.entries(sectionVisibility).map(([section, isVisible]) => (
-                    <button
-                      key={section}
-                      onClick={() =>
-                        toggleSectionVisibility(section as keyof typeof sectionVisibility)
-                      }
-                      className={`w-full flex items-center justify-between p-2 rounded-lg text-xs transition-colors ${
-                        isVisible
-                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                          : 'bg-gray-50 text-gray-500 border border-gray-200'
-                      }`}
-                    >
-                      <span className="capitalize">
-                        {section === 'priorities' && t('section.priorities')}
-                        {section === 'goals' && t('section.goals')}
-                        {section === 'projects' && t('section.projects')}
-                        {section === 'tasks' && t('section.tasks')}
-                        {section === 'habits' && t('section.habits')}
-                        {section === 'education' && t('section.education')}
-                        {section === 'accomplishments' && t('section.recentAccomplishments')}
-                        {section === 'categories' && t('section.categoryProgress')}
-                      </span>
-                      {isVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-                    </button>
-                  ))}
-                </div>
+                {strategicLoading ? (
+                  <div className="text-center py-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mx-auto"></div>
+                    <p className="text-xs text-gray-500 mt-1">Analyzing...</p>
+                  </div>
+                ) : strategicRecommendation ? (
+                  <div className="bg-gradient-to-r from-blue-50 to-blue-50 rounded-lg p-3 border border-blue-200">
+                    <div className="flex items-start space-x-2">
+                      <div className="bg-blue-400 rounded-full p-1 flex-shrink-0">
+                        <TrendingUp className="h-3 w-3 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
+                            {strategicRecommendation.focusArea}
+                          </span>
+                        </div>
+                        <p className="text-xs text-black leading-relaxed">
+                          {strategicRecommendation.recommendation}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-2">
+                    <Lightbulb className="h-4 w-4 text-gray-400 mx-auto mb-1" />
+                    <p className="text-xs text-gray-500">{t('ai.noInsightsAvailable')}</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        )}
+
+          {/* Task Completion */}
+          <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm font-medium text-black">{t('section.tasks')}</p>
+                  <p className="text-2xl font-bold text-black">
+                    {completedTasksCount}/{totalTasks}
+                  </p>
+                </div>
+                <CheckCircle className="h-8 w-8 text-blue-400" />
+              </div>
+              <div className="flex justify-center">
+                <ProgressRing percentage={taskCompletionRate} size={80} color="#60A5FA" />
+              </div>
+
+              {/* Task Advisor */}
+              <TaskAdvisor goals={goals as any} />
+            </div>
+          </div>
+
+          {/* Visibility Switcher */}
+          <div className="bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg">
+            <div className="p-6">
+              {/* Header with View Stacks, Language Toggle, and Eye Icon */}
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm font-medium text-black">
+                    {t('common.view')} {t('common.stacks')}
+                  </p>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <ThemeToggle />
+                  <LanguageToggle />
+                  <Eye className="h-6 w-6 text-blue-400" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {Object.entries(sectionVisibility).map(([section, isVisible]) => (
+                  <button
+                    key={section}
+                    onClick={() =>
+                      toggleSectionVisibility(section as keyof typeof sectionVisibility)
+                    }
+                    className={`w-full flex items-center justify-between p-2 rounded-lg text-xs transition-colors ${
+                      isVisible
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'bg-gray-50 text-gray-500 border border-gray-200'
+                    }`}
+                  >
+                    <span className="capitalize">
+                      {section === 'priorities' && t('section.priorities')}
+                      {section === 'goals' && t('section.goals')}
+                      {section === 'projects' && t('section.projects')}
+                      {section === 'tasks' && t('section.tasks')}
+                      {section === 'habits' && t('section.habits')}
+                      {section === 'education' && t('section.education')}
+                      {section === 'accomplishments' && t('section.recentAccomplishments')}
+                      {section === 'categories' && t('section.categoryProgress')}
+                    </span>
+                    {isVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Leaderboard */}
-        {shouldShowTodayStats(layoutMode, homeTab) && (
-          <div className="mb-8">
-            <Leaderboard currentUserId={user?.id} />
-          </div>
-        )}
+        <div className="mb-8">
+          <Leaderboard currentUserId={user?.id} />
+        </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Main Content - Left Column */}
           <div className="xl:col-span-2 space-y-6">
             {/* Priorities Section - TOP */}
-            {showSection('priorities') && (
+            {sectionVisibility.priorities && (
               <CascadingSection
                 title={t('section.priorities')}
                 icon={<Brain className="h-6 w-6 text-purple-500" />}
@@ -2352,7 +2319,7 @@ export default function Dashboard() {
             )}
 
             {/* Goals Section - SECOND */}
-            {showSection('goals') && (
+            {sectionVisibility.goals && (
               <CascadingSection
                 title={t('section.goals')}
                 icon={<Target className="h-6 w-6 text-red-500" />}
@@ -2660,7 +2627,7 @@ export default function Dashboard() {
             )}
 
             {/* Projects Section - THIRD */}
-            {showSection('projects') && (
+            {sectionVisibility.projects && (
               <CascadingSection
                 title={t('section.projects')}
                 icon={<Target className="h-6 w-6 text-blue-500" />}
@@ -2978,7 +2945,7 @@ export default function Dashboard() {
             )}
 
             {/* Tasks Section */}
-            {showSection('tasks') && (
+            {sectionVisibility.tasks && (
               <CascadingSection
                 title={t('section.tasks')}
                 icon={<CheckCircle className="h-6 w-6 text-green-500" />}
@@ -3129,7 +3096,7 @@ export default function Dashboard() {
             </div>
 
             {/* Recent Accomplishments */}
-            {showSection('accomplishments') && (
+            {sectionVisibility.accomplishments && (
               <CascadingSection
                 title={t('section.recentAccomplishments')}
                 icon={<Trophy className="h-6 w-6 text-orange-500" />}
@@ -3259,7 +3226,7 @@ export default function Dashboard() {
             )}
 
             {/* Daily Habits Section */}
-            {showSection('habits') && (
+            {sectionVisibility.habits && (
               <CascadingSection
                 title={t('section.habits')}
                 icon={<Target className="h-6 w-6 text-pink-500" />}
@@ -3272,7 +3239,7 @@ export default function Dashboard() {
             )}
 
             {/* Category Breakdown */}
-            {showSection('categories') && (
+            {sectionVisibility.categories && (
               <CascadingSection
                 title={t('section.categoryProgress')}
                 icon={<PieChart className="h-6 w-6 text-indigo-500" />}
@@ -3446,7 +3413,7 @@ export default function Dashboard() {
             )}
 
             {/* Education Section */}
-            {showSection('education') && (
+            {sectionVisibility.education && (
               <CascadingSection
                 title={t('section.education')}
                 icon={<GraduationCap className="h-6 w-6 text-yellow-500" />}
