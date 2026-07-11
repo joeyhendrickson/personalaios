@@ -1,55 +1,39 @@
-/** Dream Catcher conversation phases — 20-question intake → vision → goals → life-plan summary → confirm. */
+/** Dream Catcher conversation phases — 12-question intake → vision → goals → life-plan summary → confirm. */
 
 export const STREAMLINED_PHASES = ['intake', 'vision', 'goals', 'summary', 'confirm'] as const
 export type StreamlinedPhase = (typeof STREAMLINED_PHASES)[number]
 
-export const INTAKE_QUESTION_COUNT = 20
+export const INTAKE_QUESTION_COUNT = 12
 
 /** Themes help the AI extract structured data for dashboard + life modules. */
 export const INTAKE_QUESTION_THEMES = [
   'priorities',
   'future_vision',
-  'blockers',
-  'focus_areas',
+  'blockers_focus',
   'success_metrics',
   'quantifiable_goals',
-  'goal_timelines',
-  'projects',
+  'projects_tasks',
   'habits',
-  'weekly_tasks',
   'education',
-  'fitness_goals',
-  'fitness_baseline',
-  'ruminations',
-  'coping',
-  'gratitude_items',
-  'gratitude_practice',
+  'fitness_profile',
+  'ruminations_coping',
+  'gratitude',
   'key_relationships',
-  'relationship_cadence',
-  'final_context',
 ] as const
 
 export const INTAKE_QUESTIONS: readonly string[] = [
   'What matters most to you right now? Tell me about your top priorities in your own words.',
   'Picture your life 1–2 years from now at its best. What does a great week look like?',
-  "What's the biggest thing that gets in your way or holds you back?",
-  'Name up to three life areas where you want LifeStacks to help you make real progress.',
+  "What's the biggest thing that gets in your way, and which up to three life areas do you want LifeStacks to help you make real progress in?",
   'How do you measure success for yourself? (numbers, milestones, feelings, habits — be specific if you can.)',
-  'What are up to three quantifiable goals you want on your dashboard? Include target numbers or units when possible.',
-  'For your most important goal, what timeline are you working toward?',
-  'What projects or initiatives would move those goals forward this month?',
+  'What are up to three quantifiable goals you want on your dashboard? Include target numbers, units, and timelines when possible.',
+  'What projects would move those goals forward this month, and what weekly tasks will you commit to this week to build momentum?',
   'What daily habits would support your best self? List 2–4 small repeatable actions.',
-  'What weekly tasks would you commit to this week to build momentum?',
   'What are you learning or want to learn? Describe education goals and how you will measure progress.',
-  'What are your fitness goals, and how will you measure them? (e.g. workouts per week, weight, energy, strength.)',
-  'Where are you starting from today with fitness? (current baseline — weight, activity level, or habits.)',
-  'What thoughts, worries, or mental loops show up repeatedly? These become starter ruminations in Focus Enhancer.',
-  'What coping strategies help you when you are stuck, or what would you tell yourself in those moments?',
-  'What are you grateful for on a regular basis? Share at least three things for your Gratitude Journal.',
-  'What gratitude practice would feel sustainable for you? (time of day, format, frequency.)',
-  'Who are your top three friends or important people to stay connected with? (names and how you know them.)',
-  'How often would you like to reach out to each of those people?',
-  'Anything else you want me to know before we build your Life Plan and dashboard?',
+  'What are your fitness goals and how will you measure them? Where are you starting from today? (workouts per week, weight, activity level, energy.)',
+  'What thoughts, worries, or mental loops show up repeatedly — and what coping strategies help when you are stuck?',
+  'What are you grateful for on a regular basis, and what gratitude practice would feel sustainable? (time of day, format, frequency.)',
+  'Who are your top three friends or important people to stay connected with, and how often would you like to reach out to each?',
 ]
 
 export function normalizeDreamCatcherPhase(phase: string): StreamlinedPhase | string {
@@ -104,18 +88,17 @@ After the user answers:
 - After question ${INTAKE_QUESTION_COUNT} is answered, summarize what you heard in 2-3 sentences and transition to vision (set next_phase to "vision").
 
 EXTRACTION MAP (merge into assessment_data; do not wipe prior entries):
-- priorities/future_vision/blockers/focus_areas → personal_insights, dreams_discovered, personality_traits as relevant
+- priorities/future_vision → personal_insights, dreams_discovered, personality_traits as relevant
+- blockers_focus → blockers in personal_insights + focus_areas array
 - success_metrics → measurement_preferences (string array)
-- quantifiable_goals/goal_timelines → goals_generated (with target_value, target_unit, timeline when mentioned)
-- projects → project_ideas (array of { title, description, category, linked_goal })
+- quantifiable_goals → goals_generated (with target_value, target_unit, timeline when mentioned)
+- projects_tasks → project_ideas + task_ideas (array of { title, description, category })
 - habits → habit_ideas (array of { title, description })
-- weekly_tasks → task_ideas (array of { title, description, category })
 - education → education_items (array of { title, description, target_date, priority_level })
-- fitness_goals/fitness_baseline → fitness_profile { goals[], baseline{} }
-- ruminations/coping → ruminations (array of { description, severity, fear_type, coping_strategies[] })
-- gratitude_items/gratitude_practice → gratitude_starters { items[], practice_idea, reflection }
-- key_relationships/relationship_cadence → key_relationships (array of { name, relationship_type, notes, contact_frequency_days, priority_level })
-- final_context → append to personal_insights
+- fitness_profile → fitness_profile { goals[], baseline{} }
+- ruminations_coping → ruminations (array of { description, severity, fear_type, coping_strategies[] })
+- gratitude → gratitude_starters { items[], practice_idea, reflection }
+- key_relationships → key_relationships (array of { name, relationship_type, notes, contact_frequency_days, priority_level })
 
 Do NOT ask about executive skills inventories or long personality tests. Stay within these ${INTAKE_QUESTION_COUNT} questions.
 `

@@ -1,31 +1,39 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@config '../../tailwind.config.ts';
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  /* LifeStacks brand: gold + black */
   --gold: 43 76% 52%;
   --gold-foreground: 0 0% 0%;
   --gold-muted: 43 45% 38%;
   --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
+  --foreground: 0 0% 4%;
   --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
+  --card-foreground: 0 0% 4%;
   --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
-  --primary: 240 9% 9%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 240 4.8% 95.9%;
-  --secondary-foreground: 240 5.9% 10%;
-  --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 46.1%;
-  --accent: 240 4.8% 95.9%;
-  --accent-foreground: 240 5.9% 10%;
+  --popover-foreground: 0 0% 4%;
+  --primary: 43 76% 52%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 4%;
+  --muted: 43 20% 96%;
+  --muted-foreground: 0 0% 40%;
+  --accent: 43 30% 94%;
+  --accent-foreground: 0 0% 4%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
-  --ring: 240 10% 3.9%;
+  --border: 43 18% 88%;
+  --input: 43 12% 90%;
+  --ring: 43 76% 52%;
   --radius: 0.5rem;
+  --chart-1: 43 76% 52%;
+  --chart-2: 43 60% 42%;
+  --chart-3: 0 0% 20%;
+  --chart-4: 43 40% 28%;
+  --chart-5: 0 0% 45%;
+  --button-hover: 0 0% 8%;
 }
 
 .dark {
