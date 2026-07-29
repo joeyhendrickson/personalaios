@@ -22,6 +22,9 @@ import {
   Database,
   Table,
   Power,
+  CalendarDays,
+  MapPin,
+  Phone,
 } from 'lucide-react'
 import { AccessCodesManager } from '@/components/admin/access-codes-manager'
 import { AiUsageAdminPanel } from '@/components/admin/ai-usage-admin-panel'
@@ -143,6 +146,14 @@ interface Payment {
   status: string
   user_email: string | null
   user_id: string | null
+  payment_details?: {
+    registration?: {
+      name?: string
+      phone?: string
+      onSiteStay?: boolean
+      acceptedTerms?: boolean
+    }
+  } | null
   created_at: string
   updated_at: string
 }
@@ -152,6 +163,36 @@ interface PaymentStats {
   totalRevenue: number
   basicPlanCount: number
   premiumPlanCount: number
+  workshopCount: number
+  workshopRevenue: number
+  thisMonth: number
+  thisMonthRevenue: number
+}
+
+interface WorkshopRegistration {
+  id: string
+  payment_id: string | null
+  paypal_order_id: string
+  full_name: string
+  email: string
+  phone: string | null
+  on_site_stay: boolean
+  amount: number
+  currency: string
+  payment_status: string
+  registration_status: string
+  id_verified: boolean
+  terms_accepted: boolean
+  created_at: string
+  updated_at: string
+}
+
+interface WorkshopStats {
+  total: number
+  totalRevenue: number
+  onSiteStayCount: number
+  idVerifiedCount: number
+  idPendingCount: number
   thisMonth: number
   thisMonthRevenue: number
 }
@@ -220,6 +261,9 @@ export default function AdminDashboard() {
   const [premiumStats, setPremiumStats] = useState<PremiumStats | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
   const [paymentStats, setPaymentStats] = useState<PaymentStats | null>(null)
+  const [workshopRegistrations, setWorkshopRegistrations] = useState<WorkshopRegistration[]>([])
+  const [workshopStats, setWorkshopStats] = useState<WorkshopStats | null>(null)
+  const [updatingRegistrationId, setUpdatingRegistrationId] = useState<string | null>(null)
   const [rawDataOpen, setRawDataOpen] = useState(false)
   const [rawData, setRawData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -326,11 +370,45 @@ export default function AdminDashboard() {
         setPayments(paymentsData.payments || [])
         setPaymentStats(paymentsData.stats || null)
       }
+
+      const workshopResponse = await fetch('/api/admin/workshop-registrations')
+      if (workshopResponse.ok) {
+        const workshopData = await workshopResponse.json()
+        setWorkshopRegistrations(workshopData.registrations || [])
+        setWorkshopStats(workshopData.stats || null)
+      }
     } catch (err) {
       console.error('Error fetching dashboard data:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const markWorkshopIdVerified = async (registrationId: string, verified: boolean) => {
+    try {
+      setUpdatingRegistrationId(registrationId)
+      const response = await fetch('/api/admin/workshop-registrations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: registrationId, id_verified: verified }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update registration')
+      }
+
+      const data = await response.json()
+      setWorkshopRegistrations((current) =>
+        current.map((registration) =>
+          registration.id === registrationId ? data.registration : registration
+        )
+      )
+    } catch (error) {
+      console.error('Error updating workshop registration:', error)
+      alert('Failed to update workshop registration')
+    } finally {
+      setUpdatingRegistrationId(null)
     }
   }
 
@@ -650,6 +728,116 @@ export default function AdminDashboard() {
         </div>
 
         <AiUsageAdminPanel />
+
+        <Card className="p-6 mb-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <CalendarDays className="h-5 w-5 mr-2 text-yellow-600" />
+                Workshop Registrations
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Lifestacks Workshop payments and registrant details
+              </p>
+            </div>
+            {workshopStats && (
+              <div className="flex flex-wrap gap-4 text-sm">
+                <span className="text-gray-600">
+                  Total: <strong>{workshopStats.total}</strong>
+                </span>
+                <span className="text-emerald-700">
+                  Revenue: <strong>${workshopStats.totalRevenue.toFixed(2)}</strong>
+                </span>
+                <span className="text-amber-700">
+                  ID Pending: <strong>{workshopStats.idPendingCount}</strong>
+                </span>
+                <span className="text-blue-700">
+                  On-site stay: <strong>{workshopStats.onSiteStayCount}</strong>
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {workshopRegistrations.length > 0 ? (
+              workshopRegistrations.map((registration) => (
+                <div
+                  key={registration.id}
+                  className="p-4 bg-amber-50 rounded-lg border border-amber-200"
+                >
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-gray-900">{registration.full_name}</p>
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300"
+                        >
+                          workshop
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${
+                            registration.id_verified
+                              ? 'bg-green-100 text-green-700 border-green-300'
+                              : 'bg-orange-100 text-orange-700 border-orange-300'
+                          }`}
+                        >
+                          {registration.id_verified ? 'ID verified' : 'ID pending'}
+                        </Badge>
+                        {registration.on_site_stay && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-blue-100 text-blue-700 border-blue-300"
+                          >
+                            On-site stay
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-700">{registration.email}</p>
+                      {registration.phone && (
+                        <p className="text-sm text-gray-600 flex items-center gap-1">
+                          <Phone className="h-3.5 w-3.5" />
+                          {registration.phone}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        PayPal Order: {registration.paypal_order_id}
+                      </p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />
+                        Registered {formatDate(registration.created_at)}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col items-start lg:items-end gap-2">
+                      <p className="text-lg font-bold text-emerald-700">
+                        ${parseFloat(String(registration.amount)).toFixed(2)}{' '}
+                        {registration.currency}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant={registration.id_verified ? 'outline' : 'default'}
+                        disabled={updatingRegistrationId === registration.id}
+                        onClick={() =>
+                          markWorkshopIdVerified(registration.id, !registration.id_verified)
+                        }
+                      >
+                        {updatingRegistrationId === registration.id
+                          ? 'Saving...'
+                          : registration.id_verified
+                            ? 'Mark ID Pending'
+                            : 'Mark ID Verified'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500 text-center py-6">No workshop registrations yet</p>
+            )}
+          </div>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Bug Reports */}
@@ -1116,6 +1304,9 @@ export default function AdminDashboard() {
                   <span className="text-purple-600">
                     Premium: <strong>{paymentStats.premiumPlanCount}</strong>
                   </span>
+                  <span className="text-yellow-700">
+                    Workshop: <strong>{paymentStats.workshopCount || 0}</strong>
+                  </span>
                 </div>
               )}
             </h3>
@@ -1129,8 +1320,13 @@ export default function AdminDashboard() {
                     <div className="flex items-start justify-between mb-2">
                       <div>
                         <p className="font-medium text-gray-900 text-sm">
-                          {payment.user_email || 'Email not provided'}
+                          {payment.plan_type === 'workshop'
+                            ? payment.payment_details?.registration?.name || payment.user_email
+                            : payment.user_email || 'Email not provided'}
                         </p>
+                        {payment.plan_type === 'workshop' && payment.user_email && (
+                          <p className="text-xs text-gray-600">{payment.user_email}</p>
+                        )}
                         <p className="text-xs text-gray-500 mt-1">
                           PayPal Order: {payment.paypal_order_id}
                         </p>
@@ -1141,7 +1337,9 @@ export default function AdminDashboard() {
                           className={`text-xs ${
                             payment.plan_type === 'basic'
                               ? 'bg-blue-100 text-blue-700 border-blue-300'
-                              : 'bg-purple-100 text-purple-700 border-purple-300'
+                              : payment.plan_type === 'workshop'
+                                ? 'bg-yellow-100 text-yellow-800 border-yellow-300'
+                                : 'bg-purple-100 text-purple-700 border-purple-300'
                           }`}
                         >
                           {payment.plan_type}

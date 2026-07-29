@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createSupabaseServiceClient } from '@/lib/workshop/registration'
 
 export async function GET() {
   try {
     const supabase = await createClient()
 
-    // Check if user is admin
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -23,8 +23,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
-    // Fetch all payments
-    const { data: payments, error: paymentsError } = await supabase
+    const serviceSupabase = createSupabaseServiceClient()
+    const { data: payments, error: paymentsError } = await serviceSupabase
       .from('payments')
       .select('*')
       .order('created_at', { ascending: false })
@@ -34,12 +34,16 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch payments' }, { status: 500 })
     }
 
-    // Calculate statistics
     const stats = {
       total: payments?.length || 0,
       totalRevenue: payments?.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || 0,
       basicPlanCount: payments?.filter((p) => p.plan_type === 'basic').length || 0,
       premiumPlanCount: payments?.filter((p) => p.plan_type === 'premium').length || 0,
+      workshopCount: payments?.filter((p) => p.plan_type === 'workshop').length || 0,
+      workshopRevenue:
+        payments
+          ?.filter((p) => p.plan_type === 'workshop')
+          .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || 0,
       thisMonth:
         payments?.filter((p) => {
           const paymentDate = new Date(p.created_at)
