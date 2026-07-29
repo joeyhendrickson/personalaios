@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { ConnectBankButton } from '@/components/modules/budget-optimizer/connect-bank-button'
 import { NetWorthOverTimeChart } from '@/components/modules/budget-optimizer/NetWorthOverTimeChart'
@@ -20,6 +20,7 @@ import {
   EyeOff,
   AlertTriangle,
   CheckCircle,
+  Check,
   Calendar,
   Target,
   PiggyBank,
@@ -110,6 +111,43 @@ interface PotentialItem {
   is_active: boolean
   created_at: string
   updated_at: string
+}
+
+type BudgetFrequency = ExpectedIncome['frequency']
+
+function budgetMonthlyEquivalent(amount: number, frequency: BudgetFrequency): number {
+  switch (frequency) {
+    case 'weekly':
+      return amount * 4.33
+    case 'biweekly':
+      return amount * 2.17
+    case 'monthly':
+      return amount
+    case 'quarterly':
+      return amount / 3
+    case 'annually':
+      return amount / 12
+    case 'one-time':
+      return amount
+    default:
+      return 0
+  }
+}
+
+function sumActiveMonthlyIncome(items: ExpectedIncome[]): number {
+  return items
+    .filter((item) => item.is_active)
+    .reduce((sum, item) => sum + budgetMonthlyEquivalent(item.amount, item.frequency), 0)
+}
+
+function sumActiveMonthlyExpenses(items: ExpectedExpense[]): number {
+  return items
+    .filter((item) => item.is_active)
+    .reduce((sum, item) => sum + budgetMonthlyEquivalent(item.amount, item.frequency), 0)
+}
+
+function sumActivePotential(items: PotentialItem[]): number {
+  return items.filter((item) => item.is_active).reduce((sum, item) => sum + item.amount, 0)
 }
 
 interface Transaction {
@@ -935,6 +973,19 @@ export default function BudgetOptimizerModule() {
     months_out: 1 as 1 | 2 | 3,
     notes: '',
   })
+  const [potentialActionId, setPotentialActionId] = useState<string | null>(null)
+
+  const totalMonthlyIncome = useMemo(() => sumActiveMonthlyIncome(expectedIncome), [expectedIncome])
+  const totalMonthlyExpenses = useMemo(
+    () => sumActiveMonthlyExpenses(expectedExpenses),
+    [expectedExpenses]
+  )
+  const totalPotentialIncome = useMemo(() => sumActivePotential(potentialIncome), [potentialIncome])
+  const totalPotentialExpenses = useMemo(
+    () => sumActivePotential(potentialExpenses),
+    [potentialExpenses]
+  )
+  const budgetNetMonthly = totalMonthlyIncome - totalMonthlyExpenses
   const [expenseForm, setExpenseForm] = useState({
     category: '',
     amount: '',
@@ -1197,21 +1248,7 @@ export default function BudgetOptimizerModule() {
     )
     const subscriptionTotal = expectedExpenses
       .filter((exp) => exp.category.toLowerCase().includes('subscription'))
-      .reduce((sum, exp) => {
-        const monthly =
-          exp.frequency === 'weekly'
-            ? exp.amount * 4.33
-            : exp.frequency === 'biweekly'
-              ? exp.amount * 2.17
-              : exp.frequency === 'monthly'
-                ? exp.amount
-                : exp.frequency === 'quarterly'
-                  ? exp.amount / 3
-                  : exp.frequency === 'annually'
-                    ? exp.amount / 12
-                    : 0
-        return sum + monthly
-      }, 0)
+      .reduce((sum, exp) => sum + budgetMonthlyEquivalent(exp.amount, exp.frequency), 0)
 
     if (hasSubscriptionSpending && subscriptionTotal > 100) {
       budgetReductionSuggestions.push({
@@ -1234,21 +1271,7 @@ export default function BudgetOptimizerModule() {
           exp.category.toLowerCase().includes('entertainment') ||
           exp.category.toLowerCase().includes('dining')
       )
-      .reduce((sum, exp) => {
-        const monthly =
-          exp.frequency === 'weekly'
-            ? exp.amount * 4.33
-            : exp.frequency === 'biweekly'
-              ? exp.amount * 2.17
-              : exp.frequency === 'monthly'
-                ? exp.amount
-                : exp.frequency === 'quarterly'
-                  ? exp.amount / 3
-                  : exp.frequency === 'annually'
-                    ? exp.amount / 12
-                    : 0
-        return sum + monthly
-      }, 0)
+      .reduce((sum, exp) => sum + budgetMonthlyEquivalent(exp.amount, exp.frequency), 0)
 
     if (hasMealsSpending && mealsTotal > 200) {
       budgetReductionSuggestions.push({
@@ -2519,8 +2542,132 @@ export default function BudgetOptimizerModule() {
     return 'Within ~3 months'
   }
 
-  const sumPotential = (items: PotentialItem[]) =>
-    items.filter((item) => item.is_active).reduce((sum, item) => sum + item.amount, 0)
+  const buildPromotedNotes = (item: PotentialItem) => {
+    const horizon = potentialMonthLabel(item.months_out)
+    const base = item.notes?.trim() || ''
+    const suffix = `Promoted from potential (${horizon}).`
+    return base ? `${base} ${suffix}` : suffix
+  }
+
+  const handleAcceptPotentialIncome = async (item: PotentialItem) => {
+    setPotentialActionId(`income-accept-${item.id}`)
+    try {
+      const incomeRes = await fetch('/api/budget/expected-income', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: item.category,
+          amount: item.amount,
+          frequency: 'one-time',
+          notes: buildPromotedNotes(item),
+        }),
+      })
+      if (!incomeRes.ok) {
+        const error = await incomeRes.json()
+        alert(error.details || error.error || 'Failed to add to expected income')
+        return
+      }
+
+      const deactivateRes = await fetch('/api/budget/potential-income', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, is_active: false }),
+      })
+      if (!deactivateRes.ok) {
+        alert('Added to expected income, but failed to remove from potential list.')
+      }
+
+      await loadExpectedIncome()
+      await loadPotentialIncome()
+    } catch (error) {
+      console.error('Error accepting potential income:', error)
+      alert('Failed to add to expected income')
+    } finally {
+      setPotentialActionId(null)
+    }
+  }
+
+  const handleDismissPotentialIncome = async (item: PotentialItem) => {
+    setPotentialActionId(`income-dismiss-${item.id}`)
+    try {
+      const response = await fetch('/api/budget/potential-income', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, is_active: false }),
+      })
+      if (response.ok) {
+        await loadPotentialIncome()
+      } else {
+        const error = await response.json()
+        alert(error.details || error.error || 'Failed to dismiss potential income')
+      }
+    } catch (error) {
+      console.error('Error dismissing potential income:', error)
+      alert('Failed to dismiss potential income')
+    } finally {
+      setPotentialActionId(null)
+    }
+  }
+
+  const handleAcceptPotentialExpense = async (item: PotentialItem) => {
+    setPotentialActionId(`expense-accept-${item.id}`)
+    try {
+      const expenseRes = await fetch('/api/budget/expected-expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: item.category,
+          amount: item.amount,
+          frequency: 'one-time',
+          notes: buildPromotedNotes(item),
+        }),
+      })
+      if (!expenseRes.ok) {
+        const error = await expenseRes.json()
+        alert(error.details || error.error || 'Failed to add to expected spending')
+        return
+      }
+
+      const deactivateRes = await fetch('/api/budget/potential-expenses', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, is_active: false }),
+      })
+      if (!deactivateRes.ok) {
+        alert('Added to expected spending, but failed to remove from potential list.')
+      }
+
+      await loadExpectedExpenses()
+      await loadPotentialExpenses()
+    } catch (error) {
+      console.error('Error accepting potential expense:', error)
+      alert('Failed to add to expected spending')
+    } finally {
+      setPotentialActionId(null)
+    }
+  }
+
+  const handleDismissPotentialExpense = async (item: PotentialItem) => {
+    setPotentialActionId(`expense-dismiss-${item.id}`)
+    try {
+      const response = await fetch('/api/budget/potential-expenses', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, is_active: false }),
+      })
+      if (response.ok) {
+        await loadPotentialExpenses()
+      } else {
+        const error = await response.json()
+        alert(error.details || error.error || 'Failed to dismiss potential spending')
+      }
+    } catch (error) {
+      console.error('Error dismissing potential expense:', error)
+      alert('Failed to dismiss potential spending')
+    } finally {
+      setPotentialActionId(null)
+    }
+  }
 
   const handleAddPotentialIncome = () => {
     setEditingPotentialIncome(null)
@@ -3237,19 +3384,7 @@ export default function BudgetOptimizerModule() {
                   {expectedIncome
                     .filter((inc) => inc.is_active)
                     .map((income) => {
-                      // Calculate monthly equivalent
-                      const monthlyAmount =
-                        income.frequency === 'weekly'
-                          ? income.amount * 4.33
-                          : income.frequency === 'biweekly'
-                            ? income.amount * 2.17
-                            : income.frequency === 'monthly'
-                              ? income.amount
-                              : income.frequency === 'quarterly'
-                                ? income.amount / 3
-                                : income.frequency === 'annually'
-                                  ? income.amount / 12
-                                  : 0
+                      const monthlyAmount = budgetMonthlyEquivalent(income.amount, income.frequency)
 
                       return (
                         <div
@@ -3309,25 +3444,7 @@ export default function BudgetOptimizerModule() {
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-semibold">Total Monthly Income:</span>
                     <span className="text-2xl font-bold text-green-600">
-                      {formatCurrency(
-                        expectedIncome
-                          .filter((inc) => inc.is_active)
-                          .reduce((sum, inc) => {
-                            const monthly =
-                              inc.frequency === 'weekly'
-                                ? inc.amount * 4.33
-                                : inc.frequency === 'biweekly'
-                                  ? inc.amount * 2.17
-                                  : inc.frequency === 'monthly'
-                                    ? inc.amount
-                                    : inc.frequency === 'quarterly'
-                                      ? inc.amount / 3
-                                      : inc.frequency === 'annually'
-                                        ? inc.amount / 12
-                                        : 0
-                            return sum + monthly
-                          }, 0)
-                      )}
+                      {formatCurrency(totalMonthlyIncome)}
                     </span>
                   </div>
                 </div>
@@ -3371,19 +3488,10 @@ export default function BudgetOptimizerModule() {
                   {expectedExpenses
                     .filter((exp) => exp.is_active)
                     .map((expense) => {
-                      // Calculate monthly equivalent
-                      const monthlyAmount =
-                        expense.frequency === 'weekly'
-                          ? expense.amount * 4.33
-                          : expense.frequency === 'biweekly'
-                            ? expense.amount * 2.17
-                            : expense.frequency === 'monthly'
-                              ? expense.amount
-                              : expense.frequency === 'quarterly'
-                                ? expense.amount / 3
-                                : expense.frequency === 'annually'
-                                  ? expense.amount / 12
-                                  : 0
+                      const monthlyAmount = budgetMonthlyEquivalent(
+                        expense.amount,
+                        expense.frequency
+                      )
 
                       return (
                         <div
@@ -3443,25 +3551,7 @@ export default function BudgetOptimizerModule() {
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-semibold">Total Monthly Expenses:</span>
                     <span className="text-2xl font-bold text-red-600">
-                      {formatCurrency(
-                        expectedExpenses
-                          .filter((exp) => exp.is_active)
-                          .reduce((sum, exp) => {
-                            const monthly =
-                              exp.frequency === 'weekly'
-                                ? exp.amount * 4.33
-                                : exp.frequency === 'biweekly'
-                                  ? exp.amount * 2.17
-                                  : exp.frequency === 'monthly'
-                                    ? exp.amount
-                                    : exp.frequency === 'quarterly'
-                                      ? exp.amount / 3
-                                      : exp.frequency === 'annually'
-                                        ? exp.amount / 12
-                                        : 0
-                            return sum + monthly
-                          }, 0)
-                      )}
+                      {formatCurrency(totalMonthlyExpenses)}
                     </span>
                   </div>
                 </div>
@@ -3477,7 +3567,16 @@ export default function BudgetOptimizerModule() {
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
                   Track income and spending that might happen soon but isn&apos;t in your expected
-                  budget yet — bonuses, one-off bills, planned purchases, etc.
+                  budget yet. Use{' '}
+                  <span className="inline-flex items-center text-green-700 font-medium">
+                    <Check className="h-3.5 w-3.5 mr-0.5" aria-hidden />
+                    check
+                  </span>{' '}
+                  to add to expected income or spending, or{' '}
+                  <span className="inline-flex items-center text-red-700 font-medium">
+                    <X className="h-3.5 w-3.5 mr-0.5" aria-hidden />X
+                  </span>{' '}
+                  to dismiss.
                 </p>
               </div>
 
@@ -3524,16 +3623,50 @@ export default function BudgetOptimizerModule() {
                                 <p className="text-xs text-gray-600 mt-1">{item.notes}</p>
                               )}
                             </div>
-                            <div className="flex shrink-0">
+                            <div className="flex shrink-0 items-center gap-0.5">
                               <button
+                                type="button"
+                                onClick={() => handleAcceptPotentialIncome(item)}
+                                disabled={potentialActionId !== null}
+                                className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-100 rounded disabled:opacity-50"
+                                title="Add to expected income"
+                                aria-label={`Add ${item.category} to expected income`}
+                              >
+                                {potentialActionId === `income-accept-${item.id}` ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Check className="h-4 w-4" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDismissPotentialIncome(item)}
+                                disabled={potentialActionId !== null}
+                                className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-100 rounded disabled:opacity-50"
+                                title="Dismiss without adding"
+                                aria-label={`Dismiss ${item.category}`}
+                              >
+                                {potentialActionId === `income-dismiss-${item.id}` ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <X className="h-4 w-4" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => handleEditPotentialIncome(item)}
-                                className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
+                                disabled={potentialActionId !== null}
+                                className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50"
+                                title="Edit"
                               >
                                 <Edit className="h-4 w-4" />
                               </button>
                               <button
+                                type="button"
                                 onClick={() => handleDeletePotentialIncome(item.id)}
-                                className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded"
+                                disabled={potentialActionId !== null}
+                                className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
+                                title="Delete permanently"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -3545,7 +3678,7 @@ export default function BudgetOptimizerModule() {
                   {potentialIncome.filter((item) => item.is_active).length > 0 && (
                     <div className="mt-3 pt-3 border-t border-green-200 flex justify-between text-sm font-semibold text-green-800">
                       <span>Total potential income</span>
-                      <span>{formatCurrency(sumPotential(potentialIncome))}</span>
+                      <span>{formatCurrency(totalPotentialIncome)}</span>
                     </div>
                   )}
                 </div>
@@ -3592,16 +3725,50 @@ export default function BudgetOptimizerModule() {
                                 <p className="text-xs text-gray-600 mt-1">{item.notes}</p>
                               )}
                             </div>
-                            <div className="flex shrink-0">
+                            <div className="flex shrink-0 items-center gap-0.5">
                               <button
+                                type="button"
+                                onClick={() => handleAcceptPotentialExpense(item)}
+                                disabled={potentialActionId !== null}
+                                className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-100 rounded disabled:opacity-50"
+                                title="Add to expected spending"
+                                aria-label={`Add ${item.category} to expected spending`}
+                              >
+                                {potentialActionId === `expense-accept-${item.id}` ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Check className="h-4 w-4" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDismissPotentialExpense(item)}
+                                disabled={potentialActionId !== null}
+                                className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-100 rounded disabled:opacity-50"
+                                title="Dismiss without adding"
+                                aria-label={`Dismiss ${item.category}`}
+                              >
+                                {potentialActionId === `expense-dismiss-${item.id}` ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <X className="h-4 w-4" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => handleEditPotentialExpense(item)}
-                                className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
+                                disabled={potentialActionId !== null}
+                                className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50"
+                                title="Edit"
                               >
                                 <Edit className="h-4 w-4" />
                               </button>
                               <button
+                                type="button"
                                 onClick={() => handleDeletePotentialExpense(item.id)}
-                                className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded"
+                                disabled={potentialActionId !== null}
+                                className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
+                                title="Delete permanently"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -3613,7 +3780,7 @@ export default function BudgetOptimizerModule() {
                   {potentialExpenses.filter((item) => item.is_active).length > 0 && (
                     <div className="mt-3 pt-3 border-t border-red-200 flex justify-between text-sm font-semibold text-red-800">
                       <span>Total potential spending</span>
-                      <span>{formatCurrency(sumPotential(potentialExpenses))}</span>
+                      <span>{formatCurrency(totalPotentialExpenses)}</span>
                     </div>
                   )}
                 </div>
@@ -3626,27 +3793,25 @@ export default function BudgetOptimizerModule() {
                     <div className="rounded-lg bg-green-50 border border-green-100 p-3 text-center">
                       <div className="text-xs text-gray-600 mb-1">Potential income</div>
                       <div className="text-lg font-bold text-green-700">
-                        {formatCurrency(sumPotential(potentialIncome))}
+                        {formatCurrency(totalPotentialIncome)}
                       </div>
                     </div>
                     <div className="rounded-lg bg-red-50 border border-red-100 p-3 text-center">
                       <div className="text-xs text-gray-600 mb-1">Potential spending</div>
                       <div className="text-lg font-bold text-red-700">
-                        {formatCurrency(sumPotential(potentialExpenses))}
+                        {formatCurrency(totalPotentialExpenses)}
                       </div>
                     </div>
                     <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-center">
                       <div className="text-xs text-gray-600 mb-1">Net potential</div>
                       <div
                         className={`text-lg font-bold ${
-                          sumPotential(potentialIncome) - sumPotential(potentialExpenses) >= 0
+                          totalPotentialIncome - totalPotentialExpenses >= 0
                             ? 'text-green-700'
                             : 'text-red-700'
                         }`}
                       >
-                        {formatCurrency(
-                          sumPotential(potentialIncome) - sumPotential(potentialExpenses)
-                        )}
+                        {formatCurrency(totalPotentialIncome - totalPotentialExpenses)}
                       </div>
                     </div>
                   </div>
@@ -3660,72 +3825,28 @@ export default function BudgetOptimizerModule() {
                 <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200 p-6">
                   <h2 className="text-xl font-semibold mb-4">Budget Summary</h2>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {(() => {
-                      const totalMonthlyIncome = expectedIncome
-                        .filter((inc) => inc.is_active)
-                        .reduce((sum, inc) => {
-                          const monthly =
-                            inc.frequency === 'weekly'
-                              ? inc.amount * 4.33
-                              : inc.frequency === 'biweekly'
-                                ? inc.amount * 2.17
-                                : inc.frequency === 'monthly'
-                                  ? inc.amount
-                                  : inc.frequency === 'quarterly'
-                                    ? inc.amount / 3
-                                    : inc.frequency === 'annually'
-                                      ? inc.amount / 12
-                                      : 0
-                          return sum + monthly
-                        }, 0)
-
-                      const totalMonthlyExpenses = expectedExpenses
-                        .filter((exp) => exp.is_active)
-                        .reduce((sum, exp) => {
-                          const monthly =
-                            exp.frequency === 'weekly'
-                              ? exp.amount * 4.33
-                              : exp.frequency === 'biweekly'
-                                ? exp.amount * 2.17
-                                : exp.frequency === 'monthly'
-                                  ? exp.amount
-                                  : exp.frequency === 'quarterly'
-                                    ? exp.amount / 3
-                                    : exp.frequency === 'annually'
-                                      ? exp.amount / 12
-                                      : 0
-                          return sum + monthly
-                        }, 0)
-
-                      const netIncome = totalMonthlyIncome - totalMonthlyExpenses
-
-                      return (
-                        <>
-                          <div className="bg-white rounded-lg p-4 border border-gray-200">
-                            <div className="text-sm text-gray-600 mb-1">Total Income</div>
-                            <div className="text-2xl font-bold text-green-600">
-                              {formatCurrency(totalMonthlyIncome)}
-                            </div>
-                          </div>
-                          <div className="bg-white rounded-lg p-4 border border-gray-200">
-                            <div className="text-sm text-gray-600 mb-1">Total Expenses</div>
-                            <div className="text-2xl font-bold text-red-600">
-                              {formatCurrency(totalMonthlyExpenses)}
-                            </div>
-                          </div>
-                          <div className="bg-white rounded-lg p-4 border border-gray-200">
-                            <div className="text-sm text-gray-600 mb-1">Net Income</div>
-                            <div
-                              className={`text-2xl font-bold ${
-                                netIncome >= 0 ? 'text-green-600' : 'text-red-600'
-                              }`}
-                            >
-                              {formatCurrency(netIncome)}
-                            </div>
-                          </div>
-                        </>
-                      )
-                    })()}
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <div className="text-sm text-gray-600 mb-1">Total Income</div>
+                      <div className="text-2xl font-bold text-green-600">
+                        {formatCurrency(totalMonthlyIncome)}
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <div className="text-sm text-gray-600 mb-1">Total Expenses</div>
+                      <div className="text-2xl font-bold text-red-600">
+                        {formatCurrency(totalMonthlyExpenses)}
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <div className="text-sm text-gray-600 mb-1">Net Income</div>
+                      <div
+                        className={`text-2xl font-bold ${
+                          budgetNetMonthly >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}
+                      >
+                        {formatCurrency(budgetNetMonthly)}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

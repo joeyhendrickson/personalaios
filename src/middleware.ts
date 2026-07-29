@@ -104,6 +104,7 @@ export async function middleware(request: NextRequest) {
     !request.nextUrl.pathname.startsWith('/create-account') &&
     !request.nextUrl.pathname.startsWith('/subscribe') &&
     !request.nextUrl.pathname.startsWith('/paypal-checkout') &&
+    !request.nextUrl.pathname.startsWith('/workshop') &&
     !request.nextUrl.pathname.startsWith('/trial-welcome') &&
     !request.nextUrl.pathname.startsWith('/privacy-policy') &&
     !request.nextUrl.pathname.startsWith('/auth') &&

@@ -14,6 +14,7 @@ import {
   monthlyStandardDisplay,
   monthlyStandardPayPalValue,
 } from '@/lib/pricing'
+import { WorkshopBanner } from '@/components/workshop/workshop-banner'
 
 export default function CreateAccountPage() {
   const [selectedPlan, setSelectedPlan] = useState<'trial' | 'basic' | 'premium'>('trial')
@@ -595,6 +596,8 @@ Thank you!`
             </Card>
           </div>
         )}
+
+        <WorkshopBanner />
 
         {/* FAQ Section */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
