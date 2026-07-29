@@ -90,12 +90,13 @@ export default function WorkshopPage() {
           Back to Create Account
         </Link>
 
-        <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden mb-8 border border-yellow-600/30">
+        <div className="rounded-xl overflow-hidden mb-8 border border-yellow-600/30">
           <Image
             src="/workshop-banner.png"
             alt="9-Day Lifestacks Workshop in Columbus, Ohio — $649 registration"
-            fill
-            className="object-cover"
+            width={1536}
+            height={1024}
+            className="w-full h-auto"
             priority
           />
         </div>
