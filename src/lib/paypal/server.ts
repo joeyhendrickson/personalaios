@@ -2,11 +2,13 @@ const PAYPAL_LIVE_API_BASE = 'https://api-m.paypal.com'
 const PAYPAL_SANDBOX_API_BASE = 'https://api-m.sandbox.paypal.com'
 
 export function getPayPalApiBase() {
-  if (process.env.PAYPAL_MODE === 'sandbox') {
+  const mode = process.env.PAYPAL_MODE?.trim().toLowerCase()
+
+  if (mode === 'sandbox') {
     return PAYPAL_SANDBOX_API_BASE
   }
 
-  // Default to live — matches production NODE_ENV behavior elsewhere and live credentials.
+  // Default to live for production, live credentials, or values like "Live".
   return PAYPAL_LIVE_API_BASE
 }
 

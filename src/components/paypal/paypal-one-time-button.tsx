@@ -67,7 +67,6 @@ export default function PayPalOneTimeButton({
         currency: 'USD',
         intent: 'capture',
         components: 'buttons',
-        enableFunding: 'card,venmo,paylater',
       }}
     >
       <PayPalButtons
