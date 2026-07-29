@@ -13,6 +13,17 @@ interface PayPalOneTimeButtonProps {
   onError?: (error: string) => void
 }
 
+function formatPayPalError(err: unknown): string {
+  if (typeof err === 'string') return err
+  if (err instanceof Error) return err.message
+  if (err && typeof err === 'object') {
+    const record = err as Record<string, unknown>
+    if (typeof record.message === 'string') return record.message
+    if (typeof record.err === 'string') return record.err
+  }
+  return 'Payment processing failed. Please try PayPal login or a different payment method.'
+}
+
 export default function PayPalOneTimeButton({
   amount,
   description,
@@ -55,6 +66,8 @@ export default function PayPalOneTimeButton({
         clientId,
         currency: 'USD',
         intent: 'capture',
+        components: 'buttons',
+        enableFunding: 'card,venmo,paylater',
       }}
     >
       <PayPalButtons
@@ -85,8 +98,16 @@ export default function PayPalOneTimeButton({
           const { orderID } = await response.json()
           return orderID
         }}
-        onApprove={async (data) => {
+        onApprove={async (data, actions) => {
           try {
+            if (actions.order) {
+              try {
+                await actions.order.capture()
+              } catch (captureError) {
+                console.warn('PayPal client capture skipped:', captureError)
+              }
+            }
+
             const response = await fetch('/api/workshop/register', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -104,14 +125,16 @@ export default function PayPalOneTimeButton({
 
             onSuccess?.(data.orderID || '')
           } catch (error) {
-            onError?.(error instanceof Error ? error.message : 'Payment processing failed')
+            console.error('Workshop payment approval error:', error)
+            onError?.(formatPayPalError(error))
           }
         }}
         onCancel={() => {
           onError?.('Payment cancelled')
         }}
         onError={(err) => {
-          onError?.(typeof err === 'string' ? err : 'Payment processing failed')
+          console.error('PayPal button error:', err)
+          onError?.(formatPayPalError(err))
         }}
       />
     </PayPalScriptProvider>

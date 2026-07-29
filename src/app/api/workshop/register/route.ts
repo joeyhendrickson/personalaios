@@ -1,39 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { verifyOrCapturePayPalOrder } from '@/lib/paypal/server'
 import { WORKSHOP_ID_EMAIL, WORKSHOP_PAYPAL_VALUE } from '@/lib/workshop/constants'
-
-const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID
-const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET
-const PAYPAL_BASE_URL =
-  process.env.PAYPAL_MODE === 'live'
-    ? 'https://api-m.paypal.com'
-    : 'https://api-m.sandbox.paypal.com'
-
-async function getAccessToken() {
-  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64')
-  const response = await fetch(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'grant_type=client_credentials',
-  })
-  const data = await response.json()
-  return data.access_token as string
-}
-
-async function captureOrder(orderID: string) {
-  const accessToken = await getAccessToken()
-  const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${orderID}/capture`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-  })
-  return response.json()
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing order ID or email' }, { status: 400 })
     }
 
-    const captureData = await captureOrder(orderID)
+    const captureData = await verifyOrCapturePayPalOrder(orderID)
 
     if (captureData.status !== 'COMPLETED') {
       console.error('Workshop payment capture failed:', captureData)
@@ -122,6 +90,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Workshop registration error:', error)
-    return NextResponse.json({ error: 'Registration failed' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Registration failed'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

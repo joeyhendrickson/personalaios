@@ -1,38 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getPayPalAccessToken, getPayPalApiBase } from '@/lib/paypal/server'
 import { WORKSHOP_PAYPAL_VALUE } from '@/lib/workshop/constants'
-
-const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID
-const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET
-const PAYPAL_API_BASE =
-  process.env.PAYPAL_MODE === 'live'
-    ? 'https://api-m.paypal.com'
-    : 'https://api-m.sandbox.paypal.com'
-
-async function getAccessToken() {
-  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64')
-
-  const response = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'grant_type=client_credentials',
-  })
-
-  const data = await response.json()
-  return data.access_token as string
-}
 
 export async function POST(request: NextRequest) {
   try {
-    const { amount, description, userEmail, metadata } = await request.json()
+    const { amount, description, userEmail } = await request.json()
     const price = amount || WORKSHOP_PAYPAL_VALUE
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://lifestacks.ai'
 
-    const accessToken = await getAccessToken()
+    const accessToken = await getPayPalAccessToken()
 
-    const orderResponse = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders`, {
+    const orderResponse = await fetch(`${getPayPalApiBase()}/v2/checkout/orders`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -56,9 +34,7 @@ export async function POST(request: NextRequest) {
           user_action: 'PAY_NOW',
           return_url: `${appUrl}/workshop?success=true`,
           cancel_url: `${appUrl}/workshop?cancelled=true`,
-        },
-        payer: {
-          email_address: userEmail,
+          shipping_preference: 'NO_SHIPPING',
         },
       }),
     })
@@ -67,7 +43,9 @@ export async function POST(request: NextRequest) {
 
     if (!orderResponse.ok) {
       console.error('PayPal workshop order creation failed:', orderData)
-      throw new Error(orderData.message || 'Failed to create PayPal order')
+      throw new Error(
+        orderData.message || orderData.details?.[0]?.description || 'Failed to create PayPal order'
+      )
     }
 
     return NextResponse.json({
