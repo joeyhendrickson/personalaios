@@ -1,24 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createProjectsBackendClient } from '@/lib/supabase/projects-backend'
+import { createProjectSchema, formatZodIssues } from '@/lib/projects/schemas'
 import { z } from 'zod'
-
-const createProjectSchema = z.object({
-  title: z.string().min(1).max(255),
-  description: z.string().optional(),
-  goal_id: z.string().uuid().optional(),
-  category: z
-    .string()
-    .min(1)
-    .max(100)
-    .regex(/^[a-z_]+$/, 'Category must contain only lowercase letters and underscores')
-    .default('other'),
-  target_points: z.number().int().min(0).default(0),
-  target_money: z.number().min(0).default(0),
-  current_points: z.number().int().min(0).default(0),
-  priority: z.enum(['low', 'medium', 'high']).default('medium'),
-  deadline: z.string().optional(),
-})
 
 /** Coerce DB/PostgREST values so dashboard filters (`!is_completed`) never mis-classify rows. */
 function rowIsCompleted(v: unknown): boolean {
@@ -30,24 +14,6 @@ function rowIsCompleted(v: unknown): boolean {
   }
   return false
 }
-
-const updateProjectSchema = z.object({
-  title: z.string().min(1).max(255).optional(),
-  description: z.string().optional(),
-  goal_id: z.string().uuid().nullable().optional(),
-  category: z
-    .string()
-    .min(1)
-    .max(100)
-    .regex(/^[a-z_]+$/, 'Category must contain only lowercase letters and underscores')
-    .optional(),
-  target_points: z.number().int().min(0).optional(),
-  target_money: z.number().min(0).optional(),
-  current_points: z.number().int().min(0).optional(),
-  priority: z.enum(['low', 'medium', 'high']).optional(),
-  deadline: z.string().optional(),
-})
-
 // GET /api/projects — dashboard projects (`projects` table, formerly weekly_goals)
 export async function GET(request: NextRequest) {
   try {
@@ -240,6 +206,7 @@ export async function POST(request: NextRequest) {
         {
           error: 'Invalid input',
           details: error.issues,
+          message: formatZodIssues(error),
         },
         { status: 400 }
       )

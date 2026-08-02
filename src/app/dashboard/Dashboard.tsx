@@ -72,6 +72,7 @@ import { useActivityTracking } from '@/hooks/use-activity-tracking'
 import { useAdminAuth } from '@/hooks/use-admin-auth'
 import { useGuardedAsync } from '@/hooks/use-guarded-async'
 import { parseIntFromForm } from '@/lib/form/numeric-input'
+import { parseApiErrorResponse } from '@/lib/fetch/parse-api-error'
 import { ExpandableDescription } from '@/components/ui/expandable-description'
 
 // Type definitions
@@ -339,6 +340,7 @@ export default function Dashboard() {
   const { isAdmin } = useAdminAuth()
   const addTaskGuard = useGuardedAsync()
   const addGoalGuard = useGuardedAsync()
+  const updateProjectGuard = useGuardedAsync()
   const { t } = useLanguage()
   const { wakeWordEnabled, setWakeWordEnabled, wakeWordSupported } = useChatContext()
   const searchParams = useSearchParams()
@@ -1496,31 +1498,80 @@ export default function Dashboard() {
     setShowEditPriority(true)
   }
 
-  const updateGoal = async (updatedGoal: Partial<Goal>) => {
+  const updateGoal = async (updatedGoal: {
+    title: string
+    description?: string
+    category: string
+    target_points: number
+    progress: number
+    goal_id?: string | null
+  }) => {
     if (!editingGoal) return
 
-    try {
-      const response = await fetch(`/api/projects/${editingGoal.id}`, {
-        method: 'PATCH',
-        credentials: 'same-origin',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedGoal),
-      })
+    void updateProjectGuard.run(async () => {
+      try {
+        const metadataPayload: Record<string, unknown> = {
+          title: updatedGoal.title,
+          description: updatedGoal.description,
+          category: updatedGoal.category,
+          target_points: updatedGoal.target_points,
+        }
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to update goal')
+        if (updatedGoal.goal_id) {
+          metadataPayload.goal_id = updatedGoal.goal_id
+        } else {
+          metadataPayload.goal_id = null
+        }
+
+        const response = await fetch(`/api/projects/${editingGoal.id}`, {
+          method: 'PATCH',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(metadataPayload),
+        })
+
+        if (!response.ok) {
+          throw new Error(await parseApiErrorResponse(response, 'Failed to update project'))
+        }
+
+        const currentProgress =
+          editingGoal.target_points && editingGoal.target_points > 0
+            ? Math.round(((editingGoal.current_points || 0) / editingGoal.target_points) * 100)
+            : 0
+
+        if (updatedGoal.progress !== currentProgress) {
+          const progressResponse = await fetch(`/api/projects/${editingGoal.id}/progress`, {
+            method: 'PATCH',
+            credentials: 'same-origin',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              progress: updatedGoal.progress,
+            }),
+          })
+
+          if (!progressResponse.ok) {
+            throw new Error(
+              await parseApiErrorResponse(progressResponse, 'Failed to update project progress')
+            )
+          }
+        }
+
+        setShowEditGoal(false)
+        setEditingGoal(null)
+        await fetchDashboardData()
+      } catch (error) {
+        console.error('Error updating project:', error)
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Could not reach the server. Check your connection and try again.'
+        alert(`Error updating project: ${message}`)
       }
-
-      await fetchDashboardData()
-      setShowEditGoal(false)
-      setEditingGoal(null)
-    } catch (error) {
-      console.error('Error updating goal:', error)
-      alert(`Error updating goal: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
+    })
   }
 
   const updateHighLevelGoal = async (updatedGoal: Record<string, unknown>) => {
@@ -4183,6 +4234,17 @@ export default function Dashboard() {
                       return a.label.localeCompare(b.label)
                     })
 
+                    if (
+                      editingGoal.category &&
+                      !allCategories.some((category) => category.value === editingGoal.category)
+                    ) {
+                      allCategories.unshift({
+                        value: editingGoal.category,
+                        label: editingGoal.category.replace(/_/g, ' '),
+                        isUserCreated: true,
+                      })
+                    }
+
                     return allCategories.map((category) => (
                       <option key={category.value} value={category.value}>
                         {category.label}
@@ -4231,36 +4293,51 @@ export default function Dashboard() {
               <div className="flex space-x-3">
                 <button
                   onClick={() => {
-                    const title = (document.getElementById('edit-goal-title') as HTMLInputElement)
-                      ?.value
+                    const title = (
+                      document.getElementById('edit-goal-title') as HTMLInputElement
+                    )?.value?.trim()
                     const description = (
                       document.getElementById('edit-goal-description') as HTMLTextAreaElement
                     )?.value
-                    const category = (
-                      document.getElementById('edit-goal-category') as HTMLSelectElement
-                    )?.value
-                    const target_points = parseInt(
+                    const category =
+                      (document.getElementById('edit-goal-category') as HTMLSelectElement)?.value ||
+                      editingGoal.category
+                    const target_points = parseIntFromForm(
                       (document.getElementById('edit-goal-target-points') as HTMLInputElement)
-                        ?.value || '0'
+                        ?.value || '',
+                      editingGoal.target_points || 10,
+                      { min: 1 }
                     )
-                    const progress = parseInt(
+                    const progress = parseIntFromForm(
                       (document.getElementById('edit-goal-progress') as HTMLInputElement)?.value ||
-                        '0'
+                        '',
+                      0,
+                      { min: 0, max: 100 }
                     )
-                    const current_points = Math.round((progress / 100) * target_points)
+
+                    if (!title) {
+                      alert('Please enter a project title')
+                      return
+                    }
+
+                    if (!category) {
+                      alert('Please select a category')
+                      return
+                    }
 
                     updateGoal({
                       title,
                       description,
                       category,
                       target_points,
-                      current_points,
+                      progress,
                       goal_id: editProjectGoalId || null,
                     })
                   }}
-                  className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
+                  disabled={updateProjectGuard.isRunning}
+                  className="flex-1 bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors disabled:opacity-60"
                 >
-                  Update Project
+                  {updateProjectGuard.isRunning ? 'Updating…' : 'Update Project'}
                 </button>
                 <button
                   onClick={() => setShowEditGoal(false)}

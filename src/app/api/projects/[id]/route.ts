@@ -1,19 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createProjectsBackendClient } from '@/lib/supabase/projects-backend'
+import { formatZodIssues, updateProjectSchema } from '@/lib/projects/schemas'
 import { z } from 'zod'
 
-const updateProjectSchema = z.object({
-  title: z.string().min(1).max(255).optional(),
-  description: z.string().optional(),
-  goal_id: z.string().uuid().nullable().optional(),
-  category: z.string().min(1).max(100).optional(),
-  target_points: z.number().int().min(0).optional(),
-  target_money: z.number().min(0).optional(),
-  current_points: z.number().int().min(0).optional(),
-  priority: z.enum(['low', 'medium', 'high']).optional(),
-  deadline: z.string().optional(),
-})
+function isMissingGoalIdColumnError(message: string | undefined): boolean {
+  if (!message) return false
+  const lower = message.toLowerCase()
+  return lower.includes('goal_id') && (lower.includes('column') || lower.includes('schema cache'))
+}
 
 // PATCH /api/projects/[id] - Update a project
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -46,17 +41,31 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
     }
 
-    const { data: updatedProject, error: updateError } = await projectsDb
-      .from('projects')
-      .update(validatedData)
-      .eq('id', projectId)
-      .eq('user_id', user.id)
-      .select()
-      .single()
+    const applyUpdate = async (payload: Record<string, unknown>) =>
+      projectsDb
+        .from('projects')
+        .update(payload)
+        .eq('id', projectId)
+        .eq('user_id', user.id)
+        .select()
+        .single()
+
+    let { data: updatedProject, error: updateError } = await applyUpdate(validatedData)
+
+    if (updateError && isMissingGoalIdColumnError(updateError.message)) {
+      const { goal_id: _goalId, ...withoutGoalId } = validatedData
+      ;({ data: updatedProject, error: updateError } = await applyUpdate(withoutGoalId))
+    }
 
     if (updateError) {
       console.error('Error updating project:', updateError)
-      return NextResponse.json({ error: 'Failed to update project' }, { status: 500 })
+      return NextResponse.json(
+        {
+          error: 'Failed to update project',
+          details: updateError.message,
+        },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ project: updatedProject }, { status: 200 })
@@ -66,6 +75,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         {
           error: 'Invalid input',
           details: error.issues,
+          message: formatZodIssues(error),
         },
         { status: 400 }
       )

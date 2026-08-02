@@ -31,6 +31,8 @@ import {
   normalizeDreamCatcherPhase,
   STREAMLINED_PHASES,
 } from '@/lib/dream-catcher/streamlined-phases'
+import { mergeAssessmentData, clampAssessmentData } from '@/lib/dream-catcher/assessment-merge'
+import { DREAM_CATCHER_LIMITS } from '@/lib/dream-catcher/plan-limits'
 import type { OnboardingPlan } from '@/lib/dream-catcher/generate-onboarding-plan'
 import type { DashboardPlanPreview } from '@/lib/dream-catcher/dashboard-plan-preview'
 
@@ -98,36 +100,6 @@ interface AssessmentData {
     contact_frequency_days?: number
     priority_level?: number
   }>
-}
-
-function mergeAssessmentData(
-  existing: AssessmentData,
-  incoming: Record<string, unknown>
-): AssessmentData {
-  const merged = { ...existing }
-  for (const [key, value] of Object.entries(incoming)) {
-    if (Array.isArray(value)) {
-      const prev = Array.isArray(merged[key as keyof AssessmentData])
-        ? (merged[key as keyof AssessmentData] as unknown[])
-        : []
-      merged[key as keyof AssessmentData] = [...new Set([...prev, ...value])] as never
-    } else if (
-      value !== null &&
-      typeof value === 'object' &&
-      !Array.isArray(value) &&
-      merged[key as keyof AssessmentData] &&
-      typeof merged[key as keyof AssessmentData] === 'object' &&
-      !Array.isArray(merged[key as keyof AssessmentData])
-    ) {
-      merged[key as keyof AssessmentData] = {
-        ...(merged[key as keyof AssessmentData] as Record<string, unknown>),
-        ...(value as Record<string, unknown>),
-      } as never
-    } else if (value !== undefined && value !== null && value !== '') {
-      merged[key as keyof AssessmentData] = value as never
-    }
-  }
-  return merged
 }
 
 function DreamCatcherModuleContent() {
@@ -510,7 +482,7 @@ function DreamCatcherModuleContent() {
 
         // Restore assessment data (but exclude conversation_messages from the main assessment data)
         const { conversation_messages, ...restoredAssessmentData } = session.assessment_data
-        setAssessmentData(restoredAssessmentData)
+        setAssessmentData(clampAssessmentData(restoredAssessmentData) as AssessmentData)
 
         // Restore phase
         if (session.assessment_data.current_phase) {
@@ -569,8 +541,8 @@ function DreamCatcherModuleContent() {
   useEffect(() => {
     if (!sessionId && !isLoadingSession && messages.length === 0) {
       const welcomeContent = isNewUser
-        ? `Welcome to LifeStacks! I'll ask ${INTAKE_QUESTION_COUNT} thoughtful questions about your goals, habits, fitness, relationships, and what gets in your way.\n\nThen we'll craft your vision and Life Plan — distributed across your dashboard (goals, projects, tasks, habits, education) and life modules (Fitness Tracker, Gratitude Journal, Relationship Manager, Focus Enhancer).\n\nAt the end I'll summarize who you are and what you're building, then you'll review and confirm before anything is created.\n\nHere's the first question: What matters most to you right now? Tell me about your top priorities in your own words.`
-        : `Welcome back to Dream Catcher! We'll walk through ${INTAKE_QUESTION_COUNT} questions to refresh your Life Plan — dashboard items and life modules. You'll review everything and confirm before anything is added. Your existing data stays as it is.\n\nWhat matters most to you right now? Tell me about your top priorities in your own words.`
+        ? `Welcome to LifeStacks! I'll ask up to ${INTAKE_QUESTION_COUNT} thoughtful questions — adapted to your answers — about your goals, habits, fitness, relationships, and what gets in your way. This usually takes about 10–15 minutes.\n\nThen we'll craft your vision and Life Plan — distributed across your dashboard (2–4 goals, 3–7 projects, 4–15 tasks, up to 5 habits) and life modules.\n\nAt the end you'll review and confirm before anything is created.\n\nHere's the first question: What matters most to you right now? Tell me about your top priorities in your own words.`
+        : `Welcome back to Dream Catcher! We'll walk through up to ${INTAKE_QUESTION_COUNT} adaptive questions to refresh your Life Plan (~10–15 minutes). You'll review everything and confirm before anything is added.\n\nWhat matters most to you right now? Tell me about your top priorities in your own words.`
 
       const welcomeMessage: ChatMessage = {
         id: 'welcome',
@@ -701,7 +673,9 @@ function DreamCatcherModuleContent() {
 
         let mergedAssessment = assessmentData
         if (data.assessment_data) {
-          mergedAssessment = mergeAssessmentData(assessmentData, data.assessment_data)
+          mergedAssessment = clampAssessmentData(
+            mergeAssessmentData(assessmentData, data.assessment_data)
+          ) as AssessmentData
           setAssessmentData(mergedAssessment)
         }
 
@@ -1521,9 +1495,14 @@ function DreamCatcherModuleContent() {
                     {assessmentData.goals_generated &&
                       assessmentData.goals_generated.length > 0 && (
                         <div>
-                          <p className="font-medium text-gray-700 mb-1">Goals Generated:</p>
+                          <p className="font-medium text-gray-700 mb-1">Goals Drafted:</p>
                           <p className="text-xs text-gray-600">
-                            {assessmentData.goals_generated.length} goals created
+                            {Math.min(
+                              assessmentData.goals_generated.length,
+                              DREAM_CATCHER_LIMITS.goals.max
+                            )}{' '}
+                            of {DREAM_CATCHER_LIMITS.goals.min}–{DREAM_CATCHER_LIMITS.goals.max}{' '}
+                            goals
                           </p>
                         </div>
                       )}
@@ -1933,37 +1912,39 @@ function DreamCatcherModuleContent() {
               )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {assessmentData.goals_generated.map((goal, index) => (
-                <div
-                  key={index}
-                  className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <h4 className="font-semibold text-gray-900">{goal.goal}</h4>
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        goal.priority === 'high'
-                          ? 'bg-red-100 text-red-700'
-                          : goal.priority === 'medium'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-blue-100 text-blue-700'
-                      }`}
-                    >
-                      {goal.priority}
-                    </span>
+              {assessmentData.goals_generated
+                ?.slice(0, DREAM_CATCHER_LIMITS.goals.max)
+                .map((goal, index) => (
+                  <div
+                    key={index}
+                    className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="font-semibold text-gray-900">{goal.goal}</h4>
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full ${
+                          goal.priority === 'high'
+                            ? 'bg-red-100 text-red-700'
+                            : goal.priority === 'medium'
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-blue-100 text-blue-700'
+                        }`}
+                      >
+                        {goal.priority}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-4 text-xs text-gray-600 mt-2">
+                      <span className="flex items-center">
+                        <Target className="h-3 w-3 mr-1" />
+                        {goal.category}
+                      </span>
+                      <span className="flex items-center">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {goal.timeline}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-4 text-xs text-gray-600 mt-2">
-                    <span className="flex items-center">
-                      <Target className="h-3 w-3 mr-1" />
-                      {goal.category}
-                    </span>
-                    <span className="flex items-center">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {goal.timeline}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
 
             {/* Action Buttons */}

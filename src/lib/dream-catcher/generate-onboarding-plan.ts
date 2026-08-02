@@ -9,6 +9,7 @@ import {
   createProjectPayloadSchema,
   taskCategorySchema,
 } from '@/lib/assistant/proposal-schemas'
+import { DREAM_CATCHER_LIMITS, formatPlanLimitsForPrompt } from '@/lib/dream-catcher/plan-limits'
 
 const goalItemSchema = z.object({ type: z.literal('create_goal') }).merge(createGoalPayloadSchema)
 const projectItemSchema = z
@@ -99,7 +100,7 @@ export const onboardingItemSchema = z.discriminatedUnion('type', [
 export const onboardingPlanSchema = z.object({
   summary: z.string().min(1),
   life_plan_summary: z.string().optional(),
-  items: z.array(onboardingItemSchema).min(1).max(120),
+  items: z.array(onboardingItemSchema).min(1).max(40),
 })
 
 export type OnboardingPlan = z.infer<typeof onboardingPlanSchema>
@@ -184,8 +185,85 @@ function mapFitnessGoalType(raw?: string): z.infer<typeof fitnessGoalItemSchema>
   return 'general_fitness'
 }
 
+export function clampOnboardingPlan(plan: OnboardingPlan): OnboardingPlan {
+  const L = DREAM_CATCHER_LIMITS
+  const items: OnboardingPlanItem[] = []
+  const counts = {
+    goals: 0,
+    projects: 0,
+    tasks: 0,
+    habits: 0,
+    education: 0,
+    fitness: 0,
+    ruminations: 0,
+    gratitude: 0,
+    relationships: 0,
+  }
+
+  const goalTitles = new Set<string>()
+  const projectTitles = new Set<string>()
+
+  for (const item of plan.items) {
+    switch (item.type) {
+      case 'create_goal':
+        if (counts.goals >= L.goals.max) continue
+        counts.goals++
+        goalTitles.add(item.title.trim().toLowerCase())
+        items.push(item)
+        break
+      case 'create_project':
+        if (counts.projects >= L.projects.max) continue
+        counts.projects++
+        projectTitles.add(item.title.trim().toLowerCase())
+        items.push(item)
+        break
+      case 'create_task':
+        if (counts.tasks >= L.tasks.max) continue
+        counts.tasks++
+        items.push(item)
+        break
+      case 'create_habit':
+        if (counts.habits >= L.habits.max) continue
+        counts.habits++
+        items.push(item)
+        break
+      case 'create_education_item':
+        if (counts.education >= L.education.max) continue
+        counts.education++
+        items.push(item)
+        break
+      case 'create_fitness_goal':
+        if (counts.fitness >= L.fitnessGoals.max) continue
+        counts.fitness++
+        items.push(item)
+        break
+      case 'create_fear_insight':
+        if (counts.ruminations >= L.ruminations.max) continue
+        counts.ruminations++
+        items.push(item)
+        break
+      case 'create_gratitude_starter':
+        if (counts.gratitude >= 1) continue
+        counts.gratitude++
+        items.push(item)
+        break
+      case 'create_relationship':
+        if (counts.relationships >= L.relationships.max) continue
+        counts.relationships++
+        items.push(item)
+        break
+      default:
+        break
+    }
+  }
+
+  return { ...plan, items }
+}
+
 export function buildFallbackPlan(input: DreamCatcherAssessmentInput): OnboardingPlan {
-  const seeds = (input.seedGoals || []).filter((g) => g && g.goal).slice(0, 6)
+  const seeds = (input.seedGoals || [])
+    .filter((g) => g && g.goal)
+    .slice(0, DREAM_CATCHER_LIMITS.goals.max)
   const items: OnboardingPlanItem[] = []
 
   const usableSeeds = seeds.length
@@ -227,7 +305,7 @@ export function buildFallbackPlan(input: DreamCatcherAssessmentInput): Onboardin
     })
   }
 
-  for (const habit of input.habitIdeas?.slice(0, 5) ?? []) {
+  for (const habit of input.habitIdeas?.slice(0, DREAM_CATCHER_LIMITS.habits.max) ?? []) {
     items.push({
       type: 'create_habit',
       title: habit.title.slice(0, 255),
@@ -241,7 +319,7 @@ export function buildFallbackPlan(input: DreamCatcherAssessmentInput): Onboardin
     }
   }
 
-  for (const edu of input.educationItems?.slice(0, 3) ?? []) {
+  for (const edu of input.educationItems?.slice(0, DREAM_CATCHER_LIMITS.education.max) ?? []) {
     items.push({
       type: 'create_education_item',
       title: edu.title.slice(0, 255),
@@ -252,7 +330,8 @@ export function buildFallbackPlan(input: DreamCatcherAssessmentInput): Onboardin
     })
   }
 
-  for (const fg of input.fitnessProfile?.goals?.slice(0, 2) ?? []) {
+  for (const fg of input.fitnessProfile?.goals?.slice(0, DREAM_CATCHER_LIMITS.fitnessGoals.max) ??
+    []) {
     const desc = typeof fg.description === 'string' ? fg.description : JSON.stringify(fg)
     items.push({
       type: 'create_fitness_goal',
@@ -263,7 +342,7 @@ export function buildFallbackPlan(input: DreamCatcherAssessmentInput): Onboardin
     })
   }
 
-  for (const r of input.ruminations?.slice(0, 4) ?? []) {
+  for (const r of input.ruminations?.slice(0, DREAM_CATCHER_LIMITS.ruminations.max) ?? []) {
     items.push({
       type: 'create_fear_insight',
       description: r.description.slice(0, 2000),
@@ -286,7 +365,8 @@ export function buildFallbackPlan(input: DreamCatcherAssessmentInput): Onboardin
     })
   }
 
-  for (const rel of input.keyRelationships?.slice(0, 3) ?? []) {
+  for (const rel of input.keyRelationships?.slice(0, DREAM_CATCHER_LIMITS.relationships.max) ??
+    []) {
     const relType = rel.relationship_type?.toLowerCase()
     const allowed = ['family', 'friend', 'colleague', 'business', 'mentor', 'acquaintance'] as const
     items.push({
@@ -301,11 +381,11 @@ export function buildFallbackPlan(input: DreamCatcherAssessmentInput): Onboardin
     })
   }
 
-  return {
+  return clampOnboardingPlan({
     summary: 'Life Plan generated from your Dream Catcher session.',
     life_plan_summary: input.lifePlanSummary,
     items,
-  }
+  })
 }
 
 function formatAssessmentBlock(input: DreamCatcherAssessmentInput): string {
@@ -378,23 +458,21 @@ PERSONALITY / TRAITS:
 ${(input.personalityTraits || []).join(', ') || '(none provided)'}
 
 DRAFT GOALS FROM THE SESSION:
-${seedList || '(none — infer 3-5 meaningful goals from the vision and assessment)'}
+${seedList || `(none — infer ${DREAM_CATCHER_LIMITS.goals.min}-${DREAM_CATCHER_LIMITS.goals.max} meaningful goals from the vision and assessment)`}
 
 FULL ASSESSMENT DETAIL:
 ${formatAssessmentBlock(input)}
 
-RULES (strict):
-1. Create 3-6 measurable GOALS (create_goal). Each needs goal_type, target_value, target_unit.
-2. Create 1-2 PROJECTS per goal (create_project) with exact goal_title_ref linkage.
-3. Create 2-4 TASKS per project (create_task) with exact project_title linkage.
-4. Create 3-5 daily HABITS (create_habit) from habit ideas.
-5. Create 1-3 EDUCATION items (create_education_item) when learning goals were mentioned.
-6. Create 1-2 FITNESS goals (create_fitness_goal) when fitness was discussed — use appropriate goal_type.
-7. Create 1-4 FEAR INSIGHTS (create_fear_insight) from ruminations/blocks for Focus Enhancer starter ruminations.
-8. Create ONE gratitude starter (create_gratitude_starter) with gratitude_items array (3+ items) when gratitude data exists.
-9. Create up to 3 RELATIONSHIPS (create_relationship) for key people — friend/family/etc., contact_frequency_days from user input.
-10. Order: goals → projects → tasks → habits → education → fitness → fear insights → gratitude → relationships.
-11. life_plan_summary: 2-3 sentence overview for the user (who they are + what they are building).
+RULES (strict — do not exceed these counts):
+${formatPlanLimitsForPrompt()}
+- EDUCATION: 1-3 items when learning goals were mentioned
+- FITNESS: 1-2 goals when fitness was discussed
+- FEAR INSIGHTS: 1-4 from ruminations/blocks
+- GRATITUDE: one starter with 3+ items when gratitude data exists
+- RELATIONSHIPS: up to 3 key people
+- Order items: goals → projects → tasks → habits → education → fitness → fear insights → gratitude → relationships
+- Each goal description must include how completion is measured (metric or milestone)
+- life_plan_summary: 2-3 sentence overview for the user
 
 Return ONLY valid JSON (no markdown):
 {
@@ -435,7 +513,7 @@ Return ONLY valid JSON (no markdown):
     })
     if (!linksValid || goalTitles.size === 0) return buildFallbackPlan(input)
 
-    return plan
+    return clampOnboardingPlan(plan)
   } catch {
     return buildFallbackPlan(input)
   }

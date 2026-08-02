@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
+import { openai } from '@ai-sdk/openai'
 import { env } from '@/lib/env'
-import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import {
   getIntakeQuestionContext,
@@ -10,6 +10,12 @@ import {
   INTAKE_QUESTION_COUNT,
   normalizeDreamCatcherPhase,
 } from '@/lib/dream-catcher/streamlined-phases'
+import {
+  clampAssessmentData,
+  mergeAssessmentData,
+  summarizeAssessmentForPrompt,
+} from '@/lib/dream-catcher/assessment-merge'
+import { DREAM_CATCHER_LIMITS, formatPlanLimitsForPrompt } from '@/lib/dream-catcher/plan-limits'
 
 export async function POST(request: NextRequest) {
   try {
@@ -101,6 +107,17 @@ export async function POST(request: NextRequest) {
 
     // Provide more detailed error information
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+    if (errorMessage.includes('model_not_found') || errorMessage.includes('does not have access')) {
+      return NextResponse.json(
+        {
+          error: 'Dream Catcher AI model is unavailable',
+          details: `Set OPENAI_MODEL in your environment to a model your API key can use (e.g. gpt-4o-mini). Current model: ${resolveOpenAIModelId()}`,
+        },
+        { status: 500 }
+      )
+    }
+
     const errorDetails =
       error instanceof Error && error.stack
         ? error.stack.split('\n').slice(0, 3).join('\n')
@@ -143,13 +160,28 @@ async function generateDreamCatcherResponse(
   intakeQuestionIndex: number = 0
 ) {
   const normalizedPhase = normalizeDreamCatcherPhase(currentPhase)
-  const phaseInstruction = getStreamlinedPhaseInstructions(normalizedPhase, intakeQuestionIndex)
-  const intakeContext = getIntakeQuestionContext(intakeQuestionIndex, normalizedPhase)
+  const clampedIndex = Math.min(Math.max(intakeQuestionIndex, 0), INTAKE_QUESTION_COUNT)
+
+  // Hard stop: after all intake questions, move to vision without another AI call on stale index
+  if (normalizedPhase === 'intake' && clampedIndex >= INTAKE_QUESTION_COUNT) {
+    return {
+      message:
+        "Thank you for sharing so much with me. I've gathered what I need from our conversation — let's shape your vision next. What would you say is the single sentence that captures who you're becoming?",
+      next_phase: 'vision',
+      intake_question_index: INTAKE_QUESTION_COUNT,
+      assessment_data: clampAssessmentData(assessmentData),
+    }
+  }
+
+  const phaseInstruction = getStreamlinedPhaseInstructions(normalizedPhase, clampedIndex)
+  const intakeContext = getIntakeQuestionContext(clampedIndex, normalizedPhase)
 
   const hasExistingDashboard =
     userData.goals.length > 0 || userData.projects.length > 0 || userData.habits.length > 0
 
   const contextSummary = buildContextSummary(assessmentData, userData, conversationHistory)
+
+  const promptSummary = summarizeAssessmentForPrompt(assessmentData)
 
   const prompt = `
 You are Dream Catcher, a warm LifeStacks onboarding coach. Help users discover what matters and prepare a starter dashboard — quickly, without overwhelming them.
@@ -157,14 +189,17 @@ You are Dream Catcher, a warm LifeStacks onboarding coach. Help users discover w
 ${phaseInstruction}
 ${intakeContext}
 
-CURRENT ASSESSMENT DATA:
-${JSON.stringify(assessmentData, null, 2)}
+CURRENT ASSESSMENT DATA (summarized — only add NEW items in your response arrays):
+${JSON.stringify(promptSummary, null, 2)}
 
 USER'S EXISTING DASHBOARD (for context only — never replace these; new items will be added):
 - Goals: ${userData.goals.length}
 - Projects: ${userData.projects.length}
 - Habits: ${userData.habits.length}
 ${hasExistingDashboard ? '- User already has dashboard items. Emphasize that confirming will ADD new goals/projects/tasks/habits without removing existing ones.' : '- User has an empty dashboard. Confirming will create their starter setup.'}
+
+STARTER DASHBOARD LIMITS (enforce when consolidating in goals phase):
+${formatPlanLimitsForPrompt()}
 
 RECENT CONVERSATION:
 ${conversationHistory
@@ -181,17 +216,18 @@ USER'S CURRENT MESSAGE:
 INSTRUCTIONS:
 1. Be warm, concise, and encouraging — no long lectures
 2. Ask ONE question at a time in intake phase only
-3. Extract and merge assessment_data fields as you learn (see extraction map in phase instructions)
+3. In assessment_data, include ONLY NEW extracted items per array field (server merges and deduplicates)
 4. Use next_phase values only from: intake, vision, goals, summary, confirm
-5. In goals phase, produce goals_generated (3-6 measurable goals with target_value + target_unit when possible)
-6. In summary phase, write life_plan_summary — who they are and what they are building — then move to confirm
+5. In goals phase, produce exactly ${DREAM_CATCHER_LIMITS.goals.min}-${DREAM_CATCHER_LIMITS.goals.max} goals in goals_generated with target_value + target_unit
+6. In summary phase, write life_plan_summary — then move to confirm
 7. In confirm phase, do not ask questions — point user to the Life Plan preview panel
+8. Return ONLY valid JSON — no markdown fences
 
 RESPONSE FORMAT (JSON only):
 {
   "message": "Your conversational response",
   "next_phase": "intake|vision|goals|summary|confirm",
-  "intake_question_index": ${normalizedPhase === 'intake' ? intakeQuestionIndex + 1 : intakeQuestionIndex} (increment by 1 after each intake answer; max ${INTAKE_QUESTION_COUNT}),
+  "intake_question_index": ${normalizedPhase === 'intake' ? clampedIndex + 1 : clampedIndex},
   "assessment_data": {
     "personality_traits": [],
     "personal_insights": [],
@@ -212,20 +248,21 @@ RESPONSE FORMAT (JSON only):
     "key_relationships": [{ "name": "...", "relationship_type": "friend|family|...", "notes": "...", "contact_frequency_days": 14, "priority_level": 3 }]
   }
 }
-
-Merge assessment_data with existing data — append arrays, shallow-merge nested objects (fitness_profile, gratitude_starters), do not wipe prior entries.
 `
 
-  // Use AI to generate response
+  // Use AI to generate response (with fallback model if primary is unavailable)
   let aiResponse: string
-  try {
+  const primaryModel = resolveOpenAIModelId()
+  const fallbackModel = 'gpt-4o-mini'
+
+  async function callModel(modelId: string) {
     const result = await generateText({
-      model: defaultOpenaiModel(),
+      model: openai(modelId),
       messages: [
         {
           role: 'system',
           content:
-            'You are Dream Catcher, an expert personal consultant helping people discover their authentic dreams and create actionable plans. You are warm, empathetic, curious, and skilled at asking powerful questions that help people explore their true selves.',
+            'You are Dream Catcher, an expert personal consultant helping people discover their authentic dreams and create actionable plans. You are warm, empathetic, curious, and skilled at asking powerful questions. Always respond with valid JSON only — no markdown code fences.',
         },
         {
           role: 'user',
@@ -234,29 +271,52 @@ Merge assessment_data with existing data — append arrays, shallow-merge nested
       ],
       temperature: 0.8,
     })
-    aiResponse = result.text
+    return result.text
+  }
+
+  try {
+    aiResponse = await callModel(primaryModel)
   } catch (generateError) {
-    console.error('Error calling OpenAI generateText:', {
-      error: generateError instanceof Error ? generateError.message : String(generateError),
-      stack: generateError instanceof Error ? generateError.stack : undefined,
-      hasOpenAIKey: !!env.OPENAI_API_KEY,
-      model: resolveOpenAIModelId(),
-      promptLength: prompt.length,
-    })
-    throw new Error(
-      `Failed to generate AI response: ${generateError instanceof Error ? generateError.message : 'Unknown error'}`
-    )
+    const errMsg = generateError instanceof Error ? generateError.message : String(generateError)
+    const shouldFallback =
+      primaryModel !== fallbackModel &&
+      (errMsg.includes('model_not_found') ||
+        errMsg.includes('does not have access') ||
+        errMsg.includes('does not exist'))
+
+    if (shouldFallback) {
+      console.warn(`Dream Catcher: falling back from ${primaryModel} to ${fallbackModel}`)
+      try {
+        aiResponse = await callModel(fallbackModel)
+      } catch (fallbackError) {
+        console.error('Error calling OpenAI fallback model:', fallbackError)
+        throw new Error(
+          `Failed to generate AI response: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`
+        )
+      }
+    } else {
+      console.error('Error calling OpenAI generateText:', {
+        error: errMsg,
+        hasOpenAIKey: !!env.OPENAI_API_KEY,
+        model: primaryModel,
+        promptLength: prompt.length,
+      })
+      throw new Error(`Failed to generate AI response: ${errMsg}`)
+    }
   }
 
   let parsedResponse
   try {
-    parsedResponse = JSON.parse(aiResponse)
+    const trimmed = aiResponse.trim()
+    const start = trimmed.indexOf('{')
+    const end = trimmed.lastIndexOf('}')
+    parsedResponse = JSON.parse(start >= 0 && end > start ? trimmed.slice(start, end + 1) : trimmed)
   } catch {
     parsedResponse = {
-      message: aiResponse,
+      message: aiResponse.replace(/```json|```/g, '').trim(),
       next_phase: normalizedPhase,
-      intake_question_index: intakeQuestionIndex,
-      assessment_data: assessmentData,
+      intake_question_index: clampedIndex + (normalizedPhase === 'intake' ? 1 : 0),
+      assessment_data: {},
     }
   }
 
@@ -266,35 +326,42 @@ Merge assessment_data with existing data — append arrays, shallow-merge nested
 
   if (parsedResponse.intake_question_index === undefined) {
     parsedResponse.intake_question_index =
-      parsedResponse.personality_question_index ?? intakeQuestionIndex
+      parsedResponse.personality_question_index ??
+      clampedIndex + (normalizedPhase === 'intake' ? 1 : 0)
   }
 
-  // Merge assessment data (append arrays, shallow-merge objects, preserve existing fields)
+  // Enforce intake cap server-side
+  if (
+    normalizedPhase === 'intake' &&
+    Number(parsedResponse.intake_question_index) >= INTAKE_QUESTION_COUNT
+  ) {
+    parsedResponse.next_phase = 'vision'
+    parsedResponse.intake_question_index = INTAKE_QUESTION_COUNT
+  }
+
+  // Merge assessment data with deduplication and caps
   if (parsedResponse.assessment_data) {
-    const merged = { ...assessmentData }
-    for (const [key, value] of Object.entries(parsedResponse.assessment_data)) {
-      if (Array.isArray(value)) {
-        const prev = Array.isArray(merged[key]) ? (merged[key] as unknown[]) : []
-        merged[key] = [...new Set([...prev, ...value])]
-      } else if (
-        value !== null &&
-        typeof value === 'object' &&
-        !Array.isArray(value) &&
-        merged[key] &&
-        typeof merged[key] === 'object' &&
-        !Array.isArray(merged[key])
-      ) {
-        merged[key] = {
-          ...(merged[key] as Record<string, unknown>),
-          ...(value as Record<string, unknown>),
-        }
-      } else if (value !== undefined && value !== null && value !== '') {
-        merged[key] = value
-      }
-    }
-    parsedResponse.assessment_data = merged
+    parsedResponse.assessment_data = mergeAssessmentData(
+      assessmentData,
+      parsedResponse.assessment_data as Record<string, unknown>
+    )
   } else {
-    parsedResponse.assessment_data = assessmentData
+    parsedResponse.assessment_data = clampAssessmentData(assessmentData)
+  }
+
+  // Goals phase: replace goals array when AI sends a full finalized set
+  if (
+    normalizedPhase === 'goals' &&
+    Array.isArray(parsedResponse.assessment_data?.goals_generated)
+  ) {
+    const incoming = (parsedResponse.assessment_data as Record<string, unknown>)
+      .goals_generated as unknown[]
+    if (incoming.length >= DREAM_CATCHER_LIMITS.goals.min) {
+      ;(parsedResponse.assessment_data as Record<string, unknown>).goals_generated = incoming.slice(
+        0,
+        DREAM_CATCHER_LIMITS.goals.max
+      )
+    }
   }
 
   return parsedResponse
