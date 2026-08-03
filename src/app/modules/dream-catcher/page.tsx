@@ -41,7 +41,7 @@ interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
-  phase?: 'intake' | 'vision' | 'goals' | 'summary' | 'confirm'
+  phase?: 'intake' | 'vision' | 'goals' | 'projects' | 'tasks' | 'summary' | 'confirm'
 }
 
 interface AssessmentData {
@@ -65,6 +65,7 @@ interface AssessmentData {
   life_plan_summary?: string
   goals_generated?: Array<{
     goal: string
+    description?: string
     category: string
     priority: string
     timeline: string
@@ -78,7 +79,13 @@ interface AssessmentData {
     linked_goal?: string
   }>
   habit_ideas?: Array<{ title: string; description?: string }>
-  task_ideas?: Array<{ title: string; description?: string; category?: string }>
+  task_ideas?: Array<{
+    title: string
+    description?: string
+    category?: string
+    linked_project?: string
+    step_order?: number
+  }>
   education_items?: Array<{
     title: string
     description?: string
@@ -112,7 +119,7 @@ function DreamCatcherModuleContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingSession, setIsLoadingSession] = useState(false)
   const [currentPhase, setCurrentPhase] = useState<
-    'intake' | 'vision' | 'goals' | 'summary' | 'confirm'
+    'intake' | 'vision' | 'goals' | 'projects' | 'tasks' | 'summary' | 'confirm'
   >('intake')
   const [assessmentData, setAssessmentData] = useState<AssessmentData>({})
   const [intakeQuestionIndex, setIntakeQuestionIndex] = useState(0)
@@ -541,7 +548,7 @@ function DreamCatcherModuleContent() {
   useEffect(() => {
     if (!sessionId && !isLoadingSession && messages.length === 0) {
       const welcomeContent = isNewUser
-        ? `Welcome to LifeStacks! I'll ask up to ${INTAKE_QUESTION_COUNT} thoughtful questions — adapted to your answers — about your goals, habits, fitness, relationships, and what gets in your way. This usually takes about 10–15 minutes.\n\nThen we'll craft your vision and Life Plan — distributed across your dashboard (2–4 goals, 3–7 projects, 4–15 tasks, up to 5 habits) and life modules.\n\nAt the end you'll review and confirm before anything is created.\n\nHere's the first question: What matters most to you right now? Tell me about your top priorities in your own words.`
+        ? `Welcome to LifeStacks! I'll ask up to ${INTAKE_QUESTION_COUNT} thoughtful questions — adapted to your answers — about your goals, projects, tactics, habits, fitness, relationships, and what gets in your way. This usually takes about 10–15 minutes.\n\nThen we'll define your goals, projects, and step-by-step tasks in order — your full Life Plan (2–4 goals, 3–7 projects, 4–15 tasks, up to 5 habits) distributed across your dashboard and life modules.\n\nAt the end you'll review and confirm before anything is created.\n\nHere's the first question: What matters most to you right now? Tell me about your top priorities in your own words.`
         : `Welcome back to Dream Catcher! We'll walk through up to ${INTAKE_QUESTION_COUNT} adaptive questions to refresh your Life Plan (~10–15 minutes). You'll review everything and confirm before anything is added.\n\nWhat matters most to you right now? Tell me about your top priorities in your own words.`
 
       const welcomeMessage: ChatMessage = {
@@ -679,7 +686,12 @@ function DreamCatcherModuleContent() {
           setAssessmentData(mergedAssessment)
         }
 
-        if (nextPhase === 'summary' || nextPhase === 'goals') {
+        if (
+          nextPhase === 'summary' ||
+          nextPhase === 'goals' ||
+          nextPhase === 'projects' ||
+          nextPhase === 'tasks'
+        ) {
           setShowResults(true)
         }
 
@@ -689,7 +701,13 @@ function DreamCatcherModuleContent() {
         }
 
         if (mergedAssessment.goals_generated && mergedAssessment.goals_generated.length > 0) {
-          if (nextPhase === 'confirm' || nextPhase === 'summary' || nextPhase === 'goals') {
+          if (
+            nextPhase === 'confirm' ||
+            nextPhase === 'summary' ||
+            nextPhase === 'tasks' ||
+            nextPhase === 'projects' ||
+            nextPhase === 'goals'
+          ) {
             void loadDashboardPreview(mergedAssessment)
           }
         }
@@ -922,6 +940,7 @@ function DreamCatcherModuleContent() {
         current_phase: currentPhase,
         intake_question_index: intakeQuestionIndex,
         personality_question_index: intakeQuestionIndex,
+        session_source: isNewUser ? 'onboarding' : 'dream_catcher',
       }
 
       const response = await fetch('/api/modules/dream-catcher/save', {
@@ -975,7 +994,19 @@ function DreamCatcherModuleContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          assessment_data: assessmentData,
+          assessment_data: {
+            ...assessmentData,
+            conversation_messages: messages.map((msg) => ({
+              id: msg.id,
+              role: msg.role,
+              content: msg.content,
+              timestamp: msg.timestamp.toISOString(),
+              phase: msg.phase,
+            })),
+            current_phase: currentPhase,
+            intake_question_index: intakeQuestionIndex,
+            session_source: isNewUser ? 'onboarding' : 'dream_catcher',
+          },
           vision_statement: assessmentData.vision_statement,
           is_new_user: isNewUser,
           plan: planToCommit,
@@ -1035,6 +1066,22 @@ function DreamCatcherModuleContent() {
       goals: {
         name: 'Goals',
         icon: <Target className="h-4 w-4" />,
+        bgClass: 'bg-amber-50',
+        borderClass: 'border-amber-200',
+        borderActiveClass: 'border-amber-300',
+        textClass: 'text-amber-800',
+      },
+      projects: {
+        name: 'Projects',
+        icon: <Lightbulb className="h-4 w-4" />,
+        bgClass: 'bg-amber-50',
+        borderClass: 'border-amber-200',
+        borderActiveClass: 'border-amber-300',
+        textClass: 'text-amber-800',
+      },
+      tasks: {
+        name: 'Tasks',
+        icon: <List className="h-4 w-4" />,
         bgClass: 'bg-amber-50',
         borderClass: 'border-amber-200',
         borderActiveClass: 'border-amber-300',
@@ -1640,7 +1687,10 @@ function DreamCatcherModuleContent() {
                     <ul className="space-y-1 text-sm text-gray-700">
                       {dashboardPreview.goals.map((g, i) => (
                         <li key={i} className="border-b border-gray-100 pb-1">
-                          {g.title}
+                          <span className="font-medium">{g.title}</span>
+                          {g.description && (
+                            <p className="text-xs text-gray-500 mt-0.5">{g.description}</p>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -1650,12 +1700,23 @@ function DreamCatcherModuleContent() {
                     <ul className="space-y-1 text-sm text-gray-700">
                       {dashboardPreview.projects.slice(0, 5).map((p, i) => (
                         <li key={i} className="border-b border-gray-100 pb-1">
-                          {p.title}
+                          <span className="font-medium">{p.title}</span>
+                          {p.description && (
+                            <p className="text-xs text-gray-500 mt-0.5">{p.description}</p>
+                          )}
+                          {p.goal_title_ref && (
+                            <p className="text-xs text-gray-400">→ {p.goal_title_ref}</p>
+                          )}
                         </li>
                       ))}
-                      {dashboardPreview.tasks.slice(0, 3).map((t, i) => (
-                        <li key={`t-${i}`} className="text-xs text-gray-500 pl-2">
-                          → {t.title}
+                      {dashboardPreview.tasks.slice(0, 8).map((t, i) => (
+                        <li
+                          key={`t-${i}`}
+                          className="text-xs text-gray-600 pl-2 border-b border-gray-50 pb-1"
+                        >
+                          <span className="font-medium text-gray-700">{t.title}</span>
+                          {t.description && <p className="text-gray-500 mt-0.5">{t.description}</p>}
+                          {t.project_title && <p className="text-gray-400">→ {t.project_title}</p>}
                         </li>
                       ))}
                     </ul>

@@ -19,8 +19,8 @@ export function formatPlanLimitsForPrompt(): string {
   const L = DREAM_CATCHER_LIMITS
   return [
     `GOALS: ${L.goals.min}-${L.goals.max} measurable goals (descriptions must include metrics or milestones)`,
-    `PROJECTS: ${L.projects.min}-${L.projects.max} total, each linked to a goal`,
-    `TASKS: ${L.tasks.min}-${L.tasks.max} total, each linked to a project`,
+    `PROJECTS: ${L.projects.min}-${L.projects.max} milestone initiatives (NOT goal copies — smaller steps that add up to each goal)`,
+    `TASKS: ${L.tasks.min}-${L.tasks.max} concrete tactics/steps (linked to projects — NOT goal or project copies)`,
     `HABITS: up to ${L.habits.max} daily habits that reinforce progress`,
   ].join('\n')
 }

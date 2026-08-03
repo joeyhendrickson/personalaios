@@ -9,6 +9,13 @@ interface PayPalOneTimeButtonProps {
   userEmail: string
   metadata?: Record<string, string | boolean>
   disabled?: boolean
+  createOrderEndpoint?: string
+  registerEndpoint?: string
+  orderContext?: {
+    returnUrl?: string
+    cancelUrl?: string
+    customIdPrefix?: string
+  }
   onSuccess?: (orderId: string) => void
   onError?: (error: string) => void
 }
@@ -30,6 +37,9 @@ export default function PayPalOneTimeButton({
   userEmail,
   metadata,
   disabled = false,
+  createOrderEndpoint = '/api/paypal/create-workshop-order',
+  registerEndpoint = '/api/workshop/register',
+  orderContext,
   onSuccess,
   onError,
 }: PayPalOneTimeButtonProps) {
@@ -78,14 +88,14 @@ export default function PayPalOneTimeButton({
         }}
         disabled={disabled}
         createOrder={async () => {
-          const response = await fetch('/api/paypal/create-workshop-order', {
+          const response = await fetch(createOrderEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               amount,
               description,
               userEmail,
-              metadata,
+              ...orderContext,
             }),
           })
 
@@ -107,7 +117,7 @@ export default function PayPalOneTimeButton({
               }
             }
 
-            const response = await fetch('/api/workshop/register', {
+            const response = await fetch(registerEndpoint, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({

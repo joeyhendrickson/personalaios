@@ -195,6 +195,8 @@ export default function NarrativeIntegrationDashboardPage() {
             <h2 className="font-semibold text-gray-900">Your sessions</h2>
             <p className="text-sm text-gray-600">
               Open one to continue, rename any session, or start a new session for a different loop.
+              Sessions titled &quot;Intake worry/blocker/concern&quot; were created from your Dream
+              Catcher setup.
             </p>
           </div>
 

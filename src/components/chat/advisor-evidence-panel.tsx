@@ -16,7 +16,7 @@ type AdvisorEvidencePanelProps = {
 function confidenceColor(level: AdvisorEvidence['confidenceLevel']): string {
   if (level === 'high') return 'bg-emerald-100 text-emerald-900 border-emerald-200'
   if (level === 'medium') return 'bg-amber-100 text-amber-900 border-amber-200'
-  return 'bg-rose-100 text-rose-900 border-rose-200'
+  return 'bg-primary/15 text-foreground border-primary/30'
 }
 
 function ModuleCard({ module: mod }: { module: AdvisorEvidence['modules'][number] }) {
@@ -24,7 +24,7 @@ function ModuleCard({ module: mod }: { module: AdvisorEvidence['modules'][number
 
   return (
     <div
-      className={`rounded-lg border p-3 ${mod.includedInPrompt ? 'border-blue-200 bg-blue-50/50' : 'border-gray-200 bg-gray-50/80 opacity-80'}`}
+      className={`rounded-lg border p-3 ${mod.includedInPrompt ? 'border-primary/30 bg-primary/10' : 'border-gray-200 bg-gray-50/80 opacity-80'}`}
     >
       <button
         type="button"
@@ -41,7 +41,7 @@ function ModuleCard({ module: mod }: { module: AdvisorEvidence['modules'][number
             <span className="font-medium text-gray-900">{mod.label}</span>
             <span className="text-xs text-gray-500">Priority #{mod.priorityRank}</span>
             {mod.includedInPrompt ? (
-              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
+              <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs text-foreground">
                 Used in reply
               </span>
             ) : (
@@ -155,7 +155,7 @@ export function AdvisorEvidencePanel({
             </p>
           )}
           {evidence.appliedAdjustments && evidence.appliedAdjustments.length > 0 && (
-            <div className="mt-2 rounded-md border border-violet-200 bg-violet-50 p-2 text-xs text-violet-900">
+            <div className="mt-2 rounded-md border border-primary/30 bg-primary/10 p-2 text-xs text-foreground">
               {evidence.appliedAdjustments.map((line, i) => (
                 <div key={i}>{line}</div>
               ))}
@@ -194,7 +194,7 @@ export function AdvisorEvidencePanel({
                   key={chunk.chunkId}
                   className={`rounded-lg border p-3 text-sm ${
                     chunk.includedInPrompt
-                      ? 'border-violet-200 bg-violet-50/50'
+                      ? 'border-primary/30 bg-primary/10'
                       : 'border-gray-200 bg-gray-50/80 opacity-80'
                   }`}
                 >
@@ -205,7 +205,7 @@ export function AdvisorEvidencePanel({
                       {chunk.matchPercent}% match
                     </span>
                     {chunk.includedInPrompt ? (
-                      <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-800">
+                      <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs text-foreground">
                         Used in reply
                       </span>
                     ) : (

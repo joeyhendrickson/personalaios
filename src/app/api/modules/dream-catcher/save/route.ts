@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { saveDreamCatcherSession } from '@/lib/dream-catcher/save-session'
+import { createIamPresentStartersFromIntake } from '@/lib/dream-catcher/create-iam-present-starters'
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,26 +22,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Assessment data is required' }, { status: 400 })
     }
 
-    // Allow saving partial progress - don't require goals_generated
-    // Users can save their progress at any time during the journey
+    const conversation_messages = assessment_data.conversation_messages
+    const {
+      conversation_messages: _cm,
+      current_phase,
+      intake_question_index,
+      personality_question_index,
+      session_source,
+      session_title,
+      ...restAssessment
+    } = assessment_data
 
-    // Save Dream Catcher session to database
-    const { data: savedSession, error: saveError } = await supabase
-      .from('dream_catcher_sessions')
-      .insert({
-        user_id: user.id,
-        assessment_data: assessment_data,
-        completed_at: completed_at || new Date().toISOString(),
-        created_at: new Date().toISOString(),
-      })
-      .select()
-      .single()
+    const saveResult = await saveDreamCatcherSession(supabase, user.id, {
+      assessment_data: restAssessment,
+      conversation_messages: Array.isArray(conversation_messages)
+        ? conversation_messages
+        : undefined,
+      current_phase: typeof current_phase === 'string' ? current_phase : undefined,
+      intake_question_index:
+        typeof intake_question_index === 'number'
+          ? intake_question_index
+          : typeof personality_question_index === 'number'
+            ? personality_question_index
+            : undefined,
+      session_source:
+        session_source === 'onboarding' ||
+        session_source === 'dream_catcher' ||
+        session_source === 'fear_catcher'
+          ? session_source
+          : 'dream_catcher',
+      session_title: typeof session_title === 'string' ? session_title : undefined,
+      completed_at: completed_at ?? null,
+    })
 
-    if (saveError) {
-      console.error('Error saving Dream Catcher session:', saveError)
-
-      // If table doesn't exist, we need to create it
-      if (saveError.code === '42P01') {
+    if ('error' in saveResult) {
+      if (saveResult.error.includes('does not exist') || saveResult.error.includes('42P01')) {
         return NextResponse.json(
           {
             error: 'Dream Catcher sessions table not found. Please run database migration.',
@@ -48,50 +65,17 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         )
       }
-
       return NextResponse.json({ error: 'Failed to save Dream Catcher session' }, { status: 500 })
     }
 
-    // Also update user's profile with assessment data (excluding conversation messages)
-    // This makes the assessment data available for future AI conversations
-    const { conversation_messages, ...restOfAssessmentData } = assessment_data
-    const profileAssessmentData = {
-      ...restOfAssessmentData,
-      // Include metadata about when it was last updated
-      last_updated: new Date().toISOString(),
+    const goalsCount = Array.isArray(assessment_data.goals_generated)
+      ? assessment_data.goals_generated.length
+      : 0
+
+    if (goalsCount > 0) {
+      await createIamPresentStartersFromIntake(supabase, user.id, assessment_data)
     }
 
-    // Try to update profiles table first
-    const { error: profileUpdateError } = await supabase
-      .from('profiles')
-      .update({
-        assessment_data: profileAssessmentData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', user.id)
-
-    // If profiles table doesn't exist or update fails, try user_profiles table
-    if (profileUpdateError) {
-      console.log(
-        'Could not update profiles table, trying user_profiles:',
-        profileUpdateError.message
-      )
-      const { error: userProfileUpdateError } = await supabase
-        .from('user_profiles')
-        .update({
-          assessment_data: profileAssessmentData,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', user.id)
-
-      if (userProfileUpdateError) {
-        console.log('Could not update user_profiles table either:', userProfileUpdateError.message)
-        // Don't fail the save if profile update fails - session is still saved
-      }
-    }
-
-    // Log activity
-    const goalsCount = assessment_data.goals_generated?.length || 0
     await supabase.from('activity_logs').insert({
       user_id: user.id,
       activity_type: 'dream_catcher_saved',
@@ -100,7 +84,7 @@ export async function POST(request: NextRequest) {
           ? `Dream Catcher session saved with ${goalsCount} goals`
           : 'Dream Catcher progress saved',
       metadata: {
-        session_id: savedSession.id,
+        session_id: saveResult.session_id,
         goals_count: goalsCount,
         is_complete: goalsCount > 0,
       },
@@ -108,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      session_id: savedSession.id,
+      session_id: saveResult.session_id,
       message: 'Dream Catcher session saved successfully',
     })
   } catch (error) {

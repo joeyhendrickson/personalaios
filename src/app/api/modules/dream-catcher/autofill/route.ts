@@ -7,6 +7,11 @@ import {
   onboardingPlanSchema,
   type OnboardingPlan,
 } from '@/lib/dream-catcher/generate-onboarding-plan'
+import {
+  saveDreamCatcherSession,
+  type DreamCatcherConversationMessage,
+} from '@/lib/dream-catcher/save-session'
+import { createIamPresentStartersFromIntake } from '@/lib/dream-catcher/create-iam-present-starters'
 
 function formatCommitMessage(
   counts: Record<string, number>,
@@ -54,11 +59,15 @@ export async function POST(request: NextRequest) {
       vision_statement,
       is_new_user = false,
       plan: prebuiltPlan,
+      conversation_messages: topLevelMessages,
+      session_source: bodySessionSource,
     }: {
       assessment_data?: Record<string, unknown>
       vision_statement?: string
       is_new_user?: boolean
       plan?: OnboardingPlan
+      conversation_messages?: DreamCatcherConversationMessage[]
+      session_source?: 'onboarding' | 'dream_catcher' | 'fear_catcher'
     } = body
 
     const raw = assessment_data ?? body
@@ -79,12 +88,18 @@ export async function POST(request: NextRequest) {
       plan = await generateOnboardingPlan(planInput)
     }
 
-    const { counts, errors } = await commitOnboardingPlan(supabase, user.id, plan, {
+    const { counts, errors: commitErrors } = await commitOnboardingPlan(supabase, user.id, plan, {
       visionStatement: planInput.visionStatement,
       lifePlanSummary: planInput.lifePlanSummary ?? plan.life_plan_summary,
       isNewUser: is_new_user,
       overwriteVision: is_new_user,
     })
+
+    const errors = [...commitErrors]
+    const iamPresent = await createIamPresentStartersFromIntake(supabase, user.id, raw)
+    if (iamPresent.errors.length) {
+      errors.push(...iamPresent.errors)
+    }
 
     await supabase.from('assistant_onboarding_state').upsert(
       {
@@ -101,19 +116,64 @@ export async function POST(request: NextRequest) {
       user_id: user.id,
       activity_type: 'dream_catcher_autofill',
       description: `Dream Catcher Life Plan: ${counts.goals_added} goals, ${counts.projects_added} projects, ${counts.tasks_added} tasks, ${counts.habits_added} habits, ${counts.education_added} education, ${counts.fitness_goals_added} fitness, ${counts.ruminations_added} ruminations, ${counts.gratitude_added} gratitude, ${counts.relationships_added} relationships`,
-      metadata: { ...counts, is_new_user },
+      metadata: { ...counts, is_new_user, iam_present_starters_added: iamPresent.sessions_created },
     })
 
     const hasErrors = errors.length > 0
 
+    const embeddedMessages = Array.isArray(raw.conversation_messages)
+      ? (raw.conversation_messages as DreamCatcherConversationMessage[])
+      : undefined
+    const conversation_messages = topLevelMessages?.length ? topLevelMessages : embeddedMessages
+
+    const sessionSource =
+      bodySessionSource ??
+      (is_new_user
+        ? 'onboarding'
+        : raw.session_source === 'fear_catcher'
+          ? 'fear_catcher'
+          : 'dream_catcher')
+
+    let saved_session_id: string | undefined
+    const saveResult = await saveDreamCatcherSession(supabase, user.id, {
+      assessment_data: raw,
+      conversation_messages,
+      current_phase: typeof raw.current_phase === 'string' ? raw.current_phase : 'confirm',
+      intake_question_index:
+        typeof raw.intake_question_index === 'number'
+          ? raw.intake_question_index
+          : typeof raw.personality_question_index === 'number'
+            ? raw.personality_question_index
+            : undefined,
+      session_source: sessionSource,
+      completed_at: new Date().toISOString(),
+    })
+    if ('session_id' in saveResult) {
+      saved_session_id = saveResult.session_id
+    } else {
+      console.warn(
+        '[DreamCatcher] autofill saved dashboard but session save failed:',
+        saveResult.error
+      )
+    }
+
     return NextResponse.json({
       success: true,
       goals_added: counts.goals_added,
-      counts,
+      counts: {
+        ...counts,
+        iam_present_starters_added: iamPresent.sessions_created,
+      },
       summary: plan.summary,
       life_plan_summary: plan.life_plan_summary ?? planInput.lifePlanSummary,
       errors: hasErrors ? errors : undefined,
-      message: formatCommitMessage(counts, is_new_user, hasErrors),
+      message:
+        formatCommitMessage(counts, is_new_user, hasErrors) +
+        (iamPresent.sessions_created > 0
+          ? ` ${iamPresent.sessions_created} starter session(s) were added to I Am Present for worries from your intake.`
+          : ''),
+      saved_session_id,
+      iam_present_starters_added: iamPresent.sessions_created,
     })
   } catch (error) {
     console.error('Error in autofill Dream Catcher API:', error)

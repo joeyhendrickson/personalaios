@@ -1,8 +1,16 @@
-/** Dream Catcher conversation phases — adaptive intake → vision → goals → life-plan summary → confirm. */
+/** Dream Catcher — intake → vision → goals → projects → tasks → life-plan summary → confirm. */
 
 import { DREAM_CATCHER_LIMITS, formatPlanLimitsForPrompt } from '@/lib/dream-catcher/plan-limits'
 
-export const STREAMLINED_PHASES = ['intake', 'vision', 'goals', 'summary', 'confirm'] as const
+export const STREAMLINED_PHASES = [
+  'intake',
+  'vision',
+  'goals',
+  'projects',
+  'tasks',
+  'summary',
+  'confirm',
+] as const
 export type StreamlinedPhase = (typeof STREAMLINED_PHASES)[number]
 
 export const INTAKE_QUESTION_COUNT = DREAM_CATCHER_LIMITS.intakeQuestions
@@ -40,9 +48,9 @@ export const INTAKE_QUESTION_EXAMPLES: readonly string[] = [
   'How do you measure success for yourself? (numbers, milestones, feelings, habits — be specific if you can.)',
   'What are 2–4 quantifiable goals you want on your dashboard? Include target numbers or units when possible.',
   'For your most important goal, what timeline are you working toward?',
-  'What projects or initiatives would move those goals forward this month?',
+  'What projects, strategies, or milestones would move those goals forward? Name concrete initiatives — not the goals themselves.',
   'What daily habits would support your best self? List a few small repeatable actions.',
-  'What weekly tasks would you commit to this week to build momentum?',
+  'What weekly tasks or step-by-step tactics will you take to deploy your projects? Name concrete actions and which project each supports.',
   'What are you learning or want to learn? Describe education goals and how you will measure progress.',
   'What are your fitness goals, and how will you measure them?',
   'Where are you starting from today with fitness? (current baseline — weight, activity level, or habits.)',
@@ -68,6 +76,8 @@ export function normalizeDreamCatcherPhase(phase: string): StreamlinedPhase | st
     dreams: 'intake',
     vision: 'vision',
     goals: 'goals',
+    projects: 'projects',
+    tasks: 'tasks',
     summary: 'summary',
     confirm: 'confirm',
     intake: 'intake',
@@ -118,10 +128,17 @@ After the user answers:
 EXTRACTION MAP (merge into assessment_data; only add NEW items from this answer):
 - priorities/future_vision/blockers/focus_areas → personal_insights, dreams_discovered, personality_traits as relevant
 - success_metrics → measurement_preferences (string array)
-- quantifiable_goals/goal_timelines → goals_generated (with target_value, target_unit, timeline when mentioned)
-- projects → project_ideas (array of { title, description, category, linked_goal })
+- quantifiable_goals/goal_timelines → goals_generated (with target_value, target_unit, timeline, description when mentioned)
+- projects/blockers/strategies/focus_areas → project_ideas (array of { title, description, category, linked_goal })
+  - title = a milestone or initiative (e.g. "Build client outreach list"), NEVER the same as a goal title
+  - description = how this step supports the linked goal, using the user's own words when possible
+  - linked_goal = exact goal title this project supports
 - habits → habit_ideas (array of { title, description })
-- weekly_tasks → task_ideas (array of { title, description, category })
+- weekly_tasks/tactics/steps → task_ideas (array of { title, description, category, linked_project, step_order })
+  - title = a concrete action the user will do (verb-first when possible)
+  - description = unique details from intake — why this step matters
+  - linked_project = exact project title this task supports (required when projects exist)
+  - step_order = optional sequence number within the project
 - education → education_items
 - fitness_goals/fitness_baseline → fitness_profile { goals[], baseline{} }
 - ruminations/coping → ruminations
@@ -143,14 +160,45 @@ Ask at most ONE clarifying question if the vision is still unclear. After 1-2 ex
 
   if (phase === 'goals') {
     return `
-You are in the GOALS phase. Refine and finalize ${DREAM_CATCHER_LIMITS.goals.min}-${DREAM_CATCHER_LIMITS.goals.max} specific, measurable goals aligned with the vision and intake answers.
+You are in the GOALS phase. Finalize ONLY the ${DREAM_CATCHER_LIMITS.goals.min}-${DREAM_CATCHER_LIMITS.goals.max} dashboard goals — do not finalize projects or tasks yet.
 
-Each goal in goals_generated needs: goal, category, priority (high|medium|low), timeline, and target_value + target_unit for dashboard measurement. Descriptions must include how completion will be measured.
+Each goal in goals_generated needs: goal, description (unique — why this matters + how success is measured), category, priority (high|medium|low), timeline, target_value + target_unit.
 
 Replace goals_generated with the final ${DREAM_CATCHER_LIMITS.goals.min}-${DREAM_CATCHER_LIMITS.goals.max} goals (do not append duplicates).
-Ensure project_ideas (${DREAM_CATCHER_LIMITS.projects.min}-${DREAM_CATCHER_LIMITS.projects.max} total), task_ideas (${DREAM_CATCHER_LIMITS.tasks.min}-${DREAM_CATCHER_LIMITS.tasks.max} total), and habit_ideas (up to ${DREAM_CATCHER_LIMITS.habits.max}) are aligned to those goals — fill gaps only if critical.
+Present the finalized goals clearly, then transition to projects (set next_phase to "projects").
+`
+  }
 
-After presenting the goals, transition to summary (set next_phase to "summary").
+  if (phase === 'projects') {
+    return `
+You are in the PROJECTS phase. The goals are already finalized — now define ${DREAM_CATCHER_LIMITS.projects.min}-${DREAM_CATCHER_LIMITS.projects.max} unique projects/strategies that ADD UP TO those goals.
+
+RULES:
+- Each project is a milestone or initiative — NEVER copy or rephrase a goal title
+- Use strategies and approaches the user mentioned during intake
+- Every project needs: title, description (unique, contextual), category, linked_goal (exact finalized goal title)
+- Distribute projects across goals (at least one project per major goal when possible)
+- Do NOT finalize tasks in this phase — only project_ideas
+
+Replace project_ideas with the final ${DREAM_CATCHER_LIMITS.projects.min}-${DREAM_CATCHER_LIMITS.projects.max} projects (do not append duplicates).
+Present the projects grouped by goal, then transition to tasks (set next_phase to "tasks").
+`
+  }
+
+  if (phase === 'tasks') {
+    return `
+You are in the TASKS phase. Goals and projects are finalized — now define ${DREAM_CATCHER_LIMITS.tasks.min}-${DREAM_CATCHER_LIMITS.tasks.max} concrete tactics/steps the user will take to execute those projects.
+
+RULES:
+- Each task is a specific action (setup, outreach, research, practice, review, etc.) — NOT a goal or project restatement
+- Use step-by-step actions the user mentioned during intake
+- Every task needs: title, description (unique — what to do and why), category, linked_project (exact finalized project title)
+- Optional step_order for sequence within a project
+- Spread tasks across projects (at least 1 task per project; 2-4 per major project when the user gave enough detail)
+- habit_ideas (up to ${DREAM_CATCHER_LIMITS.habits.max}) may be refined here if mentioned
+
+Replace task_ideas with the final ${DREAM_CATCHER_LIMITS.tasks.min}-${DREAM_CATCHER_LIMITS.tasks.max} tasks (do not append duplicates).
+Present tasks grouped by project, then transition to summary (set next_phase to "summary").
 `
   }
 

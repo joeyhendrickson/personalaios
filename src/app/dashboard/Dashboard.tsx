@@ -1784,7 +1784,7 @@ export default function Dashboard() {
                       <Link href="/dashboard/ai-usage" onClick={() => setNavMenuOpen(false)}>
                         <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
                           <Receipt className="h-4 w-4 text-gray-500" />
-                          AI usage receipt
+                          AI usage
                         </span>
                       </Link>
                       {isAdmin && (
@@ -1854,13 +1854,13 @@ export default function Dashboard() {
       {trialUser && <TrialStatusBanner email={trialUser.email} />}
 
       {showLifePlanWelcome && (
-        <div className="bg-gradient-to-r from-black to-primary text-primary-foreground">
+        <div className="bg-primary text-black">
           <div className="container mx-auto px-6 py-4 flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
-              <CheckCircle className="h-6 w-6 flex-shrink-0 mt-0.5" />
+              <CheckCircle className="h-6 w-6 flex-shrink-0 mt-0.5 text-black" />
               <div>
-                <p className="font-semibold">Your Life Plan is ready</p>
-                <p className="text-sm opacity-90 mt-1">
+                <p className="font-semibold text-black">Your Life Plan is ready</p>
+                <p className="text-sm text-black/90 mt-1">
                   Goals, projects, tasks, habits, and education are below. Fitness, gratitude,
                   relationships, and focus ruminations were added to their modules — explore them
                   from Modules when you are ready.
@@ -1870,7 +1870,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setShowLifePlanWelcome(false)}
-              className="opacity-80 hover:opacity-100 flex-shrink-0"
+              className="text-black/80 hover:text-black flex-shrink-0"
               aria-label="Dismiss"
             >
               <X className="h-5 w-5" />
@@ -3280,7 +3280,7 @@ export default function Dashboard() {
             {sectionVisibility.habits && (
               <CascadingSection
                 title={t('section.habits')}
-                icon={<Target className="h-6 w-6 text-pink-500" />}
+                icon={<Target className="h-6 w-6 text-[#16a34a]" />}
                 isExpanded={expandedSections.habits}
                 onToggle={() => toggleSectionExpansion('habits')}
                 t={t}

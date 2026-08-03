@@ -1862,7 +1862,7 @@ export function ChatInterface({
                     key={s.id}
                     className={`flex items-center gap-2 rounded-md border p-2 ${
                       currentSessionId === s.id
-                        ? 'border-blue-300 bg-blue-50'
+                        ? 'border-primary/40 bg-primary/10'
                         : 'border-gray-200 bg-white'
                     }`}
                   >
@@ -2012,10 +2012,12 @@ export function ChatInterface({
             )}
 
             {dashboardPlan && dashboardPlan.proposals.length > 0 && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50/80 p-4 space-y-3">
-                <div className="text-sm font-medium text-blue-950">Dashboard proposals</div>
-                <p className="text-sm text-blue-900 whitespace-pre-wrap">{dashboardPlan.summary}</p>
-                <p className="text-xs text-blue-800">
+              <div className="rounded-lg border border-primary/30 bg-primary/10 p-4 space-y-3">
+                <div className="text-sm font-medium text-foreground">Dashboard proposals</div>
+                <p className="text-sm text-foreground/90 whitespace-pre-wrap">
+                  {dashboardPlan.summary}
+                </p>
+                <p className="text-xs text-muted-foreground">
                   Each card lists the dashboard section (Goals, Projects, Tasks, Habits, or
                   Education) and the fields that will be added. Nothing is saved until you confirm.
                 </p>
@@ -2066,7 +2068,7 @@ export function ChatInterface({
               <div className="flex justify-start mb-4">
                 <div className="bg-gray-100 rounded-lg px-4 py-2">
                   <div className="flex items-center space-x-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
                     <span>Thinking...</span>
                   </div>
                 </div>
@@ -2084,7 +2086,7 @@ export function ChatInterface({
                   type="button"
                   variant="default"
                   disabled={isLoading || messages.filter((m) => m.role === 'user').length === 0}
-                  className="w-full h-11 touch-manipulation bg-blue-600 hover:bg-blue-700"
+                  className="w-full h-11 touch-manipulation bg-primary text-primary-foreground hover:bg-primary/90"
                   onClick={() => void generateDashboardPlanFromChat()}
                 >
                   <LayoutDashboard className="mr-2 h-4 w-4" />

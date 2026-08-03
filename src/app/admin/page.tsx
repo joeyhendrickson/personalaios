@@ -1323,13 +1323,15 @@ export default function AdminDashboard() {
                     <div className="flex items-start justify-between mb-2">
                       <div>
                         <p className="font-medium text-gray-900 text-sm">
-                          {payment.plan_type === 'workshop'
+                          {payment.plan_type === 'workshop' || payment.plan_type === 'coach_setup'
                             ? payment.payment_details?.registration?.name || payment.user_email
                             : payment.user_email || 'Email not provided'}
                         </p>
-                        {payment.plan_type === 'workshop' && payment.user_email && (
-                          <p className="text-xs text-gray-600">{payment.user_email}</p>
-                        )}
+                        {(payment.plan_type === 'workshop' ||
+                          payment.plan_type === 'coach_setup') &&
+                          payment.user_email && (
+                            <p className="text-xs text-gray-600">{payment.user_email}</p>
+                          )}
                         <p className="text-xs text-gray-500 mt-1">
                           PayPal Order: {payment.paypal_order_id}
                         </p>
@@ -1342,7 +1344,9 @@ export default function AdminDashboard() {
                               ? 'bg-blue-100 text-blue-700 border-blue-300'
                               : payment.plan_type === 'workshop'
                                 ? 'bg-yellow-100 text-yellow-800 border-yellow-300'
-                                : 'bg-purple-100 text-purple-700 border-purple-300'
+                                : payment.plan_type === 'coach_setup'
+                                  ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
+                                  : 'bg-purple-100 text-purple-700 border-purple-300'
                           }`}
                         >
                           {payment.plan_type}

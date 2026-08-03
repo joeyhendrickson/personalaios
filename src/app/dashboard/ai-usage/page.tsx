@@ -112,10 +112,9 @@ export default function AiUsageReceiptPage() {
           <div className="flex items-center gap-2">
             <Receipt className="h-8 w-8 text-indigo-600" />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">AI usage receipt</h1>
+              <h1 className="text-2xl font-bold text-gray-900">AI usage</h1>
               <p className="text-sm text-gray-600">
-                Transparency for AI work performed on your account. Estimates only; actual billing
-                may differ.
+                Transparency for AI work performed on your account.
               </p>
             </div>
           </div>
@@ -282,7 +281,7 @@ export default function AiUsageReceiptPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Receipt</CardTitle>
+            <CardTitle className="text-lg">Usage</CardTitle>
             {loading && <Loader2 className="h-5 w-5 animate-spin text-gray-400" />}
           </CardHeader>
           <CardContent className="space-y-4">

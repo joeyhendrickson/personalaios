@@ -147,9 +147,42 @@ function FearCatcherContent() {
             timeline: g.timeline,
             priority: g.priority,
           })),
+          assessment_data: {
+            goals_generated: chosen.map((g) => ({
+              goal: g.goal,
+              category: g.category ?? 'personal',
+              priority: g.priority ?? 'medium',
+              timeline: g.timeline ?? '3 months',
+            })),
+            vision_statement: 'Face my fears and turn them into meaningful progress.',
+            dreams_discovered: fears,
+            conversation_messages: [
+              ...fears.map((fear, i) => ({
+                id: `fear-${i}`,
+                role: 'user' as const,
+                content: fear,
+                timestamp: new Date().toISOString(),
+                phase: 'collect',
+              })),
+              ...(analysis
+                ? [
+                    {
+                      id: 'fear-analysis',
+                      role: 'assistant' as const,
+                      content: analysis.summary,
+                      timestamp: new Date().toISOString(),
+                      phase: 'review',
+                    },
+                  ]
+                : []),
+            ],
+            session_source: 'fear_catcher',
+            current_phase: 'confirm',
+          },
           vision_statement: 'Face my fears and turn them into meaningful progress.',
           dreams_discovered: fears,
           is_new_user: isNewUser,
+          session_source: 'fear_catcher',
         }),
       })
       const data = await res.json()

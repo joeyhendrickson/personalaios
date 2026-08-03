@@ -14,6 +14,7 @@ import {
   CheckCircle,
   Loader2,
   Play,
+  BookOpen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,6 +23,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 interface SavedSession {
   id: string
   assessment_data: {
+    session_title?: string
+    session_source?: 'onboarding' | 'dream_catcher' | 'fear_catcher'
+    conversation_messages?: Array<{ role: string; content: string }>
     goals_generated?: Array<{
       goal: string
       category: string
@@ -37,6 +41,12 @@ interface SavedSession {
   }
   completed_at: string | null
   created_at: string
+}
+
+function sourceLabel(source?: string): string {
+  if (source === 'onboarding') return 'Life Plan setup'
+  if (source === 'fear_catcher') return 'Fear Catcher'
+  return 'Dream Catcher'
 }
 
 export default function SavedDreamsPage() {
@@ -167,7 +177,8 @@ export default function SavedDreamsPage() {
               <Sparkles className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No Saved Dreams Yet</h3>
               <p className="text-gray-600 mb-6">
-                Complete a Dream Catcher journey and save it to see it here.
+                Complete a Dream Catcher journey or finish new user setup — your dream and every
+                response will appear here.
               </p>
               <Link href="/modules/dream-catcher">
                 <Button className="bg-purple-600 hover:bg-purple-700">
@@ -184,7 +195,7 @@ export default function SavedDreamsPage() {
                   <div className="flex items-start justify-between">
                     <div>
                       <CardTitle className="text-lg">
-                        Dream Catcher Session
+                        {session.assessment_data.session_title || 'Dream Catcher Session'}
                         {session.assessment_data.goals_generated &&
                         session.assessment_data.goals_generated.length > 0 ? (
                           <span className="ml-2 text-sm font-normal text-green-600">
@@ -198,6 +209,9 @@ export default function SavedDreamsPage() {
                         )}
                       </CardTitle>
                       <CardDescription>
+                        <span className="mr-2 inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-800">
+                          {sourceLabel(session.assessment_data.session_source)}
+                        </span>
                         {session.completed_at
                           ? new Date(session.completed_at).toLocaleDateString('en-US', {
                               year: 'numeric',
@@ -254,7 +268,20 @@ export default function SavedDreamsPage() {
                     </div>
                   )}
 
-                  <div className="flex space-x-2">
+                  {session.assessment_data.conversation_messages &&
+                    session.assessment_data.conversation_messages.length > 0 && (
+                      <p className="mb-4 text-xs text-gray-500">
+                        {session.assessment_data.conversation_messages.length} saved responses
+                      </p>
+                    )}
+
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Link href={`/modules/dream-catcher/saved/${session.id}`} className="flex-1">
+                      <Button variant="outline" className="w-full" size="sm">
+                        <BookOpen className="h-4 w-4 mr-2" />
+                        View Saved Dream
+                      </Button>
+                    </Link>
                     {/* Continue button - show if session is incomplete */}
                     {(!session.assessment_data.goals_generated ||
                       session.assessment_data.goals_generated.length === 0) && (

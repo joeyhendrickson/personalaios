@@ -43,7 +43,7 @@ export function VoiceSessionControl({
         variant="outline"
         disabled={disabled}
         onClick={onStart}
-        className="h-10 w-full touch-manipulation border-violet-300 bg-violet-50 text-violet-900 hover:bg-violet-100"
+        className="h-10 w-full touch-manipulation border-black bg-black text-white hover:bg-gray-900"
       >
         <Mic className="mr-2 h-4 w-4" />
         {t('chat.voiceSession.start')}

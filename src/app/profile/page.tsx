@@ -31,6 +31,7 @@ import TotalHabitTrophies from '@/components/trophies/total-habit-trophies'
 import SigninStreakTrophies from '@/components/trophies/signin-streak-trophies'
 import { useChatContext } from '@/components/chat/chat-provider'
 import { WakeWordToggle } from '@/components/chat/wake-word-toggle'
+import CoachSetupOffer from '@/components/profile/coach-setup-offer'
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
@@ -555,6 +556,16 @@ export default function ProfilePage() {
 
           {/* Discipline Trophies Section (Per-Habit) */}
           <DisciplineTrophies />
+
+          <CoachSetupOffer
+            userId={user.id}
+            userEmail={user.email || ''}
+            defaultName={
+              (user.user_metadata?.full_name as string | undefined) ||
+              (user.user_metadata?.name as string | undefined) ||
+              ''
+            }
+          />
 
           <Card>
             <CardHeader>

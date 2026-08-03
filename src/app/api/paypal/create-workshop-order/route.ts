@@ -4,9 +4,11 @@ import { WORKSHOP_PAYPAL_VALUE } from '@/lib/workshop/constants'
 
 export async function POST(request: NextRequest) {
   try {
-    const { amount, description, userEmail } = await request.json()
+    const { amount, description, userEmail, returnUrl, cancelUrl, customIdPrefix } =
+      await request.json()
     const price = amount || WORKSHOP_PAYPAL_VALUE
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://lifestacks.ai'
+    const idPrefix = customIdPrefix || 'workshop'
 
     const accessToken = await getPayPalAccessToken()
 
@@ -25,15 +27,15 @@ export async function POST(request: NextRequest) {
               value: price,
             },
             description: description || 'Lifestacks Workshop Registration',
-            custom_id: `workshop_${userEmail}`,
+            custom_id: `${idPrefix}_${userEmail}`,
           },
         ],
         application_context: {
           brand_name: 'Life Stacks',
           landing_page: 'NO_PREFERENCE',
           user_action: 'PAY_NOW',
-          return_url: `${appUrl}/workshop?success=true`,
-          cancel_url: `${appUrl}/workshop?cancelled=true`,
+          return_url: returnUrl || `${appUrl}/workshop?success=true`,
+          cancel_url: cancelUrl || `${appUrl}/workshop?cancelled=true`,
           shipping_preference: 'NO_SHIPPING',
         },
       }),

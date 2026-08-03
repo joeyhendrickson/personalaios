@@ -10,6 +10,12 @@ import {
   taskCategorySchema,
 } from '@/lib/assistant/proposal-schemas'
 import { DREAM_CATCHER_LIMITS, formatPlanLimitsForPrompt } from '@/lib/dream-catcher/plan-limits'
+import {
+  buildHierarchyFromIntake,
+  formatProjectIdeasForPrompt,
+  formatTaskIdeasForPrompt,
+  reconcilePlanWithIntake,
+} from '@/lib/dream-catcher/plan-projects'
 
 const goalItemSchema = z.object({ type: z.literal('create_goal') }).merge(createGoalPayloadSchema)
 const projectItemSchema = z
@@ -108,6 +114,7 @@ export type OnboardingPlanItem = z.infer<typeof onboardingItemSchema>
 
 export type SeedGoal = {
   goal: string
+  description?: string
   category?: string
   priority?: string
   timeline?: string
@@ -123,9 +130,20 @@ export type DreamCatcherAssessmentInput = {
   personalInsights?: string[]
   measurementPreferences?: string[]
   seedGoals?: SeedGoal[]
-  projectIdeas?: Array<{ title: string; description?: string; category?: string }>
+  projectIdeas?: Array<{
+    title: string
+    description?: string
+    category?: string
+    linked_goal?: string
+  }>
   habitIdeas?: Array<{ title: string; description?: string }>
-  taskIdeas?: Array<{ title: string; description?: string; category?: string }>
+  taskIdeas?: Array<{
+    title: string
+    description?: string
+    category?: string
+    linked_project?: string
+    step_order?: number
+  }>
   educationItems?: Array<{
     title: string
     description?: string
@@ -261,49 +279,7 @@ export function clampOnboardingPlan(plan: OnboardingPlan): OnboardingPlan {
 }
 
 export function buildFallbackPlan(input: DreamCatcherAssessmentInput): OnboardingPlan {
-  const seeds = (input.seedGoals || [])
-    .filter((g) => g && g.goal)
-    .slice(0, DREAM_CATCHER_LIMITS.goals.max)
-  const items: OnboardingPlanItem[] = []
-
-  const usableSeeds = seeds.length
-    ? seeds
-    : [{ goal: 'Build momentum on my top priority', category: 'personal' }]
-
-  for (const seed of usableSeeds) {
-    const goalTitle = seed.goal.slice(0, 255)
-    items.push({
-      type: 'create_goal',
-      title: goalTitle,
-      description: input.visionStatement
-        ? `Supports your vision: ${input.visionStatement.slice(0, 200)}`
-        : 'Created from your Dream Catcher session.',
-      goal_type: 'monthly',
-      target_value: seed.target_value ?? 1,
-      target_unit: seed.target_unit ?? 'milestone',
-      priority_level: priorityLevel(seed.priority),
-    })
-
-    const projectTitle = `Kickstart: ${goalTitle}`.slice(0, 255)
-    items.push({
-      type: 'create_project',
-      title: projectTitle,
-      description: `First project to make progress on "${goalTitle}".`,
-      goal_title_ref: goalTitle,
-      category: sanitizeCategory(seed.category),
-      target_points: 20,
-      priority: 'medium',
-    })
-
-    items.push({
-      type: 'create_task',
-      title: `Define the first step for "${goalTitle}"`.slice(0, 255),
-      description: 'Write down the single next action that moves this goal forward.',
-      project_title: projectTitle,
-      category: 'other',
-      points_value: 5,
-    })
-  }
+  const items: OnboardingPlanItem[] = [...buildHierarchyFromIntake(input)]
 
   for (const habit of input.habitIdeas?.slice(0, DREAM_CATCHER_LIMITS.habits.max) ?? []) {
     items.push({
@@ -404,7 +380,7 @@ function formatAssessmentBlock(input: DreamCatcherAssessmentInput): string {
   }
   if (input.taskIdeas?.length) {
     sections.push(
-      `TASK IDEAS:\n${input.taskIdeas.map((t) => `- ${t.title}: ${t.description || ''}`).join('\n')}`
+      `TASK IDEAS:\n${input.taskIdeas.map((t) => `- ${t.title}${t.linked_project ? ` → ${t.linked_project}` : ''}: ${t.description || ''}`).join('\n')}`
     )
   }
   if (input.habitIdeas?.length) {
@@ -441,7 +417,7 @@ export async function generateOnboardingPlan(
     .filter((g) => g && g.goal)
     .map(
       (g) =>
-        `- ${g.goal}${g.category ? ` (${g.category})` : ''}${g.timeline ? ` — ${g.timeline}` : ''}${g.target_value != null ? ` [target: ${g.target_value} ${g.target_unit || ''}]` : ''}`
+        `- ${g.goal}${g.description ? `: ${g.description}` : ''}${g.category ? ` (${g.category})` : ''}${g.timeline ? ` — ${g.timeline}` : ''}${g.target_value != null ? ` [target: ${g.target_value} ${g.target_unit || ''}]` : ''}`
     )
     .join('\n')
 
@@ -460,6 +436,12 @@ ${(input.personalityTraits || []).join(', ') || '(none provided)'}
 DRAFT GOALS FROM THE SESSION:
 ${seedList || `(none — infer ${DREAM_CATCHER_LIMITS.goals.min}-${DREAM_CATCHER_LIMITS.goals.max} meaningful goals from the vision and assessment)`}
 
+PROJECTS / STRATEGIES CAPTURED IN INTAKE (use these — do NOT copy goal titles as projects):
+${formatProjectIdeasForPrompt(input)}
+
+TASKS / TACTICS CAPTURED IN INTAKE (use these — concrete steps linked to projects):
+${formatTaskIdeasForPrompt(input)}
+
 FULL ASSESSMENT DETAIL:
 ${formatAssessmentBlock(input)}
 
@@ -471,7 +453,13 @@ ${formatPlanLimitsForPrompt()}
 - GRATITUDE: one starter with 3+ items when gratitude data exists
 - RELATIONSHIPS: up to 3 key people
 - Order items: goals → projects → tasks → habits → education → fitness → fear insights → gratitude → relationships
-- Each goal description must include how completion is measured (metric or milestone)
+- Each goal description must be UNIQUE and include how completion is measured (metric or milestone)
+- PROJECTS must be milestones or smaller initiatives that ADD UP TO a goal — never repeat or rephrase a goal title
+- Prefer project_ideas from intake; each project needs a unique description tied to what the user said
+- Each project must link to exactly one goal via goal_title_ref; distribute ${DREAM_CATCHER_LIMITS.projects.min}-${DREAM_CATCHER_LIMITS.projects.max} projects across goals
+- TASKS must be concrete tactics/steps (setup, outreach, research, practice, review) — never repeat a goal or project title
+- Prefer task_ideas from intake; each task needs a unique description and must link to a project via project_title
+- Distribute ${DREAM_CATCHER_LIMITS.tasks.min}-${DREAM_CATCHER_LIMITS.tasks.max} tasks across projects (at least 1 per project)
 - life_plan_summary: 2-3 sentence overview for the user
 
 Return ONLY valid JSON (no markdown):
@@ -513,7 +501,8 @@ Return ONLY valid JSON (no markdown):
     })
     if (!linksValid || goalTitles.size === 0) return buildFallbackPlan(input)
 
-    return clampOnboardingPlan(plan)
+    const reconciled = reconcilePlanWithIntake(plan, input)
+    return clampOnboardingPlan(reconciled)
   } catch {
     return buildFallbackPlan(input)
   }
@@ -539,6 +528,10 @@ export function assessmentDataToPlanInput(
       : undefined,
     seedGoals: goalsGenerated.map((g) => ({
       goal: g.goal,
+      description:
+        typeof (g as { description?: string }).description === 'string'
+          ? (g as { description?: string }).description
+          : undefined,
       category: g.category,
       priority: g.priority,
       timeline: g.timeline,

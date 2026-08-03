@@ -217,16 +217,19 @@ INSTRUCTIONS:
 1. Be warm, concise, and encouraging — no long lectures
 2. Ask ONE question at a time in intake phase only
 3. In assessment_data, include ONLY NEW extracted items per array field (server merges and deduplicates)
-4. Use next_phase values only from: intake, vision, goals, summary, confirm
-5. In goals phase, produce exactly ${DREAM_CATCHER_LIMITS.goals.min}-${DREAM_CATCHER_LIMITS.goals.max} goals in goals_generated with target_value + target_unit
-6. In summary phase, write life_plan_summary — then move to confirm
-7. In confirm phase, do not ask questions — point user to the Life Plan preview panel
-8. Return ONLY valid JSON — no markdown fences
+4. Use next_phase values only from: intake, vision, goals, projects, tasks, summary, confirm
+5. Cascade in order: finalize goals (${DREAM_CATCHER_LIMITS.goals.min}-${DREAM_CATCHER_LIMITS.goals.max}) → then projects (${DREAM_CATCHER_LIMITS.projects.min}-${DREAM_CATCHER_LIMITS.projects.max}) → then tasks (${DREAM_CATCHER_LIMITS.tasks.min}-${DREAM_CATCHER_LIMITS.tasks.max})
+6. In goals phase: ONLY goals_generated — then next_phase "projects"
+7. In projects phase: ONLY project_ideas (milestones/strategies, NOT goal copies) — then next_phase "tasks"
+8. In tasks phase: ONLY task_ideas (concrete tactics linked to projects) — then next_phase "summary"
+9. In summary phase, write life_plan_summary — then move to confirm
+10. In confirm phase, do not ask questions — point user to the Life Plan preview panel
+11. Return ONLY valid JSON — no markdown fences
 
 RESPONSE FORMAT (JSON only):
 {
   "message": "Your conversational response",
-  "next_phase": "intake|vision|goals|summary|confirm",
+  "next_phase": "intake|vision|goals|projects|tasks|summary|confirm",
   "intake_question_index": ${normalizedPhase === 'intake' ? clampedIndex + 1 : clampedIndex},
   "assessment_data": {
     "personality_traits": [],
@@ -236,11 +239,11 @@ RESPONSE FORMAT (JSON only):
     "vision_statement": "",
     "life_plan_summary": "",
     "goals_generated": [
-      { "goal": "...", "category": "...", "priority": "high|medium|low", "timeline": "...", "target_value": 0, "target_unit": "..." }
+      { "goal": "...", "description": "unique why + how success is measured", "category": "...", "priority": "high|medium|low", "timeline": "...", "target_value": 0, "target_unit": "..." }
     ],
-    "project_ideas": [{ "title": "...", "description": "...", "category": "...", "linked_goal": "..." }],
+    "project_ideas": [{ "title": "milestone or strategy (NOT the goal title)", "description": "unique details from intake", "category": "...", "linked_goal": "exact goal title this supports" }],
     "habit_ideas": [{ "title": "...", "description": "..." }],
-    "task_ideas": [{ "title": "...", "description": "...", "category": "..." }],
+    "task_ideas": [{ "title": "concrete action (NOT goal/project copy)", "description": "unique step details from intake", "category": "...", "linked_project": "exact project title", "step_order": 1 }],
     "education_items": [{ "title": "...", "description": "...", "target_date": "YYYY-MM-DD", "priority_level": 3 }],
     "fitness_profile": { "goals": [], "baseline": {} },
     "ruminations": [{ "description": "...", "severity": "low|medium|high", "fear_type": "...", "coping_strategies": [] }],
@@ -362,6 +365,69 @@ RESPONSE FORMAT (JSON only):
         DREAM_CATCHER_LIMITS.goals.max
       )
     }
+  }
+
+  // Projects phase: replace project_ideas when AI sends a full finalized set
+  if (
+    normalizedPhase === 'projects' &&
+    Array.isArray(parsedResponse.assessment_data?.project_ideas)
+  ) {
+    const incoming = (parsedResponse.assessment_data as Record<string, unknown>)
+      .project_ideas as unknown[]
+    if (incoming.length >= DREAM_CATCHER_LIMITS.projects.min) {
+      ;(parsedResponse.assessment_data as Record<string, unknown>).project_ideas = incoming.slice(
+        0,
+        DREAM_CATCHER_LIMITS.projects.max
+      )
+    }
+  }
+
+  // Tasks phase: replace task_ideas when AI sends a full finalized set
+  if (normalizedPhase === 'tasks' && Array.isArray(parsedResponse.assessment_data?.task_ideas)) {
+    const incoming = (parsedResponse.assessment_data as Record<string, unknown>)
+      .task_ideas as unknown[]
+    if (incoming.length >= DREAM_CATCHER_LIMITS.tasks.min) {
+      ;(parsedResponse.assessment_data as Record<string, unknown>).task_ideas = incoming.slice(
+        0,
+        DREAM_CATCHER_LIMITS.tasks.max
+      )
+    }
+  }
+
+  // Enforce cascade: don't skip projects/tasks phases
+  const merged = parsedResponse.assessment_data as Record<string, unknown>
+  const goalCount = Array.isArray(merged?.goals_generated) ? merged.goals_generated.length : 0
+  const projectCount = Array.isArray(merged?.project_ideas) ? merged.project_ideas.length : 0
+  const taskCount = Array.isArray(merged?.task_ideas) ? merged.task_ideas.length : 0
+
+  if (
+    normalizedPhase === 'goals' &&
+    parsedResponse.next_phase === 'summary' &&
+    goalCount >= DREAM_CATCHER_LIMITS.goals.min
+  ) {
+    parsedResponse.next_phase = 'projects'
+  }
+  if (
+    normalizedPhase === 'projects' &&
+    parsedResponse.next_phase === 'summary' &&
+    projectCount >= DREAM_CATCHER_LIMITS.projects.min
+  ) {
+    parsedResponse.next_phase = 'tasks'
+  }
+  if (normalizedPhase === 'tasks' && parsedResponse.next_phase === 'confirm') {
+    parsedResponse.next_phase = 'summary'
+  }
+  if (
+    (normalizedPhase === 'goals' || normalizedPhase === 'projects') &&
+    parsedResponse.next_phase === 'confirm'
+  ) {
+    parsedResponse.next_phase =
+      goalCount >= DREAM_CATCHER_LIMITS.goals.min &&
+      projectCount < DREAM_CATCHER_LIMITS.projects.min
+        ? 'projects'
+        : taskCount < DREAM_CATCHER_LIMITS.tasks.min
+          ? 'tasks'
+          : 'summary'
   }
 
   return parsedResponse

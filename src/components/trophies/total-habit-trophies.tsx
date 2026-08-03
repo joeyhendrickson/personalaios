@@ -105,31 +105,33 @@ export default function TotalHabitTrophies() {
 
   if (loading) {
     return (
-      <Card className="bg-gradient-to-br from-purple-50 to-pink-50">
+      <Card className="bg-black border border-gray-800 text-white">
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Award className="h-5 w-5 mr-2 text-purple-500" />
+          <CardTitle className="flex items-center text-white">
+            <Award className="h-5 w-5 mr-2 text-primary" />
             Habit Mastery
           </CardTitle>
-          <CardDescription>Loading...</CardDescription>
+          <CardDescription className="text-gray-400">Loading...</CardDescription>
         </CardHeader>
       </Card>
     )
   }
 
   return (
-    <Card className="bg-gradient-to-br from-purple-50 to-pink-50">
+    <Card className="bg-black border border-gray-800 text-white">
       <CardHeader>
-        <CardTitle className="flex items-center">
-          <Award className="h-5 w-5 mr-2 text-purple-500" />
+        <CardTitle className="flex items-center text-white">
+          <Award className="h-5 w-5 mr-2 text-primary" />
           <span
-            className="cursor-help border-b border-dotted border-gray-400"
+            className="cursor-help border-b border-dotted border-gray-500"
             title="As you complete habits across all your daily habits, you'll earn cumulative achievement trophies. This tracks your total habit completions and rewards your overall consistency."
           >
             Habit Mastery
           </span>
         </CardTitle>
-        <CardDescription>Trophies earned for cumulative habit completions</CardDescription>
+        <CardDescription className="text-gray-400">
+          Trophies earned for cumulative habit completions
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Total Completions Counter */}
@@ -156,7 +158,7 @@ export default function TotalHabitTrophies() {
         {/* Earned Trophies */}
         {userTrophies.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Earned Trophies</h3>
+            <h3 className="text-sm font-semibold text-gray-200 mb-3">Earned Trophies</h3>
             <div className="space-y-3">
               {userTrophies.map((userTrophy) => (
                 <div
@@ -206,7 +208,7 @@ export default function TotalHabitTrophies() {
         {/* Upcoming Trophies */}
         {trophies.filter((trophy) => !isTrophyEarned(trophy.id)).length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Upcoming Trophies</h3>
+            <h3 className="text-sm font-semibold text-gray-200 mb-3">Upcoming Trophies</h3>
             <div className="space-y-3">
               {trophies
                 .filter((trophy) => !isTrophyEarned(trophy.id))

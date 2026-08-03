@@ -100,31 +100,33 @@ export default function SigninStreakTrophies() {
 
   if (loading) {
     return (
-      <Card className="bg-gradient-to-br from-orange-50 to-red-50">
+      <Card className="bg-primary border border-primary text-primary-foreground">
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Flame className="h-5 w-5 mr-2 text-orange-500" />
+          <CardTitle className="flex items-center text-primary-foreground">
+            <Flame className="h-5 w-5 mr-2 text-primary-foreground" />
             Daily Self-Awareness
           </CardTitle>
-          <CardDescription>Loading...</CardDescription>
+          <CardDescription className="text-primary-foreground/80">Loading...</CardDescription>
         </CardHeader>
       </Card>
     )
   }
 
   return (
-    <Card className="bg-gradient-to-br from-orange-50 to-red-50">
+    <Card className="bg-primary border border-primary text-primary-foreground">
       <CardHeader>
-        <CardTitle className="flex items-center">
-          <Flame className="h-5 w-5 mr-2 text-orange-500" />
+        <CardTitle className="flex items-center text-primary-foreground">
+          <Flame className="h-5 w-5 mr-2 text-primary-foreground" />
           <span
-            className="cursor-help border-b border-dotted border-gray-400"
+            className="cursor-help border-b border-dotted border-primary-foreground/50"
             title="Keep your streak alive by signing in daily. Earn trophies for consistent daily presence!"
           >
             Daily Self-Awareness
           </span>
         </CardTitle>
-        <CardDescription>Trophies Earned for Daily Login and Review</CardDescription>
+        <CardDescription className="text-primary-foreground/80">
+          Trophies Earned for Daily Login and Review
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Streak Stats */}
@@ -168,7 +170,7 @@ export default function SigninStreakTrophies() {
         {/* Earned Trophies */}
         {userTrophies.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Earned Trophies</h3>
+            <h3 className="text-sm font-semibold text-primary-foreground mb-3">Earned Trophies</h3>
             <div className="space-y-3">
               {userTrophies.map((userTrophy) => {
                 const TrophyIcon = getTrophyIcon(
@@ -223,7 +225,9 @@ export default function SigninStreakTrophies() {
         {/* Upcoming Trophies */}
         {trophies.filter((trophy) => !isTrophyEarned(trophy.id)).length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Upcoming Trophies</h3>
+            <h3 className="text-sm font-semibold text-primary-foreground mb-3">
+              Upcoming Trophies
+            </h3>
             <div className="space-y-3">
               {trophies
                 .filter((trophy) => !isTrophyEarned(trophy.id))

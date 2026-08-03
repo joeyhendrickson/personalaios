@@ -12,11 +12,7 @@ export function VoiceWaveform({
   variant = 'listening',
 }: VoiceWaveformProps) {
   const barColor =
-    variant === 'speaking'
-      ? 'bg-amber-500'
-      : variant === 'processing'
-        ? 'bg-violet-400'
-        : 'bg-red-500'
+    variant === 'speaking' ? 'bg-amber-500' : variant === 'processing' ? 'bg-primary' : 'bg-red-500'
 
   return (
     <div className="flex h-8 shrink-0 items-end gap-[3px]" aria-hidden>
