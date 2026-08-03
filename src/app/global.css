@@ -148,6 +148,22 @@ body {
 .dark .bg-gray-200 {
   background-color: hsl(0 0% 14%);
 }
+.dark .bg-gray-300 {
+  background-color: hsl(0 0% 18%);
+}
+
+/* Secondary / cancel buttons — dark surface + legible text (modal editors) */
+.dark button.bg-gray-300,
+.dark button.bg-gray-300.text-gray-700 {
+  background-color: hsl(0 0% 18%) !important;
+  color: hsl(0 0% 88%) !important;
+  border: 1px solid hsl(0 0% 100% / 0.2);
+}
+.dark button.bg-gray-300:hover,
+.dark button.bg-gray-300.hover\:bg-gray-400:hover {
+  background-color: hsl(var(--button-hover)) !important;
+  color: hsl(0 0% 100%) !important;
+}
 
 /* Neutral text */
 .dark .text-black,
