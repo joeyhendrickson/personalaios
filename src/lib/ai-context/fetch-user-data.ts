@@ -14,8 +14,13 @@ import {
 import { sumEarnedPoints } from '@/lib/points/sum-earned-points'
 import {
   aggregateClassifiedTransactions,
+  buildMerchantRollups,
   classifyTransactionForContext,
+  extractTransactionSearchTerms,
+  matchTransactionsByTerms,
+  type BudgetAdvisorTransactionContext,
 } from '@/lib/budget/transaction-context'
+import type { VerifiedPeriodSummary } from '@/lib/budget/verified-period-cache'
 
 export interface BudgetTransactionRow {
   id: string
@@ -44,15 +49,57 @@ export interface BudgetContextData {
   transferTotal?: number
   topSpendingCategories?: string[]
   overridesAppliedCount?: number
+  verifiedPeriods?: VerifiedPeriodSummary[]
+  merchantRollups?: BudgetAdvisorTransactionContext['merchantRollups']
+  queryMatchedTransactions?: BudgetAdvisorTransactionContext['queryMatchedTransactions']
+  queryMatchedTotal?: number
+  transactionCount?: number
+  dateRangeStart?: string
+  dateRangeEnd?: string
+}
+
+export type FetchBudgetContextOptions = {
+  /** Advisor question — used to match merchant-specific transactions */
+  question?: string
+  lookbackDays?: number
+  transactionLimit?: number
+}
+
+async function fetchVerifiedPeriodSummaries(
+  supabase: SupabaseClient,
+  userId: string,
+  limit = 5
+): Promise<VerifiedPeriodSummary[]> {
+  try {
+    const { data, error } = await supabase
+      .from('budget_verified_transaction_periods')
+      .select('summary_json')
+      .eq('user_id', userId)
+      .order('start_date', { ascending: false })
+      .limit(limit)
+
+    if (error) return []
+    return (data ?? [])
+      .map((row) => row.summary_json as VerifiedPeriodSummary)
+      .filter((summary) => summary && typeof summary.transaction_count === 'number')
+  } catch {
+    return []
+  }
 }
 
 export async function fetchBudgetContextData(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  options?: FetchBudgetContextOptions
 ): Promise<BudgetContextData> {
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-  const startDate = thirtyDaysAgo.toISOString().split('T')[0]
+  const lookbackDays = options?.lookbackDays ?? 90
+  const transactionLimit = options?.transactionLimit ?? 800
+  const rangeStart = new Date()
+  rangeStart.setDate(rangeStart.getDate() - lookbackDays)
+  const startDate = rangeStart.toISOString().split('T')[0]
+  const endDate = new Date().toISOString().split('T')[0]
+
+  const verifiedPeriods = await fetchVerifiedPeriodSummaries(supabase, userId)
 
   const { data: connections } = await supabase
     .from('bank_connections')
@@ -61,7 +108,7 @@ export async function fetchBudgetContextData(
 
   const connectionIds = (connections ?? []).map((c) => c.id)
   if (!connectionIds.length) {
-    return { transactions: [], recentTransactions: [] }
+    return { transactions: [], recentTransactions: [], verifiedPeriods }
   }
 
   const { data: accounts } = await supabase
@@ -71,7 +118,7 @@ export async function fetchBudgetContextData(
 
   const accountIds = (accounts ?? []).map((a) => a.id)
   if (!accountIds.length) {
-    return { transactions: [], recentTransactions: [] }
+    return { transactions: [], recentTransactions: [], verifiedPeriods }
   }
 
   const { data: txRows } = await supabase
@@ -79,8 +126,9 @@ export async function fetchBudgetContextData(
     .select('id, date, amount, name, merchant_name, category')
     .in('bank_account_id', accountIds)
     .gte('date', startDate)
+    .lte('date', endDate)
     .order('date', { ascending: false })
-    .limit(200)
+    .limit(transactionLimit)
 
   const rawTransactions = (txRows ?? []) as BudgetTransactionRow[]
   const txIds = rawTransactions.map((t) => t.id)
@@ -128,8 +176,25 @@ export async function fetchBudgetContextData(
     })
   )
 
-  const aggregated = aggregateClassifiedTransactions(classified)
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const thirtyDayCutoff = thirtyDaysAgo.toISOString().split('T')[0]
+  const recentForAggregates = classified.filter((t) => t.date >= thirtyDayCutoff)
+
+  const aggregated = aggregateClassifiedTransactions(recentForAggregates)
   const overridesAppliedCount = classified.filter((t) => t.typeOverride != null).length
+  const merchantRollups = buildMerchantRollups(classified, 15)
+
+  const searchTerms = extractTransactionSearchTerms(options?.question)
+  const matched = matchTransactionsByTerms(classified, searchTerms)
+  const queryMatchedTransactions = matched.slice(0, 25).map((t) => ({
+    date: t.date,
+    name: t.name,
+    amount: t.amount,
+    category: t.category,
+    kind: t.kind,
+  }))
+  const queryMatchedTotal = matched.reduce((sum, t) => sum + Math.abs(t.amount), 0)
 
   const transactions: BudgetTransactionRow[] = classified.map((t) => ({
     id: t.id,
@@ -150,6 +215,13 @@ export async function fetchBudgetContextData(
     transferTotal: aggregated.transferTotal,
     topSpendingCategories: aggregated.topSpendingCategories,
     overridesAppliedCount,
+    verifiedPeriods,
+    merchantRollups,
+    queryMatchedTransactions,
+    queryMatchedTotal: searchTerms.length ? queryMatchedTotal : undefined,
+    transactionCount: classified.length,
+    dateRangeStart: startDate,
+    dateRangeEnd: endDate,
   }
 }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { effectiveTransactionAmount } from '@/lib/budget/transaction-overrides'
+import { ledgerDisplayAmount } from '@/lib/budget/ledger-display'
 
 export async function GET(request: NextRequest) {
   try {
@@ -244,11 +244,12 @@ export async function GET(request: NextRequest) {
       const override = overridesMap[transaction.id]
       const sourceAmount = Number(transaction.amount)
       const amountOverride = override?.amount_override ?? null
-      const effectiveAmount = effectiveTransactionAmount(sourceAmount, amountOverride)
+      const ledgerAmount = ledgerDisplayAmount(sourceAmount, amountOverride)
       return {
         ...transaction,
         source_amount: sourceAmount,
-        amount: effectiveAmount,
+        amount: ledgerAmount,
+        ledger_amount: ledgerAmount,
         amount_override: amountOverride,
         type_override: override?.type_override ?? null,
         is_flagged: flaggedIds.has(transaction.id),

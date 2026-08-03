@@ -9,6 +9,7 @@ import {
   fetchRawUserData,
   buildStaticProfileSummary,
   buildStructuredStateSummary,
+  fetchBudgetContextData,
 } from './fetch-user-data'
 import {
   buildModuleContextSummaries,
@@ -28,6 +29,7 @@ import {
   detectQuestionTopics,
   type FilterModulesResult,
 } from './topic-module-filter'
+import { looksLikeTransactionQuestion } from '@/lib/budget/transaction-context'
 import { fetchModuleDataForContext } from './fetch-user-data'
 import type {
   AssembleContextOptions,
@@ -271,6 +273,38 @@ export async function assembleAIContext(
         moduleContext,
         buildModuleSummaryForModule('fitness-tracker', liveFitness.data, undefined)
       )
+      if (!layers.includes('modules')) layers.push('modules')
+    }
+  }
+
+  const questionTopics = lastUserMessage ? detectQuestionTopics(lastUserMessage) : []
+  const hasBudgetModule = structuredState?.installedModules?.includes('budget-optimizer') ?? false
+  const needsLiveBudget =
+    hasBudgetModule &&
+    !!lastUserMessage &&
+    (questionTopics.includes('financial') ||
+      questionTopics.includes('grocery') ||
+      questionTopics.includes('trading') ||
+      looksLikeTransactionQuestion(lastUserMessage))
+
+  if (needsLiveBudget && moduleContext) {
+    const budgetContext = await fetchBudgetContextData(adminSupabase, userId, {
+      question: lastUserMessage,
+    })
+    const liveBudgetModule = await fetchModuleDataForContext(
+      adminSupabase,
+      userId,
+      'budget-optimizer'
+    )
+    const updatedBudget = buildModuleSummaryForModule(
+      'budget-optimizer',
+      liveBudgetModule?.data ?? {},
+      budgetContext
+    )
+    if (updatedBudget.hasData || budgetContext.transactions.length > 0) {
+      updatedBudget.hasData = true
+      updatedBudget.aiSummary = undefined
+      moduleContext = mergeModuleSummary(moduleContext, updatedBudget)
       if (!layers.includes('modules')) layers.push('modules')
     }
   }

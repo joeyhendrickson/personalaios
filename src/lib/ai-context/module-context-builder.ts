@@ -114,10 +114,59 @@ function extractBudgetOptimizer(
   if (budget?.recentTransactions?.length) {
     summary.recentHighlights.push(
       ...budget.recentTransactions
-        .slice(0, 5)
+        .slice(0, 8)
         .map(
           (t) =>
             `${t.date}: ${t.name} $${Math.abs(t.amount).toFixed(0)}${t.kind ? ` (${t.kind})` : ''}${t.category ? ` [${t.category}]` : ''}`
+        )
+    )
+  }
+
+  if (budget?.transactionCount != null && budget.transactionCount > 0) {
+    const range =
+      budget.dateRangeStart && budget.dateRangeEnd
+        ? `${budget.dateRangeStart} to ${budget.dateRangeEnd}`
+        : 'recent period'
+    summary.objectiveFacts.push(
+      `${budget.transactionCount} bank transaction(s) loaded for ${range} (Budget Master / Plaid)`
+    )
+  }
+
+  if (budget?.verifiedPeriods?.length) {
+    for (const period of budget.verifiedPeriods.slice(0, 3)) {
+      summary.objectiveFacts.push(
+        `Verified snapshot ${period.start_date}→${period.end_date}: ${period.transaction_count} txns, net $${period.totals.net.toFixed(0)}, outflow $${period.totals.total_outflow_abs.toFixed(0)}`
+      )
+      if (period.top_merchants_or_names.length) {
+        summary.objectiveFacts.push(
+          `Verified merchants (${period.start_date}→${period.end_date}): ${period.top_merchants_or_names
+            .slice(0, 8)
+            .map((m) => `${m.label} $${m.total_abs.toFixed(0)} (${m.count}x)`)
+            .join(', ')}`
+        )
+      }
+    }
+  }
+
+  if (budget?.merchantRollups?.length) {
+    summary.objectiveFacts.push(
+      `Merchant totals (loaded range): ${budget.merchantRollups
+        .slice(0, 12)
+        .map((m) => `${m.label} $${m.total_abs.toFixed(0)} (${m.count}x)`)
+        .join(', ')}`
+    )
+  }
+
+  if (budget?.queryMatchedTransactions?.length) {
+    summary.objectiveFacts.push(
+      `Matched user query: ${budget.queryMatchedTransactions.length} transaction(s), total $${(budget.queryMatchedTotal ?? 0).toFixed(0)}`
+    )
+    summary.recentHighlights.unshift(
+      ...budget.queryMatchedTransactions
+        .slice(0, 12)
+        .map(
+          (t) =>
+            `MATCH ${t.date}: ${t.name} $${Math.abs(t.amount).toFixed(0)}${t.kind ? ` (${t.kind})` : ''}${t.category ? ` [${t.category}]` : ''}`
         )
     )
   }
@@ -525,18 +574,25 @@ export function formatModuleContextForPrompt(summaries: ModuleContextSummary[]):
   }
 
   const blocks = withData.map((s) => {
+    const isBudget = s.moduleId === 'budget-optimizer'
+    const factLimit = isBudget ? 16 : 8
+    const noteLimit = isBudget ? 8 : 6
+    const recentLimit = isBudget ? 14 : 5
     const lines: string[] = [`### ${s.moduleId} (${s.categories.slice(0, 3).join(', ')})`]
-    if (s.aiSummary) {
+    if (s.aiSummary && !isBudget) {
       lines.push(`Summary: ${s.aiSummary}`)
     } else {
+      if (s.aiSummary && isBudget) {
+        lines.push(`Summary (may omit merchants — prefer Facts/Recent below): ${s.aiSummary}`)
+      }
       if (s.objectiveFacts.length) {
-        lines.push('Facts: ' + s.objectiveFacts.slice(0, 8).join(' | '))
+        lines.push('Facts: ' + s.objectiveFacts.slice(0, factLimit).join(' | '))
       }
       if (s.subjectiveNotes.length) {
-        lines.push('User-provided/subjective: ' + s.subjectiveNotes.slice(0, 6).join(' | '))
+        lines.push('User-provided/subjective: ' + s.subjectiveNotes.slice(0, noteLimit).join(' | '))
       }
       if (s.recentHighlights.length) {
-        lines.push('Recent: ' + s.recentHighlights.slice(0, 5).join(' | '))
+        lines.push('Recent: ' + s.recentHighlights.slice(0, recentLimit).join(' | '))
       }
     }
     return lines.join('\n')

@@ -1,7 +1,7 @@
 /** Human-readable labels for Life Hack module ids */
 export const MODULE_LABELS: Record<string, string> = {
   'day-trader': 'Market Advisor',
-  'budget-optimizer': 'Budget Advisor',
+  'budget-optimizer': 'Budget Master',
   'grocery-optimizer': 'Grocery Store Optimizer',
   'ai-coach': 'Life Coach',
   'habit-master': 'Habit Master',

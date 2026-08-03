@@ -7,7 +7,7 @@ export type AdvisorSourceChip = {
 
 const MODULE_LABELS: Record<string, string> = {
   'fitness-tracker': 'Fitness',
-  'budget-optimizer': 'Budget',
+  'budget-optimizer': 'Budget Master',
   'relationship-manager': 'Relationships',
   'day-trader': 'Trading',
   'grocery-optimizer': 'Groceries',

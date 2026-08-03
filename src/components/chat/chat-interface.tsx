@@ -1260,10 +1260,6 @@ export function ChatInterface({
         )
       }
 
-      if (evidenceViewEnabled) {
-        setAdvisorPanelTab('evidence')
-      }
-
       const completionResult = await completionNotePromise
       if (completionResult.proposalCount > 0) {
         setMessages((prev) => [

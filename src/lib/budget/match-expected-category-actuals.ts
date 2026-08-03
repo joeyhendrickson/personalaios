@@ -5,6 +5,7 @@ export type BudgetTransactionForActuals = {
   id: string
   date: string
   amount: number
+  source_amount?: number | null
   name?: string | null
   merchant_name?: string | null
   category?: string[] | null
@@ -223,7 +224,7 @@ export function resolveBudgetTransactionKind(
 
 function signedAmountForKind(tx: BudgetTransactionForActuals, kind: 'income' | 'expense'): number {
   const effective = effectiveTransactionAmount(tx.amount, tx.amount_override ?? null)
-  return kind === 'expense' ? Math.abs(effective) : Math.max(0, effective)
+  return Math.abs(effective)
 }
 
 function calculateMonthlyAmount(item: ExpectedBudgetLine): number {

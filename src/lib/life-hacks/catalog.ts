@@ -22,7 +22,7 @@ export const LIFE_HACK_CATALOG: LifeHackModule[] = [
   },
   {
     id: 'budget-optimizer',
-    title: 'Budget Advisor',
+    title: 'Budget Master',
     category: 'Finance',
     description: 'Budget, income, and spending visibility, analysis, and optimization.',
     coachHint: 'For financial management and spending optimization',

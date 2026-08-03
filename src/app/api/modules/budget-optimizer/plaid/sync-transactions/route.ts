@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { PlaidService } from '@/lib/plaid'
 import { decrypt } from '@/lib/crypto'
+import { refreshUserContextCache } from '@/lib/ai-context/cache-generator'
 
 export async function POST(request: NextRequest) {
   try {
@@ -274,6 +275,16 @@ export async function POST(request: NextRequest) {
         balanceError?.message || balanceError
       )
       // Continue - transactions were already synced successfully
+    }
+
+    if (transactionsToInsert.length > 0 || transactionsToUpdate.length > 0) {
+      void refreshUserContextCache(user.id, {
+        route: '/api/modules/budget-optimizer/plaid/sync-transactions',
+        trigger: 'manual',
+        forceIfOlderThanMinutes: 15,
+      }).catch((error) => {
+        console.warn('[BudgetSync] Advisor context refresh failed:', error)
+      })
     }
 
     return NextResponse.json({

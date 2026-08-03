@@ -86,7 +86,7 @@ const modules: Module[] = [
   },
   {
     id: 'budget-optimizer',
-    title: 'Budget Advisor',
+    title: 'Budget Master',
     description:
       'Budget, income, and spending visibility, analysis, optimization, and recommendations',
     category: 'Finance',
@@ -274,7 +274,7 @@ const modules: Module[] = [
 ]
 
 // Purpose/intent keywords per module so search can match on what a module is *for*,
-// not just literal words in its title/description (e.g. "money" → Budget Advisor,
+// not just literal words in its title/description (e.g. "money" → Budget Master,
 // "workout" → Fitness Tracker, "love" → Dating Management).
 const MODULE_KEYWORDS: Record<string, string[]> = {
   'day-trader': [

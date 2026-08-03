@@ -2521,7 +2521,7 @@ export default function Dashboard() {
                               <div className="flex items-center mb-3">
                                 <Star className="h-5 w-5 text-purple-600 mr-2 shrink-0" />
                                 <h4 className="font-semibold text-gray-900">
-                                  Recommended Goals from Budget Advisor
+                                  Recommended Goals from Budget Master
                                 </h4>
                               </div>
                               <div className="space-y-3">

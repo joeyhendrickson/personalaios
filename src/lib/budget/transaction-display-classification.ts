@@ -1,5 +1,5 @@
 /**
- * Client-side display classification for Budget Advisor transactions.
+ * Client-side display classification for Budget Master transactions.
  * Combines Plaid account type (+ name keywords like "credit card") with amount sign
  * and transaction text heuristics (merchant vs P2P / bank transfer).
  */

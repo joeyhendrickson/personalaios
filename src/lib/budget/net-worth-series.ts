@@ -1,6 +1,6 @@
 /**
  * Reconstruct approximate historical net worth from current balances + transaction history.
- * Matches Budget Advisor Summary semantics: bank assets vs liabilities + manual accounts.
+ * Matches Budget Master Summary semantics: bank assets vs liabilities + manual accounts.
  *
  * Plaid: positive amount on depository = outflow (reduces balance).
  * Asset accounts: balance_at_end(D) = current + sum(amount where date > D)

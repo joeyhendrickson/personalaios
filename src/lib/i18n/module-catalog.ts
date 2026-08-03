@@ -28,13 +28,13 @@ const catalog: Record<string, Record<Language, ModuleCatalogEntry>> = {
   },
   'budget-optimizer': {
     en: {
-      title: 'Budget Advisor',
+      title: 'Budget Master',
       description:
         'Budget, income, and spending visibility, analysis, optimization, and recommendations',
       features: ['Expense Tracking', 'Budget Analysis', 'Savings Goals', 'Investment Advice'],
     },
     es: {
-      title: 'Asesor de Presupuesto',
+      title: 'Maestro de Presupuesto',
       description:
         'Visibilidad, análisis, optimización y recomendaciones de presupuesto, ingresos y gastos',
       features: [

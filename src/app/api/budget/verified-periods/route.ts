@@ -4,6 +4,7 @@ import {
   buildVerifiedPeriodSummary,
   fingerprintTransactionSet,
 } from '@/lib/budget/verified-period-cache'
+import { refreshUserContextCache } from '@/lib/ai-context/cache-generator'
 
 async function fetchTransactionsInRange(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -165,6 +166,13 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    void refreshUserContextCache(user.id, {
+      route: '/api/budget/verified-periods',
+      trigger: 'manual',
+    }).catch((error) => {
+      console.warn('[VerifiedPeriod] Advisor context refresh failed:', error)
+    })
 
     return NextResponse.json({
       success: true,

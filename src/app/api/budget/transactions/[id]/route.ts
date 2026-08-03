@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { normalizedAmountOverride } from '@/lib/budget/ledger-display'
 import { mergeTransactionOverridePatch } from '@/lib/budget/transaction-overrides'
 
 /**
@@ -50,11 +51,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           { status: 400 }
         )
       }
+      if (parsed <= 0) {
+        return NextResponse.json(
+          {
+            error:
+              'amount_override must be a positive number (use income/expense arrows for direction)',
+          },
+          { status: 400 }
+        )
+      }
     }
 
     const { data: transaction, error: txError } = await supabase
       .from('transactions')
-      .select('id, bank_account_id')
+      .select('id, bank_account_id, amount')
       .eq('id', transactionId)
       .single()
 
@@ -90,6 +100,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       .eq('user_id', user.id)
       .maybeSingle()
 
+    const sourceAmount = Number(transaction.amount)
+    let resolvedAmountOverride =
+      amount_override !== undefined && amount_override !== null
+        ? normalizedAmountOverride(Number(amount_override))
+        : amount_override
+
+    if (
+      type_override &&
+      ['income', 'expense', 'transfer'].includes(type_override) &&
+      resolvedAmountOverride === undefined
+    ) {
+      resolvedAmountOverride = normalizedAmountOverride(sourceAmount)
+    }
+
     const merged = mergeTransactionOverridePatch(
       existingRow
         ? {
@@ -100,10 +124,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         : null,
       {
         type_override,
-        amount_override:
-          amount_override !== undefined && amount_override !== null
-            ? Number(amount_override)
-            : amount_override,
+        amount_override: resolvedAmountOverride,
       }
     )
 

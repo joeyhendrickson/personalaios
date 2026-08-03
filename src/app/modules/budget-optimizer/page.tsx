@@ -43,8 +43,12 @@ import {
   Flag,
   Copy,
 } from 'lucide-react'
-import { classifyPlaidTransactionDisplay } from '@/lib/budget/transaction-display-classification'
 import { findDuplicateTransactions } from '@/lib/budget/find-duplicate-transactions'
+import { ledgerDisplayAmount } from '@/lib/budget/ledger-display'
+import {
+  classifyTransactionForLedger,
+  summarizeLedgerTransactions,
+} from '@/lib/budget/ledger-period-summary'
 import { normalizeBudgetAnalysis } from '@/lib/budget/normalize-budget-analysis'
 
 interface BankConnection {
@@ -156,6 +160,7 @@ interface Transaction {
   bank_account_id?: string
   amount: number
   source_amount?: number
+  ledger_amount?: number
   amount_override?: number | null
   date: string
   name: string
@@ -881,9 +886,22 @@ export default function BudgetOptimizerModule() {
     }
     const selected = transactions.find((t) => t.id === selectedTransactionId)
     if (selected) {
-      setAmountEditInput(String(selected.amount))
+      const source = selected.source_amount ?? selected.amount
+      setAmountEditInput(
+        String(
+          selected.ledger_amount ??
+            selected.amount ??
+            ledgerDisplayAmount(source, selected.amount_override)
+        )
+      )
     }
   }, [selectedTransactionId, transactions])
+
+  const transactionPeriodSummary = useMemo(
+    () => summarizeLedgerTransactions(transactions, transactionRules),
+    [transactions, transactionRules]
+  )
+
   const [flaggedTransactions, setFlaggedTransactions] = useState<Transaction[]>([])
   const [showFlaggedSection, setShowFlaggedSection] = useState(false)
   const [transactionRules, setTransactionRules] = useState<TransactionRule[]>([])
@@ -1828,16 +1846,20 @@ export default function BudgetOptimizerModule() {
       if (response.ok) {
         const data = await response.json()
         setTransactions((prev) =>
-          prev.map((t) =>
-            t.id === transactionId
-              ? {
-                  ...t,
-                  type_override: typeOverride,
-                  amount_override:
-                    data.amount_override !== undefined ? data.amount_override : t.amount_override,
-                }
-              : t
-          )
+          prev.map((t) => {
+            if (t.id !== transactionId) return t
+            const sourceAmount = t.source_amount ?? t.amount
+            const nextOverride =
+              data.amount_override !== undefined ? data.amount_override : t.amount_override
+            const ledgerAmount = ledgerDisplayAmount(sourceAmount, nextOverride)
+            return {
+              ...t,
+              type_override: typeOverride,
+              amount_override: nextOverride,
+              amount: ledgerAmount,
+              ledger_amount: ledgerAmount,
+            }
+          })
         )
         setSelectedTransactionId(null)
       } else {
@@ -1872,15 +1894,13 @@ export default function BudgetOptimizerModule() {
             const sourceAmount = t.source_amount ?? t.amount
             const nextOverride =
               data.amount_override !== undefined ? data.amount_override : amountOverride
-            const effectiveAmount =
-              nextOverride != null && Number.isFinite(Number(nextOverride))
-                ? Number(nextOverride)
-                : sourceAmount
+            const ledgerAmount = ledgerDisplayAmount(sourceAmount, nextOverride)
             return {
               ...t,
               source_amount: sourceAmount,
               amount_override: nextOverride,
-              amount: effectiveAmount,
+              amount: ledgerAmount,
+              ledger_amount: ledgerAmount,
               type_override:
                 data.type_override !== undefined ? data.type_override : t.type_override,
             }
@@ -1902,8 +1922,8 @@ export default function BudgetOptimizerModule() {
 
   const saveSelectedTransactionAmount = (transactionId: string) => {
     const parsed = parseFloat(amountEditInput)
-    if (!Number.isFinite(parsed)) {
-      alert('Enter a valid amount (use negative for expenses, positive for income).')
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      alert('Enter a positive dollar amount. Use the up/down arrows to mark income vs expense.')
       return
     }
     void setTransactionAmountOverride(transactionId, parsed)
@@ -2841,7 +2861,7 @@ export default function BudgetOptimizerModule() {
               <div>
                 <h1 className="text-3xl font-bold text-black flex items-center">
                   <PiggyBank className="h-8 w-8 mr-3 text-blue-600" />
-                  Budget Advisor
+                  Budget Master
                 </h1>
                 <p className="text-sm text-gray-600">
                   AI-powered budget analysis and financial optimization with secure bank integration
@@ -4325,6 +4345,79 @@ export default function BudgetOptimizerModule() {
                   </div>
                 ) : (
                   <div>
+                    <div
+                      className={`mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3 ${isLoading ? 'opacity-70' : ''}`}
+                    >
+                      {isLoading && (
+                        <p className="sm:col-span-3 text-xs text-gray-500 dark:text-gray-400 -mb-1">
+                          Recalculating totals for selected period…
+                        </p>
+                      )}
+                      <div className="rounded-lg border border-green-200 bg-green-50/80 p-4 dark:border-green-900/40 dark:bg-green-950/20">
+                        <p className="text-xs font-medium uppercase tracking-wide text-green-700 dark:text-green-300">
+                          Income
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold text-green-700 dark:text-green-300">
+                          {formatCurrency(transactionPeriodSummary.incomeTotal)}
+                        </p>
+                        <p className="mt-1 text-xs text-green-700/80 dark:text-green-300/80">
+                          {transactionPeriodSummary.incomeCount.toLocaleString()} transaction
+                          {transactionPeriodSummary.incomeCount !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-red-200 bg-red-50/80 p-4 dark:border-red-900/40 dark:bg-red-950/20">
+                        <p className="text-xs font-medium uppercase tracking-wide text-red-700 dark:text-red-300">
+                          Expenses
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold text-red-700 dark:text-red-300">
+                          {formatCurrency(transactionPeriodSummary.expenseTotal)}
+                        </p>
+                        <p className="mt-1 text-xs text-red-700/80 dark:text-red-300/80">
+                          {transactionPeriodSummary.expenseCount.toLocaleString()} transaction
+                          {transactionPeriodSummary.expenseCount !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <div
+                        className={`rounded-lg border p-4 ${
+                          transactionPeriodSummary.netProfit >= 0
+                            ? 'border-emerald-200 bg-emerald-50/80 dark:border-emerald-900/40 dark:bg-emerald-950/20'
+                            : 'border-amber-200 bg-amber-50/80 dark:border-amber-900/40 dark:bg-amber-950/20'
+                        }`}
+                      >
+                        <p
+                          className={`text-xs font-medium uppercase tracking-wide ${
+                            transactionPeriodSummary.netProfit >= 0
+                              ? 'text-emerald-700 dark:text-emerald-300'
+                              : 'text-amber-800 dark:text-amber-300'
+                          }`}
+                        >
+                          Net (profitability)
+                        </p>
+                        <p
+                          className={`mt-1 text-2xl font-semibold ${
+                            transactionPeriodSummary.netProfit >= 0
+                              ? 'text-emerald-700 dark:text-emerald-300'
+                              : 'text-amber-800 dark:text-amber-300'
+                          }`}
+                        >
+                          {formatCurrency(transactionPeriodSummary.netProfit)}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                          {dateRange.start && dateRange.end
+                            ? `${new Date(dateRange.start).toLocaleDateString()} – ${new Date(
+                                dateRange.end
+                              ).toLocaleDateString()}`
+                            : 'Selected period'}
+                          {transactionPeriodSummary.transferCount > 0 && (
+                            <span>
+                              {' '}
+                              · {transactionPeriodSummary.transferCount.toLocaleString()} transfer
+                              {transactionPeriodSummary.transferCount !== 1 ? 's' : ''} excluded
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
                       <span className="text-sm text-gray-600">
                         Showing {transactions.length.toLocaleString()} transaction
@@ -4380,60 +4473,14 @@ export default function BudgetOptimizerModule() {
                     >
                       {transactions.map((transaction) => {
                         if (!transaction?.id) return null
-                        // Check user-defined rules first
-                        const transactionName = (transaction.name || '').toLowerCase()
-                        const transactionMerchant = (transaction.merchant_name || '').toLowerCase()
-                        const transactionText =
-                          `${transactionName} ${transactionMerchant}`.toLowerCase()
 
-                        // Find matching rule (case-insensitive keyword match)
-                        const matchingRule = transactionRules.find(
-                          (rule) =>
-                            rule.is_active &&
-                            (transactionText.includes(rule.keyword.toLowerCase()) ||
-                              transactionName.includes(rule.keyword.toLowerCase()) ||
-                              transactionMerchant.includes(rule.keyword.toLowerCase()))
+                        const classified = classifyTransactionForLedger(
+                          transaction,
+                          transactionRules
                         )
-
-                        let isMoneyTransfer = false
-                        let isExpense = false
-                        let isIncome = false
-
-                        // User override takes highest priority
-                        if (transaction.type_override === 'income') {
-                          isIncome = true
-                          isExpense = false
-                          isMoneyTransfer = false
-                        } else if (transaction.type_override === 'expense') {
-                          isExpense = true
-                          isIncome = false
-                          isMoneyTransfer = false
-                        } else if (transaction.type_override === 'transfer') {
-                          isMoneyTransfer = true
-                          isIncome = false
-                          isExpense = false
-                        } else if (matchingRule) {
-                          if (matchingRule.transaction_type === 'transfer') {
-                            isMoneyTransfer = true
-                          } else if (matchingRule.transaction_type === 'expense') {
-                            isExpense = true
-                            isIncome = false
-                          } else if (matchingRule.transaction_type === 'income') {
-                            isIncome = true
-                            isExpense = false
-                          }
-                        } else {
-                          const classified = classifyPlaidTransactionDisplay({
-                            amount: transaction.amount,
-                            name: transaction.name,
-                            merchant_name: transaction.merchant_name,
-                            category: transaction.category,
-                            bankAccount: transaction.bank_accounts,
-                          })
-                          isIncome = classified.isIncome
-                          isExpense = classified.isExpense
-                          isMoneyTransfer = classified.isMoneyTransfer
-                        }
+                        const isIncome = classified.isIncome
+                        const isExpense = classified.isExpense
+                        const isMoneyTransfer = classified.isMoneyTransfer
 
                         const isSelected = selectedTransactionId === transaction.id
                         const isDuplicate =
@@ -4570,10 +4617,11 @@ export default function BudgetOptimizerModule() {
                                     <input
                                       type="number"
                                       step="0.01"
+                                      min="0.01"
                                       value={amountEditInput}
                                       onChange={(e) => setAmountEditInput(e.target.value)}
                                       className="w-24 text-sm border-0 p-0 focus:ring-0 focus:outline-none text-right"
-                                      title="Edit amount (+ income, − expense)"
+                                      title="Edit amount (always positive — use arrows for income vs expense)"
                                       aria-label="Transaction amount"
                                     />
                                     <button
@@ -4598,7 +4646,7 @@ export default function BudgetOptimizerModule() {
                                   {transaction.source_amount != null &&
                                     transaction.amount_override != null && (
                                       <p className="text-[11px] text-gray-500">
-                                        Bank: {formatCurrency(transaction.source_amount)}
+                                        Bank raw: {formatCurrency(transaction.source_amount)}
                                       </p>
                                     )}
                                 </div>

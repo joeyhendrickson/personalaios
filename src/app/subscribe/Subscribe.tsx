@@ -77,7 +77,7 @@ export default function Subscribe() {
         'Focus Enhancer & productivity tools',
         'Relationship Manager',
         'Fitness Tracker with AI plans',
-        'Budget Advisor with Plaid integration',
+        'Budget Master with Plaid integration',
         'Market Advisor analysis tools',
         'Priority support',
         'Early access to new features',
