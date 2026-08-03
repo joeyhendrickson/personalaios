@@ -12,6 +12,8 @@ import type {
   UserProfileInsight,
 } from './types'
 import type { RawReportContext } from './collect-data'
+import type { Language } from '@/contexts/language-context'
+import { spanishResponseInstruction } from '@/lib/i18n/language-prompt'
 
 export type GeneratedReportContent = Pick<
   ProgressReportDocument,
@@ -24,18 +26,40 @@ export type GeneratedReportContent = Pick<
   | 'swot'
 >
 
-const EMPTY_USER_PROFILE: UserProfileInsight = {
-  whoYouSeemToBe: 'You are someone building momentum across your goals and daily systems.',
-  apparentFocus:
-    'Your attention is spread across the areas reflected in your completed work this period.',
-  motivationDrivers: ['Consistency in daily habits', 'Progress on meaningful tasks'],
-}
-
-const EMPTY_FOCUS_REVIEW: FocusReview = {
-  summary: 'This period reflects where you chose to invest your time and energy.',
-  tasksFocus: [],
-  projectsFocus: [],
-  goalsFocus: [],
+const EMPTY_PROFILES: Record<
+  Language,
+  { userProfile: UserProfileInsight; focusReview: FocusReview; narrative: string }
+> = {
+  en: {
+    userProfile: {
+      whoYouSeemToBe: 'You are someone building momentum across your goals and daily systems.',
+      apparentFocus:
+        'Your attention is spread across the areas reflected in your completed work this period.',
+      motivationDrivers: ['Consistency in daily habits', 'Progress on meaningful tasks'],
+    },
+    focusReview: {
+      summary: 'This period reflects where you chose to invest your time and energy.',
+      tasksFocus: [],
+      projectsFocus: [],
+      goalsFocus: [],
+    },
+    narrative: 'You made meaningful progress this period. Keep building on your momentum.',
+  },
+  es: {
+    userProfile: {
+      whoYouSeemToBe: 'Eres alguien que está construyendo impulso en tus metas y sistemas diarios.',
+      apparentFocus:
+        'Tu atención se distribuye en las áreas reflejadas en tu trabajo completado este período.',
+      motivationDrivers: ['Constancia en hábitos diarios', 'Progreso en tareas significativas'],
+    },
+    focusReview: {
+      summary: 'Este período refleja dónde elegiste invertir tu tiempo y energía.',
+      tasksFocus: [],
+      projectsFocus: [],
+      goalsFocus: [],
+    },
+    narrative: 'Lograste un progreso significativo en este período. Sigue construyendo tu impulso.',
+  },
 }
 
 const EMPTY_SWOT: ReportSwot = {
@@ -51,8 +75,10 @@ export async function generateReportContent(
   periodLabel: string,
   periodStart: string,
   periodEnd: string,
-  context: RawReportContext
+  context: RawReportContext,
+  language: Language = 'en'
 ): Promise<GeneratedReportContent> {
+  const fallbacks = EMPTY_PROFILES[language]
   const prompt = `You are writing a personal progress plan / report for a Life Stacks user. Ground every claim in the data below—do not invent facts.
 
 PERIOD: ${periodLabel} (${periodType})
@@ -100,7 +126,9 @@ Rules:
 - Tasks/projects/goals: cite real titles from focusEvidence when possible.
 - SWOT must be balanced; if data is thin, say so gently and keep lists shorter.
 - Do not fabricate therapy/clinical diagnoses.
-- moduleHighlights: refine input modules only; do not invent module usage.`
+- moduleHighlights: refine input modules only; do not invent module usage.
+
+${spanishResponseInstruction(language)}`
 
   const started = Date.now()
   const result = await generateText({
@@ -136,20 +164,21 @@ Rules:
 
   const userProfile: UserProfileInsight = {
     whoYouSeemToBe:
-      String(parsed.userProfile?.whoYouSeemToBe || '').trim() || EMPTY_USER_PROFILE.whoYouSeemToBe,
+      String(parsed.userProfile?.whoYouSeemToBe || '').trim() ||
+      fallbacks.userProfile.whoYouSeemToBe,
     apparentFocus:
-      String(parsed.userProfile?.apparentFocus || '').trim() || EMPTY_USER_PROFILE.apparentFocus,
+      String(parsed.userProfile?.apparentFocus || '').trim() || fallbacks.userProfile.apparentFocus,
     motivationDrivers: (parsed.userProfile?.motivationDrivers || [])
       .map((b) => String(b).trim())
       .filter(Boolean)
       .slice(0, 8),
   }
   if (userProfile.motivationDrivers.length === 0) {
-    userProfile.motivationDrivers = EMPTY_USER_PROFILE.motivationDrivers
+    userProfile.motivationDrivers = fallbacks.userProfile.motivationDrivers
   }
 
   const focusReview: FocusReview = {
-    summary: String(parsed.focusReview?.summary || '').trim() || EMPTY_FOCUS_REVIEW.summary,
+    summary: String(parsed.focusReview?.summary || '').trim() || fallbacks.focusReview.summary,
     tasksFocus: (parsed.focusReview?.tasksFocus || [])
       .map((b) => String(b).trim())
       .filter(Boolean)
@@ -187,9 +216,7 @@ Rules:
     userProfile,
     focusReview,
     swot,
-    narrativeSummary:
-      String(parsed.narrativeSummary || '').trim() ||
-      'You made meaningful progress this period. Keep building on your momentum.',
+    narrativeSummary: String(parsed.narrativeSummary || '').trim() || fallbacks.narrative,
     highlightsBullets: (parsed.highlightsBullets || [])
       .map((b) => String(b).trim())
       .filter(Boolean)

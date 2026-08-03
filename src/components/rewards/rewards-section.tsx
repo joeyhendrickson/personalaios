@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { parseIntFromForm } from '@/lib/form/numeric-input'
+import { useLanguage } from '@/contexts/language-context'
+import { TranslatedText } from '@/components/i18n/translated-text'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -117,6 +119,7 @@ const iconMap: Record<string, any> = {
 
 export default function RewardsSection() {
   const { user } = useAuth()
+  const { t } = useLanguage()
   const [categories, setCategories] = useState<RewardCategory[]>([])
   const [defaultRewards, setDefaultRewards] = useState<Reward[]>([])
   const [userRewards, setUserRewards] = useState<UserReward[]>([])
@@ -645,40 +648,44 @@ export default function RewardsSection() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Gift className="h-5 w-5" />
-          Rewards & Self-Care
+          {t('rewards.title')}
         </CardTitle>
-        <CardDescription>Exchange your points for rewards and track your progress</CardDescription>
+        <CardDescription>{t('rewards.subtitle')}</CardDescription>
       </CardHeader>
       <CardContent>
         {/* Points Balance */}
-        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border">
+        <div className="rewards-points-banner mb-6 p-4 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg border border-amber-200">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Coins className="h-6 w-6 text-yellow-600" />
-                <span className="text-lg font-semibold">Available Points</span>
+                <span className="text-lg font-semibold">{t('rewards.availablePoints')}</span>
               </div>
               <span className="text-2xl font-bold text-green-600">
                 {currentPoints.toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between text-sm text-gray-600">
-              <span>Total Earned: {totalPoints.toLocaleString()}</span>
-              <span>Redeemed: {totalRedeemed.toLocaleString()}</span>
+              <span>
+                {t('rewards.totalEarned')}: {totalPoints.toLocaleString()}
+              </span>
+              <span>
+                {t('rewards.redeemed')}: {totalRedeemed.toLocaleString()}
+              </span>
             </div>
           </div>
         </div>
 
         <Tabs defaultValue="available" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="available">Available Rewards</TabsTrigger>
-            <TabsTrigger value="partner">Partner Rewards</TabsTrigger>
-            <TabsTrigger value="rewards">Redeemed Rewards</TabsTrigger>
+            <TabsTrigger value="available">{t('rewards.availableRewards')}</TabsTrigger>
+            <TabsTrigger value="partner">{t('rewards.partnerRewards')}</TabsTrigger>
+            <TabsTrigger value="rewards">{t('rewards.redeemedRewards')}</TabsTrigger>
           </TabsList>
 
           {/* Redeemed Awards Tab */}
           <TabsContent value="rewards" className="space-y-4">
-            <h3 className="text-lg font-semibold">Redeemed Rewards</h3>
+            <h3 className="text-lg font-semibold">{t('rewards.redeemedRewards')}</h3>
 
             {/* Edit User Reward Dialog */}
             <Dialog open={showEditUserRewardDialog} onOpenChange={setShowEditUserRewardDialog}>

@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 import RatingStars from '@/components/rating-stars'
 import { LanguageToggle } from '@/components/ui/language-toggle'
+import { localizeModule } from '@/lib/i18n/module-catalog'
 
 interface Module {
   id: string
@@ -574,7 +575,8 @@ const categories = [
 ]
 
 export default function ModulesPage() {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
+  const localizedModules = modules.map((module) => localizeModule(module, language))
   const translateCategory = (category: string) => t(`modules.category.${category}`)
   const translateComplexity = (complexity: string) => t(`modules.complexity.${complexity}`)
   const translateStatus = (status: string) => t(`modules.status.${status}`)
@@ -717,7 +719,7 @@ export default function ModulesPage() {
 
   // Show the most frequently opened life hacks first, falling back to most
   // recently used when usage is tied (or counts aren't tracked yet).
-  const activeModules = modules
+  const activeModules = localizedModules
     .filter((module) => isModuleInstalled(module.id) && matchesFilters(module))
     .sort((a, b) => {
       const aInstalled = getInstalledModule(a.id)
@@ -729,7 +731,7 @@ export default function ModulesPage() {
       const bTime = bInstalled ? new Date(bInstalled.last_accessed).getTime() : 0
       return bTime - aTime
     })
-  const availableModules = modules.filter((module) => !isModuleInstalled(module.id))
+  const availableModules = localizedModules.filter((module) => !isModuleInstalled(module.id))
 
   const filteredModules = availableModules.filter((module) => matchesFilters(module))
 
@@ -739,7 +741,7 @@ export default function ModulesPage() {
   const isSearching = searchTerm.trim().length > 0
   const queryTokens = tokenizeQuery(searchTerm)
   const searchResults = isSearching
-    ? modules
+    ? localizedModules
         .filter((module) => {
           const matchesCategory = selectedCategory === 'All' || module.category === selectedCategory
           const matchesComplexity =

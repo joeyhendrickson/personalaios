@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { getProjectCategoryEmoji } from '@/lib/projects/category-emoji'
 import { ExpandableDescription } from '@/components/ui/expandable-description'
+import { TranslatedText } from '@/components/i18n/translated-text'
 
 type ProjectCardContentProps = {
   category: string
@@ -41,9 +42,11 @@ export function ProjectCardContent({
             <span className="shrink-0 text-2xl leading-none" aria-hidden>
               {getProjectCategoryEmoji(category)}
             </span>
-            <h3 className="min-w-0 flex-1 break-words font-semibold leading-snug text-gray-900 dark:text-white">
-              {title}
-            </h3>
+            <TranslatedText
+              text={title}
+              as="h3"
+              className="min-w-0 flex-1 break-words font-semibold leading-snug text-gray-900 dark:text-white"
+            />
           </div>
           {trailingActions ? (
             <div className="flex shrink-0 items-center justify-end gap-2 sm:self-start">

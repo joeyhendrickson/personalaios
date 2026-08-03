@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Brain, X, Zap, Clock, Target } from 'lucide-react'
+import { useLanguage } from '@/contexts/language-context'
 
 interface ConversationalPriorityInputProps {
   onClose: () => void
@@ -12,6 +13,7 @@ export default function ConversationalPriorityInput({
   onClose,
   onSuccess,
 }: ConversationalPriorityInputProps) {
+  const { language } = useLanguage()
   const [formData, setFormData] = useState({
     daily_intention: '',
     energy_level: 'medium' as 'high' | 'medium' | 'low',
@@ -30,12 +32,14 @@ export default function ConversationalPriorityInput({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Language': language,
         },
         body: JSON.stringify({
           daily_intention: formData.daily_intention.trim(),
           energy_level: formData.energy_level,
           time_available: formData.time_available,
           focus_area: formData.focus_area.trim() || undefined,
+          language,
         }),
       })
 

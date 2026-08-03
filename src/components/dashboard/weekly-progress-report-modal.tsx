@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { X, Settings, FileDown, Loader2, Sparkles, Crown } from 'lucide-react'
 import type {
@@ -8,16 +8,7 @@ import type {
   ProgressReportQuota,
   ReportPeriodType,
 } from '@/lib/progress-reports/types'
-
-const PERIOD_OPTIONS: { value: ReportPeriodType; label: string; description: string }[] = [
-  { value: 'weekly', label: 'Weekly', description: 'Monday through Sunday of this week' },
-  {
-    value: 'bi_monthly',
-    label: 'Bi-monthly (14 days)',
-    description: 'Rolling last 14 days',
-  },
-  { value: 'monthly', label: 'Monthly', description: 'Current calendar month' },
-]
+import { useLanguage } from '@/contexts/language-context'
 
 export function WeeklyProgressReportModal({
   open,
@@ -26,6 +17,7 @@ export function WeeklyProgressReportModal({
   open: boolean
   onClose: () => void
 }) {
+  const { t, language } = useLanguage()
   const [quota, setQuota] = useState<ProgressReportQuota | null>(null)
   const [periodType, setPeriodType] = useState<ReportPeriodType>('weekly')
   const [generating, setGenerating] = useState(false)
@@ -35,9 +27,33 @@ export function WeeklyProgressReportModal({
   const [hasCoverImage, setHasCoverImage] = useState(false)
   const [downloading, setDownloading] = useState(false)
 
+  const periodOptions = useMemo(
+    () => [
+      {
+        value: 'weekly' as const,
+        label: t('report.period.weekly'),
+        description: t('report.period.weeklyDesc'),
+      },
+      {
+        value: 'bi_monthly' as const,
+        label: t('report.period.biMonthly'),
+        description: t('report.period.biMonthlyDesc'),
+      },
+      {
+        value: 'monthly' as const,
+        label: t('report.period.monthly'),
+        description: t('report.period.monthlyDesc'),
+      },
+    ],
+    [t]
+  )
+
   const loadQuota = useCallback(async () => {
     try {
-      const res = await fetch('/api/progress-reports/quota', { credentials: 'same-origin' })
+      const res = await fetch('/api/progress-reports/quota', {
+        credentials: 'same-origin',
+        headers: { 'X-Language': language },
+      })
       if (res.ok) {
         const data = await res.json()
         setQuota(data.quota)
@@ -45,7 +61,7 @@ export function WeeklyProgressReportModal({
     } catch {
       /* ignore */
     }
-  }, [])
+  }, [language])
 
   useEffect(() => {
     if (open) {
@@ -66,20 +82,23 @@ export function WeeklyProgressReportModal({
       const res = await fetch('/api/progress-reports/generate', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ periodType }),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Language': language,
+        },
+        body: JSON.stringify({ periodType, language }),
       })
 
       const data = await res.json()
 
       if (res.status === 429) {
         setQuota(data.quota)
-        setError(data.quota?.message || 'You have reached your weekly report limit.')
+        setError(data.quota?.message || t('report.limitReached'))
         return
       }
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to generate report')
+        throw new Error(data.error || t('report.generateFailed'))
       }
 
       setReportId(data.reportId)
@@ -87,7 +106,7 @@ export function WeeklyProgressReportModal({
       setHasCoverImage(data.hasCoverImage)
       setQuota(data.quota)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to generate report')
+      setError(e instanceof Error ? e.message : t('report.generateFailed'))
     } finally {
       setGenerating(false)
     }
@@ -99,17 +118,19 @@ export function WeeklyProgressReportModal({
     try {
       const res = await fetch(`/api/progress-reports/${reportId}/download`, {
         credentials: 'same-origin',
+        headers: { 'X-Language': language },
       })
       if (!res.ok) throw new Error('Download failed')
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `life-stacks-progress-report.pdf`
+      a.download =
+        language === 'es' ? 'informe-progreso-lifestacks.pdf' : 'life-stacks-progress-report.pdf'
       a.click()
       URL.revokeObjectURL(url)
     } catch {
-      setError('Could not download PDF. Please try again.')
+      setError(t('report.downloadFailed'))
     } finally {
       setDownloading(false)
     }
@@ -123,24 +144,22 @@ export function WeeklyProgressReportModal({
         <div className="progress-plan-modal__header flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
             <Settings className="progress-plan-modal__icon h-5 w-5" />
-            <h3 className="progress-plan-modal__title text-lg font-semibold">Progress Plan</h3>
+            <h3 className="progress-plan-modal__title text-lg font-semibold">
+              {t('report.title')}
+            </h3>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="progress-plan-modal__close rounded-md p-1 transition-colors"
-            aria-label="Close"
+            aria-label={t('common.close')}
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="space-y-5 overflow-y-auto px-6 py-5">
-          <p className="progress-plan-modal__intro text-sm">
-            Generate a styled progress plan with a profile of who you are, what drove your
-            motivation, where your attention went, and a SWOT analysis—plus highlights you can share
-            or frame for motivation!
-          </p>
+          <p className="progress-plan-modal__intro text-sm">{t('report.intro')}</p>
 
           {quota && (
             <div
@@ -151,20 +170,25 @@ export function WeeklyProgressReportModal({
               {quota.isPremium ? (
                 <span className="progress-plan-modal__quota-premium flex items-center gap-1.5 font-medium">
                   <Crown className="h-4 w-4" />
-                  Premium — unlimited reports
+                  {t('report.premiumUnlimited')}
                 </span>
               ) : (
                 <span>
-                  Standard plan: {quota.reportsUsedThisWeek} / {quota.weeklyLimit} report used this
-                  week
+                  {t('report.standardQuota', {
+                    used: quota.reportsUsedThisWeek,
+                    limit: quota.weeklyLimit,
+                  })}
                   {!quota.canGenerate && quota.nextAvailableAt && (
                     <span className="progress-plan-modal__period-desc mt-1 block">
-                      Next available:{' '}
-                      {new Date(quota.nextAvailableAt).toLocaleDateString(undefined, {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
+                      {t('report.nextAvailable')}{' '}
+                      {new Date(quota.nextAvailableAt).toLocaleDateString(
+                        language === 'es' ? 'es-ES' : 'en-US',
+                        {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                        }
+                      )}
                     </span>
                   )}
                 </span>
@@ -174,10 +198,10 @@ export function WeeklyProgressReportModal({
 
           <div>
             <label className="progress-plan-modal__label mb-2 block text-sm font-medium">
-              Report period
+              {t('report.periodLabel')}
             </label>
             <div className="space-y-2">
-              {PERIOD_OPTIONS.map((opt) => (
+              {periodOptions.map((opt) => (
                 <label
                   key={opt.value}
                   className={`progress-plan-modal__period flex cursor-pointer items-start gap-3 rounded-lg p-3 transition-colors ${
@@ -203,14 +227,16 @@ export function WeeklyProgressReportModal({
 
           {error && (
             <div className="progress-plan-modal__error rounded-lg px-3 py-2 text-sm">
-              {error}
+              {error.includes('Standard accounts') || error.includes('cuentas estándar')
+                ? t('report.quotaLimitMessage')
+                : error}
               {!quota?.canGenerate && !quota?.isPremium && (
                 <Link
                   href="/subscribe?plan=premium"
                   className="progress-plan-modal__quota-premium mt-2 inline-flex items-center gap-1 font-medium underline"
                 >
                   <Crown className="h-3.5 w-3.5" />
-                  Upgrade to Premium for unlimited reports
+                  {t('report.upgradePremium')}
                 </Link>
               )}
             </div>
@@ -224,7 +250,7 @@ export function WeeklyProgressReportModal({
               </div>
               {hasCoverImage && (
                 <p className="progress-plan-modal__preview-muted text-xs">
-                  Custom DALL·E cover included in PDF
+                  {t('report.coverIncluded')}
                 </p>
               )}
               {report.userProfile && (
@@ -239,8 +265,10 @@ export function WeeklyProgressReportModal({
               )}
               {report.swot?.strengths?.length ? (
                 <p className="progress-plan-modal__preview-muted text-xs">
-                  SWOT included ({report.swot.strengths.length} strengths,{' '}
-                  {report.swot.opportunities?.length || 0} opportunities)
+                  {t('report.swotIncluded', {
+                    strengths: report.swot.strengths.length,
+                    opportunities: report.swot.opportunities?.length || 0,
+                  })}
                 </p>
               ) : null}
               {report.highlightsBullets.length > 0 && (
@@ -252,8 +280,11 @@ export function WeeklyProgressReportModal({
               )}
               {report.moduleHighlights.length > 0 && (
                 <p className="progress-plan-modal__preview-muted text-xs">
-                  {report.moduleHighlights.length} Life Hack module
-                  {report.moduleHighlights.length === 1 ? '' : 's'} highlighted
+                  {report.moduleHighlights.length === 1
+                    ? t('report.modulesHighlighted', { count: report.moduleHighlights.length })
+                    : t('report.modulesHighlightedPlural', {
+                        count: report.moduleHighlights.length,
+                      })}
                 </p>
               )}
             </div>
@@ -271,12 +302,12 @@ export function WeeklyProgressReportModal({
               {generating ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating report…
+                  {t('report.generating')}
                 </>
               ) : (
                 <>
                   <Sparkles className="h-4 w-4 text-[hsl(43_76%_52%)]" />
-                  Generate report
+                  {t('report.generate')}
                 </>
               )}
             </button>
@@ -290,12 +321,12 @@ export function WeeklyProgressReportModal({
               {downloading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Preparing PDF…
+                  {t('report.preparingPdf')}
                 </>
               ) : (
                 <>
                   <FileDown className="h-4 w-4 text-[hsl(43_76%_52%)]" />
-                  Download PDF
+                  {t('report.downloadPdf')}
                 </>
               )}
             </button>
@@ -305,7 +336,7 @@ export function WeeklyProgressReportModal({
             onClick={onClose}
             className="progress-plan-modal__btn-secondary rounded-lg px-4 py-2.5 text-sm font-medium transition-colors"
           >
-            {report ? 'Done' : 'Cancel'}
+            {report ? t('report.done') : t('report.cancel')}
           </button>
         </div>
       </div>

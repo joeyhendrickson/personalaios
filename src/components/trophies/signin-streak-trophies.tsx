@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLanguage } from '@/contexts/language-context'
+import { TranslatedText } from '@/components/i18n/translated-text'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -45,6 +47,7 @@ interface StreakInfo {
 }
 
 export default function SigninStreakTrophies() {
+  const { t } = useLanguage()
   const [trophies, setTrophies] = useState<SigninStreakTrophy[]>([])
   const [userTrophies, setUserTrophies] = useState<UserTrophy[]>([])
   const [streak, setStreak] = useState<StreakInfo>({ current: 0, longest: 0, total: 0 })
@@ -104,9 +107,11 @@ export default function SigninStreakTrophies() {
         <CardHeader>
           <CardTitle className="flex items-center text-primary-foreground">
             <Flame className="h-5 w-5 mr-2 text-primary-foreground" />
-            Daily Self-Awareness
+            {t('trophies.dailySelfAwareness')}
           </CardTitle>
-          <CardDescription className="text-primary-foreground/80">Loading...</CardDescription>
+          <CardDescription className="text-primary-foreground/80">
+            {t('common.loading')}
+          </CardDescription>
         </CardHeader>
       </Card>
     )
@@ -121,11 +126,11 @@ export default function SigninStreakTrophies() {
             className="cursor-help border-b border-dotted border-primary-foreground/50"
             title="Keep your streak alive by signing in daily. Earn trophies for consistent daily presence!"
           >
-            Daily Self-Awareness
+            {t('trophies.dailySelfAwareness')}
           </span>
         </CardTitle>
         <CardDescription className="text-primary-foreground/80">
-          Trophies Earned for Daily Login and Review
+          {t('trophies.dailySelfAwarenessSubtitle')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -134,17 +139,17 @@ export default function SigninStreakTrophies() {
           <div className="bg-white rounded-lg p-3 shadow-sm text-center">
             <Calendar className="h-5 w-5 mx-auto mb-1 text-orange-500" />
             <div className="text-2xl font-bold text-orange-600">{streak.current}</div>
-            <div className="text-xs text-gray-500">Current Streak</div>
+            <div className="text-xs text-gray-500">{t('trophies.currentStreak')}</div>
           </div>
           <div className="bg-white rounded-lg p-3 shadow-sm text-center">
             <Trophy className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
             <div className="text-2xl font-bold text-yellow-600">{streak.longest}</div>
-            <div className="text-xs text-gray-500">Longest Streak</div>
+            <div className="text-xs text-gray-500">{t('trophies.longestStreak')}</div>
           </div>
           <div className="bg-white rounded-lg p-3 shadow-sm text-center">
             <Flame className="h-5 w-5 mx-auto mb-1 text-red-500" />
             <div className="text-2xl font-bold text-red-600">{streak.total}</div>
-            <div className="text-xs text-gray-500">Total Sign-Ins</div>
+            <div className="text-xs text-gray-500">{t('trophies.totalSignIns')}</div>
           </div>
         </div>
 
@@ -152,8 +157,10 @@ export default function SigninStreakTrophies() {
         {nextTrophy && (
           <div className="bg-white rounded-lg p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">Next Trophy</span>
-              <Badge variant="secondary">{nextTrophy.name}</Badge>
+              <span className="text-sm font-medium text-gray-700">{t('trophies.nextTrophy')}</span>
+              <Badge variant="secondary">
+                <TranslatedText text={nextTrophy.name} />
+              </Badge>
             </div>
             <div className="space-y-2">
               <div className="flex justify-between text-xs text-gray-500">
@@ -170,7 +177,9 @@ export default function SigninStreakTrophies() {
         {/* Earned Trophies */}
         {userTrophies.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold text-primary-foreground mb-3">Earned Trophies</h3>
+            <h3 className="text-sm font-semibold text-primary-foreground mb-3">
+              {t('trophies.earnedTrophies')}
+            </h3>
             <div className="space-y-3">
               {userTrophies.map((userTrophy) => {
                 const TrophyIcon = getTrophyIcon(

@@ -32,9 +32,12 @@ import SigninStreakTrophies from '@/components/trophies/signin-streak-trophies'
 import { useChatContext } from '@/components/chat/chat-provider'
 import { WakeWordToggle } from '@/components/chat/wake-word-toggle'
 import CoachSetupOffer from '@/components/profile/coach-setup-offer'
+import { useLanguage } from '@/contexts/language-context'
+import { LanguageToggle } from '@/components/ui/language-toggle'
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth()
+  const { t } = useLanguage()
   const { wakeWordEnabled, setWakeWordEnabled, wakeWordSupported } = useChatContext()
   const router = useRouter()
   const [stats, setStats] = useState({
@@ -233,7 +236,7 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">{t('common.loading')}</p>
         </div>
       </div>
     )
@@ -249,14 +252,16 @@ export default function ProfilePage() {
         <div className="mb-8">
           <Button variant="ghost" onClick={() => router.back()} className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+            {t('common.back')}
           </Button>
 
+          <div className="flex justify-end mb-4">
+            <LanguageToggle />
+          </div>
+
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Your Profile</h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Manage your account and view your productivity statistics
-            </p>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">{t('profile.title')}</h1>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">{t('profile.subtitle')}</p>
           </div>
         </div>
 
@@ -269,12 +274,12 @@ export default function ProfilePage() {
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <User className="h-5 w-5 mr-2" />
-                    Account Information
+                    {t('profile.accountInfo')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label className="text-sm font-medium text-gray-500">Email</Label>
+                    <Label className="text-sm font-medium text-gray-500">{t('form.email')}</Label>
                     <div className="flex items-center mt-1">
                       <Mail className="h-4 w-4 text-gray-400 mr-2" />
                       <span className="text-sm">{user.email}</span>
@@ -302,7 +307,7 @@ export default function ProfilePage() {
                     </Button>
 
                     <Button variant="outline" onClick={() => signOut()} className="w-full">
-                      Sign Out
+                      {t('profile.signOut')}
                     </Button>
                   </div>
                 </CardContent>

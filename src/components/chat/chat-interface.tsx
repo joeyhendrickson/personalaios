@@ -1156,6 +1156,7 @@ export function ChatInterface({
         credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
+          'X-Language': language,
         },
         body: JSON.stringify({
           messages: apiMessages,

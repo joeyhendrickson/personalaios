@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useGuardedAsync } from '@/hooks/use-guarded-async'
 import { Target, TrendingUp, CheckCircle, Lightbulb, RotateCcw } from 'lucide-react'
 import { useLanguage } from '@/contexts/language-context'
+import { TranslatedText } from '@/components/i18n/translated-text'
 
 interface ProjectRecommendation {
   title: string
@@ -28,14 +29,16 @@ export default function TaskAdvisor({ goals }: TaskAdvisorProps) {
   const [projectData, setProjectData] = useState<ProjectData | null>(null)
   const [loading, setLoading] = useState(false)
   const addToTasksGuard = useGuardedAsync()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
 
   const fetchProjectRecommendations = async () => {
     try {
       setLoading(true)
-      // Add cache-busting parameter to ensure fresh recommendations
       const timestamp = Date.now()
-      const response = await fetch(`/api/projects/recommendations?t=${timestamp}`)
+      const response = await fetch(
+        `/api/projects/recommendations?t=${timestamp}&language=${language}`,
+        { headers: { 'X-Language': language } }
+      )
       if (response.ok) {
         const data = await response.json()
         setProjectData(data)
@@ -48,6 +51,13 @@ export default function TaskAdvisor({ goals }: TaskAdvisorProps) {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (projectData) {
+      void fetchProjectRecommendations()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch AI suggestions when locale changes
+  }, [language])
 
   const handleAddToTasks = (recommendation: ProjectRecommendation) => {
     void addToTasksGuard.run(async () => {
@@ -72,7 +82,7 @@ export default function TaskAdvisor({ goals }: TaskAdvisorProps) {
         })
 
         if (response.ok) {
-          alert('Task added successfully!')
+          alert(t('common.taskAdded'))
           window.location.reload()
         } else {
           const errorData = await response.json()

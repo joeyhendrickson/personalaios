@@ -7,9 +7,12 @@ import { generateCoverImageBase64 } from '@/lib/progress-reports/generate-cover'
 import { getReportPeriodRange, toISODate } from '@/lib/progress-reports/period'
 import { getProgressReportQuota } from '@/lib/progress-reports/quota'
 import type { ProgressReportDocument, ReportPeriodType } from '@/lib/progress-reports/types'
+import { resolveRequestLanguage } from '@/lib/i18n/language-prompt'
+import { getPdfLabels } from '@/lib/i18n/pdf-labels'
 
 const bodySchema = z.object({
   periodType: z.enum(['weekly', 'bi_monthly', 'monthly']),
+  language: z.enum(['en', 'es']).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -25,7 +28,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { periodType } = bodySchema.parse(body) as { periodType: ReportPeriodType }
+    const parsed = bodySchema.parse(body) as {
+      periodType: ReportPeriodType
+      language?: 'en' | 'es'
+    }
+    const { periodType } = parsed
+    const language = resolveRequestLanguage({
+      bodyLanguage: parsed.language,
+      headerLanguage: request.headers.get('x-language'),
+      cookieLanguage: request.cookies.get('language')?.value,
+    })
 
     const quota = await getProgressReportQuota(user.id, user.email, {
       userMetadata: user.user_metadata,
@@ -41,7 +53,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { start, end, label } = getReportPeriodRange(periodType)
+    const { start, end, label } = getReportPeriodRange(periodType, new Date(), language)
     const context = await collectReportContext(user.id, start, end)
     const aiContent = await generateReportContent(
       user.id,
@@ -49,7 +61,8 @@ export async function POST(request: NextRequest) {
       label,
       toISODate(start),
       toISODate(end),
-      context
+      context,
+      language
     )
 
     const coverImageBase64 = await generateCoverImageBase64(
@@ -73,9 +86,11 @@ export async function POST(request: NextRequest) {
       narrativeSummary: aiContent.narrativeSummary,
       highlightsBullets: aiContent.highlightsBullets,
       coverArtPrompt: aiContent.coverArtPrompt,
+      language,
     }
 
-    const title = `Progress Report — ${label}`
+    const pdfLabels = getPdfLabels(language)
+    const title = `${pdfLabels.reportTitle} — ${label}`
 
     const { data: row, error: insertError } = await supabase
       .from('progress_reports')

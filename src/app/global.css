@@ -1830,3 +1830,67 @@ a.hover\:from-blue-600.hover\:to-purple-700:hover {
 .text-purple-100 {
   color: hsl(43 40% 90%) !important;
 }
+
+/* Gratitude Journal — keep LifeStacks light blue (not orange/gold remaps) */
+.gratitude-journal-module .from-blue-50,
+.gratitude-journal-module .via-sky-50,
+.gratitude-journal-module .to-sky-50,
+.gratitude-journal-module .to-sky-100,
+.gratitude-journal-module .bg-blue-50 {
+  background-color: hsl(var(--brand-blue-50)) !important;
+}
+
+.gratitude-journal-module .bg-blue-100 {
+  background-color: hsl(var(--brand-blue-100)) !important;
+}
+
+.gratitude-journal-module .border-blue-200,
+.gratitude-journal-module .border-blue-400 {
+  border-color: hsl(var(--brand-blue-200)) !important;
+}
+
+.gratitude-journal-module .text-blue-400,
+.gratitude-journal-module .text-blue-500,
+.gratitude-journal-module .text-blue-600,
+.gratitude-journal-module .text-blue-700 {
+  color: hsl(var(--brand-blue-600)) !important;
+}
+
+.gratitude-journal-module .text-blue-700 {
+  color: hsl(var(--brand-blue-700)) !important;
+}
+
+.gratitude-journal-module button.bg-blue-600,
+.gratitude-journal-module button.bg-blue-600:hover,
+.dark .gratitude-journal-module button.bg-blue-600,
+.dark .gratitude-journal-module button.bg-blue-600:hover {
+  background-color: hsl(var(--brand-blue-600)) !important;
+  color: hsl(0 0% 100%) !important;
+  border-color: hsl(var(--brand-blue-600)) !important;
+}
+
+.gratitude-journal-module button.bg-blue-600:hover,
+.dark .gratitude-journal-module button.bg-blue-600:hover {
+  background-color: hsl(var(--brand-blue-700)) !important;
+  border-color: hsl(var(--brand-blue-700)) !important;
+}
+
+.gratitude-journal-module .focus\:ring-blue-500:focus {
+  --tw-ring-color: hsl(var(--brand-blue-600)) !important;
+}
+
+/* Rewards & Self-Care — gold gradients (not pink/purple) */
+.rewards-self-care-module.bg-gradient-to-br.from-amber-50.via-white.to-yellow-50 {
+  --tw-gradient-from: hsl(var(--brand-gold-50)) var(--tw-gradient-from-position) !important;
+  --tw-gradient-via: hsl(0 0% 100%) var(--tw-gradient-via-position) !important;
+  --tw-gradient-to: hsl(var(--brand-gold-100)) var(--tw-gradient-to-position) !important;
+}
+
+.rewards-self-care-module .rewards-points-banner.from-amber-50.to-yellow-50 {
+  --tw-gradient-from: hsl(var(--brand-gold-50)) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: hsl(var(--brand-gold-100)) var(--tw-gradient-to-position) !important;
+}
+
+.rewards-self-care-module .rewards-points-banner {
+  border-color: hsl(var(--brand-gold-200)) !important;
+}

@@ -68,6 +68,7 @@ import { Task, Goal, Habit, Priority } from '@/types'
 import { DeletedPriorities } from '@/components/priorities/deleted-priorities'
 import TrialStatusBanner from '@/components/trial/trial-status-banner'
 import { VisionSection } from '@/components/dashboard/vision-section'
+import { TranslatedText } from '@/components/i18n/translated-text'
 import { useActivityTracking } from '@/hooks/use-activity-tracking'
 import { useAdminAuth } from '@/hooks/use-admin-auth'
 import { useGuardedAsync } from '@/hooks/use-guarded-async'
@@ -341,7 +342,7 @@ export default function Dashboard() {
   const addTaskGuard = useGuardedAsync()
   const addGoalGuard = useGuardedAsync()
   const updateProjectGuard = useGuardedAsync()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const { wakeWordEnabled, setWakeWordEnabled, wakeWordSupported } = useChatContext()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -505,6 +506,12 @@ export default function Dashboard() {
       fetchStrategicRecommendations()
     }
   }, [user])
+
+  useEffect(() => {
+    if (user) {
+      fetchStrategicRecommendations()
+    }
+  }, [language, user])
 
   // First-login routing: send users with an empty, never-started dashboard through
   // the Dream Catcher onboarding so they don't land on a blank dashboard.
@@ -881,7 +888,9 @@ export default function Dashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Language': language,
         },
+        body: JSON.stringify({ language }),
       })
 
       console.log('Strategic recommendations response status:', response.status)
@@ -1907,7 +1916,7 @@ export default function Dashboard() {
                       fetchPointsHistory()
                     }}
                     className="text-blue-500 hover:text-blue-700 text-sm"
-                    title="View Details & Settings"
+                    title={t('points.viewDetailsSettings')}
                   >
                     <Settings className="h-4 w-4" />
                   </button>
@@ -1960,20 +1969,29 @@ export default function Dashboard() {
                   )
                 }) ||
                   ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => {
+                    const dayKeys = [
+                      'days.sun',
+                      'days.mon',
+                      'days.tue',
+                      'days.wed',
+                      'days.thu',
+                      'days.fri',
+                      'days.sat',
+                    ] as const
                     const isToday = isClient && day === currentDayName
                     return (
                       <span
                         key={index}
                         className={`text-center ${isToday ? 'font-bold text-blue-500' : ''}`}
                       >
-                        {day}
+                        {t(dayKeys[index])}
                       </span>
                     )
                   })}
               </div>
               <div className="text-center mt-2">
                 <p className="text-sm text-gray-600">
-                  Daily & Weekly Points ({userTimezone.split('/')[1]})
+                  {t('radial.dailyWeeklyPoints', { timezone: userTimezone.split('/')[1] })}
                 </p>
               </div>
 
@@ -1989,29 +2007,25 @@ export default function Dashboard() {
                   }
                 } else if (dailyPoints >= 300) {
                   motivation = {
-                    message:
-                      "💪 Excellent progress! You're on fire today. Let's push for 500+ points!",
+                    message: t('radial.motivational.excellent'),
                     emoji: '⚡',
                     color: 'text-blue-600 bg-blue-50 border-blue-200',
                   }
                 } else if (dailyPoints >= 200) {
                   motivation = {
-                    message:
-                      "🎯 Great momentum! You're building serious progress. Keep attacking those projects!",
+                    message: t('radial.motivational.great'),
                     emoji: '🎯',
                     color: 'text-blue-600 bg-blue-50 border-blue-200',
                   }
                 } else if (dailyPoints >= 100) {
                   motivation = {
-                    message:
-                      "🌟 Good start! You're building momentum. Let's push for 300+ points today!",
+                    message: t('radial.motivational.goodStart'),
                     emoji: '⭐',
                     color: 'text-blue-600 bg-blue-50 border-blue-200',
                   }
                 } else if (dailyPoints > 0) {
                   motivation = {
-                    message:
-                      "🚀 You've started! Every point counts. Let's build this into a productive day!",
+                    message: t('radial.motivational.started'),
                     emoji: '💫',
                     color: 'text-blue-600 bg-blue-50 border-blue-200',
                   }
@@ -2053,7 +2067,7 @@ export default function Dashboard() {
                     type="button"
                     onClick={() => setShowProgressReportModal(true)}
                     className="text-blue-500 hover:text-blue-700"
-                    title="Generate progress report"
+                    title={t('report.generateProgressReport')}
                   >
                     <Settings className="h-4 w-4" />
                   </button>
@@ -2075,7 +2089,7 @@ export default function Dashboard() {
                 {strategicLoading ? (
                   <div className="text-center py-2">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mx-auto"></div>
-                    <p className="text-xs text-gray-500 mt-1">Analyzing...</p>
+                    <p className="text-xs text-gray-500 mt-1">{t('common.analyzing')}</p>
                   </div>
                 ) : strategicRecommendation ? (
                   <div className="bg-gradient-to-r from-blue-50 to-blue-50 rounded-lg p-3 border border-blue-200">
@@ -4641,14 +4655,13 @@ export default function Dashboard() {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-semibold">Points Details & Settings</h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Manage your timezone and view points history
-                  </p>
+                  <h3 className="text-xl font-semibold">{t('points.detailsTitle')}</h3>
+                  <p className="text-sm text-gray-600 mt-1">{t('points.detailsSubtitle')}</p>
                 </div>
                 <button
                   onClick={() => setShowPointsDetails(false)}
                   className="text-gray-500 hover:text-gray-700"
+                  aria-label={t('common.close')}
                 >
                   <X className="h-6 w-6" />
                 </button>
@@ -4657,13 +4670,12 @@ export default function Dashboard() {
 
             <div className="p-6 overflow-y-auto max-h-[60vh]">
               <div className="space-y-6">
-                {/* Timezone Settings */}
                 <div>
-                  <h4 className="text-lg font-medium mb-4">Timezone Settings</h4>
+                  <h4 className="text-lg font-medium mb-4">{t('points.timezoneSettings')}</h4>
                   <div className="space-y-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Your Timezone
+                        {t('points.yourTimezone')}
                       </label>
                       <select
                         value={userTimezone}
@@ -4684,26 +4696,19 @@ export default function Dashboard() {
                       </select>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-lg">
-                      <p className="text-sm text-gray-800">
-                        <strong>Note:</strong> Your daily points reset at midnight in your selected
-                        timezone. All points are still tracked in your history and contribute to
-                        weekly totals.
-                      </p>
+                      <p className="text-sm text-gray-800">{t('points.timezoneNote')}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Points History */}
                 <div>
-                  <h4 className="text-lg font-medium mb-4">Points History</h4>
+                  <h4 className="text-lg font-medium mb-4">{t('points.history')}</h4>
                   <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
                     {pointsHistory.length === 0 ? (
                       <div className="text-center py-8">
                         <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">No points history yet</p>
-                        <p className="text-gray-500 text-sm mt-1">
-                          Complete tasks or projects to see your points history
-                        </p>
+                        <p className="text-gray-600">{t('points.noHistory')}</p>
+                        <p className="text-gray-500 text-sm mt-1">{t('points.noHistoryHint')}</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -4715,16 +4720,21 @@ export default function Dashboard() {
                             <div className="flex items-center space-x-3">
                               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                               <div>
-                                <p className="font-medium text-sm">{(entry as any).description}</p>
+                                <p className="font-medium text-sm">
+                                  <TranslatedText text={(entry as any).description} />
+                                </p>
                                 <p className="text-xs text-gray-500">
-                                  {new Date((entry as any).created_at).toLocaleString('en-US', {
-                                    timeZone: userTimezone,
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })}
+                                  {new Date((entry as any).created_at).toLocaleString(
+                                    language === 'es' ? 'es-ES' : 'en-US',
+                                    {
+                                      timeZone: userTimezone,
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    }
+                                  )}
                                 </p>
                               </div>
                             </div>
@@ -4738,19 +4748,32 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Daily Breakdown */}
                 <div>
-                  <h4 className="text-lg font-medium mb-4">This Week&apos;s Daily Breakdown</h4>
+                  <h4 className="text-lg font-medium mb-4">{t('points.weeklyBreakdown')}</h4>
                   <div className="grid grid-cols-7 gap-2">
-                    {pointsData?.dailyBreakdown?.map((day, index) => (
-                      <div key={index} className="text-center p-3 bg-gray-50 rounded">
-                        <p className="text-xs text-gray-600">{day.dayName}</p>
-                        <p className="font-bold text-lg">{day.points}</p>
-                        <p className="text-xs text-gray-500">{day.date}</p>
-                      </div>
-                    )) || (
+                    {pointsData?.dailyBreakdown?.map((day, index) => {
+                      const dayKeys = [
+                        'days.sun',
+                        'days.mon',
+                        'days.tue',
+                        'days.wed',
+                        'days.thu',
+                        'days.fri',
+                        'days.sat',
+                      ] as const
+                      const englishDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                      const dayIndex = englishDays.indexOf(day.dayName)
+                      const dayLabel = dayIndex >= 0 ? t(dayKeys[dayIndex]) : day.dayName
+                      return (
+                        <div key={index} className="text-center p-3 bg-gray-50 rounded">
+                          <p className="text-xs text-gray-600">{dayLabel}</p>
+                          <p className="font-bold text-lg">{day.points}</p>
+                          <p className="text-xs text-gray-500">{day.date}</p>
+                        </div>
+                      )
+                    }) || (
                       <div className="col-span-7 text-center py-8 text-gray-500">
-                        No daily breakdown available
+                        {t('points.noBreakdown')}
                       </div>
                     )}
                   </div>

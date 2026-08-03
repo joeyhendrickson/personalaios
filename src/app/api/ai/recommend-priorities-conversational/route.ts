@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
 import { z } from 'zod'
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import { resolveRequestLanguage, spanishResponseInstruction } from '@/lib/i18n/language-prompt'
 
 // Function to calculate similarity between two strings
 function calculateSimilarity(str1: string, str2: string): number {
@@ -52,6 +53,7 @@ const conversationalPrioritySchema = z.object({
   energy_level: z.enum(['high', 'medium', 'low']).optional(),
   time_available: z.enum(['full_day', 'half_day', 'few_hours']).optional(),
   focus_area: z.string().optional(),
+  language: z.enum(['en', 'es']).optional(),
 })
 
 // POST /api/ai/recommend-priorities-conversational - Generate AI priorities based on user's daily intention
@@ -68,8 +70,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { daily_intention, energy_level, time_available, focus_area } =
-      conversationalPrioritySchema.parse(body)
+    const {
+      daily_intention,
+      energy_level,
+      time_available,
+      focus_area,
+      language: bodyLanguage,
+    } = conversationalPrioritySchema.parse(body)
+    const language = resolveRequestLanguage({
+      bodyLanguage,
+      headerLanguage: request.headers.get('x-language'),
+      cookieLanguage: request.cookies.get('language')?.value,
+    })
 
     console.log(
       'Generating conversational priorities for user:',
@@ -435,8 +447,7 @@ Focus on creating priorities that make the user feel like they're making progres
       messages: [
         {
           role: 'system',
-          content:
-            'You are a productivity expert who creates personalized daily priorities based on user intentions and goals. Always respond with valid JSON.',
+          content: `You are a productivity expert who creates personalized daily priorities based on user intentions and goals. Always respond with valid JSON. ${spanishResponseInstruction(language)}`,
         },
         {
           role: 'user',

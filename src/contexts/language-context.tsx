@@ -121,6 +121,17 @@ const translations = {
     'radial.strategicInsights': 'Strategic Insights',
     'radial.motivational.incredible':
       "🔥 INCREDIBLE! You're crushing it today! Keep this momentum going and push even higher! 🚀",
+    'radial.motivational.excellent':
+      "💪 Excellent progress! You're on fire today. Let's push for 500+ points!",
+    'radial.motivational.great':
+      "🎯 Great momentum! You're building serious progress. Keep attacking those projects!",
+    'radial.motivational.goodStart':
+      "🌟 Good start! You're building momentum. Let's push for 300+ points today!",
+    'radial.motivational.started':
+      "🚀 You've started! Every point counts. Let's build this into a productive day!",
+    'radial.dailyWeeklyPoints': 'Daily & Weekly Points ({timezone})',
+    'radial.analyzing': 'Analyzing...',
+    'radial.leading': 'Leading',
     'radial.totalPoints': 'Total Points',
 
     // Chat Interface
@@ -319,6 +330,83 @@ const translations = {
     'common.hideStacks': 'Hide stacks',
     'common.all': 'All',
     'common.item': 'Item',
+    'common.showLess': 'Show Less',
+    'common.analyzing': 'Analyzing...',
+    'common.taskAdded': 'Task added successfully!',
+    'common.taskAddFailed': 'Failed to add task',
+    'common.projectTitleRequired': 'Please enter a project title',
+    'common.categoryRequired': 'Please select a category',
+    'common.projectCreated': 'Project created successfully!',
+    'common.projectCreateFailed': 'Failed to create project. Please try again.',
+    'common.taskTitleRequired': 'Please enter a task title',
+    'common.projectRequiredForTask': 'Please select a project for this task',
+    'common.taskCreated': 'Task created successfully!',
+    'common.taskCreateFailed': 'Error creating task. Please try again.',
+    'common.projectDeleted': 'Project deleted successfully!',
+    'common.goalDeleted': 'Goal deleted successfully!',
+    'common.taskDeleted': 'Task deleted successfully!',
+    'common.noWeekAvailable': 'No week available. Please create a week first.',
+    'common.categorizationTimeout': 'Categorization timed out. Please try again.',
+    'common.goalAdded': 'Goal added to dashboard!',
+    'common.goalAddFailed': 'Failed to add goal to dashboard',
+    'common.dismissFailed': 'Failed to dismiss recommendation',
+    'common.signOutFailed': 'Error signing out. Please try again.',
+    'common.aiContextRefreshFailed': 'Failed to refresh AI context',
+    'common.adding': 'Adding…',
+    'days.sun': 'Sun',
+    'days.mon': 'Mon',
+    'days.tue': 'Tue',
+    'days.wed': 'Wed',
+    'days.thu': 'Thu',
+    'days.fri': 'Fri',
+    'days.sat': 'Sat',
+
+    // Points details modal
+    'points.detailsTitle': 'Points Details & Settings',
+    'points.detailsSubtitle': 'Manage your timezone and view points history',
+    'points.timezoneSettings': 'Timezone Settings',
+    'points.yourTimezone': 'Your Timezone',
+    'points.timezoneNote':
+      'Your daily points reset at midnight in your selected timezone. All points are still tracked in your history and contribute to weekly totals.',
+    'points.history': 'Points History',
+    'points.noHistory': 'No points history yet',
+    'points.noHistoryHint': 'Complete tasks or projects to see your points history',
+    'points.weeklyBreakdown': "This Week's Daily Breakdown",
+    'points.noBreakdown': 'No daily breakdown available',
+    'points.viewDetailsSettings': 'View Details & Settings',
+    'points.today': '(Today)',
+
+    // Progress report modal
+    'report.title': 'Progress Plan',
+    'report.intro':
+      'Generate a styled progress plan with a profile of who you are, what drove your motivation, where your attention went, and a SWOT analysis—plus highlights you can share or frame for motivation!',
+    'report.premiumUnlimited': 'Premium — unlimited reports',
+    'report.standardQuota': 'Standard plan: {used} / {limit} report used this week',
+    'report.nextAvailable': 'Next available:',
+    'report.periodLabel': 'Report period',
+    'report.period.weekly': 'Weekly',
+    'report.period.weeklyDesc': 'Monday through Sunday of this week',
+    'report.period.biMonthly': 'Bi-monthly (14 days)',
+    'report.period.biMonthlyDesc': 'Rolling last 14 days',
+    'report.period.monthly': 'Monthly',
+    'report.period.monthlyDesc': 'Current calendar month',
+    'report.limitReached': 'You have reached your weekly report limit.',
+    'report.generateFailed': 'Failed to generate report',
+    'report.downloadFailed': 'Could not download PDF. Please try again.',
+    'report.coverIncluded': 'Custom DALL·E cover included in PDF',
+    'report.swotIncluded': 'SWOT included ({strengths} strengths, {opportunities} opportunities)',
+    'report.modulesHighlighted': '{count} Life Hack module highlighted',
+    'report.modulesHighlightedPlural': '{count} Life Hack modules highlighted',
+    'report.generating': 'Generating report…',
+    'report.generate': 'Generate report',
+    'report.preparingPdf': 'Preparing PDF…',
+    'report.downloadPdf': 'Download PDF',
+    'report.done': 'Done',
+    'report.cancel': 'Cancel',
+    'report.upgradePremium': 'Upgrade to Premium for unlimited reports',
+    'report.generateProgressReport': 'Generate progress report',
+    'report.quotaLimitMessage':
+      'Standard accounts can generate 1 progress report per calendar week. Upgrade to Premium for unlimited reports.',
   },
   es: {
     // Dashboard
@@ -426,6 +514,17 @@ const translations = {
     'radial.strategicInsights': 'Insights Estratégicos',
     'radial.motivational.incredible':
       '🔥 ¡INCREÍBLE! ¡Estás arrasando hoy! ¡Mantén este impulso y empuja aún más alto! 🚀',
+    'radial.motivational.excellent':
+      '💪 ¡Excelente progreso! Hoy estás en racha. ¡Vamos por más de 500 puntos!',
+    'radial.motivational.great':
+      '🎯 ¡Gran impulso! Estás construyendo progreso serio. ¡Sigue atacando esos proyectos!',
+    'radial.motivational.goodStart':
+      '🌟 ¡Buen comienzo! Estás ganando momentum. ¡Vamos por más de 300 puntos hoy!',
+    'radial.motivational.started':
+      '🚀 ¡Has empezado! Cada punto cuenta. ¡Convirtamos esto en un día productivo!',
+    'radial.dailyWeeklyPoints': 'Puntos Diarios y Semanales ({timezone})',
+    'radial.analyzing': 'Analizando...',
+    'radial.leading': 'Liderando',
     'radial.totalPoints': 'Total de Puntos',
 
     // Chat Interface
@@ -628,6 +727,83 @@ const translations = {
     'common.hideStacks': 'Ocultar pilas',
     'common.all': 'Todo',
     'common.item': 'Elemento',
+    'common.showLess': 'Mostrar menos',
+    'common.analyzing': 'Analizando...',
+    'common.taskAdded': '¡Tarea agregada con éxito!',
+    'common.taskAddFailed': 'Error al agregar la tarea',
+    'common.projectTitleRequired': 'Por favor ingresa un título de proyecto',
+    'common.categoryRequired': 'Por favor selecciona una categoría',
+    'common.projectCreated': '¡Proyecto creado con éxito!',
+    'common.projectCreateFailed': 'Error al crear el proyecto. Inténtalo de nuevo.',
+    'common.taskTitleRequired': 'Por favor ingresa un título de tarea',
+    'common.projectRequiredForTask': 'Por favor selecciona un proyecto para esta tarea',
+    'common.taskCreated': '¡Tarea creada con éxito!',
+    'common.taskCreateFailed': 'Error al crear la tarea. Inténtalo de nuevo.',
+    'common.projectDeleted': '¡Proyecto eliminado con éxito!',
+    'common.goalDeleted': '¡Objetivo eliminado con éxito!',
+    'common.taskDeleted': '¡Tarea eliminada con éxito!',
+    'common.noWeekAvailable': 'No hay semana disponible. Crea una semana primero.',
+    'common.categorizationTimeout': 'La categorización expiró. Inténtalo de nuevo.',
+    'common.goalAdded': '¡Objetivo agregado al panel!',
+    'common.goalAddFailed': 'Error al agregar el objetivo al panel',
+    'common.dismissFailed': 'Error al descartar la recomendación',
+    'common.signOutFailed': 'Error al cerrar sesión. Inténtalo de nuevo.',
+    'common.aiContextRefreshFailed': 'Error al actualizar el contexto de IA',
+    'common.adding': 'Agregando…',
+    'days.sun': 'Dom',
+    'days.mon': 'Lun',
+    'days.tue': 'Mar',
+    'days.wed': 'Mié',
+    'days.thu': 'Jue',
+    'days.fri': 'Vie',
+    'days.sat': 'Sáb',
+
+    // Points details modal
+    'points.detailsTitle': 'Detalles de Puntos y Configuración',
+    'points.detailsSubtitle': 'Administra tu zona horaria y ve el historial de puntos',
+    'points.timezoneSettings': 'Configuración de Zona Horaria',
+    'points.yourTimezone': 'Tu Zona Horaria',
+    'points.timezoneNote':
+      'Tus puntos diarios se reinician a medianoche en tu zona horaria seleccionada. Todos los puntos se registran en tu historial y contribuyen a los totales semanales.',
+    'points.history': 'Historial de Puntos',
+    'points.noHistory': 'Aún no hay historial de puntos',
+    'points.noHistoryHint': 'Completa tareas o proyectos para ver tu historial de puntos',
+    'points.weeklyBreakdown': 'Desglose Diario de Esta Semana',
+    'points.noBreakdown': 'No hay desglose diario disponible',
+    'points.viewDetailsSettings': 'Ver Detalles y Configuración',
+    'points.today': '(Hoy)',
+
+    // Progress report modal
+    'report.title': 'Plan de Progreso',
+    'report.intro':
+      'Genera un plan de progreso con un perfil de quién eres, qué impulsó tu motivación, dónde pusiste tu atención y un análisis FODA—¡más destacados que puedes compartir o enmarcar para motivarte!',
+    'report.premiumUnlimited': 'Premium — informes ilimitados',
+    'report.standardQuota': 'Plan estándar: {used} / {limit} informe usado esta semana',
+    'report.nextAvailable': 'Próximo disponible:',
+    'report.periodLabel': 'Período del informe',
+    'report.period.weekly': 'Semanal',
+    'report.period.weeklyDesc': 'De lunes a domingo de esta semana',
+    'report.period.biMonthly': 'Quincenal (14 días)',
+    'report.period.biMonthlyDesc': 'Últimos 14 días',
+    'report.period.monthly': 'Mensual',
+    'report.period.monthlyDesc': 'Mes calendario actual',
+    'report.limitReached': 'Has alcanzado tu límite semanal de informes.',
+    'report.generateFailed': 'Error al generar el informe',
+    'report.downloadFailed': 'No se pudo descargar el PDF. Inténtalo de nuevo.',
+    'report.coverIncluded': 'Portada personalizada DALL·E incluida en el PDF',
+    'report.swotIncluded': 'FODA incluido ({strengths} fortalezas, {opportunities} oportunidades)',
+    'report.modulesHighlighted': '{count} módulo Life Hack destacado',
+    'report.modulesHighlightedPlural': '{count} módulos Life Hack destacados',
+    'report.generating': 'Generando informe…',
+    'report.generate': 'Generar informe',
+    'report.preparingPdf': 'Preparando PDF…',
+    'report.downloadPdf': 'Descargar PDF',
+    'report.done': 'Listo',
+    'report.cancel': 'Cancelar',
+    'report.upgradePremium': 'Actualiza a Premium para informes ilimitados',
+    'report.generateProgressReport': 'Generar informe de progreso',
+    'report.quotaLimitMessage':
+      'Las cuentas estándar pueden generar 1 informe de progreso por semana calendario. Actualiza a Premium para informes ilimitados.',
   },
 }
 
@@ -645,6 +821,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   // Save language to localStorage when it changes
   useEffect(() => {
     localStorage.setItem('language', language)
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = language
+      document.cookie = `language=${language};path=/;max-age=31536000;SameSite=Lax`
+    }
   }, [language])
 
   const t = (key: string, params?: Record<string, any>): string => {

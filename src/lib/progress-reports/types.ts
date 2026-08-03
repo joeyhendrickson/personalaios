@@ -52,6 +52,7 @@ export type ProgressReportDocument = {
   narrativeSummary: string
   highlightsBullets: string[]
   coverArtPrompt: string
+  language?: 'en' | 'es'
 }
 
 export type ProgressReportQuota = {

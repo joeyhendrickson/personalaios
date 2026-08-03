@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import { resolveRequestLanguage, spanishResponseInstruction } from '@/lib/i18n/language-prompt'
 
 export async function GET(request: NextRequest) {
   try {
+    const language = resolveRequestLanguage({
+      bodyLanguage: request.nextUrl.searchParams.get('language'),
+      headerLanguage: request.headers.get('x-language'),
+      cookieLanguage: request.cookies.get('language')?.value,
+    })
     const supabase = await createClient()
 
     const {
@@ -132,8 +138,7 @@ Example format:
         messages: [
           {
             role: 'system',
-            content:
-              'You are a productivity expert who provides specific, actionable task recommendations. Always respond with valid JSON. Be creative and varied in your suggestions - avoid repeating similar recommendations.',
+            content: `You are a productivity expert who provides specific, actionable task recommendations. Always respond with valid JSON. Be creative and varied in your suggestions - avoid repeating similar recommendations. ${spanishResponseInstruction(language)}`,
           },
           {
             role: 'user',
@@ -151,8 +156,12 @@ Example format:
         // Fallback recommendations
         recommendations = [
           {
-            title: 'Review project priorities',
-            description: 'Assess which projects need immediate attention',
+            title:
+              language === 'es' ? 'Revisar prioridades del proyecto' : 'Review project priorities',
+            description:
+              language === 'es'
+                ? 'Evalúa qué proyectos necesitan atención inmediata'
+                : 'Assess which projects need immediate attention',
             priority: 'high',
             impact: 'strategic',
             estimated_time: '30min',

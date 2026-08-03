@@ -1,11 +1,23 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import { resolveRequestLanguage, spanishResponseInstruction } from '@/lib/i18n/language-prompt'
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     console.log('[Project-Goal-Alignment] Starting API call...')
+    let body: { language?: string } = {}
+    try {
+      body = await request.json()
+    } catch {
+      body = {}
+    }
+    const language = resolveRequestLanguage({
+      bodyLanguage: body?.language,
+      headerLanguage: request.headers.get('x-language'),
+      cookieLanguage: request.cookies.get('language')?.value,
+    })
     const supabase = await createClient()
 
     console.log('[Project-Goal-Alignment] Getting authenticated user...')
@@ -218,7 +230,9 @@ Return your response as a JSON object with this structure:
     "Immediate action 2",
     "Immediate action 3"
   ]
-}`
+}
+
+${spanishResponseInstruction(language)}`
     console.log('[Project-Goal-Alignment] Prompt generated, length:', prompt.length)
 
     // Default chat model (gpt-5-mini unless OPENAI_MODEL is set)

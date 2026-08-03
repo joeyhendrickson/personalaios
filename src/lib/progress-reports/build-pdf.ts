@@ -2,6 +2,7 @@ import 'server-only'
 
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import type { ProgressReportDocument, ReportSwot } from './types'
+import { getPdfLabels } from '@/lib/i18n/pdf-labels'
 
 const PAGE_WIDTH = 612
 const PAGE_HEIGHT = 792
@@ -31,26 +32,29 @@ function wrapText(
   return lines.length ? lines : ['']
 }
 
-function swotLines(swot: ReportSwot | undefined): string[] {
+function swotLines(
+  swot: ReportSwot | undefined,
+  labels: ReturnType<typeof getPdfLabels>
+): string[] {
   if (!swot) return []
   const lines: string[] = []
   if (swot.strengths.length) {
-    lines.push('Strengths')
+    lines.push(labels.strengths)
     swot.strengths.forEach((s) => lines.push(`  • ${s}`))
     lines.push('')
   }
   if (swot.weaknesses.length) {
-    lines.push('Weaknesses')
+    lines.push(labels.weaknesses)
     swot.weaknesses.forEach((s) => lines.push(`  • ${s}`))
     lines.push('')
   }
   if (swot.opportunities.length) {
-    lines.push('Opportunities')
+    lines.push(labels.opportunities)
     swot.opportunities.forEach((s) => lines.push(`  • ${s}`))
     lines.push('')
   }
   if (swot.threats.length) {
-    lines.push('Threats')
+    lines.push(labels.threats)
     swot.threats.forEach((s) => lines.push(`  • ${s}`))
   }
   return lines
@@ -61,6 +65,7 @@ export async function buildProgressReportPdf(
   coverImageBase64: string | null
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
+  const labels = getPdfLabels(report.language)
   const fontRegular = await pdf.embedFont(StandardFonts.Helvetica)
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold)
   const contentWidth = PAGE_WIDTH - MARGIN * 2
@@ -91,7 +96,7 @@ export async function buildProgressReportPdf(
     }
   }
 
-  cover.drawText('Life Stacks', {
+  cover.drawText(labels.brand, {
     x: MARGIN,
     y,
     size: 11,
@@ -100,7 +105,7 @@ export async function buildProgressReportPdf(
   })
   y -= 22
 
-  cover.drawText('Progress Plan', {
+  cover.drawText(labels.progressPlan, {
     x: MARGIN,
     y,
     size: 28,
@@ -160,36 +165,38 @@ export async function buildProgressReportPdf(
   }
 
   const statsLines = [
-    `Total points earned: ${report.stats.totalPoints}`,
-    `Tasks completed: ${report.stats.tasksCompleted}`,
-    `Tasks created: ${report.stats.tasksCreated}`,
-    `Projects completed: ${report.stats.projectsCompleted}`,
-    `Habit completions: ${report.stats.habitCompletions}`,
+    `${labels.totalPoints}: ${report.stats.totalPoints}`,
+    `${labels.tasksCompletedStat}: ${report.stats.tasksCompleted}`,
+    `${labels.tasksCreated}: ${report.stats.tasksCreated}`,
+    `${labels.projectsCompleted}: ${report.stats.projectsCompleted}`,
+    `${labels.habitCompletions}: ${report.stats.habitCompletions}`,
     ...(report.stats.topCategories.length
       ? [
-          'Top task categories: ' +
+          `${labels.topCategories}: ` +
             report.stats.topCategories.map((c) => `${c.category} (${c.points})`).join(', '),
         ]
       : []),
     ...(report.stats.goalsProgress.length
-      ? report.stats.goalsProgress.map((g) => `Goal "${g.title}": ${g.progressPercent}% progress`)
+      ? report.stats.goalsProgress.map(
+          (g) => `${labels.goalProgress} "${g.title}": ${g.progressPercent}%`
+        )
       : []),
   ]
 
-  addSectionPage('At a glance', statsLines)
+  addSectionPage(labels.atAGlance, statsLines)
 
   if (userProfile) {
     const profileLines = [
-      'Who you seem to be',
+      labels.whoYouSeemToBe,
       ...wrapText(userProfile.whoYouSeemToBe, contentWidth, fontRegular, 11),
       '',
-      'What you seem focused on',
+      labels.apparentFocus,
       ...wrapText(userProfile.apparentFocus, contentWidth, fontRegular, 11),
       '',
-      'What appears to drive your motivation',
+      labels.motivationDrivers,
       ...userProfile.motivationDrivers.map((d) => `• ${d}`),
     ]
-    addSectionPage('About you', profileLines)
+    addSectionPage(labels.aboutYou, profileLines)
   }
 
   if (focusReview) {
@@ -197,31 +204,31 @@ export async function buildProgressReportPdf(
       ...wrapText(focusReview.summary, contentWidth, fontRegular, 11),
       '',
       ...(focusReview.tasksFocus.length
-        ? ['Tasks you completed', ...focusReview.tasksFocus.map((t) => `• ${t}`), '']
+        ? [labels.tasksCompleted, ...focusReview.tasksFocus.map((t) => `• ${t}`), '']
         : []),
       ...(focusReview.projectsFocus.length
-        ? ['Projects', ...focusReview.projectsFocus.map((t) => `• ${t}`), '']
+        ? [labels.projects, ...focusReview.projectsFocus.map((t) => `• ${t}`), '']
         : []),
       ...(focusReview.goalsFocus.length
-        ? ['Goals', ...focusReview.goalsFocus.map((t) => `• ${t}`)]
+        ? [labels.goals, ...focusReview.goalsFocus.map((t) => `• ${t}`)]
         : []),
     ]
-    addSectionPage('Where your attention went', focusLines)
+    addSectionPage(labels.whereAttentionWent, focusLines)
   }
 
-  const swotSection = swotLines(swot)
+  const swotSection = swotLines(swot, labels)
   if (swotSection.length) {
-    addSectionPage('SWOT analysis', swotSection)
+    addSectionPage(labels.swotAnalysis, swotSection)
   }
 
   addSectionPage(
-    'Executive summary',
+    labels.executiveSummary,
     wrapText(report.narrativeSummary, contentWidth, fontRegular, 11)
   )
 
   if (report.highlightsBullets.length) {
     addSectionPage(
-      'Highlights',
+      labels.highlights,
       report.highlightsBullets.map((b) => `• ${b}`)
     )
   }
@@ -229,24 +236,24 @@ export async function buildProgressReportPdf(
   if (report.moduleHighlights.length) {
     const moduleLines: string[] = []
     for (const mod of report.moduleHighlights) {
-      moduleLines.push(`${mod.moduleLabel} (${mod.usageCount} interactions)`)
+      moduleLines.push(`${mod.moduleLabel} (${mod.usageCount} ${labels.interactions})`)
       for (const c of mod.conclusions) {
         moduleLines.push(`  — ${c}`)
       }
       moduleLines.push('')
     }
-    addSectionPage('Life Hacks — module highlights', moduleLines)
+    addSectionPage(labels.moduleHighlights, moduleLines)
   }
 
   if (report.accomplishments.length) {
     addSectionPage(
-      'Accomplishments',
+      labels.accomplishments,
       report.accomplishments.map((a) => `• ${a}`)
     )
   }
 
   const footer = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
-  footer.drawText('Generated by Life Stacks', {
+  footer.drawText(labels.generatedBy, {
     x: MARGIN,
     y: PAGE_HEIGHT / 2,
     size: 10,

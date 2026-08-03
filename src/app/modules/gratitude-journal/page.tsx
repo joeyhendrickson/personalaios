@@ -150,7 +150,7 @@ export default function GratitudeJournalModule() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin h-12 w-12 border-4 border-amber-600 border-t-transparent rounded-full mx-auto mb-4" />
+          <div className="animate-spin h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4" />
           <p className="text-gray-600">Loading gratitude journal...</p>
         </div>
       </div>
@@ -158,7 +158,7 @@ export default function GratitudeJournalModule() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 via-orange-50 to-gray-50">
+    <div className="gratitude-journal-module min-h-screen bg-gradient-to-b from-blue-50 via-sky-50 to-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-6 py-6">
@@ -172,7 +172,7 @@ export default function GratitudeJournalModule() {
               </Link>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-                  <Heart className="h-8 w-8 text-amber-500" />
+                  <Heart className="h-8 w-8 text-blue-500" />
                   Gratitude Journal
                 </h1>
                 <p className="text-sm text-gray-600">
@@ -188,12 +188,12 @@ export default function GratitudeJournalModule() {
         {/* Stats Bar */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-xl border border-gray-200 p-5 text-center shadow-sm">
-            <Flame className="h-7 w-7 text-orange-500 mx-auto mb-2" />
+            <Flame className="h-7 w-7 text-blue-500 mx-auto mb-2" />
             <p className="text-3xl font-bold text-gray-900">{streak}</p>
             <p className="text-sm text-gray-500">Day Streak</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-5 text-center shadow-sm">
-            <Trophy className="h-7 w-7 text-amber-500 mx-auto mb-2" />
+            <Trophy className="h-7 w-7 text-blue-500 mx-auto mb-2" />
             <p className="text-3xl font-bold text-gray-900">
               {entries.filter((e) => e.challenge_completed).length}
             </p>
@@ -211,20 +211,20 @@ export default function GratitudeJournalModule() {
           <div
             className={`rounded-xl p-6 mb-8 border-2 ${
               isEvening
-                ? 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200'
-                : 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200'
+                ? 'bg-gradient-to-r from-blue-50 to-sky-100 border-blue-200'
+                : 'bg-gradient-to-r from-blue-50 to-sky-50 border-blue-200'
             }`}
           >
             <div className="flex items-center gap-3 mb-2">
               {isEvening ? (
-                <Moon className="h-6 w-6 text-indigo-600" />
+                <Moon className="h-6 w-6 text-blue-600" />
               ) : (
-                <Sun className="h-6 w-6 text-amber-600" />
+                <Sun className="h-6 w-6 text-blue-600" />
               )}
               <h2 className="text-lg font-semibold text-gray-900">
                 {isEvening ? 'Nightly Challenge' : "Tonight's Challenge"}
               </h2>
-              <span className="ml-auto text-sm font-medium text-amber-700 bg-amber-100 px-3 py-1 rounded-full">
+              <span className="ml-auto text-sm font-medium text-blue-700 bg-blue-100 px-3 py-1 rounded-full">
                 +50 points
               </span>
             </div>
@@ -280,7 +280,7 @@ export default function GratitudeJournalModule() {
             </label>
             {items.map((item, index) => (
               <div key={index} className="flex items-center gap-2">
-                <span className="text-amber-500 font-bold text-lg w-6 text-center">
+                <span className="text-blue-500 font-bold text-lg w-6 text-center">
                   {index + 1}.
                 </span>
                 <input
@@ -296,7 +296,7 @@ export default function GratitudeJournalModule() {
                           ? 'e.g. Progress on my project goals'
                           : 'Something else you appreciate...'
                   }
-                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 />
                 {items.length > 3 && (
                   <button
@@ -310,7 +310,7 @@ export default function GratitudeJournalModule() {
             ))}
             <button
               onClick={addItem}
-              className="inline-flex items-center gap-1 text-sm text-amber-600 hover:text-amber-700 font-medium mt-1"
+              className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium mt-1"
             >
               <Plus className="h-4 w-4" />
               Add another
@@ -331,7 +331,7 @@ export default function GratitudeJournalModule() {
                     onClick={() => setMoodRating(moodRating === mood.value ? null : mood.value)}
                     className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
                       moodRating === mood.value
-                        ? 'border-amber-400 bg-amber-50 scale-105'
+                        ? 'border-blue-400 bg-blue-50 scale-105'
                         : 'border-gray-200 hover:border-gray-300 bg-white'
                     }`}
                   >
@@ -355,7 +355,7 @@ export default function GratitudeJournalModule() {
               onChange={(e) => setReflection(e.target.value)}
               rows={3}
               placeholder="Any thoughts about your day or what these gratitudes mean to you..."
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none transition-all"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all"
             />
           </div>
 
@@ -363,7 +363,7 @@ export default function GratitudeJournalModule() {
           <button
             onClick={handleSave}
             disabled={saving || filledCount === 0}
-            className="w-full bg-amber-600 text-white px-6 py-3 rounded-lg hover:bg-amber-700 transition-colors text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {saving ? (
               <>
@@ -431,7 +431,7 @@ export default function GratitudeJournalModule() {
                   <ul className="space-y-1.5">
                     {(entry.gratitude_items || []).map((item: string, idx: number) => (
                       <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                        <Heart className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+                        <Heart className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
                         {item}
                       </li>
                     ))}
@@ -442,7 +442,7 @@ export default function GratitudeJournalModule() {
                     </p>
                   )}
                   {entry.points_awarded > 0 && (
-                    <p className="mt-2 text-xs text-amber-600 font-medium">
+                    <p className="mt-2 text-xs text-blue-600 font-medium">
                       +{entry.points_awarded} points earned
                     </p>
                   )}
