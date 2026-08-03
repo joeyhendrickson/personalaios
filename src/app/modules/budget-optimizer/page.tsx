@@ -897,11 +897,6 @@ export default function BudgetOptimizerModule() {
     }
   }, [selectedTransactionId, transactions])
 
-  const transactionPeriodSummary = useMemo(
-    () => summarizeLedgerTransactions(transactions, transactionRules),
-    [transactions, transactionRules]
-  )
-
   const [flaggedTransactions, setFlaggedTransactions] = useState<Transaction[]>([])
   const [showFlaggedSection, setShowFlaggedSection] = useState(false)
   const [transactionRules, setTransactionRules] = useState<TransactionRule[]>([])
@@ -917,6 +912,12 @@ export default function BudgetOptimizerModule() {
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null)
   const [isLoadingRules, setIsLoadingRules] = useState(false)
   const [isSavingRule, setIsSavingRule] = useState(false)
+
+  const transactionPeriodSummary = useMemo(
+    () => summarizeLedgerTransactions(transactions, transactionRules),
+    [transactions, transactionRules]
+  )
+
   const [netWorthPoints, setNetWorthPoints] = useState<{ date: string; netWorth: number }[]>([])
   const [netWorthFirstConnection, setNetWorthFirstConnection] = useState<string | null>(null)
   const [netWorthLoading, setNetWorthLoading] = useState(false)
