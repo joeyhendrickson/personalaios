@@ -10,6 +10,10 @@ import {
   STRONG_MATCH_SCORE,
 } from './config'
 import type { AdvisorRetrievedChunk, AdvisorVectorRetrieveResult } from './types'
+import {
+  retrieveAdvisorEvidenceMultiPass,
+  type MultiPassRetrievalResult,
+} from './multi-pass-retrieve'
 
 async function logRetrieveEvent(input: {
   userId: string
@@ -121,4 +125,90 @@ export async function retrieveAdvisorEvidence(input: {
 
 export function countStrongMatches(chunks: AdvisorRetrievedChunk[]): number {
   return chunks.filter((c) => c.includedInPrompt && c.score >= STRONG_MATCH_SCORE).length
+}
+
+/**
+ * Smart retrieval: Attempts single-pass first, upgrades to multi-pass if confidence is low.
+ * This is the main entry point for all advisor retrievals.
+ */
+export async function retrieveAdvisorEvidenceSmart(input: {
+  userId: string
+  question: string
+  moduleIds?: string[]
+  forceMultiPass?: boolean
+  confidenceThreshold?: number
+}): Promise<AdvisorVectorRetrieveResult | MultiPassRetrievalResult> {
+  const confidenceThreshold = input.confidenceThreshold ?? 0.8
+
+  // Force multi-pass if requested
+  if (input.forceMultiPass) {
+    return await retrieveAdvisorEvidenceMultiPass({
+      userId: input.userId,
+      question: input.question,
+      moduleIds: input.moduleIds,
+      maxPasses: 3,
+      confidenceThreshold,
+    })
+  }
+
+  // Step 1: Try single-pass retrieval
+  const singlePassResult = await retrieveAdvisorEvidence({
+    userId: input.userId,
+    question: input.question,
+    moduleIds: input.moduleIds,
+  })
+
+  // Step 2: Assess quality
+  const quality = assessRetrievalQuality(singlePassResult)
+
+  // Step 3: If quality is low, upgrade to multi-pass
+  if (quality < confidenceThreshold) {
+    console.log(
+      `[Smart RAG] Single-pass quality ${(quality * 100).toFixed(0)}% < ${(confidenceThreshold * 100).toFixed(0)}% threshold. Upgrading to multi-pass.`
+    )
+
+    return await retrieveAdvisorEvidenceMultiPass({
+      userId: input.userId,
+      question: input.question,
+      moduleIds: input.moduleIds,
+      maxPasses: 3,
+      confidenceThreshold,
+    })
+  }
+
+  // Single-pass was sufficient
+  console.log(
+    `[Smart RAG] Single-pass quality ${(quality * 100).toFixed(0)}% ≥ ${(confidenceThreshold * 100).toFixed(0)}% threshold. Using single-pass.`
+  )
+  return singlePassResult
+}
+
+/**
+ * Assesses retrieval quality (0-1 scale) based on:
+ * - Number of strong matches (>0.75)
+ * - Average score
+ * - Total chunks included in prompt
+ */
+function assessRetrievalQuality(result: AdvisorVectorRetrieveResult): number {
+  if (!result.usedRag || result.chunks.length === 0) {
+    return 0.3 // Low confidence when no retrieval
+  }
+
+  const includedChunks = result.chunks.filter((c) => c.includedInPrompt)
+  if (includedChunks.length === 0) {
+    return 0.4
+  }
+
+  const strongMatches = countStrongMatches(result.chunks)
+  const avgScore =
+    includedChunks.reduce((sum, c) => sum + c.score, 0) / includedChunks.length
+
+  // Quality formula:
+  // - 50% weight on strong match ratio
+  // - 40% weight on average score
+  // - 10% bonus for volume (up to 8 chunks)
+  const strongRatio = strongMatches / includedChunks.length
+  const volumeBonus = Math.min(includedChunks.length / 8, 1) * 0.1
+
+  return Math.min(strongRatio * 0.5 + avgScore * 0.4 + volumeBonus, 1)
 }

@@ -45,3 +45,21 @@ export type AdvisorVectorRetrieveResult = {
   indexFresh: boolean
   indexAgeHours?: number
 }
+
+export type RetrievalPass = {
+  passNumber: number
+  query: string
+  queryRefinement: string | null
+  chunks: AdvisorRetrievedChunk[]
+  newChunksFound: number
+  strongMatches: number
+  avgScore: number
+  durationMs: number
+}
+
+export type MultiPassRetrievalResult = AdvisorVectorRetrieveResult & {
+  passes: RetrievalPass[]
+  totalNewChunks: number
+  converged: boolean
+  convergenceReason: 'max_passes' | 'no_new_chunks' | 'high_quality'
+}

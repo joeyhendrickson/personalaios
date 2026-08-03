@@ -10,7 +10,11 @@ import type {
 import type { FilterModulesResult } from '@/lib/ai-context/topic-module-filter'
 import { moduleLabel } from '@/lib/advisor/source-chips'
 import { STRONG_MATCH_SCORE } from '@/lib/advisor-vector/config'
-import type { AdvisorRetrievedChunk } from '@/lib/advisor-vector/types'
+import type {
+  AdvisorRetrievedChunk,
+  MultiPassRetrievalResult,
+  RetrievalPass,
+} from '@/lib/advisor-vector/types'
 
 function countStrongMatches(chunks: AdvisorRetrievedChunk[]): number {
   return chunks.filter((c) => c.includedInPrompt && c.score >= STRONG_MATCH_SCORE).length
@@ -129,6 +133,7 @@ export function buildAdvisorEvidence(input: {
   usedRag?: boolean
   ragIndexFresh?: boolean
   ragIndexAgeHours?: number
+  multiPassResult?: MultiPassRetrievalResult
 }): AdvisorEvidence {
   const { level, score, rationale } = computeConfidence({
     filterResult: input.filterResult,
@@ -163,7 +168,7 @@ export function buildAdvisorEvidence(input: {
       includedInPrompt: includedSet.has(m.moduleId),
     }))
 
-  return {
+  const evidence: AdvisorEvidence = {
     confidenceLevel: level,
     confidenceScore: score,
     confidenceRationale: rationale,
@@ -186,4 +191,26 @@ export function buildAdvisorEvidence(input: {
       ? mapRetrievedChunks(input.retrievedChunks)
       : undefined,
   }
+
+  // Add multi-pass metadata if applicable
+  if (input.multiPassResult && 'passes' in input.multiPassResult) {
+    ;(evidence as any).multiPass = {
+      enabled: true,
+      totalPasses: input.multiPassResult.passes.length,
+      converged: input.multiPassResult.converged,
+      convergenceReason: input.multiPassResult.convergenceReason,
+      totalUniqueChunks: input.multiPassResult.totalNewChunks,
+      passes: input.multiPassResult.passes.map((p) => ({
+        passNumber: p.passNumber,
+        query: p.query,
+        queryRefinement: p.queryRefinement,
+        newChunksFound: p.newChunksFound,
+        strongMatches: p.strongMatches,
+        avgScore: Math.round(p.avgScore * 100) / 100,
+        durationMs: p.durationMs,
+      })),
+    }
+  }
+
+  return evidence
 }

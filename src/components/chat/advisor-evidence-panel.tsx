@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { AdvisorEvidence } from '@/types/advisor-evidence'
 import { moduleLabel } from '@/lib/advisor/source-chips'
 import { RefreshCw, ChevronDown, ChevronRight } from 'lucide-react'
+import { MultiPassIndicator, MultiPassDetails } from './multi-pass-indicator'
 
 type AdvisorEvidencePanelProps = {
   evidence: AdvisorEvidence | null
@@ -139,6 +140,12 @@ export function AdvisorEvidencePanel({
           </ul>
         </section>
 
+        {(evidence as any).multiPass && (
+          <section>
+            <MultiPassIndicator multiPass={(evidence as any).multiPass} />
+          </section>
+        )}
+
         <section>
           <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
             Routing logic
@@ -218,6 +225,15 @@ export function AdvisorEvidencePanel({
                 </div>
               ))}
             </div>
+            
+            {(evidence as any).multiPass && (
+              <div className="mt-4 border-t pt-4">
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Multi-pass retrieval details
+                </div>
+                <MultiPassDetails multiPass={(evidence as any).multiPass} />
+              </div>
+            )}
           </section>
         )}
       </div>

@@ -48,8 +48,11 @@ import {
 } from '@/lib/advisor/context-adjustments'
 import { buildAdvisorEvidence } from '@/lib/advisor/evidence-build'
 import { formatRetrievedChunksForPrompt } from '@/lib/advisor-vector/chunks'
-import { retrieveAdvisorEvidence } from '@/lib/advisor-vector/retrieve'
-import type { AdvisorVectorRetrieveResult } from '@/lib/advisor-vector/types'
+import { retrieveAdvisorEvidenceSmart } from '@/lib/advisor-vector/retrieve'
+import type {
+  AdvisorVectorRetrieveResult,
+  MultiPassRetrievalResult,
+} from '@/lib/advisor-vector/types'
 
 /** Max age in hours for cache to be considered fresh */
 const CACHE_FRESH_HOURS = 24
@@ -366,7 +369,7 @@ export async function assembleAIContext(
     }
   }
 
-  let retrieval: AdvisorVectorRetrieveResult = {
+  let retrieval: AdvisorVectorRetrieveResult | MultiPassRetrievalResult = {
     chunks: [],
     usedRag: false,
     latencyMs: 0,
@@ -374,13 +377,21 @@ export async function assembleAIContext(
   }
 
   if (lastUserMessage) {
-    retrieval = await retrieveAdvisorEvidence({
+    // Smart retrieval: single-pass by default, upgrades to multi-pass if confidence < 80%
+    retrieval = await retrieveAdvisorEvidenceSmart({
       userId,
       question: lastUserMessage,
       moduleIds: modulesIncluded,
+      confidenceThreshold: 0.8,
     })
     if (retrieval.usedRag) {
       layers.push('rag')
+    }
+    // Log if multi-pass was used
+    if ('passes' in retrieval && retrieval.passes.length > 1) {
+      console.log(
+        `[Smart RAG] Used multi-pass retrieval: ${retrieval.passes.length} passes, ${retrieval.totalNewChunks} unique chunks`
+      )
     }
   }
 
@@ -425,6 +436,7 @@ export async function assembleAIContext(
     usedRag: retrieval.usedRag,
     ragIndexFresh: retrieval.indexFresh,
     ragIndexAgeHours: retrieval.indexAgeHours,
+    multiPassResult: 'passes' in retrieval ? retrieval : undefined,
   })
 
   return {
