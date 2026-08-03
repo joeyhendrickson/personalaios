@@ -45,6 +45,9 @@ import {
   formatContextAdjustmentsPrompt,
 } from '@/lib/advisor/context-adjustments'
 import { buildAdvisorEvidence } from '@/lib/advisor/evidence'
+import { formatRetrievedChunksForPrompt } from '@/lib/advisor-vector/chunks'
+import { retrieveAdvisorEvidence } from '@/lib/advisor-vector/retrieve'
+import type { AdvisorVectorRetrieveResult } from '@/lib/advisor-vector/types'
 
 /** Max age in hours for cache to be considered fresh */
 const CACHE_FRESH_HOURS = 24
@@ -329,6 +332,24 @@ export async function assembleAIContext(
     }
   }
 
+  let retrieval: AdvisorVectorRetrieveResult = {
+    chunks: [],
+    usedRag: false,
+    latencyMs: 0,
+    indexFresh: false,
+  }
+
+  if (lastUserMessage) {
+    retrieval = await retrieveAdvisorEvidence({
+      userId,
+      question: lastUserMessage,
+      moduleIds: modulesIncluded,
+    })
+    if (retrieval.usedRag) {
+      layers.push('rag')
+    }
+  }
+
   const parts: string[] = []
   const profileStr = formatStaticProfile(staticProfile)
   if (profileStr) parts.push(profileStr)
@@ -337,6 +358,10 @@ export async function assembleAIContext(
   if (derivedStr) parts.push(derivedStr)
 
   if (topicFilterNote) parts.push(topicFilterNote)
+
+  const retrievedForPrompt = retrieval.chunks.filter((c) => c.includedInPrompt)
+  const retrievedStr = formatRetrievedChunksForPrompt(retrievedForPrompt)
+  if (retrievedStr) parts.push(retrievedStr)
 
   const adjustmentsPrompt = formatContextAdjustmentsPrompt(parsedAdjustments)
   if (adjustmentsPrompt) parts.push(adjustmentsPrompt)
@@ -362,6 +387,10 @@ export async function assembleAIContext(
     cacheAgeHours,
     contextAdjustments,
     appliedAdjustments: parsedAdjustments?.promptLines,
+    retrievedChunks: retrieval.chunks,
+    usedRag: retrieval.usedRag,
+    ragIndexFresh: retrieval.indexFresh,
+    ragIndexAgeHours: retrieval.indexAgeHours,
   })
 
   return {

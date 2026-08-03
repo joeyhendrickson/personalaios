@@ -23,6 +23,7 @@ import {
   isProjectCompleted,
   isTaskCompleted,
 } from '@/lib/life-coach/partition-user-data'
+import { syncUserAdvisorVectors } from '@/lib/advisor-vector/sync'
 
 export interface RefreshContextOptions {
   route?: string
@@ -193,6 +194,16 @@ export async function refreshUserContextCache(
     )
 
     if (error) throw error
+
+    await syncUserAdvisorVectors(userId, {
+      staticProfile,
+      structuredState,
+      derivedInsights: derived,
+      moduleContext,
+      crossModuleInsights,
+      sourceChecksum: checksum,
+      route: options?.route ?? '/api/ai/context-cache/refresh',
+    })
 
     await supabase
       .from('cache_refresh_jobs')

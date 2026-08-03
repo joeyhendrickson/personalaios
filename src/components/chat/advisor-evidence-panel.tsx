@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import type { AdvisorEvidence } from '@/types/advisor-evidence'
+import { moduleLabel } from '@/lib/advisor/source-chips'
 import { RefreshCw, ChevronDown, ChevronRight } from 'lucide-react'
 
 type AdvisorEvidencePanelProps = {
@@ -172,6 +173,53 @@ export function AdvisorEvidencePanel({
             ))}
           </div>
         </section>
+
+        {evidence.retrievedChunks && evidence.retrievedChunks.length > 0 && (
+          <section>
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+              Retrieved for this answer
+            </div>
+            {evidence.usedRag && (
+              <p className="mb-2 text-xs text-gray-600">
+                Semantic search
+                {evidence.ragIndexFresh ? ' · index fresh' : ' · index may be stale'}
+                {typeof evidence.ragIndexAgeHours === 'number'
+                  ? ` · last sync ${Math.round(evidence.ragIndexAgeHours)}h ago`
+                  : ''}
+              </p>
+            )}
+            <div className="space-y-2">
+              {evidence.retrievedChunks.map((chunk) => (
+                <div
+                  key={chunk.chunkId}
+                  className={`rounded-lg border p-3 text-sm ${
+                    chunk.includedInPrompt
+                      ? 'border-violet-200 bg-violet-50/50'
+                      : 'border-gray-200 bg-gray-50/80 opacity-80'
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-gray-900">{chunk.label}</span>
+                    <span className="text-xs text-gray-500">
+                      {chunk.moduleId ? moduleLabel(chunk.moduleId) : 'General'} ·{' '}
+                      {chunk.matchPercent}% match
+                    </span>
+                    {chunk.includedInPrompt ? (
+                      <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-800">
+                        Used in reply
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
+                        Low match
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-gray-600 line-clamp-2">{chunk.preview}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       <div className="shrink-0 border-t bg-gray-50 p-4">

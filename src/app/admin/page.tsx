@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { AccessCodesManager } from '@/components/admin/access-codes-manager'
 import { AiUsageAdminPanel } from '@/components/admin/ai-usage-admin-panel'
+import { AdvisorRagAdminPanel } from '@/components/admin/advisor-rag-admin-panel'
 
 interface DashboardData {
   total_users: number
@@ -728,6 +729,8 @@ export default function AdminDashboard() {
         </div>
 
         <AiUsageAdminPanel />
+
+        <AdvisorRagAdminPanel />
 
         <Card className="p-6 mb-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">

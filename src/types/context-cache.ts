@@ -114,6 +114,11 @@ export interface UserContextCacheRow {
   last_incremental_refresh_at: string | null
   refresh_status: string
   refresh_error: string | null
+  vector_index_status?: string
+  last_vector_index_at?: string | null
+  vector_chunk_count?: number
+  vector_index_checksum?: string | null
+  vector_index_error?: string | null
   created_at: string
   updated_at: string
 }
@@ -141,7 +146,15 @@ export interface AssembledContext {
   /** Metadata for logging */
   usedCache: boolean
   cacheAgeHours?: number
-  layersIncluded: ('static' | 'structured' | 'derived' | 'modules' | 'cross_module' | 'ephemeral')[]
+  layersIncluded: (
+    | 'static'
+    | 'structured'
+    | 'derived'
+    | 'modules'
+    | 'cross_module'
+    | 'ephemeral'
+    | 'rag'
+  )[]
   /** Module IDs included after topic filtering (if applied) */
   modulesIncluded?: string[]
   topicFilterApplied?: boolean

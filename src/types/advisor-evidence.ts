@@ -13,6 +13,17 @@ export type AdvisorModuleEvidence = {
   includedInPrompt: boolean
 }
 
+export type AdvisorRetrievedEvidence = {
+  chunkId: string
+  label: string
+  moduleId?: string
+  sourceType: string
+  preview: string
+  score: number
+  matchPercent: number
+  includedInPrompt: boolean
+}
+
 export type AdvisorEvidence = {
   confidenceLevel: AdvisorConfidenceLevel
   confidenceScore: number
@@ -29,6 +40,10 @@ export type AdvisorEvidence = {
   cacheAgeHours?: number
   contextAdjustments?: string
   appliedAdjustments?: string[]
+  usedRag?: boolean
+  ragIndexFresh?: boolean
+  ragIndexAgeHours?: number
+  retrievedChunks?: AdvisorRetrievedEvidence[]
 }
 
 export type AdvisorContextAdjustments = {

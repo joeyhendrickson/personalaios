@@ -23,6 +23,11 @@ const serverEnvSchema = z.object({
   SERPAPI_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().optional(),
   CRON_SECRET: z.string().optional(),
+
+  // Advisor RAG / Pinecone (server-only)
+  PINECONE_API_KEY: z.string().optional(),
+  PINECONE_INDEX_NAME: z.string().optional(),
+  ADVISOR_RAG_ENABLED: z.string().optional(),
 })
 
 // Client-safe environment variables (can be exposed via NEXT_PUBLIC_*)
@@ -111,6 +116,9 @@ const parseEnv = () => {
     SERPAPI_KEY: getEnv('SERPAPI_KEY'),
     RESEND_FROM_EMAIL: getEnv('RESEND_FROM_EMAIL'),
     CRON_SECRET: getEnv('CRON_SECRET'),
+    PINECONE_API_KEY: getEnv('PINECONE_API_KEY'),
+    PINECONE_INDEX_NAME: getEnv('PINECONE_INDEX_NAME'),
+    ADVISOR_RAG_ENABLED: getEnv('ADVISOR_RAG_ENABLED'),
 
     // Client-safe (can be exposed)
     NEXT_PUBLIC_SUPABASE_URL: getEnv('NEXT_PUBLIC_SUPABASE_URL'),

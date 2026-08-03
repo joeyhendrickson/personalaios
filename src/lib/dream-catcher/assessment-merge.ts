@@ -8,7 +8,7 @@ function norm(s: string): string {
 
 function mergeStringArrays(prev: unknown[], incoming: unknown[], max: number): string[] {
   const combined = [...prev, ...incoming].filter(
-    (v): v is string => typeof v === 'string' && v.trim()
+    (v): v is string => typeof v === 'string' && v.trim().length > 0
   )
   return [...new Set(combined.map(norm))].slice(0, max)
 }
@@ -72,8 +72,8 @@ const ARRAY_FIELD_CONFIG: Array<{
 ]
 
 /** Merge assessment_data without duplicating object arrays (fixes runaway goal counts). */
-export function mergeAssessmentData(existing: RecordLike, incoming: RecordLike): RecordLike {
-  const merged: RecordLike = { ...existing }
+export function mergeAssessmentData(existing: object, incoming: RecordLike): RecordLike {
+  const merged: RecordLike = { ...(existing as RecordLike) }
 
   for (const [key, value] of Object.entries(incoming)) {
     if (value === undefined || value === null || value === '') continue
@@ -116,8 +116,8 @@ export function mergeAssessmentData(existing: RecordLike, incoming: RecordLike):
 }
 
 /** Enforce caps on all structured assessment arrays. */
-export function clampAssessmentData(data: RecordLike): RecordLike {
-  const clamped = { ...data }
+export function clampAssessmentData(data: object): RecordLike {
+  const clamped: RecordLike = { ...(data as RecordLike) }
 
   for (const config of ARRAY_FIELD_CONFIG) {
     if (!Array.isArray(clamped[config.key])) continue
@@ -130,7 +130,7 @@ export function clampAssessmentData(data: RecordLike): RecordLike {
     const g = { ...(gratitude as RecordLike) }
     if (Array.isArray(g.items)) {
       g.items = (g.items as unknown[])
-        .filter((v): v is string => typeof v === 'string' && v.trim())
+        .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
         .slice(0, DREAM_CATCHER_LIMITS.gratitudeItems.max)
     }
     clamped.gratitude_starters = g

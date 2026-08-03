@@ -3,23 +3,28 @@ import type {
   AdvisorConfidenceLevel,
   AdvisorEvidence,
   AdvisorModuleEvidence,
+  AdvisorRetrievedEvidence,
 } from '@/types/advisor-evidence'
 import type { FilterModulesResult } from '@/lib/ai-context/topic-module-filter'
 import { moduleLabel } from '@/lib/advisor/source-chips'
+import { countStrongMatches } from '@/lib/advisor-vector/retrieve'
+import type { AdvisorRetrievedChunk } from '@/lib/advisor-vector/types'
 
 function computeConfidence(input: {
   filterResult: FilterModulesResult
-  modulesIncluded: string[]
   modulesForPrompt: ModuleContextSummary[]
   topicFilterApplied: boolean
   usedCache: boolean
   cacheAgeHours?: number
+  usedRag?: boolean
+  ragIndexFresh?: boolean
+  retrievedChunks?: AdvisorRetrievedChunk[]
 }): { level: AdvisorConfidenceLevel; score: number; rationale: string[] } {
-  let score = 40
+  let score = 35
   const rationale: string[] = []
 
   if (!input.filterResult.isBroad && input.filterResult.detectedTopics.length > 0) {
-    score += 25
+    score += 15
     rationale.push(`Matched specific topics: ${input.filterResult.detectedTopics.join(', ')}.`)
   } else if (input.filterResult.isBroad) {
     rationale.push('Question was broad, so all available modules were considered.')
@@ -29,22 +34,22 @@ function computeConfidence(input: {
 
   const withFacts = input.modulesForPrompt.filter((m) => m.objectiveFacts.length > 0).length
   if (withFacts >= 2) {
-    score += 20
+    score += 15
     rationale.push(`${withFacts} modules had concrete facts to ground the answer.`)
   } else if (withFacts === 1) {
-    score += 10
+    score += 8
     rationale.push('One module had concrete facts; others were sparse.')
   } else {
     rationale.push('Limited factual module data for this turn.')
   }
 
   if (input.topicFilterApplied) {
-    score += 10
+    score += 8
     rationale.push('Topic filter focused context on relevant life modules.')
   }
 
   if (input.usedCache && (input.cacheAgeHours ?? 999) <= 24) {
-    score += 10
+    score += 8
     rationale.push('User context cache was fresh (under 24h).')
   } else if (input.usedCache) {
     rationale.push('Context came from cache but may be stale.')
@@ -52,8 +57,30 @@ function computeConfidence(input: {
     rationale.push('Context was assembled live from current dashboard data.')
   }
 
+  const retrieved = input.retrievedChunks ?? []
+  const strongMatches = countStrongMatches(retrieved)
+  const includedCount = retrieved.filter((c) => c.includedInPrompt).length
+
+  if (input.usedRag && strongMatches >= 3) {
+    score += 25
+    rationale.push(`Semantic search found ${strongMatches} strong matches in your indexed data.`)
+  } else if (input.usedRag && includedCount >= 1) {
+    score += 15
+    rationale.push(`Retrieved ${includedCount} relevant item(s) from your knowledge index.`)
+  } else if (input.usedRag) {
+    score += 5
+    rationale.push('RAG ran but matches were weak for this question.')
+  }
+
+  if (input.ragIndexFresh) {
+    score += 8
+    rationale.push('Your advisor memory index was synced within 24 hours.')
+  } else if (input.usedRag) {
+    rationale.push('Knowledge index may be stale — consider refreshing advisor memory.')
+  }
+
   score = Math.max(0, Math.min(100, score))
-  const level: AdvisorConfidenceLevel = score >= 75 ? 'high' : score >= 50 ? 'medium' : 'low'
+  const level: AdvisorConfidenceLevel = score >= 80 ? 'high' : score >= 55 ? 'medium' : 'low'
   return { level, score, rationale }
 }
 
@@ -65,6 +92,19 @@ function buildRoutingSummary(filterResult: FilterModulesResult, moduleOrder: str
     return `Detected ${filterResult.detectedTopics.join(', ')} — routed to ${moduleOrder.join(', ') || 'dashboard only'}.`
   }
   return `Used top ${moduleOrder.length} module(s) with available data.`
+}
+
+function mapRetrievedChunks(chunks: AdvisorRetrievedChunk[]): AdvisorRetrievedEvidence[] {
+  return chunks.map((c) => ({
+    chunkId: c.chunkId,
+    label: c.label,
+    moduleId: c.moduleId,
+    sourceType: c.sourceType,
+    preview: c.preview,
+    score: c.score,
+    matchPercent: Math.round(c.score * 100),
+    includedInPrompt: c.includedInPrompt,
+  }))
 }
 
 export function buildAdvisorEvidence(input: {
@@ -79,14 +119,20 @@ export function buildAdvisorEvidence(input: {
   cacheAgeHours?: number
   contextAdjustments?: string
   appliedAdjustments?: string[]
+  retrievedChunks?: AdvisorRetrievedChunk[]
+  usedRag?: boolean
+  ragIndexFresh?: boolean
+  ragIndexAgeHours?: number
 }): AdvisorEvidence {
   const { level, score, rationale } = computeConfidence({
     filterResult: input.filterResult,
-    modulesIncluded: input.modulesIncluded,
     modulesForPrompt: input.modulesForPrompt,
     topicFilterApplied: input.topicFilterApplied,
     usedCache: input.usedCache,
     cacheAgeHours: input.cacheAgeHours,
+    usedRag: input.usedRag,
+    ragIndexFresh: input.ragIndexFresh,
+    retrievedChunks: input.retrievedChunks,
   })
 
   const includedSet = new Set(input.modulesIncluded)
@@ -127,6 +173,12 @@ export function buildAdvisorEvidence(input: {
     cacheAgeHours: input.cacheAgeHours,
     contextAdjustments: input.contextAdjustments,
     appliedAdjustments: input.appliedAdjustments,
+    usedRag: input.usedRag,
+    ragIndexFresh: input.ragIndexFresh,
+    ragIndexAgeHours: input.ragIndexAgeHours,
+    retrievedChunks: input.retrievedChunks?.length
+      ? mapRetrievedChunks(input.retrievedChunks)
+      : undefined,
   }
 }
 
