@@ -1,3 +1,5 @@
+import 'server-only'
+
 import { Pinecone } from '@pinecone-database/pinecone'
 import {
   advisorNamespace,

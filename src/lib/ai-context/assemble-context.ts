@@ -44,7 +44,7 @@ import {
   parseContextAdjustments,
   formatContextAdjustmentsPrompt,
 } from '@/lib/advisor/context-adjustments'
-import { buildAdvisorEvidence } from '@/lib/advisor/evidence'
+import { buildAdvisorEvidence } from '@/lib/advisor/evidence-build'
 import { formatRetrievedChunksForPrompt } from '@/lib/advisor-vector/chunks'
 import { retrieveAdvisorEvidence } from '@/lib/advisor-vector/retrieve'
 import type { AdvisorVectorRetrieveResult } from '@/lib/advisor-vector/types'

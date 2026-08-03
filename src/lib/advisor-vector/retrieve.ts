@@ -1,3 +1,5 @@
+import 'server-only'
+
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { embedText } from '@/lib/ai/embeddings'
 import { queryAdvisorVectors } from './client'
