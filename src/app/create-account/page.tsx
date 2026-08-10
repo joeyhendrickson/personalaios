@@ -333,49 +333,51 @@ Thank you!`
 
         {/* Plans Grid */}
         <div className="grid md:grid-cols-3 gap-8 mb-12">
-          {/* Free Trial Plan */}
-          <Card
-            className={`relative ${selectedPlan === 'trial' ? 'ring-2 ring-green-500 shadow-lg' : ''}`}
-          >
+          {/* Free Trial Plan - DISABLED */}
+          <Card className="relative opacity-60 bg-gray-100">
+            {/* X Overlay */}
+            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+              <div className="text-red-600 font-bold text-8xl opacity-50">✕</div>
+            </div>
             <CardHeader className="text-center pb-4">
-              <Badge className="w-fit mx-auto mb-2 bg-green-100 text-green-800">RECOMMENDED</Badge>
-              <CardTitle className="text-2xl">7-Day Free Trial</CardTitle>
-              <CardDescription className="text-lg">Experience Life Stacks</CardDescription>
-              <div className="text-3xl font-bold text-green-600 mt-4">
+              <CardTitle className="text-2xl line-through text-gray-500">
+                7-Day Free Trial
+              </CardTitle>
+              <CardDescription className="text-lg text-gray-400">
+                No longer available
+              </CardDescription>
+              <div className="text-3xl font-bold text-gray-400 mt-4 line-through">
                 $0
-                <span className="text-sm font-normal text-gray-500">/week</span>
+                <span className="text-sm font-normal text-gray-400">/week</span>
               </div>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-3 mb-6">
+              <ul className="space-y-3 mb-6 opacity-50">
                 <li className="flex items-center">
-                  <Check className="h-5 w-5 text-green-500 mr-3" />
-                  <span>Limited Time Access</span>
+                  <Check className="h-5 w-5 text-gray-400 mr-3" />
+                  <span className="text-gray-500">Limited Time Access</span>
                 </li>
                 <li className="flex items-center">
-                  <Check className="h-5 w-5 text-green-500 mr-3" />
-                  <span>Life Hacks & Business Hacks</span>
+                  <Check className="h-5 w-5 text-gray-400 mr-3" />
+                  <span className="text-gray-500">Life Hacks & Business Hacks</span>
                 </li>
                 <li className="flex items-center">
-                  <Check className="h-5 w-5 text-green-500 mr-3" />
-                  <span>AI-powered Insights</span>
+                  <Check className="h-5 w-5 text-gray-400 mr-3" />
+                  <span className="text-gray-500">AI-powered Insights</span>
                 </li>
                 <li className="flex items-center">
-                  <Check className="h-5 w-5 text-green-500 mr-3" />
-                  <span>Progress Tracking</span>
+                  <Check className="h-5 w-5 text-gray-400 mr-3" />
+                  <span className="text-gray-500">Progress Tracking</span>
                 </li>
                 <li className="flex items-center">
-                  <Check className="h-5 w-5 text-green-500 mr-3" />
-                  <span>After 7 Days, Buy Standard Plan</span>
+                  <Check className="h-5 w-5 text-gray-400 mr-3" />
+                  <span className="text-gray-500">After 7 Days, Buy Standard Plan</span>
                 </li>
               </ul>
-              <Button
-                onClick={() => handlePlanSelection('trial')}
-                disabled={isProcessing}
-                className="w-full bg-green-600 hover:bg-green-700"
-              >
-                Start Free Trial
-              </Button>
+              {/* Button removed as requested */}
+              <div className="text-center text-sm text-red-600 font-semibold">
+                Not Available
+              </div>
             </CardContent>
           </Card>
 
@@ -384,6 +386,7 @@ Thank you!`
             className={`relative ${selectedPlan === 'basic' ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}
           >
             <CardHeader className="text-center pb-4">
+              <Badge className="w-fit mx-auto mb-2 bg-blue-100 text-blue-800">RECOMMENDED</Badge>
               <div className="flex items-center justify-center mb-2">
                 <Zap className="h-6 w-6 text-black mr-2" />
               </div>

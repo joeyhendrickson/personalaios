@@ -85,8 +85,8 @@ async function setup() {
     const product = await productResponse.json()
     console.log(`✅ Product created: ${product.id}\n`)
 
-    // Create Basic Plan ($50/month)
-    console.log('📋 Creating Basic Plan ($50/month)...')
+    // Create Basic Plan ($100/month)
+    console.log('📋 Creating Basic Plan ($100/month)...')
     const basicPlanResponse = await fetch(`${baseUrl}/v1/billing/plans`, {
       method: 'POST',
       headers: {
@@ -110,7 +110,7 @@ async function setup() {
             total_cycles: 0,
             pricing_scheme: {
               fixed_price: {
-                value: '50.00',
+                value: '100.00',
                 currency_code: 'USD',
               },
             },
