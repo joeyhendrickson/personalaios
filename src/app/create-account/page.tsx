@@ -359,7 +359,7 @@ Thank you!`
                 </li>
                 <li className="flex items-center">
                   <Check className="h-5 w-5 text-gray-400 mr-3" />
-                  <span className="text-gray-500">Life Hacks & Business Hacks</span>
+                  <span className="text-gray-500">Limited Features</span>
                 </li>
                 <li className="flex items-center">
                   <Check className="h-5 w-5 text-gray-400 mr-3" />
