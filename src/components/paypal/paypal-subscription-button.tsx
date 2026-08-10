@@ -45,11 +45,15 @@ export default function PayPalSubscriptionButton({
 
   if (!clientId || !planId) {
     return (
-      <div className="w-full p-4 border border-red-200 bg-red-50 rounded-lg text-center">
-        <p className="text-red-600 font-semibold">PayPal Configuration Missing</p>
-        <p className="text-sm text-red-500 mt-1">Client ID: {clientId ? 'Found' : 'Missing'}</p>
-        <p className="text-sm text-red-500 mt-1">Plan ID: {planId ? 'Found' : 'Missing'}</p>
-        <p className="text-sm text-red-500 mt-1">Plan Type: {planType}</p>
+      <div className="w-full p-4 border border-red-200 bg-red-50 rounded-lg">
+        <p className="text-red-600 font-semibold mb-2">⚠️ PayPal Configuration Required</p>
+        <div className="text-sm text-red-600 space-y-1">
+          <p>• Client ID: {clientId ? '✅ Found' : '❌ Missing (NEXT_PUBLIC_PAYPAL_CLIENT_ID)'}</p>
+          <p>• Plan ID: {planId ? '✅ Found' : '❌ Missing (NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID)'}</p>
+          <p className="text-xs text-gray-600 mt-3">
+            💡 Run: <code className="bg-gray-100 px-1 rounded">node setup-paypal-plans.js</code>
+          </p>
+        </div>
       </div>
     )
   }
@@ -121,7 +125,21 @@ export default function PayPalSubscriptionButton({
         }}
         onError={(err) => {
           console.error('❌ PayPal subscription error:', err)
-          onError?.(typeof err === 'string' ? err : 'Payment processing failed')
+          const errorMessage = typeof err === 'string' 
+            ? err 
+            : err && typeof err === 'object' && 'message' in err
+            ? String(err.message)
+            : 'Payment processing failed'
+          
+          // Log detailed error for debugging
+          console.error('PayPal Error Details:', {
+            error: err,
+            planId,
+            userEmail,
+            clientIdSet: Boolean(clientId),
+          })
+          
+          onError?.(errorMessage)
         }}
       />
     </PayPalScriptProvider>
