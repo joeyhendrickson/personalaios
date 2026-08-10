@@ -417,7 +417,7 @@ Thank you!`
                 </li>
                 <li className="flex items-center">
                   <Check className="h-5 w-5 text-blue-500 mr-3" />
-                  <span>Monthly Meeting Access</span>
+                  <span>Weekly Group Meeting</span>
                 </li>
               </ul>
               <Button

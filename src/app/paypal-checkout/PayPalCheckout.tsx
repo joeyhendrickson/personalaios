@@ -97,7 +97,7 @@ export default function PayPalCheckout() {
               </li>
               <li className="flex items-center">
                 <span className="text-green-500 mr-2">✓</span>
-                Monthly Meeting Access
+                Weekly Group Meeting
               </li>
             </ul>
           </CardContent>
