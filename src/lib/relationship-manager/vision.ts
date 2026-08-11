@@ -2,7 +2,7 @@ import 'server-only'
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
-import { openai } from '@/lib/openai'
+import { getOpenAIClient } from '@/lib/openai'
 
 import { generateText } from 'ai'
 
@@ -123,6 +123,7 @@ export async function summarizeMessagePdf(
   const modelId = resolveOpenAIModelId()
   const fileDataUrl = toDataUrl('application/pdf', pdfBuffer)
 
+  const openai = getOpenAIClient()
   const response = await openai.responses.create({
     model: modelId,
     input: [
