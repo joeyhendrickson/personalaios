@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Check, Star, Mail, CreditCard, Zap, ChevronDown, ChevronUp, Gift } from 'lucide-react'
+import { Check, Star, Mail, Zap, ChevronDown, ChevronUp, Gift } from 'lucide-react'
 import Link from 'next/link'
 import {
   monthlyPremiumCoachingDisplay,
@@ -17,7 +17,7 @@ import {
 import { WorkshopBanner } from '@/components/workshop/workshop-banner'
 
 export default function CreateAccountPage() {
-  const [selectedPlan, setSelectedPlan] = useState<'trial' | 'basic' | 'premium'>('trial')
+  const [selectedPlan, setSelectedPlan] = useState<'trial' | 'basic' | 'premium'>('premium')
   const [isProcessing, setIsProcessing] = useState(false)
   const [showForm, setShowForm] = useState<'trial' | 'basic' | 'premium' | null>(null)
   const [showFAQ, setShowFAQ] = useState(false)
@@ -48,18 +48,17 @@ export default function CreateAccountPage() {
       if (email) {
         setFormData((prev) => ({ ...prev, email }))
       }
-      // Automatically show the standard plan form
-      setSelectedPlan('basic')
-      setShowForm('basic')
+      // Automatically show the premium contact form
+      setSelectedPlan('premium')
+      setShowForm('premium')
     }
   }, [])
 
   const handlePlanSelection = (plan: 'trial' | 'basic' | 'premium') => {
-    console.log('Plan selected:', plan)
+    if (plan !== 'premium') return
     setSelectedPlan(plan)
     setShowForm(plan)
     setFormData({ name: '', email: '', password: '', message: '' })
-    console.log('showForm set to:', plan)
   }
 
   const handleRedeemSubmit = async (e: React.FormEvent) => {
@@ -318,16 +317,16 @@ Thank you!`
               <div className="bg-orange-500 text-white p-4 rounded-lg mb-4">
                 <p className="text-lg font-semibold mb-2">⏰ Your 7-day free trial has ended</p>
                 <p className="text-sm">
-                  Continue your journey with Life Stacks! Upgrade to our Standard Plan to keep all
-                  your progress and data.
+                  Continue your journey with Life Stacks! Contact the founder to get Premium Coaching
+                  access and keep all your progress and data.
                 </p>
               </div>
             </div>
           ) : null}
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
             {isExpiredTrial
-              ? 'Choose a plan below to continue using Life Stacks and keep your data.'
-              : 'Build your focus and productivity with Life Stacks.'}
+              ? 'Contact the founder below to continue using Life Stacks and keep your data.'
+              : 'Premium Coaching is the way to access LifeStacks.ai — contact the founder to get started.'}
           </p>
         </div>
 
@@ -381,61 +380,55 @@ Thank you!`
             </CardContent>
           </Card>
 
-          {/* Standard Plan */}
-          <Card
-            className={`relative ${selectedPlan === 'basic' ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}
-          >
+          {/* Standard Plan - DISABLED */}
+          <Card className="relative opacity-60 bg-gray-100">
+            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+              <div className="text-red-600 font-bold text-8xl opacity-50">✕</div>
+            </div>
             <CardHeader className="text-center pb-4">
-              <Badge className="w-fit mx-auto mb-2 bg-blue-100 text-blue-800">RECOMMENDED</Badge>
               <div className="flex items-center justify-center mb-2">
-                <Zap className="h-6 w-6 text-black mr-2" />
+                <Zap className="h-6 w-6 text-gray-400 mr-2" />
               </div>
-              <CardTitle className="text-2xl">Standard</CardTitle>
-              <CardDescription className="text-lg">Ongoing Access</CardDescription>
-              <div className="text-3xl font-bold text-black mt-4">
+              <CardTitle className="text-2xl line-through text-gray-500">Standard</CardTitle>
+              <CardDescription className="text-lg text-gray-400">No longer available</CardDescription>
+              <div className="text-3xl font-bold text-gray-400 mt-4 line-through">
                 {monthlyStandardDisplay}
-                <span className="text-sm font-normal text-gray-500">/month</span>
+                <span className="text-sm font-normal text-gray-400">/month</span>
               </div>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-3 mb-6">
+              <ul className="space-y-3 mb-6 opacity-50">
                 <li className="flex items-center">
-                  <Check className="h-5 w-5 text-blue-500 mr-3" />
-                  <span>Full Access to All Features</span>
+                  <Check className="h-5 w-5 text-gray-400 mr-3" />
+                  <span className="text-gray-500">Full Access to All Features</span>
                 </li>
                 <li className="flex items-center">
-                  <Check className="h-5 w-5 text-blue-500 mr-3" />
-                  <span>Exclusive Life Hacks</span>
+                  <Check className="h-5 w-5 text-gray-400 mr-3" />
+                  <span className="text-gray-500">Exclusive Life Hacks</span>
                 </li>
                 <li className="flex items-center">
-                  <Check className="h-5 w-5 text-blue-500 mr-3" />
-                  <span>AI-powered Insights</span>
+                  <Check className="h-5 w-5 text-gray-400 mr-3" />
+                  <span className="text-gray-500">AI-powered Insights</span>
                 </li>
                 <li className="flex items-center">
-                  <Check className="h-5 w-5 text-blue-500 mr-3" />
-                  <span>Progress Tracking</span>
+                  <Check className="h-5 w-5 text-gray-400 mr-3" />
+                  <span className="text-gray-500">Progress Tracking</span>
                 </li>
                 <li className="flex items-center">
-                  <Check className="h-5 w-5 text-blue-500 mr-3" />
-                  <span>Weekly Group Meeting</span>
+                  <Check className="h-5 w-5 text-gray-400 mr-3" />
+                  <span className="text-gray-500">Weekly Group Meeting</span>
                 </li>
               </ul>
-              <Button
-                onClick={() => handlePlanSelection('basic')}
-                disabled={isProcessing}
-                className="w-full bg-black hover:bg-gray-800 text-white"
-              >
-                <CreditCard className="h-4 w-4 mr-2" />
-                Subscribe with PayPal
-              </Button>
+              <div className="text-center text-sm text-red-600 font-semibold">Not Available</div>
             </CardContent>
           </Card>
 
-          {/* Premium Coaching Plan */}
+          {/* Premium Coaching Plan — only access path */}
           <Card
-            className={`relative ${selectedPlan === 'premium' ? 'ring-2 ring-yellow-500 shadow-lg' : ''}`}
+            className={`relative ring-2 ring-yellow-500 shadow-lg ${selectedPlan === 'premium' ? 'ring-yellow-500' : ''}`}
           >
             <CardHeader className="text-center pb-4">
+              <Badge className="w-fit mx-auto mb-2 bg-yellow-100 text-yellow-800">RECOMMENDED</Badge>
               <div className="flex items-center justify-center mb-2">
                 <Star className="h-6 w-6 text-yellow-500 mr-2" />
                 <Badge className="bg-yellow-100 text-yellow-800">PREMIUM</Badge>
@@ -624,39 +617,36 @@ Thank you!`
             <div className="p-8 pt-0">
               <div className="grid md:grid-cols-2 gap-8">
                 <div>
-                  <h3 className="font-semibold text-lg mb-2 text-black">
-                    What happens after my free trial?
-                  </h3>
+                  <h3 className="font-semibold text-lg mb-2 text-black">How do I get access?</h3>
                   <p className="text-gray-600">
-                    During your final days, you&apos;ll be asked to buy the Standard Plan (
-                    {monthlyStandardDisplay}/month). You&apos;ll receive email notifications 48
-                    hours prior.
+                    Premium Coaching at {monthlyPremiumCoachingDisplay}/month is the only way to
+                    access LifeStacks.ai. Use Contact Founder below and the team will set up your
+                    account and access.
                   </p>
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg mb-2 text-black">Can I cancel anytime?</h3>
                   <p className="text-gray-600">
-                    Yes! You can cancel your subscription at any time. Your access continues until
-                    the end of your current billing period.
+                    Yes! Premium Coaching is managed directly with the founder. You can discuss
+                    billing and access anytime.
                   </p>
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg mb-2 text-black">
-                    What's included in Premium Coaching?
+                    What&apos;s included in Premium Coaching?
                   </h3>
                   <p className="text-gray-600">
-                    Premium Coaching at {monthlyPremiumCoachingDisplay}/month includes everything in
-                    the Standard Plan plus 1-on-1 coaching sessions, group coaching, personalized
-                    strategies, and Founder access and your feedback to improve LifeStacks.ai
+                    Premium Coaching at {monthlyPremiumCoachingDisplay}/month includes full platform
+                    access, 1-on-1 coaching, goal review, personalized support, and founder
+                    access to help improve LifeStacks.ai.
                   </p>
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg mb-2 text-black">How does billing work?</h3>
                   <p className="text-gray-600">
-                    Standard Plan ({monthlyStandardDisplay}/month) is billed monthly through PayPal.
-                    Premium Coaching ({monthlyPremiumCoachingDisplay}/month) is managed directly by
-                    the founder with custom invoicing and access codes. You can manage your Standard
-                    subscription and payment methods directly through your PayPal account.
+                    Premium Coaching ({monthlyPremiumCoachingDisplay}/month) is arranged directly
+                    with the founder via custom invoicing and access codes. Free Trial and Standard
+                    self-serve plans are no longer available.
                   </p>
                 </div>
               </div>
