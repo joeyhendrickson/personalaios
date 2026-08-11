@@ -7,6 +7,7 @@ import { LanguageProvider } from '@/contexts/language-context'
 import { ThemeProvider } from '@/contexts/theme-context'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { DevModeBanner } from '@/components/dev-mode-banner'
+import { getSiteUrl, siteMetadata } from '@/lib/site-metadata'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -19,8 +20,30 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Life Stacks',
-  description: 'Your personal productivity and goal tracking system',
+  metadataBase: new URL(getSiteUrl()),
+  title: {
+    default: siteMetadata.title,
+    template: `%s | ${siteMetadata.name}`,
+  },
+  description: siteMetadata.description,
+  applicationName: siteMetadata.name,
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: getSiteUrl(),
+    siteName: siteMetadata.name,
+    title: siteMetadata.title,
+    description: siteMetadata.description,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: siteMetadata.title,
+    description: siteMetadata.description,
+  },
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/LifeStacks-logo.png',
+  },
 }
 
 export default function RootLayout({
