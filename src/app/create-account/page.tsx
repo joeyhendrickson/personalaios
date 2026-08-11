@@ -611,24 +611,61 @@ Thank you!`
 
           <div
             className={`transition-all duration-300 ease-in-out ${
-              showFAQ ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+              showFAQ ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
             } overflow-hidden`}
           >
             <div className="p-8 pt-0">
               <div className="grid md:grid-cols-2 gap-8">
                 <div>
-                  <h3 className="font-semibold text-lg mb-2 text-black">How do I get access?</h3>
+                  <h3 className="font-semibold text-lg mb-2 text-black">What is LifeStacks?</h3>
                   <p className="text-gray-600">
-                    Premium Coaching at {monthlyPremiumCoachingDisplay}/month is the only way to
-                    access LifeStacks.ai. Use Contact Founder below and the team will set up your
-                    account and access.
+                    LifeStacks is your AI-powered life operating system — stack your goals, habits,
+                    and projects in one place. The dashboard tracks priorities, goals, projects,
+                    tasks, habits, and accomplishments, while the AI Advisor gives personalized
+                    guidance using your real data.
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-2 text-black">Can I cancel anytime?</h3>
+                  <h3 className="font-semibold text-lg mb-2 text-black">What are Life Hacks?</h3>
                   <p className="text-gray-600">
-                    Yes! Premium Coaching is managed directly with the founder. You can discuss
-                    billing and access anytime.
+                    Life Hacks are installable AI tools you add from the Modules hub. Each one
+                    extends LifeStacks for a specific area of life — finance, fitness, relationships,
+                    scheduling, focus, and more. Install only what you need; they work alongside your
+                    dashboard goals and tasks.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-black">
+                    Which Life Hacks are included?
+                  </h3>
+                  <p className="text-gray-600">
+                    Premium Coaching includes every Life Hack, including recent additions such as{' '}
+                    <strong>Dream Catcher</strong> (vision and goal discovery),{' '}
+                    <strong>I Am Present</strong> (past-event processing),{' '}
+                    <strong>Lifestacks Calendar</strong> (Google Calendar scheduling),{' '}
+                    <strong>Dating Management</strong>, <strong>Gratitude Journal</strong>, and{' '}
+                    <strong>Rewards &amp; Self-Care</strong>. You also get finance tools (Market
+                    Advisor, Budget Master, Grocery Optimizer), Fitness Tracker with Google Health
+                    biometrics, Relationship Manager, Focus Enhancer, Life Coach, and Productivity
+                    Analyst.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-black">How does onboarding work?</h3>
+                  <p className="text-gray-600">
+                    New members start with Dream Catcher — a conversational assessment that builds
+                    your vision and generates goals, projects, and tasks on your dashboard. You can
+                    then install Life Hacks from the Modules page as you are ready. The AI Advisor
+                    can pull context from your installed Life Hacks when giving advice.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-black">How do I get access?</h3>
+                  <p className="text-gray-600">
+                    Premium Coaching at {monthlyPremiumCoachingDisplay}/month is the only way to
+                    access LifeStacks.ai. Use Contact Founder below and Joseph will personally set up
+                    your account and access. Free Trial and Standard self-serve signup are no longer
+                    available.
                   </p>
                 </div>
                 <div>
@@ -637,16 +674,26 @@ Thank you!`
                   </h3>
                   <p className="text-gray-600">
                     Premium Coaching at {monthlyPremiumCoachingDisplay}/month includes full platform
-                    access, 1-on-1 coaching, goal review, personalized support, and founder
-                    access to help improve LifeStacks.ai.
+                    access to all Life Hacks and dashboard features, 1-on-1 coaching, goal review,
+                    personalized support, weekly group meeting access, and direct founder access to
+                    help improve LifeStacks.ai.
                   </p>
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg mb-2 text-black">How does billing work?</h3>
                   <p className="text-gray-600">
                     Premium Coaching ({monthlyPremiumCoachingDisplay}/month) is arranged directly
-                    with the founder via custom invoicing and access codes. Free Trial and Standard
-                    self-serve plans are no longer available.
+                    with the founder — no PayPal checkout. Joseph handles invoicing and sends you an
+                    access code to activate your account. The former Standard plan ({monthlyStandardDisplay}
+                    /month) and 7-day Free Trial are retired and no longer offered.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-black">Can I cancel anytime?</h3>
+                  <p className="text-gray-600">
+                    Yes. Premium Coaching is managed directly with the founder. You can discuss
+                    billing, pausing, or canceling access at any time — no automated subscription to
+                    untangle.
                   </p>
                 </div>
               </div>
