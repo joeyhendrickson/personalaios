@@ -1,8 +1,8 @@
 'use client'
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { User } from '@supabase/supabase-js'
-import { createClient } from '@/lib/supabase/client'
+import { User, type AuthChangeEvent, type Session } from '@supabase/supabase-js'
+import { createClientIfConfigured } from '@/lib/supabase/client'
 
 interface AuthContextType {
   user: User | null
@@ -19,7 +19,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   // Memoize Supabase client - creating it on every render caused infinite re-renders
-  const supabase = useMemo(() => (typeof window !== 'undefined' ? createClient() : null), [])
+  const supabase = useMemo(
+    () => (typeof window !== 'undefined' ? createClientIfConfigured() : null),
+    []
+  )
 
   useEffect(() => {
     if (!supabase) {
@@ -54,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
       setUser(session?.user ?? null)
       setLoading(false)
 

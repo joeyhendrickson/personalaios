@@ -317,8 +317,8 @@ Thank you!`
               <div className="bg-orange-500 text-white p-4 rounded-lg mb-4">
                 <p className="text-lg font-semibold mb-2">⏰ Your 7-day free trial has ended</p>
                 <p className="text-sm">
-                  Continue your journey with Life Stacks! Contact the founder to get Premium Coaching
-                  access and keep all your progress and data.
+                  Continue your journey with Life Stacks! Contact the founder to get Premium
+                  Coaching access and keep all your progress and data.
                 </p>
               </div>
             </div>
@@ -374,9 +374,7 @@ Thank you!`
                 </li>
               </ul>
               {/* Button removed as requested */}
-              <div className="text-center text-sm text-red-600 font-semibold">
-                Not Available
-              </div>
+              <div className="text-center text-sm text-red-600 font-semibold">Not Available</div>
             </CardContent>
           </Card>
 
@@ -390,7 +388,9 @@ Thank you!`
                 <Zap className="h-6 w-6 text-gray-400 mr-2" />
               </div>
               <CardTitle className="text-2xl line-through text-gray-500">Standard</CardTitle>
-              <CardDescription className="text-lg text-gray-400">No longer available</CardDescription>
+              <CardDescription className="text-lg text-gray-400">
+                No longer available
+              </CardDescription>
               <div className="text-3xl font-bold text-gray-400 mt-4 line-through">
                 {monthlyStandardDisplay}
                 <span className="text-sm font-normal text-gray-400">/month</span>
@@ -428,7 +428,9 @@ Thank you!`
             className={`relative ring-2 ring-yellow-500 shadow-lg ${selectedPlan === 'premium' ? 'ring-yellow-500' : ''}`}
           >
             <CardHeader className="text-center pb-4">
-              <Badge className="w-fit mx-auto mb-2 bg-yellow-100 text-yellow-800">RECOMMENDED</Badge>
+              <Badge className="w-fit mx-auto mb-2 bg-yellow-100 text-yellow-800">
+                RECOMMENDED
+              </Badge>
               <div className="flex items-center justify-center mb-2">
                 <Star className="h-6 w-6 text-yellow-500 mr-2" />
                 <Badge className="bg-yellow-100 text-yellow-800">PREMIUM</Badge>
@@ -629,9 +631,9 @@ Thank you!`
                   <h3 className="font-semibold text-lg mb-2 text-black">What are Life Hacks?</h3>
                   <p className="text-gray-600">
                     Life Hacks are installable AI tools you add from the Modules hub. Each one
-                    extends LifeStacks for a specific area of life — finance, fitness, relationships,
-                    scheduling, focus, and more. Install only what you need; they work alongside your
-                    dashboard goals and tasks.
+                    extends LifeStacks for a specific area of life — finance, fitness,
+                    relationships, scheduling, focus, and more. Install only what you need; they
+                    work alongside your dashboard goals and tasks.
                   </p>
                 </div>
                 <div>
@@ -651,7 +653,9 @@ Thank you!`
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-2 text-black">How does onboarding work?</h3>
+                  <h3 className="font-semibold text-lg mb-2 text-black">
+                    How does onboarding work?
+                  </h3>
                   <p className="text-gray-600">
                     New members start with Dream Catcher — a conversational assessment that builds
                     your vision and generates goals, projects, and tasks on your dashboard. You can
@@ -663,9 +667,9 @@ Thank you!`
                   <h3 className="font-semibold text-lg mb-2 text-black">How do I get access?</h3>
                   <p className="text-gray-600">
                     Premium Coaching at {monthlyPremiumCoachingDisplay}/month is the only way to
-                    access LifeStacks.ai. Use Contact Founder below and Joseph will personally set up
-                    your account and access. Free Trial and Standard self-serve signup are no longer
-                    available.
+                    access LifeStacks.ai. Use Contact Founder below and Joseph will personally set
+                    up your account and access. Free Trial and Standard self-serve signup are no
+                    longer available.
                   </p>
                 </div>
                 <div>
@@ -684,7 +688,8 @@ Thank you!`
                   <p className="text-gray-600">
                     Premium Coaching ({monthlyPremiumCoachingDisplay}/month) is arranged directly
                     with the founder — no PayPal checkout. Joseph handles invoicing and sends you an
-                    access code to activate your account. The former Standard plan ({monthlyStandardDisplay}
+                    access code to activate your account. The former Standard plan (
+                    {monthlyStandardDisplay}
                     /month) and 7-day Free Trial are retired and no longer offered.
                   </p>
                 </div>
