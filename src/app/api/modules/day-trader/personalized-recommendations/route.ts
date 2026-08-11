@@ -4,13 +4,10 @@ import OpenAI from 'openai'
 import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import { logAfterOpenAIRestCall } from '@/lib/ai/usage-logger'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
-
-// Check if OpenAI API key is available
-if (!process.env.OPENAI_API_KEY) {
-  console.error('[Personalized Recommendations] OpenAI API key not found')
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim()
+  if (!apiKey) return null
+  return new OpenAI({ apiKey })
 }
 
 interface DashboardData {
@@ -55,7 +52,8 @@ export async function POST() {
     console.log('[Personalized Recommendations] Starting request')
 
     // Check if OpenAI API key is available
-    if (!process.env.OPENAI_API_KEY) {
+    const openai = getOpenAIClient()
+    if (!openai) {
       console.error('[Personalized Recommendations] OpenAI API key not found')
       return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
     }

@@ -9,9 +9,11 @@ import {
   buildFallbackNewsTriggeredEntries,
 } from '@/lib/day-trader/event-monitoring'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim()
+  if (!apiKey) return null
+  return new OpenAI({ apiKey })
+}
 
 export async function POST(request: NextRequest) {
   let profitAdvisorAiStart: number | null = null
@@ -20,7 +22,8 @@ export async function POST(request: NextRequest) {
     console.log('[Profit Advisor] Starting request')
 
     // Check if OpenAI API key is configured
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.trim() === '') {
+    const openai = getOpenAIClient()
+    if (!openai) {
       console.error('[Profit Advisor] OpenAI API key not configured')
       return NextResponse.json(
         {
