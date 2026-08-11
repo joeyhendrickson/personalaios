@@ -185,28 +185,38 @@ export async function fetchDailySteps(accessToken: string, date: Date): Promise<
 
 /** Minutes asleep for the night ending on this civil date. */
 export async function fetchSleepMinutes(accessToken: string, date: Date): Promise<number | null> {
-  try {
-    const day = ymd(date)
-    const nextDay = nextYmd(date)
-    const filter = encodeURIComponent(
-      `sleep.interval.civil_end_time >= "${day}" AND sleep.interval.civil_end_time < "${nextDay}"`
-    )
-    const url =
-      `${HEALTH_BASE}/users/me/dataTypes/sleep/dataPoints:reconcile` +
-      `?dataSourceFamily=users/me/dataSourceFamilies/google-wearables&filter=${filter}`
-    const { data } = await axios.get(url, { headers: authHeaders(accessToken) })
-    const points: Array<{
-      sleep?: { metadata?: { main?: boolean }; summary?: { minutesAsleep?: string | number } }
-    }> = data?.dataPoints ?? []
-    if (!points.length) return null
+  const day = ymd(date)
+  const nextDay = nextYmd(date)
+  const filter = encodeURIComponent(
+    `sleep.interval.civil_end_time >= "${day}" AND sleep.interval.civil_end_time < "${nextDay}"`
+  )
 
-    const mains = points.filter((p) => p?.sleep?.metadata?.main)
-    const chosen = mains.length ? [mains[mains.length - 1]] : [points[points.length - 1]]
-    const minutes = Number(chosen[0]?.sleep?.summary?.minutesAsleep ?? 0)
-    return minutes > 0 ? minutes : null
-  } catch {
-    return null
+  const sourceFamilies = [
+    'users/me/dataSourceFamilies/google-wearables',
+    'users/me/dataSourceFamilies/all-sources',
+  ]
+
+  for (const dataSourceFamily of sourceFamilies) {
+    try {
+      const url =
+        `${HEALTH_BASE}/users/me/dataTypes/sleep/dataPoints:reconcile` +
+        `?dataSourceFamily=${dataSourceFamily}&filter=${filter}`
+      const { data } = await axios.get(url, { headers: authHeaders(accessToken) })
+      const points: Array<{
+        sleep?: { metadata?: { main?: boolean }; summary?: { minutesAsleep?: string | number } }
+      }> = data?.dataPoints ?? []
+      if (!points.length) continue
+
+      const mains = points.filter((p) => p?.sleep?.metadata?.main)
+      const chosen = mains.length ? [mains[mains.length - 1]] : [points[points.length - 1]]
+      const minutes = Number(chosen[0]?.sleep?.summary?.minutesAsleep ?? 0)
+      if (minutes > 0) return minutes
+    } catch {
+      // try next source family
+    }
   }
+
+  return null
 }
 
 function restingHeartRateFromPoint(point: Record<string, unknown>): number | null {
