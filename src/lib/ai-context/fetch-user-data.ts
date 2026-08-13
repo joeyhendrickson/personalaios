@@ -259,6 +259,9 @@ const TABLE_ORDER_COLUMNS: Record<string, string[]> = {
   fitness_energy_history: ['recorded_at', 'created_at'],
   daily_nutrition: ['log_date', 'recorded_at', 'created_at'],
   gratitude_journal_entries: ['entry_date', 'created_at'],
+  sobriety_daily_logs: ['log_date', 'created_at'],
+  sobriety_decision_logs: ['drink_date', 'created_at'],
+  sobriety_influence_places: ['last_seen_date', 'updated_at', 'created_at'],
 }
 
 async function fetchModuleTableRows(

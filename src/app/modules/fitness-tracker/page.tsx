@@ -409,6 +409,22 @@ export default function FitnessTrackerModule() {
     loadFitnessData()
   }, [])
 
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab')
+    const allowed = [
+      'overview',
+      'body-analysis',
+      'goals',
+      'stats',
+      'workouts',
+      'nutrition',
+      'progress',
+    ] as const
+    if (tab && (allowed as readonly string[]).includes(tab)) {
+      setActiveTab(tab as (typeof allowed)[number])
+    }
+  }, [])
+
   const loadFitnessData = async () => {
     setIsLoading(true)
     try {

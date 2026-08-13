@@ -399,6 +399,47 @@ function extractNarrative(moduleId: string, data: Record<string, unknown[]>): Mo
   return summary
 }
 
+function extractSobriety(moduleId: string, data: Record<string, unknown[]>): ModuleContextSummary {
+  const summary = emptySummary(moduleId)
+  const logs = pickRows(data, 'sobriety_daily_logs')
+  const decisions = pickRows(data, 'sobriety_decision_logs')
+  const places = pickRows(data, 'sobriety_influence_places')
+  const badges = pickRows(data, 'sobriety_user_badges')
+
+  summary.recordCount = logs.length + decisions.length + places.length + badges.length
+  if (summary.recordCount === 0) return summary
+  summary.hasData = true
+
+  const soberDays = logs.filter((l) => l.drank === false).length
+  const drinkDays = logs.filter((l) => l.drank === true)
+  summary.objectiveFacts.push(
+    `Sobriety logs: ${soberDays} sober day(s), ${drinkDays.length} drinking day(s) in recent history`
+  )
+  for (const log of drinkDays.slice(0, 3)) {
+    summary.objectiveFacts.push(
+      `Drank ${str(log.drink_count)} on ${str(log.log_date)}${log.notes ? ` — ${str(log.notes, 80)}` : ''}`
+    )
+  }
+  const highlighted = places.filter((p) => p.highlighted || p.user_confirmed)
+  if (highlighted.length) {
+    summary.recentHighlights.push(
+      `Influence places: ${highlighted
+        .slice(0, 5)
+        .map((p) => str(p.merchant_name, 40))
+        .join(', ')}`
+    )
+  }
+  for (const d of decisions.slice(0, 3)) {
+    summary.subjectiveNotes.push(
+      `Decision ${str(d.drink_date)} +${str(d.day_offset)}d${d.has_rumination ? ' (rumination)' : ''}: ${str(d.content, 120)}`
+    )
+  }
+  if (badges.length) {
+    summary.recentHighlights.push(`Sobriety badges earned: ${badges.length}`)
+  }
+  return summary
+}
+
 function extractGratitude(moduleId: string, data: Record<string, unknown[]>): ModuleContextSummary {
   const summary = emptySummary(moduleId)
   const entries = pickRows(data, 'gratitude_journal_entries')
@@ -525,6 +566,7 @@ const EXTRACTORS: Record<
   'focus-enhancer': (id, d) => extractFocus(id, d),
   'narrative-integration': (id, d) => extractNarrative(id, d),
   'gratitude-journal': (id, d) => extractGratitude(id, d),
+  'sobriety-tracker': (id, d) => extractSobriety(id, d),
   'grocery-optimizer': (id, d) => extractGrocery(id, d),
   'calendar-ai': (id, d) => extractCalendar(id, d),
   'habit-master': (id, d) => extractHabitMaster(id, d),

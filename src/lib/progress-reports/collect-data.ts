@@ -60,6 +60,7 @@ export async function collectReportContext(
     gratitudeRes,
     dreamRes,
     focusRes,
+    sobrietyRes,
   ] = await Promise.all([
     supabase
       .from('points_ledger')
@@ -164,6 +165,14 @@ export async function collectReportContext(
       .lte('created_at', endIso)
       .order('created_at', { ascending: false })
       .limit(5),
+    supabase
+      .from('sobriety_daily_logs')
+      .select('log_date, drank, drink_count, notes')
+      .eq('user_id', userId)
+      .gte('log_date', startDate)
+      .lte('log_date', endDate)
+      .order('log_date', { ascending: false })
+      .limit(20),
   ])
 
   const totalPoints = pointsRes.data?.reduce((sum, row) => sum + (row.points || 0), 0) || 0
@@ -353,6 +362,14 @@ export async function collectReportContext(
       const key = 'focus-enhancer'
       moduleConclusions[key] = [...(moduleConclusions[key] || []), String(line).slice(0, 200)]
     }
+  }
+
+  for (const log of sobrietyRes.data || []) {
+    const line = log.drank
+      ? `Drank ${log.drink_count || 0} on ${log.log_date}${log.notes ? `: ${log.notes}` : ''}`
+      : `Sober day ${log.log_date}`
+    const key = 'sobriety-tracker'
+    moduleConclusions[key] = [...(moduleConclusions[key] || []), String(line).slice(0, 200)]
   }
 
   const moduleHighlights: ModuleHighlight[] = Object.entries(moduleUsageCount)

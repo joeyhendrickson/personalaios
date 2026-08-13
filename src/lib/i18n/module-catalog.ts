@@ -327,6 +327,38 @@ const catalog: Record<string, Record<Language, ModuleCatalogEntry>> = {
       ],
     },
   },
+  'sobriety-tracker': {
+    en: {
+      title: 'Sobriety Tracker',
+      description:
+        'Log drinking honestly, reinforce the 12 steps, calculate money saved, and see how the days after drinking show up in Fitness Stats and Budget Master.',
+      features: [
+        'Daily sober check-in',
+        '12 Step principles',
+        'Savings calculator',
+        'After-drink fitness stats',
+        'Decision journal',
+        'Badges and points',
+        'Budget Master bar scan',
+        'I Am Present rumination link',
+      ],
+    },
+    es: {
+      title: 'Seguimiento de Sobriedad',
+      description:
+        'Registra el consumo con honestidad, refuerza los 12 pasos, calcula el dinero ahorrado y mira cómo los días posteriores aparecen en Fitness y Presupuesto.',
+      features: [
+        'Check-in diario de sobriedad',
+        'Principios de los 12 pasos',
+        'Calculadora de ahorro',
+        'Estadísticas de fitness después de beber',
+        'Diario de decisiones',
+        'Insignias y puntos',
+        'Análisis de bares en Presupuesto',
+        'Enlace a Estoy Presente',
+      ],
+    },
+  },
 }
 
 export function getModuleCatalogEntry(

@@ -56,6 +56,13 @@ export const MODULE_TABLE_MAPPINGS: Record<string, string[]> = {
     'habit_master_insights',
   ],
   'gratitude-journal': ['gratitude_journal_entries'],
+  'sobriety-tracker': [
+    'sobriety_daily_logs',
+    'sobriety_decision_logs',
+    'sobriety_influence_places',
+    'sobriety_user_badges',
+    'sobriety_profiles',
+  ],
   'narrative-integration': [
     'narrative_integration_sessions',
     'narrative_integration_events',
@@ -122,6 +129,13 @@ export const MODULE_ADVISORY_CATEGORIES: Record<string, string[]> = {
     'vision casting',
   ],
   'gratitude-journal': ['gratitude', 'emotional stability', 'spiritual growth', 'self-care'],
+  'sobriety-tracker': [
+    'health/wellness',
+    'habits improvement',
+    'emotional stability',
+    'self-care',
+    'spending improvement',
+  ],
   'habit-master': ['habits improvement', 'habit management', 'focus', 'emotional stability'],
   'calendar-ai': [
     'calendar integration',

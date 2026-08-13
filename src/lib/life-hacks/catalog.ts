@@ -104,6 +104,14 @@ export const LIFE_HACK_CATALOG: LifeHackModule[] = [
     description: 'Nightly gratitude practice with mood tracking and streaks.',
     coachHint: 'For gratitude, mood awareness, and emotional wellbeing',
   },
+  {
+    id: 'sobriety-tracker',
+    title: 'Sobriety Tracker',
+    category: 'Wellness',
+    description:
+      'Log drinking honestly, reinforce recovery principles, track money saved, and connect after-effects to fitness and spending.',
+    coachHint: 'For sobriety, recovery support, drinking patterns, and alcohol spending awareness',
+  },
 ]
 
 const byId = new Map(LIFE_HACK_CATALOG.map((m) => [m.id, m]))
