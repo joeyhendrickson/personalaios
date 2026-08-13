@@ -13,6 +13,7 @@ const MODULE_LABELS: Record<string, string> = {
   'grocery-optimizer': 'Groceries',
   'narrative-integration': 'I Am Present',
   'gratitude-journal': 'Gratitude',
+  'write-in-my-voice': 'Write In My Voice',
   'focus-enhancer': 'Focus',
   'calendar-ai': 'Calendar',
   'dream-catcher': 'Dreams',

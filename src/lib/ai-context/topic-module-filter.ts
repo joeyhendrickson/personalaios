@@ -108,6 +108,21 @@ const TOPIC_KEYWORDS: Record<string, string[]> = {
     'planning',
   ],
   grocery: ['grocery', 'food shop', 'receipt', 'groceries', 'meal prep'],
+  writing: [
+    'write',
+    'writing',
+    'blog',
+    'post',
+    'email',
+    'newsletter',
+    'content',
+    'draft',
+    'my voice',
+    'tone',
+    'author',
+    'book chapter',
+    'social media post',
+  ],
 }
 
 const BROAD_PHRASES = [
@@ -141,6 +156,7 @@ const TOPIC_TO_MODULES: Record<string, string[]> = {
   vision: ['dream-catcher', 'narrative-integration'],
   productivity: ['calendar-ai', 'habit-master'],
   grocery: ['grocery-optimizer', 'budget-optimizer'],
+  writing: ['write-in-my-voice'],
 }
 
 function normalize(text: string): string {

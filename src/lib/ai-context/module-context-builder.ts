@@ -417,6 +417,40 @@ function extractGratitude(moduleId: string, data: Record<string, unknown[]>): Mo
   return summary
 }
 
+function extractWriteInMyVoice(
+  moduleId: string,
+  data: Record<string, unknown[]>
+): ModuleContextSummary {
+  const summary = emptySummary(moduleId)
+  const profiles = pickRows(data, 'write_in_my_voice_profiles')
+  const samples = pickRows(data, 'write_in_my_voice_samples')
+  const drafts = pickRows(data, 'write_in_my_voice_drafts')
+
+  summary.recordCount = profiles.length + samples.length + drafts.length
+  if (!summary.recordCount) return summary
+  summary.hasData = true
+
+  const profile = profiles[0] as Record<string, unknown> | undefined
+  const vp = profile?.voice_profile as Record<string, unknown> | undefined
+  if (vp) {
+    summary.objectiveFacts.push(
+      `Writing voice: ${str(vp.tone)} tone, ${str(vp.writing_style)} style`
+    )
+    const themes = Array.isArray(vp.common_themes) ? (vp.common_themes as string[]) : []
+    if (themes.length) summary.recentHighlights.push(`Voice themes: ${themes.slice(0, 5).join(', ')}`)
+  }
+
+  summary.objectiveFacts.push(`${samples.length} writing samples indexed`)
+  if (drafts.length) {
+    const latest = drafts[0] as Record<string, unknown>
+    summary.recentHighlights.push(
+      `Latest draft (${str(latest.material_type)}): ${str(latest.prompt, 80)}`
+    )
+  }
+
+  return summary
+}
+
 function extractGrocery(moduleId: string, data: Record<string, unknown[]>): ModuleContextSummary {
   const summary = emptySummary(moduleId)
   const receipts = pickRows(data, 'grocery_receipts')
@@ -525,6 +559,7 @@ const EXTRACTORS: Record<
   'focus-enhancer': (id, d) => extractFocus(id, d),
   'narrative-integration': (id, d) => extractNarrative(id, d),
   'gratitude-journal': (id, d) => extractGratitude(id, d),
+  'write-in-my-voice': (id, d) => extractWriteInMyVoice(id, d),
   'grocery-optimizer': (id, d) => extractGrocery(id, d),
   'calendar-ai': (id, d) => extractCalendar(id, d),
   'habit-master': (id, d) => extractHabitMaster(id, d),
