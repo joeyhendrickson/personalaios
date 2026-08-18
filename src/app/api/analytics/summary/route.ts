@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { sumEarnedPoints } from '@/lib/points/sum-earned-points'
 
 export async function GET() {
   try {
@@ -15,13 +16,15 @@ export async function GET() {
 
     console.log('Fetching analytics for user:', user.id)
 
-    // Fetch total points
+    // Fetch earned points (ignore reversals/adjustments)
     const { data: pointsData } = await supabase
       .from('points_ledger')
       .select('points, created_at')
       .eq('user_id', user.id)
+      .gt('points', 0)
+      .limit(20000)
 
-    const totalPoints = pointsData?.reduce((sum, entry) => sum + entry.points, 0) || 0
+    const totalPoints = sumEarnedPoints(pointsData)
 
     // Calculate average points per day
     const oldestPoint = pointsData?.[pointsData.length - 1]?.created_at

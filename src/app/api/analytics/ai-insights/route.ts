@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
+import { sumEarnedPoints } from '@/lib/points/sum-earned-points'
 
 export async function POST() {
   try {
@@ -36,7 +37,12 @@ export async function POST() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(20),
-      supabase.from('points_ledger').select('points, created_at').eq('user_id', user.id),
+      supabase
+        .from('points_ledger')
+        .select('points, created_at')
+        .eq('user_id', user.id)
+        .gt('points', 0)
+        .limit(20000),
     ])
 
     // Calculate statistics
@@ -51,7 +57,7 @@ export async function POST() {
     const totalHabits = habits?.length || 0
     const totalPriorities = priorities?.length || 0
 
-    const totalPoints = pointsData?.reduce((sum, p) => sum + p.points, 0) || 0
+    const totalPoints = sumEarnedPoints(pointsData)
 
     // Create comprehensive prompt for AI analysis
     const analysisPrompt = `You are an expert life coach and productivity analyst. Analyze this user's activity data from their Life Stacks productivity system and provide deep insights.

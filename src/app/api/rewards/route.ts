@@ -4,6 +4,7 @@ import {
   assertRewardDescriptionUnique,
   dedupeRewardsForAvailableByDescription,
 } from '@/lib/rewards/reward-description'
+import { sumEarnedPoints } from '@/lib/points/sum-earned-points'
 import { z } from 'zod'
 
 // Schema for creating a custom reward
@@ -107,17 +108,19 @@ export async function GET() {
       ) || []
     )
 
-    // Get user's total points earned (sum all points from points_ledger)
+    // Total earned = positive ledger entries only (ignore reversals/adjustments).
     const { data: allPointsData, error: pointsError } = await supabase
       .from('points_ledger')
       .select('points')
       .eq('user_id', user.id)
+      .gt('points', 0)
+      .limit(20000)
 
     if (pointsError) {
       console.error('Error fetching points:', pointsError)
     }
 
-    const totalPoints = allPointsData?.reduce((sum, entry) => sum + (entry.points || 0), 0) || 0
+    const totalPoints = sumEarnedPoints(allPointsData)
 
     // Calculate total points spent on redeemed awards
     // Sum up all points from rewards that are redeemed (is_redeemed = true)

@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { createClient } from '@/lib/supabase/server'
+import { sumEarnedPoints } from '@/lib/points/sum-earned-points'
 import type { ModuleHighlight, ProgressReportStats } from './types'
 import { labelForModule } from './module-labels'
 
@@ -166,7 +167,7 @@ export async function collectReportContext(
       .limit(5),
   ])
 
-  const totalPoints = pointsRes.data?.reduce((sum, row) => sum + (row.points || 0), 0) || 0
+  const totalPoints = sumEarnedPoints(pointsRes.data)
 
   const categoryPoints: Record<string, number> = {}
   for (const task of tasksCompletedRes.data || []) {
