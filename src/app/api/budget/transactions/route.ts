@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     // First, get all bank account IDs for this user's connections
     const { data: userConnections, error: connectionsError } = await supabase
       .from('bank_connections')
-      .select('id')
+      .select('id, status')
       .eq('user_id', user.id)
 
     if (connectionsError) {
@@ -47,12 +47,14 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const connectionIds = userConnections.map((c) => c.id)
+    const activeConnections = userConnections.filter((connection) => connection.status === 'active')
+    const connectionsForLedger = activeConnections.length > 0 ? activeConnections : userConnections
+    const connectionIds = connectionsForLedger.map((c) => c.id)
 
     // Get bank account IDs for these connections
     const { data: bankAccounts, error: accountsError } = await supabase
       .from('bank_accounts')
-      .select('id, name, official_name, type, subtype, bank_connection_id')
+      .select('id, name, official_name, type, subtype, mask, bank_connection_id')
       .in('bank_connection_id', connectionIds)
 
     if (accountsError) {
@@ -93,8 +95,8 @@ export async function GET(request: NextRequest) {
       query = query.contains('category', [category])
     }
 
-    // Order by date descending (newest first)
-    query = query.order('date', { ascending: false })
+    // Order by date descending (newest first), then id for stable pages
+    query = query.order('date', { ascending: false }).order('id', { ascending: false })
 
     // Apply range for pagination (Supabase requires this)
     query = query.range(offset, offset + limit - 1)
@@ -260,6 +262,7 @@ export async function GET(request: NextRequest) {
               official_name: account.official_name ?? null,
               type: account.type,
               subtype: account.subtype ?? null,
+              mask: account.mask ?? null,
             }
           : null,
       }

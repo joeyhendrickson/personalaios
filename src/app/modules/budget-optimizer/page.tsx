@@ -44,6 +44,7 @@ import {
   Copy,
 } from 'lucide-react'
 import { findDuplicateTransactions } from '@/lib/budget/find-duplicate-transactions'
+import { collapseLedgerDuplicates } from '@/lib/budget/collapse-ledger-duplicates'
 import { ledgerDisplayAmount } from '@/lib/budget/ledger-display'
 import {
   classifyTransactionForLedger,
@@ -175,6 +176,7 @@ interface Transaction {
     type: string
     official_name?: string | null
     subtype?: string | null
+    mask?: string | null
   }
   transaction_categorizations: Array<{
     budget_categories: {
@@ -1674,11 +1676,12 @@ export default function BudgetOptimizerModule() {
         seen.add(t.id)
         return true
       })
+      const visibleTransactions = collapseLedgerDuplicates(uniqueTransactions)
 
-      setTransactions(uniqueTransactions)
+      setTransactions(visibleTransactions)
       setTransactionsPagination({
         hasMore: false,
-        total: lastTotal ?? uniqueTransactions.length,
+        total: lastTotal ?? visibleTransactions.length,
         nextOffset: 0,
       })
     } catch (error) {
@@ -1732,7 +1735,7 @@ export default function BudgetOptimizerModule() {
       if (page.length > 0) {
         const seen = new Set(transactions.map((t) => t.id))
         const newOnes = page.filter((t: Transaction) => !seen.has(t.id))
-        setTransactions((prev) => [...prev, ...newOnes])
+        setTransactions((prev) => collapseLedgerDuplicates([...prev, ...newOnes]))
       }
 
       setTransactionsPagination((prev) => ({
