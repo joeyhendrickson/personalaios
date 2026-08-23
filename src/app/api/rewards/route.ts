@@ -4,6 +4,7 @@ import {
   assertRewardDescriptionUnique,
   dedupeRewardsForAvailableByDescription,
 } from '@/lib/rewards/reward-description'
+import { computeRewardsBalance } from '@/lib/rewards/points-balance'
 import { z } from 'zod'
 
 // Schema for creating a custom reward
@@ -107,28 +108,25 @@ export async function GET() {
       ) || []
     )
 
-    // Get user's total points earned (sum all points from points_ledger)
+    // Total earned = positive ledger entries only (ignore reversals/adjustments).
     const { data: allPointsData, error: pointsError } = await supabase
       .from('points_ledger')
       .select('points')
       .eq('user_id', user.id)
+      .gt('points', 0)
+      .limit(20000)
 
     if (pointsError) {
       console.error('Error fetching points:', pointsError)
     }
 
-    const totalPoints = allPointsData?.reduce((sum, entry) => sum + (entry.points || 0), 0) || 0
-
-    // Calculate total points spent on redeemed awards
-    // Sum up all points from rewards that are redeemed (is_redeemed = true)
     const redeemedRewards = userRewards?.filter((ur) => ur.is_redeemed) || []
-    const totalRedeemed = redeemedRewards.reduce((sum, userReward) => {
-      const pointCost = userReward.custom_point_cost || userReward.rewards?.point_cost || 0
-      return sum + pointCost
-    }, 0)
-
-    // Calculate current available points
-    const currentPoints = totalPoints - totalRedeemed
+    const { totalPoints, totalRedeemed, currentPoints } = computeRewardsBalance(
+      allPointsData,
+      redeemedRewards.map(
+        (userReward) => userReward.custom_point_cost || userReward.rewards?.point_cost || 0
+      )
+    )
 
     console.log('Main rewards API - Points calculation:', {
       totalPoints,

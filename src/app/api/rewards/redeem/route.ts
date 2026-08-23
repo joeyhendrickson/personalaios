@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { computeRewardsBalance } from '@/lib/rewards/points-balance'
 import { z } from 'zod'
 
 const redeemRewardSchema = z.object({
@@ -53,21 +54,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Reward not unlocked yet' }, { status: 400 })
     }
 
-    // Get total earned points (sum all positive points from points_ledger)
+    // Get total earned points (positive ledger entries only)
     const { data: allPointsData, error: pointsError } = await supabase
       .from('points_ledger')
       .select('points')
       .eq('user_id', user.id)
+      .gt('points', 0)
+      .limit(20000)
 
     if (pointsError) {
       console.error('Error fetching points:', pointsError)
       return NextResponse.json({ error: 'Failed to fetch points' }, { status: 500 })
     }
 
-    const totalEarnedPoints =
-      allPointsData?.reduce((sum, entry) => sum + (entry.points || 0), 0) || 0
-
-    // Get total points spent on redeemed rewards
     const { data: userRewards, error: userRewardsError } = await supabase
       .from('user_rewards')
       .select('custom_point_cost, rewards(point_cost), is_redeemed')
@@ -79,13 +78,19 @@ export async function POST(request: NextRequest) {
     }
 
     const redeemedRewards = userRewards?.filter((ur) => ur.is_redeemed) || []
-    const totalRedeemed = redeemedRewards.reduce((sum, userReward) => {
-      const reward = Array.isArray(userReward.rewards) ? userReward.rewards[0] : userReward.rewards
-      const pointCost = userReward.custom_point_cost || reward?.point_cost || 0
-      return sum + pointCost
-    }, 0)
-
-    const currentPoints = totalEarnedPoints - totalRedeemed
+    const {
+      totalPoints: totalEarnedPoints,
+      totalRedeemed,
+      currentPoints,
+    } = computeRewardsBalance(
+      allPointsData,
+      redeemedRewards.map((userReward) => {
+        const reward = Array.isArray(userReward.rewards)
+          ? userReward.rewards[0]
+          : userReward.rewards
+        return userReward.custom_point_cost || reward?.point_cost || 0
+      })
+    )
     const pointCost = userReward.is_custom
       ? userReward.custom_point_cost
       : userReward.rewards.point_cost
