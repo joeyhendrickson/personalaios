@@ -14,6 +14,7 @@ import {
   retrieveAdvisorEvidenceMultiPass,
   type MultiPassRetrievalResult,
 } from './multi-pass-retrieve'
+import { shouldUpgradeToMultiPass } from './should-upgrade-multipass'
 
 async function logRetrieveEvent(input: {
   userId: string
@@ -48,22 +49,23 @@ export async function retrieveAdvisorEvidence(input: {
     return { chunks: [], usedRag: false, latencyMs: Date.now() - start, indexFresh: false }
   }
 
-  const supabase = createAdminClient()
-  const { data: cacheRow } = await supabase
-    .from('user_context_cache')
-    .select('last_vector_index_at, vector_index_status, vector_chunk_count')
-    .eq('user_id', input.userId)
-    .single()
-
   let indexAgeHours: number | undefined
   let indexFresh = false
-  if (cacheRow?.last_vector_index_at) {
-    indexAgeHours =
-      (Date.now() - new Date(cacheRow.last_vector_index_at as string).getTime()) / (1000 * 60 * 60)
-    indexFresh = indexAgeHours <= 24 && cacheRow.vector_index_status === 'success'
-  }
 
   try {
+    const supabase = createAdminClient()
+    const { data: cacheRow } = await supabase
+      .from('user_context_cache')
+      .select('last_vector_index_at, vector_index_status, vector_chunk_count')
+      .eq('user_id', input.userId)
+      .single()
+
+    if (cacheRow?.last_vector_index_at) {
+      indexAgeHours =
+        (Date.now() - new Date(cacheRow.last_vector_index_at as string).getTime()) /
+        (1000 * 60 * 60)
+      indexFresh = indexAgeHours <= 24 && cacheRow.vector_index_status === 'success'
+    }
     const queryVector = await embedText(input.question)
     if (!queryVector) {
       return {
@@ -128,8 +130,8 @@ export function countStrongMatches(chunks: AdvisorRetrievedChunk[]): number {
 }
 
 /**
- * Smart retrieval: Attempts single-pass first, upgrades to multi-pass if confidence is low.
- * This is the main entry point for all advisor retrievals.
+ * Smart retrieval: single-pass first. Extra passes only if the first pass found
+ * usable but weak chunks. RAG failures never throw — the advisor still answers.
  */
 export async function retrieveAdvisorEvidenceSmart(input: {
   userId: string
@@ -138,77 +140,59 @@ export async function retrieveAdvisorEvidenceSmart(input: {
   forceMultiPass?: boolean
   confidenceThreshold?: number
 }): Promise<AdvisorVectorRetrieveResult | MultiPassRetrievalResult> {
-  const confidenceThreshold = input.confidenceThreshold ?? 0.8
+  const empty: AdvisorVectorRetrieveResult = {
+    chunks: [],
+    usedRag: false,
+    latencyMs: 0,
+    indexFresh: false,
+  }
 
-  // Force multi-pass if requested
-  if (input.forceMultiPass) {
-    return await retrieveAdvisorEvidenceMultiPass({
+  try {
+    if (!isAdvisorRagEnabled()) return empty
+
+    const confidenceThreshold = input.confidenceThreshold ?? 0.8
+
+    if (input.forceMultiPass) {
+      try {
+        return await retrieveAdvisorEvidenceMultiPass({
+          userId: input.userId,
+          question: input.question,
+          moduleIds: input.moduleIds,
+          maxPasses: 3,
+          confidenceThreshold,
+        })
+      } catch (error) {
+        console.error('[Smart RAG] Forced multi-pass failed:', error)
+        return empty
+      }
+    }
+
+    const singlePassResult = await retrieveAdvisorEvidence({
       userId: input.userId,
       question: input.question,
       moduleIds: input.moduleIds,
-      maxPasses: 3,
-      confidenceThreshold,
     })
+
+    if (!shouldUpgradeToMultiPass(singlePassResult, confidenceThreshold)) {
+      return singlePassResult
+    }
+
+    console.log('[Smart RAG] Weak first pass. Upgrading to multi-pass.')
+
+    try {
+      return await retrieveAdvisorEvidenceMultiPass({
+        userId: input.userId,
+        question: input.question,
+        moduleIds: input.moduleIds,
+        maxPasses: 3,
+        confidenceThreshold,
+      })
+    } catch (error) {
+      console.error('[Smart RAG] Multi-pass failed; using single-pass result:', error)
+      return singlePassResult
+    }
+  } catch (error) {
+    console.error('[Smart RAG] Retrieval failed; continuing without RAG:', error)
+    return empty
   }
-
-  // Step 1: Try single-pass retrieval
-  const singlePassResult = await retrieveAdvisorEvidence({
-    userId: input.userId,
-    question: input.question,
-    moduleIds: input.moduleIds,
-  })
-
-  // Step 2: Assess quality
-  const quality = assessRetrievalQuality(singlePassResult)
-
-  // Step 3: If quality is low, upgrade to multi-pass
-  if (quality < confidenceThreshold) {
-    console.log(
-      `[Smart RAG] Single-pass quality ${(quality * 100).toFixed(0)}% < ${(confidenceThreshold * 100).toFixed(0)}% threshold. Upgrading to multi-pass.`
-    )
-
-    return await retrieveAdvisorEvidenceMultiPass({
-      userId: input.userId,
-      question: input.question,
-      moduleIds: input.moduleIds,
-      maxPasses: 3,
-      confidenceThreshold,
-    })
-  }
-
-  // Single-pass was sufficient
-  console.log(
-    `[Smart RAG] Single-pass quality ${(quality * 100).toFixed(0)}% ≥ ${(confidenceThreshold * 100).toFixed(0)}% threshold. Using single-pass.`
-  )
-  return singlePassResult
-}
-
-/**
- * Assesses retrieval quality (0-1 scale) based on:
- * - Number of strong matches (>0.75)
- * - Average score
- * - Total chunks included in prompt
- */
-function assessRetrievalQuality(result: AdvisorVectorRetrieveResult): number {
-  if (!result.usedRag || result.chunks.length === 0) {
-    return 0.3 // Low confidence when no retrieval
-  }
-
-  const includedChunks = result.chunks.filter((c) => c.includedInPrompt)
-  if (includedChunks.length === 0) {
-    return 0.4
-  }
-
-  const strongMatches = countStrongMatches(result.chunks)
-  const avgScore =
-    includedChunks.reduce((sum, c) => sum + c.score, 0) / includedChunks.length
-
-  // Quality formula:
-  // - 50% weight on strong match ratio
-  // - 40% weight on average score
-  // - 10% bonus for volume (up to 8 chunks)
-  const strongRatio = strongMatches / includedChunks.length
-  const volumeBonus = Math.min(includedChunks.length / 8, 1) * 0.1
-
-  return Math.min(strongRatio * 0.5 + avgScore * 0.4 + volumeBonus, 1)
 }

@@ -377,21 +377,23 @@ export async function assembleAIContext(
   }
 
   if (lastUserMessage) {
-    // Smart retrieval: single-pass by default, upgrades to multi-pass if confidence < 80%
-    retrieval = await retrieveAdvisorEvidenceSmart({
-      userId,
-      question: lastUserMessage,
-      moduleIds: modulesIncluded,
-      confidenceThreshold: 0.8,
-    })
-    if (retrieval.usedRag) {
-      layers.push('rag')
-    }
-    // Log if multi-pass was used
-    if ('passes' in retrieval && retrieval.passes.length > 1) {
-      console.log(
-        `[Smart RAG] Used multi-pass retrieval: ${retrieval.passes.length} passes, ${retrieval.totalNewChunks} unique chunks`
-      )
+    try {
+      retrieval = await retrieveAdvisorEvidenceSmart({
+        userId,
+        question: lastUserMessage,
+        moduleIds: modulesIncluded,
+        confidenceThreshold: 0.8,
+      })
+      if (retrieval.usedRag) {
+        layers.push('rag')
+      }
+      if ('passes' in retrieval && retrieval.passes.length > 1) {
+        console.log(
+          `[Smart RAG] Used multi-pass retrieval: ${retrieval.passes.length} passes, ${retrieval.totalNewChunks} unique chunks`
+        )
+      }
+    } catch (error) {
+      console.error('[Advisor] RAG assembly failed; continuing without retrieved chunks:', error)
     }
   }
 

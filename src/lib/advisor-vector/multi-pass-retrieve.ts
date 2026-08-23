@@ -37,6 +37,33 @@ export async function retrieveAdvisorEvidenceMultiPass(input: {
   confidenceThreshold?: number
 }): Promise<MultiPassRetrievalResult> {
   const startTime = Date.now()
+  try {
+    return await retrieveAdvisorEvidenceMultiPassUnsafe(input, startTime)
+  } catch (error) {
+    console.error('[Multi-pass RAG] Retrieval failed:', error)
+    return {
+      chunks: [],
+      usedRag: false,
+      latencyMs: Date.now() - startTime,
+      indexFresh: false,
+      passes: [],
+      totalNewChunks: 0,
+      converged: true,
+      convergenceReason: 'no_new_chunks',
+    }
+  }
+}
+
+async function retrieveAdvisorEvidenceMultiPassUnsafe(
+  input: {
+    userId: string
+    question: string
+    moduleIds?: string[]
+    maxPasses?: number
+    confidenceThreshold?: number
+  },
+  startTime: number
+): Promise<MultiPassRetrievalResult> {
   const maxPasses = input.maxPasses ?? 3
   const confidenceThreshold = input.confidenceThreshold ?? 0.8
 
@@ -174,12 +201,22 @@ async function executeRetrievalPass(input: {
     }
   }
 
-  const matches = await queryAdvisorVectors(
-    input.userId,
-    queryVector,
-    DEFAULT_TOP_K,
-    input.moduleIds
-  )
+  let matches: Awaited<ReturnType<typeof queryAdvisorVectors>> = []
+  try {
+    matches = await queryAdvisorVectors(input.userId, queryVector, DEFAULT_TOP_K, input.moduleIds)
+  } catch (error) {
+    console.error('[Multi-pass RAG] Pinecone query failed:', error)
+    return {
+      passNumber: input.passNumber,
+      query: input.query,
+      queryRefinement: input.passNumber > 1 ? 'Pinecone query failed' : null,
+      chunks: [],
+      newChunksFound: 0,
+      strongMatches: 0,
+      avgScore: 0,
+      durationMs: Date.now() - passStart,
+    }
+  }
 
   const chunks: AdvisorRetrievedChunk[] = matches.map((m, i) => ({
     chunkId: m.chunkId,
@@ -193,7 +230,8 @@ async function executeRetrievalPass(input: {
 
   const newChunks = chunks.filter((c) => !input.seenChunkIds.has(c.chunkId))
   const strongMatches = chunks.filter((c) => c.score >= STRONG_MATCH_SCORE).length
-  const avgScore = chunks.length > 0 ? chunks.reduce((sum, c) => sum + c.score, 0) / chunks.length : 0
+  const avgScore =
+    chunks.length > 0 ? chunks.reduce((sum, c) => sum + c.score, 0) / chunks.length : 0
 
   const refinement =
     input.passNumber > 1
@@ -258,12 +296,12 @@ async function refineQueryBasedOnResults(input: {
 
 function calculatePassQuality(pass: RetrievalPass): number {
   if (pass.chunks.length === 0) return 0
-  
+
   const strongRatio = pass.strongMatches / Math.max(pass.chunks.length, 1)
   const avgScoreWeight = pass.avgScore
-  const volumeBonus = Math.min(pass.chunks.filter(c => c.includedInPrompt).length / 8, 1) * 0.1
-  
-  return Math.min((strongRatio * 0.5 + avgScoreWeight * 0.4 + volumeBonus), 1)
+  const volumeBonus = Math.min(pass.chunks.filter((c) => c.includedInPrompt).length / 8, 1) * 0.1
+
+  return Math.min(strongRatio * 0.5 + avgScoreWeight * 0.4 + volumeBonus, 1)
 }
 
 function buildMultiPassResult(input: {

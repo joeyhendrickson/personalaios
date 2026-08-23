@@ -124,38 +124,44 @@ export async function queryAdvisorVectors(
     filter.module_id = { $eq: moduleIds[0] }
   }
 
-  const result = await index.namespace(advisorNamespace(userId)).query({
-    vector: queryVector,
-    topK,
-    includeMetadata: true,
-    filter,
-  })
-
-  const matches: PineconeQueryMatch[] = []
-  for (const m of result.matches ?? []) {
-    const meta = m.metadata as Record<string, unknown> | undefined
-    const metaUserId = typeof meta?.user_id === 'string' ? meta.user_id : ''
-    if (metaUserId && metaUserId !== userId) continue
-
-    const chunkId = typeof meta?.chunk_id === 'string' ? meta.chunk_id : ''
-    if (!chunkId) continue
-
-    matches.push({
-      chunkId,
-      label: typeof meta?.label === 'string' ? meta.label : chunkId,
-      moduleId: typeof meta?.module_id === 'string' && meta.module_id ? meta.module_id : undefined,
-      sourceType: typeof meta?.source_type === 'string' ? meta.source_type : 'module_fact',
-      preview: typeof meta?.preview === 'string' ? meta.preview : '',
-      score: m.score ?? 0,
+  try {
+    const result = await index.namespace(advisorNamespace(userId)).query({
+      vector: queryVector,
+      topK,
+      includeMetadata: true,
+      filter,
     })
-  }
 
-  if (moduleIds && moduleIds.length > 1) {
-    const allowed = new Set(moduleIds)
-    return matches.filter(
-      (m) => !m.moduleId || allowed.has(m.moduleId) || m.moduleId === 'dashboard'
-    )
-  }
+    const matches: PineconeQueryMatch[] = []
+    for (const m of result.matches ?? []) {
+      const meta = m.metadata as Record<string, unknown> | undefined
+      const metaUserId = typeof meta?.user_id === 'string' ? meta.user_id : ''
+      if (metaUserId && metaUserId !== userId) continue
 
-  return matches
+      const chunkId = typeof meta?.chunk_id === 'string' ? meta.chunk_id : ''
+      if (!chunkId) continue
+
+      matches.push({
+        chunkId,
+        label: typeof meta?.label === 'string' ? meta.label : chunkId,
+        moduleId:
+          typeof meta?.module_id === 'string' && meta.module_id ? meta.module_id : undefined,
+        sourceType: typeof meta?.source_type === 'string' ? meta.source_type : 'module_fact',
+        preview: typeof meta?.preview === 'string' ? meta.preview : '',
+        score: m.score ?? 0,
+      })
+    }
+
+    if (moduleIds && moduleIds.length > 1) {
+      const allowed = new Set(moduleIds)
+      return matches.filter(
+        (m) => !m.moduleId || allowed.has(m.moduleId) || m.moduleId === 'dashboard'
+      )
+    }
+
+    return matches
+  } catch (error) {
+    console.error('[Advisor RAG] Pinecone query failed:', error)
+    return []
+  }
 }
