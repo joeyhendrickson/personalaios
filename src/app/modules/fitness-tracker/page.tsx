@@ -290,6 +290,7 @@ export default function FitnessTrackerModule() {
         'Squat',
         'Deadlift',
         'Pull-ups',
+        'Push-ups',
         'Military Press',
         'Bicep Curls',
         'Sit-ups',
