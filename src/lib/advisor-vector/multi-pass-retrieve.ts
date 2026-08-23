@@ -193,7 +193,8 @@ async function executeRetrievalPass(input: {
 
   const newChunks = chunks.filter((c) => !input.seenChunkIds.has(c.chunkId))
   const strongMatches = chunks.filter((c) => c.score >= STRONG_MATCH_SCORE).length
-  const avgScore = chunks.length > 0 ? chunks.reduce((sum, c) => sum + c.score, 0) / chunks.length : 0
+  const avgScore =
+    chunks.length > 0 ? chunks.reduce((sum, c) => sum + c.score, 0) / chunks.length : 0
 
   const refinement =
     input.passNumber > 1
@@ -258,12 +259,12 @@ async function refineQueryBasedOnResults(input: {
 
 function calculatePassQuality(pass: RetrievalPass): number {
   if (pass.chunks.length === 0) return 0
-  
+
   const strongRatio = pass.strongMatches / Math.max(pass.chunks.length, 1)
   const avgScoreWeight = pass.avgScore
-  const volumeBonus = Math.min(pass.chunks.filter(c => c.includedInPrompt).length / 8, 1) * 0.1
-  
-  return Math.min((strongRatio * 0.5 + avgScoreWeight * 0.4 + volumeBonus), 1)
+  const volumeBonus = Math.min(pass.chunks.filter((c) => c.includedInPrompt).length / 8, 1) * 0.1
+
+  return Math.min(strongRatio * 0.5 + avgScoreWeight * 0.4 + volumeBonus, 1)
 }
 
 function buildMultiPassResult(input: {

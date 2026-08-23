@@ -284,12 +284,20 @@ export default function SobrietyTrackerPage() {
   }
 
   const toggleHighlight = async (place: SobrietyInfluencePlace) => {
-    await fetch('/api/sobriety-tracker/places', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: place.id, highlighted: !place.highlighted }),
-    })
-    await load()
+    try {
+      const response = await fetch('/api/sobriety-tracker/places', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: place.id, highlighted: !place.highlighted }),
+      })
+      const json = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(json.error || 'Could not update highlight')
+      }
+      await load()
+    } catch (error) {
+      flash(error instanceof Error ? error.message : 'Could not update highlight')
+    }
   }
 
   const drinkDays = useMemo(() => (data?.logs || []).filter((l) => l.drank), [data])
