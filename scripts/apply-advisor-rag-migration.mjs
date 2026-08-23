@@ -18,7 +18,9 @@ async function main() {
     console.error('Then run:')
     console.error('  DATABASE_URL="postgresql://..." node scripts/apply-advisor-rag-migration.mjs')
     console.error('')
-    console.error('Or paste supabase/migrations/091_advisor_vector_index.sql into Supabase SQL Editor.')
+    console.error(
+      'Or paste supabase/migrations/091_advisor_vector_index.sql into Supabase SQL Editor.'
+    )
     process.exit(1)
   }
 
@@ -31,7 +33,10 @@ async function main() {
   }
 
   const sql = readFileSync(sqlPath, 'utf8')
-  const client = new pg.default.Client({ connectionString: databaseUrl, ssl: { rejectUnauthorized: false } })
+  const client = new pg.default.Client({
+    connectionString: databaseUrl,
+    ssl: { rejectUnauthorized: false },
+  })
 
   try {
     await client.connect()

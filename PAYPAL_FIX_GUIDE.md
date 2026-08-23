@@ -1,9 +1,11 @@
 # PayPal Payment Error Fix
 
 ## Problem
+
 Getting "Payment failed: Payment processing failed" on the Complete Your Payment page.
 
 ## Root Cause
+
 Missing PayPal subscription plan IDs in environment configuration.
 
 ## Quick Fix (5 minutes)
@@ -15,11 +17,13 @@ node setup-paypal-plans.js
 ```
 
 When prompted, enter:
+
 - **Mode**: `sandbox` (for testing) or `live` (for production)
 - **Client ID**: Your PayPal app Client ID
 - **Client Secret**: Your PayPal app Secret
 
 **Where to find credentials:**
+
 1. Go to [PayPal Developer Dashboard](https://developer.paypal.com/dashboard/applications)
 2. Select your app (or create one)
 3. Copy Client ID and Secret
@@ -77,11 +81,13 @@ echo "Basic Plan: ${NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID:+Found}"
 ## Testing with Sandbox
 
 ### Create Sandbox Test Account
+
 1. Go to [PayPal Sandbox Accounts](https://developer.paypal.com/dashboard/accounts)
 2. Create a "Personal" account for testing
 3. Note the email and password
 
 ### Test Flow
+
 1. Go to your payment page
 2. Click PayPal button
 3. Log in with sandbox test account
@@ -91,18 +97,22 @@ echo "Basic Plan: ${NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID:+Found}"
 ## Troubleshooting
 
 ### Error: "PayPal Configuration Missing"
+
 - Run `node setup-paypal-plans.js`
 - Or check `.env.local` has all required variables
 
 ### Error: "RESOURCE_NOT_FOUND"
+
 - Plan ID is invalid or for wrong environment (sandbox vs live)
 - Re-run setup script for correct environment
 
 ### Error: "Authentication failed"
+
 - Client Secret is wrong
 - Check you're using correct credentials for mode (sandbox/live)
 
 ### Payment succeeds but user not activated
+
 - Check webhook is configured: `node setup-paypal-webhook.js`
 - Or verify `/api/subscriptions/link-paypal` is working
 
@@ -130,14 +140,14 @@ If still having issues:
 
 ## Quick Reference
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_PAYPAL_CLIENT_ID` | ✅ | PayPal app public ID |
-| `PAYPAL_CLIENT_ID` | ✅ | PayPal app ID (server-side) |
-| `PAYPAL_CLIENT_SECRET` | ✅ | PayPal app secret |
-| `NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID` | ✅ | Basic plan ID ($50/mo) |
-| `NEXT_PUBLIC_PAYPAL_PREMIUM_PLAN_ID` | ⚠️ | Premium plan ID ($500/mo) |
-| `PAYPAL_MODE` | ⚠️ | `sandbox` or `live` |
+| Variable                             | Required | Description                 |
+| ------------------------------------ | -------- | --------------------------- |
+| `NEXT_PUBLIC_PAYPAL_CLIENT_ID`       | ✅       | PayPal app public ID        |
+| `PAYPAL_CLIENT_ID`                   | ✅       | PayPal app ID (server-side) |
+| `PAYPAL_CLIENT_SECRET`               | ✅       | PayPal app secret           |
+| `NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID`   | ✅       | Basic plan ID ($50/mo)      |
+| `NEXT_PUBLIC_PAYPAL_PREMIUM_PLAN_ID` | ⚠️       | Premium plan ID ($500/mo)   |
+| `PAYPAL_MODE`                        | ⚠️       | `sandbox` or `live`         |
 
 ✅ = Required
 ⚠️ = Optional but recommended
