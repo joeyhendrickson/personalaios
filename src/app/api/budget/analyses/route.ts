@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { isMissingBudgetAnalysesNameColumn } from '@/lib/budget/missing-name-column'
 import { z } from 'zod'
 
 const TABLE_MISSING_HINT =
@@ -12,21 +13,36 @@ const saveSchema = z.object({
   analysis: z.record(z.string(), z.unknown()),
   run_summary: z.record(z.string(), z.unknown()).optional().nullable(),
   spending_summary: z.record(z.string(), z.unknown()).optional().nullable(),
+  period_net_worth: z.record(z.string(), z.unknown()).optional().nullable(),
 })
 
 type BudgetAnalysisInsert = {
   user_id: string
-  name: string
+  name?: string
   analysis_period_start: string
   analysis_period_end: string
   analysis_data: Record<string, unknown>
+}
+
+async function insertOnce(
+  client: Awaited<ReturnType<typeof createClient>>,
+  record: BudgetAnalysisInsert
+) {
+  return client.from('budget_analyses').insert(record).select().single()
 }
 
 async function insertBudgetAnalysis(
   supabase: Awaited<ReturnType<typeof createClient>>,
   record: BudgetAnalysisInsert
 ) {
-  let insertRes = await supabase.from('budget_analyses').insert(record).select().single()
+  const withoutName = { ...record }
+  delete withoutName.name
+
+  let insertRes = await insertOnce(supabase, record)
+
+  if (isMissingBudgetAnalysesNameColumn(insertRes.error)) {
+    insertRes = await insertOnce(supabase, withoutName)
+  }
 
   if (insertRes.error) {
     const code = insertRes.error.code
@@ -39,7 +55,10 @@ async function insertBudgetAnalysis(
     try {
       const { createAdminClient } = await import('@/lib/supabaseAdmin')
       const admin = createAdminClient()
-      insertRes = await admin.from('budget_analyses').insert(record).select().single()
+      insertRes = await insertOnce(admin, record)
+      if (isMissingBudgetAnalysesNameColumn(insertRes.error)) {
+        insertRes = await insertOnce(admin, withoutName)
+      }
     } catch (adminErr) {
       console.error('[budget/analyses] admin insert fallback failed:', adminErr)
     }
@@ -79,7 +98,23 @@ export async function GET() {
       )
     }
 
-    return NextResponse.json({ success: true, analyses: data || [] })
+    const analyses = (data || []).map((row) => {
+      const analysisData =
+        row.analysis_data && typeof row.analysis_data === 'object'
+          ? (row.analysis_data as Record<string, unknown>)
+          : {}
+      return {
+        ...row,
+        name:
+          typeof row.name === 'string' && row.name.trim()
+            ? row.name
+            : typeof analysisData.name === 'string'
+              ? analysisData.name
+              : null,
+      }
+    })
+
+    return NextResponse.json({ success: true, analyses })
   } catch (error) {
     console.error('[budget/analyses] GET error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -113,6 +148,7 @@ export async function POST(request: NextRequest) {
         analysis: validated.analysis,
         run_summary: validated.run_summary ?? null,
         spending_summary: validated.spending_summary ?? null,
+        period_net_worth: validated.period_net_worth ?? null,
       },
     }
 

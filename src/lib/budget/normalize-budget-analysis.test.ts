@@ -44,4 +44,22 @@ describe('normalizeBudgetAnalysis', () => {
     expect(normalized.savings_opportunities).toHaveLength(1)
     expect(normalized.actionable_insights[0].priority).toBe('medium')
   })
+
+  it('does not use raw model JSON as the assessment or other prose fields', () => {
+    const dump = JSON.stringify({
+      financial_health: { score: 40, assessment: 'hidden' },
+      spending_patterns: { trends: ['ok'] },
+    })
+    const normalized = normalizeBudgetAnalysis(
+      { financial_health: { score: 74, assessment: dump, strengths: [dump] } },
+      { rawText: dump, totalExpenses: 500, totalIncome: 2000 }
+    )
+
+    expect(normalized.financial_health.assessment).not.toContain('{')
+    expect(normalized.financial_health.assessment).not.toContain('"financial_health"')
+    expect(normalized.financial_health.strengths.every((item) => !item.includes('{'))).toBe(true)
+    expect(normalized.savings_opportunities[0].recommendation).not.toContain('{')
+    expect(normalized.monthly_budget_suggestion.breakdown).not.toContain('{')
+    expect(normalized.spending_patterns.discrepancies?.expected_vs_actual_income).not.toContain('{')
+  })
 })

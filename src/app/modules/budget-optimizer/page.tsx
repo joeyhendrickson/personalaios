@@ -49,7 +49,16 @@ import {
   classifyTransactionForLedger,
   summarizeLedgerTransactions,
 } from '@/lib/budget/ledger-period-summary'
-import { normalizeBudgetAnalysis } from '@/lib/budget/normalize-budget-analysis'
+import {
+  normalizeBudgetAnalysis,
+  type NormalizedBudgetAnalysis,
+} from '@/lib/budget/normalize-budget-analysis'
+import {
+  netWorthChangeForPeriod,
+  parseNetWorthPeriodChange,
+  type NetWorthPeriodChange,
+} from '@/lib/budget/net-worth-period-change'
+import { AnalysisHealthSection } from '@/components/modules/budget-optimizer/AnalysisHealthSection'
 
 interface BankConnection {
   id: string
@@ -228,6 +237,7 @@ interface SavedBudgetAnalysis {
     analysis: BudgetAnalysis
     run_summary?: BudgetAnalysisRunSummary | null
     spending_summary?: Record<string, unknown> | null
+    period_net_worth?: NetWorthPeriodChange | null
   }
   created_at: string
 }
@@ -821,6 +831,7 @@ export default function BudgetOptimizerModule() {
     string,
     unknown
   > | null>(null)
+  const [savedPeriodNetWorth, setSavedPeriodNetWorth] = useState<NetWorthPeriodChange | null>(null)
   const [savedAnalyses, setSavedAnalyses] = useState<SavedBudgetAnalysis[]>([])
   const [showSaveAnalysisModal, setShowSaveAnalysisModal] = useState(false)
   const [showLoadAnalysisModal, setShowLoadAnalysisModal] = useState(false)
@@ -951,6 +962,15 @@ export default function BudgetOptimizerModule() {
     start: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0],
   })
+  const periodNetWorth = useMemo(() => {
+    const live = netWorthChangeForPeriod(
+      netWorthPoints,
+      analysisDateRange.start,
+      analysisDateRange.end
+    )
+    if (live.change != null) return live
+    return savedPeriodNetWorth
+  }, [netWorthPoints, analysisDateRange.start, analysisDateRange.end, savedPeriodNetWorth])
   const [showManualAccountModal, setShowManualAccountModal] = useState(false)
   const [editingAccount, setEditingAccount] = useState<ManualAccount | null>(null)
   const [manualAccountForm, setManualAccountForm] = useState({
@@ -1072,7 +1092,7 @@ export default function BudgetOptimizerModule() {
   }, [])
 
   useEffect(() => {
-    if (activeTab !== 'overview') return
+    if (activeTab !== 'overview' && activeTab !== 'analysis') return
     if (connections.length === 0 && manualAccounts.length === 0) return
 
     let cancelled = false
@@ -2124,6 +2144,7 @@ export default function BudgetOptimizerModule() {
           analysis,
           run_summary: analysisRunSummary,
           spending_summary: analysisSpendingSummary,
+          period_net_worth: periodNetWorth,
         }),
       })
       const data = await response.json().catch(() => ({}))
@@ -2151,6 +2172,7 @@ export default function BudgetOptimizerModule() {
     }
     setAnalysisRunSummary(payload?.run_summary ?? null)
     setAnalysisSpendingSummary(payload?.spending_summary ?? null)
+    setSavedPeriodNetWorth(parseNetWorthPeriodChange(payload?.period_net_worth))
     setAnalysisDateRange({
       start: saved.analysis_period_start,
       end: saved.analysis_period_end,
@@ -2196,6 +2218,7 @@ export default function BudgetOptimizerModule() {
         const data = await response.json()
         setAnalysis(normalizeBudgetAnalysis(data.analysis) as BudgetAnalysis)
         setAnalysisSpendingSummary(data.spending_summary ?? null)
+        setSavedPeriodNetWorth(null)
         setAnalysisRunSummary({
           analysis_scope: {
             requested_start_date:
@@ -2825,12 +2848,6 @@ export default function BudgetOptimizerModule() {
       style: 'currency',
       currency: 'USD',
     }).format(amount)
-  }
-
-  const getHealthScoreColor = (score: number) => {
-    if (score >= 80) return 'budget-analysis-score-high'
-    if (score >= 60) return 'budget-analysis-score-mid'
-    return 'budget-analysis-score-low'
   }
 
   const getPriorityColor = (priority: string) => {
@@ -4964,6 +4981,13 @@ export default function BudgetOptimizerModule() {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  <AnalysisHealthSection
+                    analysis={analysis as NormalizedBudgetAnalysis}
+                    spendingSummary={analysisSpendingSummary}
+                    periodChange={periodNetWorth}
+                    netWorthLoading={netWorthLoading}
+                  />
+
                   {analysisRunSummary && (
                     <div className="budget-analysis-meta">
                       <h3 className="font-semibold budget-analysis-section-title mb-2">
@@ -5050,65 +5074,6 @@ export default function BudgetOptimizerModule() {
                       </ul>
                     </div>
                   )}
-
-                  {/* Financial Health Score */}
-                  <div className="budget-analysis-section">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold budget-analysis-section-title">
-                        Financial Health Score
-                      </h3>
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${getHealthScoreColor(analysis.financial_health.score)}`}
-                      >
-                        {analysis.financial_health.score}/100
-                      </span>
-                    </div>
-                    <p className="budget-analysis-body mb-4">
-                      {analysis.financial_health.assessment}
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <h4 className="font-medium budget-analysis-positive mb-2">Strengths</h4>
-                        <ul className="space-y-1">
-                          {analysis.financial_health.strengths?.map((strength, index) => (
-                            <li
-                              key={index}
-                              className="flex items-center text-sm budget-analysis-body"
-                            >
-                              <CheckCircle className="h-4 w-4 budget-analysis-positive mr-2 flex-shrink-0" />
-                              {strength}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div>
-                        <h4 className="font-medium budget-analysis-warning mb-2">
-                          Areas for Improvement
-                        </h4>
-                        <ul className="space-y-1">
-                          {analysis.financial_health.concerns?.map((concern, index) => (
-                            <li
-                              key={index}
-                              className="flex items-center text-sm budget-analysis-body"
-                            >
-                              <AlertTriangle className="h-4 w-4 budget-analysis-negative mr-2 flex-shrink-0" />
-                              {concern}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                    {analysis.financial_health.goal_progress && (
-                      <div className="mt-4 pt-4 border-t border-[hsl(43_76%_52%/0.25)]">
-                        <h4 className="font-medium budget-analysis-highlight mb-2">
-                          Goal Progress
-                        </h4>
-                        <p className="text-sm budget-analysis-body">
-                          {analysis.financial_health.goal_progress}
-                        </p>
-                      </div>
-                    )}
-                  </div>
 
                   {/* Accountability Questions */}
                   {analysis.accountability_questions &&
