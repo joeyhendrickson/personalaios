@@ -28,6 +28,7 @@ import {
   type CalendarTimeWindow,
   type DayKey,
 } from '@/lib/calendar/preferences'
+import { nextOccurrence, toWallClockDateTime } from '@/lib/calendar/weekday'
 
 type Recommendation = {
   id: string
@@ -66,22 +67,10 @@ const DAYS: { key: DayKey; label: string }[] = [
   { key: 'sat', label: 'Sat' },
   { key: 'sun', label: 'Sun' },
 ]
-const DAY_INDEX: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
-
 function hourLabel(h: number): string {
   if (h === 0 || h === 24) return '12:00 AM'
   if (h === 12) return '12:00 PM'
   return h < 12 ? `${h}:00 AM` : `${h - 12}:00 PM`
-}
-
-function pad(n: number) {
-  return String(n).padStart(2, '0')
-}
-
-function toLocalIso(date: Date): string {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
-    date.getHours()
-  )}:${pad(date.getMinutes())}:00`
 }
 
 function windowLabel(index: number, window: CalendarTimeWindow): string {
@@ -91,18 +80,6 @@ function windowLabel(index: number, window: CalendarTimeWindow): string {
 function recBelongsToWindow(rec: Recommendation, window: CalendarTimeWindow): boolean {
   if (rec.window_id) return rec.window_id === window.id
   return matchesTimeWindow(rec.weekday, rec.start_time, window)
-}
-
-function nextOccurrence(weekday: string, startTime: string): Date {
-  const [hh, mm] = startTime.split(':').map((x) => parseInt(x, 10))
-  const target = DAY_INDEX[weekday] ?? 1
-  const now = new Date()
-  const d = new Date(now)
-  d.setHours(hh || 0, mm || 0, 0, 0)
-  let diff = (target - d.getDay() + 7) % 7
-  if (diff === 0 && d.getTime() <= now.getTime()) diff = 7
-  d.setDate(d.getDate() + diff)
-  return d
 }
 
 export default function LifestacksCalendarPage() {
@@ -118,6 +95,7 @@ export default function LifestacksCalendarPage() {
   const [recs, setRecs] = useState<Recommendation[]>([])
   const [generating, setGenerating] = useState(false)
   const [recsMessage, setRecsMessage] = useState('')
+  const [recsError, setRecsError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
 
@@ -260,6 +238,7 @@ export default function LifestacksCalendarPage() {
   const generate = async () => {
     setGenerating(true)
     setRecsMessage('')
+    setRecsError('')
     try {
       const saved = await savePrefs()
       if (!saved) {
@@ -318,11 +297,11 @@ export default function LifestacksCalendarPage() {
 
   const addRecsToCalendar = async (items: Recommendation[]) => {
     if (items.length === 0) {
-      setRecsMessage('Generate recommendations first, then tap Add to Calendar.')
+      setRecsError('Generate recommendations first, then tap Add to Calendar.')
       return
     }
     if (!status?.connected) {
-      setRecsMessage('Connect Google Calendar above, then try Add to Calendar again.')
+      setRecsError('Connect Google Calendar above, then try Add to Calendar again.')
       return
     }
 
@@ -348,6 +327,7 @@ export default function LifestacksCalendarPage() {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'
     setAdding(true)
     setRecsMessage('')
+    setRecsError('')
     let addedCount = 0
     const failures: string[] = []
     try {
@@ -366,8 +346,8 @@ export default function LifestacksCalendarPage() {
           body: JSON.stringify({
             summary: rec.title,
             description: rec.description,
-            startDateTime: toLocalIso(start),
-            endDateTime: toLocalIso(end),
+            startDateTime: toWallClockDateTime(start),
+            endDateTime: toWallClockDateTime(end),
             timeZone,
             recurrence: rec.recurrence,
           }),
@@ -384,12 +364,16 @@ export default function LifestacksCalendarPage() {
       if (addedCount > 0 && failures.length === 0) {
         setRecsMessage(`${addedCount} item${addedCount === 1 ? '' : 's'} added to Google Calendar.`)
       } else if (addedCount > 0) {
-        setRecsMessage(
+        setRecsError(
           `${addedCount} added. ${failures.length} failed: ${failures.slice(0, 2).join(' ')}`
         )
       } else if (failures.length > 0) {
-        setRecsMessage(failures[0])
+        setRecsError(failures[0])
       }
+    } catch (error) {
+      setRecsError(
+        error instanceof Error ? error.message : 'Could not add items to Google Calendar.'
+      )
     } finally {
       setAdding(false)
     }
@@ -757,6 +741,11 @@ export default function LifestacksCalendarPage() {
             </Button>
           </div>
 
+          {recsError && (
+            <p className="text-sm font-medium text-red-700 mb-3" role="alert">
+              {recsError}
+            </p>
+          )}
           {recsMessage && <p className="text-sm text-gray-600 mb-3">{recsMessage}</p>}
 
           {recs.length > 0 && (

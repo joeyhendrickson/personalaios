@@ -38,9 +38,21 @@ export async function getCalendarConnection(
  * Returns a usable Google Calendar access token, refreshing it when expired.
  * Marks the connection needs_reauth (and throws) when refresh fails.
  */
+function readStoredGoogleToken(value: string): string {
+  try {
+    const token = decrypt(value)
+    if (token) return token
+  } catch {
+    /* stored value may be a raw Google token from an older row */
+  }
+  if (/^(ya29\.|1\/\/)/.test(value)) return value
+  throw new Error('Google Calendar session expired. Please reconnect.')
+}
+
 export async function getValidCalendarAccessToken(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  options?: { forceRefresh?: boolean }
 ): Promise<{ accessToken: string; connection: CalendarConnection }> {
   const connection = await getCalendarConnection(supabase, userId)
   if (!connection || !connection.access_token || !connection.refresh_token) {
@@ -50,17 +62,9 @@ export async function getValidCalendarAccessToken(
   const expiresAt = connection.token_expires_at
     ? new Date(connection.token_expires_at).getTime()
     : 0
-  const stillValid = expiresAt - Date.now() > 60_000
+  const stillValid = !options?.forceRefresh && expiresAt - Date.now() > 60_000
 
-  const decryptToken = (value: string) => {
-    try {
-      const token = decrypt(value)
-      if (!token) throw new Error('empty token')
-      return token
-    } catch {
-      throw new Error('Google Calendar session expired. Please reconnect.')
-    }
-  }
+  const decryptToken = (value: string) => readStoredGoogleToken(value)
 
   if (stillValid) {
     try {

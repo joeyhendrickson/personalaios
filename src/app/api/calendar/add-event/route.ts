@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getValidCalendarAccessToken } from '@/lib/calendar/connection'
-import { createCalendarEvent, type CalendarRecurrence } from '@/lib/google-calendar'
+import {
+  createCalendarEvent,
+  GoogleCalendarRequestError,
+  type CalendarRecurrence,
+} from '@/lib/google-calendar'
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +34,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const eventInput = {
+      summary,
+      description,
+      startDateTime,
+      endDateTime,
+      timeZone,
+      recurrence,
+    }
+
     let accessToken: string
     try {
       const result = await getValidCalendarAccessToken(supabase, user.id)
@@ -40,14 +53,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: message, needsReauth }, { status: 400 })
     }
 
-    const event = await createCalendarEvent(accessToken, {
-      summary,
-      description,
-      startDateTime,
-      endDateTime,
-      timeZone,
-      recurrence,
-    })
+    let event
+    try {
+      event = await createCalendarEvent(accessToken, eventInput)
+    } catch (error) {
+      const status = error instanceof GoogleCalendarRequestError ? error.status : 0
+      const message = error instanceof Error ? error.message : 'Failed to add calendar event'
+      const needsReauth =
+        status === 401 ||
+        status === 403 ||
+        /insufficient|invalid credential|auth|reconnect/i.test(message)
+
+      if (status === 401) {
+        try {
+          const refreshed = await getValidCalendarAccessToken(supabase, user.id, {
+            forceRefresh: true,
+          })
+          event = await createCalendarEvent(refreshed.accessToken, eventInput)
+        } catch (retryError) {
+          const retryMessage =
+            retryError instanceof Error ? retryError.message : 'Failed to add calendar event'
+          return NextResponse.json({ error: retryMessage, needsReauth: true }, { status: 400 })
+        }
+      } else if (needsReauth) {
+        return NextResponse.json(
+          {
+            error:
+              'Google Calendar needs to be reconnected with calendar access. Disconnect and connect again, then retry.',
+            needsReauth: true,
+          },
+          { status: 400 }
+        )
+      } else {
+        throw error
+      }
+    }
 
     try {
       await supabase.from('activity_logs').insert({

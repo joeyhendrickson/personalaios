@@ -1,5 +1,5 @@
 import { google } from 'googleapis'
-import { googleApiErrorMessage, httpSourceUrl } from '@/lib/calendar/google-api-error'
+import { googleApiErrorMessage } from '@/lib/calendar/google-api-error'
 
 /**
  * Google Calendar integration for Lifestacks Calendar.
@@ -62,7 +62,7 @@ export function getGoogleCalendarAuthUrl(state: string, requestOrigin?: string):
   return createGoogleCalendarOAuthClient(requestOrigin).generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
-    include_granted_scopes: true,
+    include_granted_scopes: false,
     scope: GOOGLE_CALENDAR_SCOPES,
     state,
   })
@@ -133,30 +133,51 @@ function recurrenceRule(recurrence: CalendarRecurrence | undefined): string[] | 
   return undefined
 }
 
+export class GoogleCalendarRequestError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'GoogleCalendarRequestError'
+    this.status = status
+  }
+}
+
 export async function createCalendarEvent(
   accessToken: string,
   input: CreateCalendarEventInput
 ): Promise<{ id: string | null; htmlLink: string | null }> {
-  const client = createGoogleCalendarOAuthClient()
-  client.setCredentials({ access_token: accessToken })
-  const calendar = google.calendar({ version: 'v3', auth: client })
-  const sourceUrl = httpSourceUrl(process.env.NEXT_PUBLIC_SITE_URL)
-
-  try {
-    const { data } = await calendar.events.insert({
-      calendarId: 'primary',
-      requestBody: {
-        summary: input.summary,
-        description: input.description,
-        start: { dateTime: input.startDateTime, timeZone: input.timeZone },
-        end: { dateTime: input.endDateTime, timeZone: input.timeZone },
-        recurrence: recurrenceRule(input.recurrence),
-        ...(sourceUrl ? { source: { title: 'Lifestacks', url: sourceUrl } } : {}),
-      },
-    })
-
-    return { id: data.id ?? null, htmlLink: data.htmlLink ?? null }
-  } catch (error) {
-    throw new Error(googleApiErrorMessage(error))
+  const requestBody: Record<string, unknown> = {
+    summary: input.summary,
+    start: { dateTime: input.startDateTime, timeZone: input.timeZone },
+    end: { dateTime: input.endDateTime, timeZone: input.timeZone },
   }
+  if (input.description?.trim()) requestBody.description = input.description.trim()
+  const recurrence = recurrenceRule(input.recurrence)
+  if (recurrence) requestBody.recurrence = recurrence
+
+  const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  })
+
+  const payload = (await res.json().catch(() => ({}))) as {
+    id?: string
+    htmlLink?: string
+    error?: { message?: string; errors?: Array<{ message?: string }> }
+  }
+
+  if (!res.ok) {
+    throw new GoogleCalendarRequestError(
+      googleApiErrorMessage({ response: { data: payload } }) ||
+        `Google Calendar error ${res.status}`,
+      res.status
+    )
+  }
+
+  return { id: payload.id ?? null, htmlLink: payload.htmlLink ?? null }
 }
