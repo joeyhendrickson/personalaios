@@ -6,7 +6,7 @@ import { checkUserAccess } from '@/lib/access-control'
 import type { ProgressReportQuota } from './types'
 import { startOfCalendarWeek } from './period'
 
-const STANDARD_WEEKLY_LIMIT = 1
+const STANDARD_WEEKLY_LIMIT = 2
 
 const ACTIVE_SUBSCRIPTION_STATUSES = ['active', 'grace_period'] as const
 
@@ -159,6 +159,6 @@ export async function getProgressReportQuota(
     nextAvailableAt,
     message: canGenerate
       ? undefined
-      : 'Standard accounts can generate 1 progress report per calendar week. Upgrade to Premium for unlimited reports.',
+      : 'Standard accounts can generate 2 progress reports per calendar week. Upgrade to Premium for unlimited reports.',
   }
 }
