@@ -49,15 +49,20 @@ export async function POST(request: NextRequest) {
       recurrence,
     })
 
-    await supabase.from('activity_logs').insert({
-      user_id: user.id,
-      activity_type: 'calendar_event_added',
-      description: `Added "${summary}" to Google Calendar`,
-      metadata: { recurrence },
-    })
+    try {
+      await supabase.from('activity_logs').insert({
+        user_id: user.id,
+        activity_type: 'calendar_event_added',
+        description: `Added "${summary}" to Google Calendar`,
+        metadata: { recurrence },
+      })
+    } catch {
+      // Event already exists on Google Calendar — do not fail the request.
+    }
 
     return NextResponse.json({ ok: true, event })
   } catch (error) {
+    console.error('Add calendar event failed:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to add calendar event' },
       { status: 500 }

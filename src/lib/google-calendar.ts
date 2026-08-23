@@ -1,4 +1,5 @@
 import { google } from 'googleapis'
+import { googleApiErrorMessage, httpSourceUrl } from '@/lib/calendar/google-api-error'
 
 /**
  * Google Calendar integration for Lifestacks Calendar.
@@ -139,18 +140,23 @@ export async function createCalendarEvent(
   const client = createGoogleCalendarOAuthClient()
   client.setCredentials({ access_token: accessToken })
   const calendar = google.calendar({ version: 'v3', auth: client })
+  const sourceUrl = httpSourceUrl(process.env.NEXT_PUBLIC_SITE_URL)
 
-  const { data } = await calendar.events.insert({
-    calendarId: 'primary',
-    requestBody: {
-      summary: input.summary,
-      description: input.description,
-      start: { dateTime: input.startDateTime, timeZone: input.timeZone },
-      end: { dateTime: input.endDateTime, timeZone: input.timeZone },
-      recurrence: recurrenceRule(input.recurrence),
-      source: { title: 'Lifestacks', url: process.env.NEXT_PUBLIC_SITE_URL || undefined },
-    },
-  })
+  try {
+    const { data } = await calendar.events.insert({
+      calendarId: 'primary',
+      requestBody: {
+        summary: input.summary,
+        description: input.description,
+        start: { dateTime: input.startDateTime, timeZone: input.timeZone },
+        end: { dateTime: input.endDateTime, timeZone: input.timeZone },
+        recurrence: recurrenceRule(input.recurrence),
+        ...(sourceUrl ? { source: { title: 'Lifestacks', url: sourceUrl } } : {}),
+      },
+    })
 
-  return { id: data.id ?? null, htmlLink: data.htmlLink ?? null }
+    return { id: data.id ?? null, htmlLink: data.htmlLink ?? null }
+  } catch (error) {
+    throw new Error(googleApiErrorMessage(error))
+  }
 }

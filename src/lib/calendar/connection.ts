@@ -52,12 +52,26 @@ export async function getValidCalendarAccessToken(
     : 0
   const stillValid = expiresAt - Date.now() > 60_000
 
+  const decryptToken = (value: string) => {
+    try {
+      const token = decrypt(value)
+      if (!token) throw new Error('empty token')
+      return token
+    } catch {
+      throw new Error('Google Calendar session expired. Please reconnect.')
+    }
+  }
+
   if (stillValid) {
-    return { accessToken: decrypt(connection.access_token), connection }
+    try {
+      return { accessToken: decryptToken(connection.access_token), connection }
+    } catch {
+      // Access token blob is unreadable — try a refresh before asking the user to reconnect.
+    }
   }
 
   try {
-    const refreshed = await refreshGoogleCalendarToken(decrypt(connection.refresh_token))
+    const refreshed = await refreshGoogleCalendarToken(decryptToken(connection.refresh_token))
     const newExpiresAt = refreshed.expiry_date
       ? new Date(refreshed.expiry_date).toISOString()
       : new Date(Date.now() + 3600_000).toISOString()
@@ -66,7 +80,7 @@ export async function getValidCalendarAccessToken(
       .from('calendar_connections')
       .update({
         access_token: encrypt(refreshed.access_token),
-        refresh_token: encrypt(refreshed.refresh_token || decrypt(connection.refresh_token)),
+        refresh_token: encrypt(refreshed.refresh_token || decryptToken(connection.refresh_token)),
         token_expires_at: newExpiresAt,
         scope: refreshed.scope ?? connection.scope,
         status: 'connected',
