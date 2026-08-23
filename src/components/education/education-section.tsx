@@ -63,7 +63,7 @@ export default function EducationSection() {
   const fetchEducationItems = async () => {
     try {
       console.log('Fetching education items...')
-      const response = await fetch('/api/education')
+      const response = await fetch('/api/education', { cache: 'no-store' })
       console.log('Education response status:', response.status)
 
       if (response.ok) {
@@ -160,21 +160,29 @@ export default function EducationSection() {
     }
   }
 
-  const handleDelete = async (itemId: string) => {
+  const handleDelete = async (itemId: string, event?: React.MouseEvent) => {
+    event?.preventDefault()
+    event?.stopPropagation()
     if (!confirm('Are you sure you want to delete this education item?')) return
+
+    const previousItems = educationItems
+    setEducationItems((items) => items.filter((item) => item.id !== itemId))
 
     try {
       const response = await fetch(`/api/education/${itemId}`, {
         method: 'DELETE',
+        cache: 'no-store',
       })
 
       if (response.ok) {
         await fetchEducationItems()
       } else {
+        setEducationItems(previousItems)
         console.error('Failed to delete education item')
         alert('Failed to delete education item. Please try again.')
       }
     } catch (error) {
+      setEducationItems(previousItems)
       console.error('Error deleting education item:', error)
       alert('Failed to delete education item. Please try again.')
     }
@@ -455,6 +463,7 @@ export default function EducationSection() {
 
                     <div className="mt-2 flex items-center gap-1">
                       <button
+                        type="button"
                         onClick={() => handleEdit(item)}
                         className="p-1 text-gray-400 hover:text-gray-600 transition-colors touch-manipulation"
                         title="Edit item"
@@ -462,7 +471,8 @@ export default function EducationSection() {
                         <Edit className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(item.id)}
+                        type="button"
+                        onClick={(event) => handleDelete(item.id, event)}
                         className="p-1 text-gray-400 hover:text-red-600 transition-colors touch-manipulation"
                         title="Delete item"
                       >

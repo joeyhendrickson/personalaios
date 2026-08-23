@@ -82,15 +82,60 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { error: educationError } = await supabase
+    const { data: existingItem, error: fetchError } = await supabase
+      .from('education_items')
+      .select('id')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (fetchError) {
+      console.error('Error finding education item:', fetchError)
+      return NextResponse.json({ error: 'Failed to delete education item' }, { status: 500 })
+    }
+
+    if (!existingItem) {
+      return NextResponse.json({ error: 'Education item not found' }, { status: 404 })
+    }
+
+    // Remove completions first so a hard delete is not blocked by FK/RLS cascade.
+    const { error: completionsError } = await supabase
+      .from('education_completions')
+      .delete()
+      .eq('education_item_id', id)
+      .eq('user_id', user.id)
+
+    if (completionsError) {
+      console.error('Error deleting education completions:', completionsError)
+    }
+
+    const { data: deletedItem, error: educationError } = await supabase
       .from('education_items')
       .delete()
       .eq('id', id)
       .eq('user_id', user.id)
+      .select('id')
+      .maybeSingle()
 
     if (educationError) {
       console.error('Error deleting education item:', educationError)
-      return NextResponse.json({ error: 'Failed to delete education item' }, { status: 500 })
+    }
+
+    if (!deletedItem) {
+      // Hard delete can no-op under RLS or fail on remaining FKs. Hide the row
+      // so GET /api/education (is_active = true) no longer returns it.
+      const { data: hiddenItem, error: hideError } = await supabase
+        .from('education_items')
+        .update({ is_active: false })
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select('id')
+        .maybeSingle()
+
+      if (hideError || !hiddenItem) {
+        console.error('Error hiding education item:', hideError)
+        return NextResponse.json({ error: 'Failed to delete education item' }, { status: 500 })
+      }
     }
 
     return NextResponse.json({ message: 'Education item deleted successfully' }, { status: 200 })
