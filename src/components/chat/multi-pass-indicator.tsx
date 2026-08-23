@@ -111,9 +111,7 @@ export function MultiPassDetails({ multiPass }: MultiPassDetailsProps) {
             <div className="p-3 space-y-2 text-xs">
               <div>
                 <div className="font-medium text-gray-700 mb-1">Query:</div>
-                <div className="text-gray-600 italic bg-gray-50 p-2 rounded">
-                  "{pass.query}"
-                </div>
+                <div className="text-gray-600 italic bg-gray-50 p-2 rounded">"{pass.query}"</div>
               </div>
               {pass.queryRefinement && (
                 <div className="text-amber-700 text-xs">
