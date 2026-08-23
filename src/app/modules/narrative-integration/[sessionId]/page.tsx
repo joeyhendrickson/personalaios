@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'next/navigation'
-import { ArrowLeft, ShieldAlert, Sparkles } from 'lucide-react'
+import { useParams, useRouter } from 'next/navigation'
+import { ArrowLeft, ShieldAlert, Sparkles, Trash2 } from 'lucide-react'
 
 import StateCheck from '@/components/narrative-integration/StateCheck'
 import EventInventoryForm from '@/components/narrative-integration/EventInventoryForm'
@@ -46,11 +46,13 @@ type Session = {
 
 export default function NarrativeIntegrationSessionPage() {
   const params = useParams<{ sessionId: string }>()
+  const router = useRouter()
   const sessionId = params.sessionId
 
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const disableDeepProcessing = useMemo(
     () => session?.safety_status === 'high_risk' || false,
@@ -78,6 +80,31 @@ export default function NarrativeIntegrationSessionPage() {
   }, [sessionId])
 
   const onSessionUpdated = (next: Session) => setSession(next)
+
+  const deleteSession = async () => {
+    if (!session) return
+    if (
+      !confirm(
+        `Delete “${session.title?.trim() || 'I Am Present'}”? This removes the session and cannot be undone.`
+      )
+    ) {
+      return
+    }
+    try {
+      setDeleting(true)
+      setError(null)
+      const res = await fetch(`/api/modules/narrative-integration/sessions/${session.id}`, {
+        method: 'DELETE',
+        cache: 'no-store',
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || 'Failed to delete session')
+      router.push('/modules/narrative-integration')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete session')
+      setDeleting(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -136,12 +163,26 @@ export default function NarrativeIntegrationSessionPage() {
                   Stabilization mode
                 </div>
               )}
+              <button
+                type="button"
+                onClick={deleteSession}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:text-red-700 hover:border-red-200 hover:bg-red-50 disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4" />
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
             </div>
           </div>
         </div>
       </div>
 
       <div className="container mx-auto px-6 py-8 space-y-6">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 text-sm">
+            {error}
+          </div>
+        )}
         <div className="bg-white rounded-lg border border-gray-200 p-5">
           <p className="text-sm text-gray-700">
             This module is designed to reduce rumination over time. It avoids graphic details and

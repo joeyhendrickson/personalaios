@@ -231,6 +231,38 @@ export async function updateNarrativeIntegrationSession(
   return data as NarrativeIntegrationSession
 }
 
+export async function deleteNarrativeIntegrationSession(sessionId: string) {
+  const supabase = await createClient()
+  const userId = await requireUserId(supabase)
+
+  await getNarrativeIntegrationSession(sessionId)
+
+  // Delete children first so FK/RLS cascade cannot leave the session in place.
+  const childTables = [
+    'narrative_integration_messages',
+    'narrative_integration_events',
+    'narrative_integration_meaning_extractions',
+    'narrative_integration_future_reorientations',
+    'narrative_integration_summaries',
+  ] as const
+
+  for (const table of childTables) {
+    const { error } = await supabase.from(table).delete().eq('session_id', sessionId)
+    if (error) throw new Error(error.message)
+  }
+
+  const { data, error } = await supabase
+    .from('narrative_integration_sessions')
+    .delete()
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .select('id')
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!data) throw new Error('Failed to delete session')
+}
+
 export async function upsertNarrativeIntegrationEventInventory(
   sessionId: string,
   inventory: NarrativeIntegrationEventInventory
