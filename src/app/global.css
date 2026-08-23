@@ -1037,15 +1037,163 @@ body {
 
 /* Budget Advisor — duplicate transaction highlight (scan for duplicates) */
 .budget-duplicate-txn {
-  border-color: hsl(270 65% 52%) !important;
-  box-shadow: 0 0 0 2px hsl(270 65% 52% / 0.28);
-  background-color: hsl(270 45% 97%);
+  border-color: hsl(43 76% 52%) !important;
+  box-shadow: 0 0 0 2px hsl(43 76% 52% / 0.28);
+  background-color: hsl(43 45% 96%);
 }
 
 .dark .budget-duplicate-txn {
-  border-color: hsl(270 75% 68%) !important;
-  box-shadow: 0 0 0 2px hsl(270 75% 68% / 0.35);
-  background-color: hsl(270 28% 10%);
+  border-color: hsl(43 80% 62%) !important;
+  box-shadow: 0 0 0 2px hsl(43 80% 62% / 0.35);
+  background-color: hsl(43 20% 8%);
+}
+
+/* Budget Advisor — Transactions tab actions (black + gold) */
+.budget-transactions-tab .budget-gold-btn-primary,
+.budget-transactions-tab .budget-gold-btn-outline,
+.budget-transactions-tab .budget-gold-btn-soft,
+.budget-transactions-tab .budget-gold-btn-active {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.budget-transactions-tab .budget-gold-btn-primary {
+  background-color: hsl(0 0% 0%);
+  color: hsl(0 0% 100%);
+  border: 1px solid hsl(43 76% 52% / 0.7);
+}
+
+.budget-transactions-tab .budget-gold-btn-primary:hover:not(:disabled) {
+  background-color: hsl(43 22% 12%);
+  border-color: hsl(43 76% 52%);
+}
+
+.budget-transactions-tab .budget-gold-btn-outline {
+  background-color: hsl(0 0% 100%);
+  color: hsl(43 40% 18%);
+  border: 1px solid hsl(43 76% 52% / 0.45);
+}
+
+.budget-transactions-tab .budget-gold-btn-outline:hover:not(:disabled) {
+  background-color: hsl(43 30% 94%);
+  border-color: hsl(43 76% 52%);
+}
+
+.budget-transactions-tab .budget-gold-btn-soft {
+  background-color: hsl(43 35% 90%);
+  color: hsl(43 45% 18%);
+  border: 1px solid hsl(43 76% 52% / 0.4);
+}
+
+.budget-transactions-tab .budget-gold-btn-soft:hover:not(:disabled) {
+  background-color: hsl(43 40% 84%);
+}
+
+.budget-transactions-tab .budget-gold-btn-active {
+  background-color: hsl(0 0% 0%);
+  color: hsl(43 80% 72%);
+  border: 1px solid hsl(43 76% 52%);
+  box-shadow: 0 0 0 2px hsl(43 76% 52% / 0.28);
+}
+
+.budget-transactions-tab .budget-gold-icon-btn {
+  border-radius: 0.5rem;
+  border: 1px solid hsl(43 76% 52% / 0.35);
+  background-color: hsl(43 22% 96%);
+  color: hsl(43 40% 22%);
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.budget-transactions-tab .budget-gold-icon-btn:hover:not(:disabled) {
+  background-color: hsl(43 35% 88%);
+  border-color: hsl(43 76% 52%);
+}
+
+.budget-transactions-tab .budget-gold-icon-btn--on {
+  background-color: hsl(0 0% 0%);
+  color: hsl(43 80% 68%);
+  border-color: hsl(43 76% 52%);
+}
+
+.budget-transactions-tab .budget-gold-chip {
+  color: hsl(43 45% 22%);
+  background-color: hsl(43 35% 92%);
+  border: 1px solid hsl(43 76% 52% / 0.4);
+}
+
+.budget-transactions-tab .budget-gold-selected {
+  border-color: hsl(43 76% 52%) !important;
+  box-shadow: 0 0 0 2px hsl(43 76% 52% / 0.22);
+  background-color: hsl(43 40% 96%);
+}
+
+.dark .budget-transactions-tab .budget-gold-btn-primary {
+  background-color: hsl(0 0% 0%) !important;
+  color: hsl(0 0% 100%) !important;
+  border-color: hsl(43 76% 52% / 0.7) !important;
+}
+
+.dark .budget-transactions-tab .budget-gold-btn-primary:hover:not(:disabled) {
+  background-color: hsl(43 20% 10%) !important;
+}
+
+.dark .budget-transactions-tab .budget-gold-btn-outline {
+  background-color: transparent !important;
+  color: hsl(43 80% 72%) !important;
+  border-color: hsl(43 76% 52% / 0.45) !important;
+}
+
+.dark .budget-transactions-tab .budget-gold-btn-outline:hover:not(:disabled) {
+  background-color: hsl(43 16% 11%) !important;
+}
+
+.dark .budget-transactions-tab .budget-gold-btn-soft {
+  background-color: hsl(43 20% 12%) !important;
+  color: hsl(43 80% 72%) !important;
+  border-color: hsl(43 76% 52% / 0.4) !important;
+}
+
+.dark .budget-transactions-tab .budget-gold-btn-active {
+  background-color: hsl(0 0% 0%) !important;
+  color: hsl(43 80% 70%) !important;
+  border-color: hsl(43 76% 52%) !important;
+}
+
+.dark .budget-transactions-tab .budget-gold-icon-btn {
+  background-color: hsl(43 16% 8%) !important;
+  color: hsl(43 80% 68%) !important;
+  border-color: hsl(43 76% 52% / 0.35) !important;
+}
+
+.dark .budget-transactions-tab .budget-gold-icon-btn:hover:not(:disabled) {
+  background-color: hsl(43 18% 12%) !important;
+}
+
+.dark .budget-transactions-tab .budget-gold-icon-btn--on {
+  background-color: hsl(0 0% 0%) !important;
+  color: hsl(43 80% 70%) !important;
+}
+
+.dark .budget-transactions-tab .budget-gold-chip {
+  color: hsl(43 80% 70%) !important;
+  background-color: hsl(43 16% 8%) !important;
+  border-color: hsl(43 76% 52% / 0.4) !important;
+}
+
+.dark .budget-transactions-tab .budget-gold-selected {
+  background-color: hsl(43 16% 8%) !important;
 }
 
 /* Slate panels (e.g. analysis metadata) — remap in dark mode */
