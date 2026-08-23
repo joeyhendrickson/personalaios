@@ -41,7 +41,6 @@ import type {
   ModuleContextSummary,
   CrossModuleInsightsSummary,
 } from '@/types/context-cache'
-import type { AdvisorEvidence } from '@/types/advisor-evidence'
 import {
   parseContextAdjustments,
   formatContextAdjustmentsPrompt,
@@ -57,6 +56,19 @@ import type {
 /** Max age in hours for cache to be considered fresh */
 const CACHE_FRESH_HOURS = 24
 const CACHE_INCREMENTAL_FRESH_HOURS = 2
+
+function asList<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : []
+}
+
+function minimalAssembledContext(): AssembledContext {
+  return {
+    systemContext:
+      'USER CONTEXT: Unavailable this turn. Answer helpfully from the conversation without inventing dashboard facts.',
+    usedCache: false,
+    layersIncluded: [],
+  }
+}
 
 function isCacheFresh(row: UserContextCacheRow | null): boolean {
   if (!row?.last_full_refresh_at) return false
@@ -84,9 +96,21 @@ function formatStaticProfile(p: StaticProfileSummary | null): string {
   return lines.length ? `USER PROFILE:\n${lines.join('\n')}` : ''
 }
 
-function formatStructuredState(s: StructuredStateSummary | null): string {
+export function formatStructuredState(s: StructuredStateSummary | null): string {
   if (!s) return ''
-  const hasGoodLiving = s.categories.some(
+  const categories = asList(s.categories)
+  const installedModules = asList(s.installedModules)
+  const topGoals = asList(s.topGoals)
+  const topDp = asList(s.topDashboardProjects)
+  const topTasks = asList(s.topTasks)
+  const completedTodayList = asList(s.completedTodayList)
+  const topHabits = asList(s.topHabits)
+  const topPriorities = asList(s.topPriorities)
+  const firePriorities = asList(s.firePriorities)
+  const relationships = asList(s.relationships)
+  const moduleSummaries = asList(s.moduleSummaries)
+
+  const hasGoodLiving = categories.some(
     (c) =>
       c.toLowerCase().includes('good') ||
       c.toLowerCase().includes('living') ||
@@ -94,12 +118,9 @@ function formatStructuredState(s: StructuredStateSummary | null): string {
       c.toLowerCase().includes('health')
   )
   const totalProjects = typeof s.totalDashboardProjects === 'number' ? s.totalDashboardProjects : 0
-  const topDp = Array.isArray(s.topDashboardProjects) ? s.topDashboardProjects : []
 
   const topUserGoalsFmt =
-    (s.topGoals ?? [])
-      .map((g) => `${g.title} (${g.goalType ?? 'goal'}, ${g.progress})`)
-      .join('; ') || 'None'
+    topGoals.map((g) => `${g.title} (${g.goalType ?? 'goal'}, ${g.progress})`).join('; ') || 'None'
 
   const topProjectsFmt = topDp.map((p) => `${p.title} (${p.progress})`).join('; ') || 'None'
 
@@ -135,14 +156,14 @@ function formatStructuredState(s: StructuredStateSummary | null): string {
 - Active PROJECTS (${totalProjects}) — week-scoped tiles on Projects panel: Top: ${topProjectsFmt}
 - Open tasks: ${s.totalTasks}, Habits: ${s.totalHabits}, Priorities: ${s.activePriorities}, Completed today: ${s.completedTasksToday}
 - Completed/closed (context only, do not assign new work): goals=${s.completedGoalsCount ?? '—'}, projects=${s.completedProjectsCount ?? '—'}, tasks=${s.completedTasksCount ?? '—'}
-- Modules: ${s.installedModules.join(', ') || 'None'}
-- Top open tasks: ${s.topTasks.map((t) => `${t.title} [${t.status}]`).join('; ') || 'None'}
-- Completed today: ${s.completedTodayList?.map((t) => `${t.title} (${t.category || ''})`).join('; ') || 'None'}
-- Habits: ${s.topHabits?.filter(Boolean).join('; ') || 'None'}
-- Priorities: ${s.topPriorities.map((p) => p.title).join('; ') || 'None'}
-- Fire: ${s.firePriorities.map((p) => p.title).join('; ') || 'None'}
-- Relationships: ${s.relationships?.map((r) => `${r.name} (${r.lastInteraction || 'Never'})`).join('; ') || 'None'}
-- Module data: ${s.moduleSummaries.map((m) => `${m.moduleId}: ${m.summary}`).join('; ') || 'None'}
+- Modules: ${installedModules.join(', ') || 'None'}
+- Top open tasks: ${topTasks.map((t) => `${t.title} [${t.status}]`).join('; ') || 'None'}
+- Completed today: ${completedTodayList.map((t) => `${t.title} (${t.category || ''})`).join('; ') || 'None'}
+- Habits: ${topHabits.filter(Boolean).join('; ') || 'None'}
+- Priorities: ${topPriorities.map((p) => p.title).join('; ') || 'None'}
+- Fire: ${firePriorities.map((p) => p.title).join('; ') || 'None'}
+- Relationships: ${relationships.map((r) => `${r.name} (${r.lastInteraction || 'Never'})`).join('; ') || 'None'}
+- Module data: ${moduleSummaries.map((m) => `${m.moduleId}: ${m.summary}`).join('; ') || 'None'}
 
 COMPLETION AWARENESS:
 - Recommend actions ONLY for active goals, active projects, and open tasks listed above.
@@ -189,7 +210,13 @@ export async function assembleAIContext(
     contextAdjustments,
   } = options
 
-  const parsedAdjustments = parseContextAdjustments(contextAdjustments)
+  let parsedAdjustments: ReturnType<typeof parseContextAdjustments>
+  try {
+    parsedAdjustments = parseContextAdjustments(contextAdjustments)
+  } catch (error) {
+    console.error('[Advisor] Failed to parse context adjustments:', error)
+    parsedAdjustments = null
+  }
   const modulePriority = [
     ...(parsedAdjustments?.modulePriority ?? []),
     ...(optionModulePriority ?? []),
@@ -203,18 +230,71 @@ export async function assembleAIContext(
     throw new Error('Unauthorized: user mismatch')
   }
 
+  try {
+    return await assembleAIContextFromSources(userId, {
+      messages,
+      currentModule,
+      preferLiveIfStale,
+      filterModulesByQuestion,
+      modulePriority,
+      contextAdjustments,
+      parsedAdjustments,
+      supabase,
+    })
+  } catch (error) {
+    console.error('[Advisor] Context assembly failed; using minimal context:', error)
+    return minimalAssembledContext()
+  }
+}
+
+async function assembleAIContextFromSources(
+  userId: string,
+  options: {
+    messages: AssembleContextOptions['messages']
+    currentModule: AssembleContextOptions['currentModule']
+    preferLiveIfStale: boolean
+    filterModulesByQuestion: boolean
+    modulePriority: string[]
+    contextAdjustments: AssembleContextOptions['contextAdjustments']
+    parsedAdjustments: ReturnType<typeof parseContextAdjustments>
+    supabase: Awaited<ReturnType<typeof createClient>>
+  }
+): Promise<AssembledContext> {
+  const {
+    messages,
+    currentModule,
+    preferLiveIfStale,
+    filterModulesByQuestion,
+    modulePriority,
+    contextAdjustments,
+    parsedAdjustments,
+    supabase,
+  } = options
+
   let usedCache = false
   let cacheAgeHours: number | undefined
   const layers: AssembledContext['layersIncluded'] = []
 
-  const adminSupabase = createAdminClient()
-  const { data: cacheRow } = await adminSupabase
-    .from('user_context_cache')
-    .select('*')
-    .eq('user_id', userId)
-    .single()
+  let dataClient = supabase
+  try {
+    dataClient = createAdminClient()
+  } catch (error) {
+    console.error('[Advisor] Admin client unavailable; using user-scoped client:', error)
+  }
 
-  const row = cacheRow as UserContextCacheRow | null
+  let cacheRow: UserContextCacheRow | null = null
+  try {
+    const { data } = await dataClient
+      .from('user_context_cache')
+      .select('*')
+      .eq('user_id', userId)
+      .single()
+    cacheRow = (data as UserContextCacheRow | null) ?? null
+  } catch (error) {
+    console.error('[Advisor] Context cache read failed:', error)
+  }
+
+  const row = cacheRow
   const fresh = isCacheFresh(row)
 
   let staticProfile: StaticProfileSummary | null = null
@@ -239,19 +319,24 @@ export async function assembleAIContext(
   }
 
   if (!staticProfile || !structuredState || !moduleContext) {
-    const raw = await fetchRawUserData(adminSupabase, userId)
-    if (!staticProfile) staticProfile = buildStaticProfileSummary(raw.assessmentData)
-    if (!structuredState) {
-      structuredState = buildStructuredStateSummary(
-        raw as Parameters<typeof buildStructuredStateSummary>[0]
-      )
+    try {
+      const raw = await fetchRawUserData(dataClient, userId)
+      if (!staticProfile) staticProfile = buildStaticProfileSummary(raw.assessmentData)
+      if (!structuredState) {
+        structuredState = buildStructuredStateSummary(
+          raw as Parameters<typeof buildStructuredStateSummary>[0]
+        )
+      }
+      if (!moduleContext) {
+        moduleContext = buildModuleContextSummaries(raw)
+        crossModuleInsights = buildCrossModuleInsights(raw, moduleContext)
+        layers.push('modules', 'cross_module')
+      }
+      if (!usedCache) layers.push('static', 'structured')
+    } catch (error) {
+      console.error('[Advisor] Live context fetch failed; continuing with partial context:', error)
+      if (!moduleContext) moduleContext = []
     }
-    if (!moduleContext) {
-      moduleContext = buildModuleContextSummaries(raw)
-      crossModuleInsights = buildCrossModuleInsights(raw, moduleContext)
-      layers.push('modules', 'cross_module')
-    }
-    if (!usedCache) layers.push('static', 'structured')
   }
 
   if (!derivedInsights && !usedCache) {
@@ -270,13 +355,17 @@ export async function assembleAIContext(
     (structuredState?.installedModules?.includes('fitness-tracker') ?? false)
 
   if (needsLiveFitness && moduleContext) {
-    const liveFitness = await fetchModuleDataForContext(adminSupabase, userId, 'fitness-tracker')
-    if (liveFitness) {
-      moduleContext = mergeModuleSummary(
-        moduleContext,
-        buildModuleSummaryForModule('fitness-tracker', liveFitness.data, undefined)
-      )
-      if (!layers.includes('modules')) layers.push('modules')
+    try {
+      const liveFitness = await fetchModuleDataForContext(dataClient, userId, 'fitness-tracker')
+      if (liveFitness) {
+        moduleContext = mergeModuleSummary(
+          moduleContext,
+          buildModuleSummaryForModule('fitness-tracker', liveFitness.data, undefined)
+        )
+        if (!layers.includes('modules')) layers.push('modules')
+      }
+    } catch (error) {
+      console.error('[Advisor] Live fitness context failed:', error)
     }
   }
 
@@ -291,24 +380,28 @@ export async function assembleAIContext(
       looksLikeTransactionQuestion(lastUserMessage))
 
   if (needsLiveBudget && moduleContext) {
-    const budgetContext = await fetchBudgetContextData(adminSupabase, userId, {
-      question: lastUserMessage,
-    })
-    const liveBudgetModule = await fetchModuleDataForContext(
-      adminSupabase,
-      userId,
-      'budget-optimizer'
-    )
-    const updatedBudget = buildModuleSummaryForModule(
-      'budget-optimizer',
-      liveBudgetModule?.data ?? {},
-      budgetContext
-    )
-    if (updatedBudget.hasData || budgetContext.transactions.length > 0) {
-      updatedBudget.hasData = true
-      updatedBudget.aiSummary = undefined
-      moduleContext = mergeModuleSummary(moduleContext, updatedBudget)
-      if (!layers.includes('modules')) layers.push('modules')
+    try {
+      const budgetContext = await fetchBudgetContextData(dataClient, userId, {
+        question: lastUserMessage,
+      })
+      const liveBudgetModule = await fetchModuleDataForContext(
+        dataClient,
+        userId,
+        'budget-optimizer'
+      )
+      const updatedBudget = buildModuleSummaryForModule(
+        'budget-optimizer',
+        liveBudgetModule?.data ?? {},
+        budgetContext
+      )
+      if (updatedBudget.hasData || budgetContext.transactions.length > 0) {
+        updatedBudget.hasData = true
+        updatedBudget.aiSummary = undefined
+        moduleContext = mergeModuleSummary(moduleContext, updatedBudget)
+        if (!layers.includes('modules')) layers.push('modules')
+      }
+    } catch (error) {
+      console.error('[Advisor] Live budget context failed:', error)
     }
   }
 
@@ -420,26 +513,32 @@ export async function assembleAIContext(
   if (ephemeralStr) parts.push(ephemeralStr)
 
   const systemContext = parts.filter(Boolean).join('\n\n')
-  const sourceChips = buildAdvisorSourceChips(moduleContext ?? [], modulesIncluded)
-  const moduleOrder = modulesForPrompt.map((m) => m.moduleId)
-  const evidence = buildAdvisorEvidence({
-    filterResult,
-    allModuleContext: moduleContext ?? [],
-    modulesForPrompt,
-    modulesIncluded: modulesIncluded ?? [],
-    moduleOrder,
-    topicFilterApplied,
-    layersIncluded: [...new Set(layers)],
-    usedCache,
-    cacheAgeHours,
-    contextAdjustments,
-    appliedAdjustments: parsedAdjustments?.promptLines,
-    retrievedChunks: retrieval.chunks,
-    usedRag: retrieval.usedRag,
-    ragIndexFresh: retrieval.indexFresh,
-    ragIndexAgeHours: retrieval.indexAgeHours,
-    multiPassResult: 'passes' in retrieval ? retrieval : undefined,
-  })
+  let sourceChips: AssembledContext['sourceChips']
+  let evidence: AssembledContext['evidence']
+  try {
+    sourceChips = buildAdvisorSourceChips(moduleContext ?? [], modulesIncluded)
+    const moduleOrder = modulesForPrompt.map((m) => m.moduleId)
+    evidence = buildAdvisorEvidence({
+      filterResult,
+      allModuleContext: moduleContext ?? [],
+      modulesForPrompt,
+      modulesIncluded: modulesIncluded ?? [],
+      moduleOrder,
+      topicFilterApplied,
+      layersIncluded: [...new Set(layers)],
+      usedCache,
+      cacheAgeHours,
+      contextAdjustments,
+      appliedAdjustments: parsedAdjustments?.promptLines,
+      retrievedChunks: retrieval.chunks,
+      usedRag: retrieval.usedRag,
+      ragIndexFresh: retrieval.indexFresh,
+      ragIndexAgeHours: retrieval.indexAgeHours,
+      multiPassResult: 'passes' in retrieval ? retrieval : undefined,
+    })
+  } catch (error) {
+    console.error('[Advisor] Evidence payload failed; continuing without source chips:', error)
+  }
 
   return {
     systemContext,

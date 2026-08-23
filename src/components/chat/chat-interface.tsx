@@ -73,7 +73,7 @@ function formatAdvisorChatError(error: unknown, status?: number): string {
     return 'The Advisor is rate-limited. Wait a moment and try again.'
   }
   if (status != null && status >= 500) {
-    return 'The Advisor hit a server error. Try again in a minute. If it persists, check Vercel logs for /api/chat.'
+    return 'The Advisor hit a server error. Try again in a minute.'
   }
   if (error instanceof Error && error.message.trim()) {
     return `Could not get a reply: ${error.message}`
