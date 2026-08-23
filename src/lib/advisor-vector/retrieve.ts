@@ -200,8 +200,7 @@ function assessRetrievalQuality(result: AdvisorVectorRetrieveResult): number {
   }
 
   const strongMatches = countStrongMatches(result.chunks)
-  const avgScore =
-    includedChunks.reduce((sum, c) => sum + c.score, 0) / includedChunks.length
+  const avgScore = includedChunks.reduce((sum, c) => sum + c.score, 0) / includedChunks.length
 
   // Quality formula:
   // - 50% weight on strong match ratio
