@@ -11,7 +11,10 @@ import {
   isAcceptedFileName,
   parseUploadedSampleContent,
 } from '@/lib/write-in-my-voice/parse-sample'
-import { syncVoiceCorpusToPinecone, deleteVoiceCorpusForSample } from '@/lib/write-in-my-voice/sync-voice-corpus'
+import {
+  syncVoiceCorpusToPinecone,
+  deleteVoiceCorpusForSample,
+} from '@/lib/write-in-my-voice/sync-voice-corpus'
 
 export async function GET() {
   try {

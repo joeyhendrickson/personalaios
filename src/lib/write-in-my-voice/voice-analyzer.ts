@@ -32,7 +32,9 @@ export class WriteInMyVoiceAnalyzer {
     this.openai = new OpenAI({ apiKey })
   }
 
-  async analyzeVoice(samples: { source_type: string; content_text: string }[]): Promise<VoiceAnalysisResult> {
+  async analyzeVoice(
+    samples: { source_type: string; content_text: string }[]
+  ): Promise<VoiceAnalysisResult> {
     const combined = samples
       .map((s, i) => `[Sample ${i + 1} — ${s.source_type}]\n${s.content_text.slice(0, 4000)}`)
       .join('\n\n---\n\n')

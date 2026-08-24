@@ -11,8 +11,7 @@ const MATERIAL_INSTRUCTIONS: Record<string, string> = {
     'Write a social media post — concise, scroll-stopping, and authentic to the platform norms while keeping the user voice.',
   email:
     'Write an email with an appropriate subject line, greeting, body, and sign-off in the user natural email style.',
-  book:
-    'Write a book excerpt or chapter section with narrative flow, scene-setting, and the user distinctive prose rhythm.',
+  book: 'Write a book excerpt or chapter section with narrative flow, scene-setting, and the user distinctive prose rhythm.',
 }
 
 export async function generateVoiceContent(
@@ -20,7 +19,8 @@ export async function generateVoiceContent(
 ): Promise<GeneratedVoiceContent> {
   const openai = new OpenAI({ apiKey: input.openaiKey })
   const materialLabel = MATERIAL_LABELS[input.materialType]
-  const materialGuide = MATERIAL_INSTRUCTIONS[input.materialType] ?? 'Write in the requested format.'
+  const materialGuide =
+    MATERIAL_INSTRUCTIONS[input.materialType] ?? 'Write in the requested format.'
 
   const voiceExcerptBlock =
     input.crossContext.voiceCorpusExcerpts.length > 0

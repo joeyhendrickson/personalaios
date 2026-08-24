@@ -101,13 +101,11 @@ export function summarizeWeeklyGoogleHealth(
 
 /** Best recent value for each wearable field across synced Google Health rows. */
 export function buildGoogleHealthSnapshot(rows: FitnessBiometricRow[]): FitnessBiometricRow | null {
-  const googleRows = rows
-    .filter(isGoogleHealthRow)
-    .sort((a, b) => {
-      const dateCmp = (b.sync_date || '').localeCompare(a.sync_date || '')
-      if (dateCmp !== 0) return dateCmp
-      return new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
-    })
+  const googleRows = rows.filter(isGoogleHealthRow).sort((a, b) => {
+    const dateCmp = (b.sync_date || '').localeCompare(a.sync_date || '')
+    if (dateCmp !== 0) return dateCmp
+    return new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
+  })
   if (!googleRows.length) return null
 
   const pick = <T extends number | null | undefined>(

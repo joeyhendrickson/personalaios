@@ -22,12 +22,9 @@ export async function buildCrossContextForGeneration(input: {
   if (isAdvisorRagEnabled()) {
     const queryVector = await embedText(input.prompt)
     if (queryVector) {
-      const voiceMatches = await queryAdvisorVectors(
-        input.userId,
-        queryVector,
-        6,
-        [WRITE_IN_MY_VOICE_MODULE_ID]
-      )
+      const voiceMatches = await queryAdvisorVectors(input.userId, queryVector, 6, [
+        WRITE_IN_MY_VOICE_MODULE_ID,
+      ])
       for (const m of voiceMatches) {
         if (m.score >= 0.45 && m.preview) {
           voiceCorpusExcerpts.push(m.preview)

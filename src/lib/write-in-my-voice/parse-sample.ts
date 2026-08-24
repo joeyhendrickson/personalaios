@@ -3,7 +3,12 @@ import type { VoiceSampleSourceType } from './constants'
 const ACCEPTED_EXTENSIONS = new Set(['.txt', '.md', '.json', '.csv', '.html', '.htm'])
 
 export function inferSourceType(fileName: string, override?: string): VoiceSampleSourceType {
-  if (override === 'facebook' || override === 'blog' || override === 'email' || override === 'other') {
+  if (
+    override === 'facebook' ||
+    override === 'blog' ||
+    override === 'email' ||
+    override === 'other'
+  ) {
     return override
   }
   const lower = fileName.toLowerCase()
@@ -46,8 +51,7 @@ function parseJsonContent(raw: string): string {
           if (typeof item === 'string') return item
           if (item && typeof item === 'object') {
             const obj = item as Record<string, unknown>
-            const text =
-              obj.text ?? obj.content ?? obj.message ?? obj.body ?? obj.post ?? obj.title
+            const text = obj.text ?? obj.content ?? obj.message ?? obj.body ?? obj.post ?? obj.title
             return typeof text === 'string' ? text : JSON.stringify(item)
           }
           return String(item)

@@ -2,15 +2,17 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { embedTexts } from '@/lib/ai/embeddings'
-import {
-  deleteAdvisorVectorsByIds,
-  upsertAdvisorVectors,
-} from '@/lib/advisor-vector/client'
+import { deleteAdvisorVectorsByIds, upsertAdvisorVectors } from '@/lib/advisor-vector/client'
 import { isAdvisorRagEnabled, pineconeVectorId } from '@/lib/advisor-vector/config'
 import { buildVoiceCorpusChunks } from './voice-chunks'
 import type { VoiceProfile } from './types'
 
-type LedgerRow = { chunk_id: string; content_hash: string; pinecone_id: string; sample_id?: string | null }
+type LedgerRow = {
+  chunk_id: string
+  content_hash: string
+  pinecone_id: string
+  sample_id?: string | null
+}
 
 export async function syncVoiceCorpusToPinecone(input: {
   userId: string

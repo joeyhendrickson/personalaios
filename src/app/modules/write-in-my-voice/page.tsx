@@ -225,8 +225,8 @@ export default function WriteInMyVoiceModule() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Write In My Voice</h1>
               <p className="text-gray-600">
-                Upload your past writing, learn your voice, and generate new content that sounds like
-                you.
+                Upload your past writing, learn your voice, and generate new content that sounds
+                like you.
               </p>
             </div>
           </div>
@@ -337,7 +337,9 @@ export default function WriteInMyVoiceModule() {
                 <CheckCircle className="h-4 w-4" />
                 Voice profile ready
                 {confidence != null && (
-                  <span className="text-violet-600">({Math.round(confidence * 100)}% confidence)</span>
+                  <span className="text-violet-600">
+                    ({Math.round(confidence * 100)}% confidence)
+                  </span>
                 )}
               </div>
               <p>
@@ -351,7 +353,8 @@ export default function WriteInMyVoiceModule() {
               )}
               {profile.signature_phrases?.length > 0 && (
                 <p className="mt-1">
-                  <strong>Signature phrases:</strong> {profile.signature_phrases.slice(0, 5).join(', ')}
+                  <strong>Signature phrases:</strong>{' '}
+                  {profile.signature_phrases.slice(0, 5).join(', ')}
                 </p>
               )}
             </div>
@@ -431,7 +434,9 @@ export default function WriteInMyVoiceModule() {
                   {copied ? 'Copied' : 'Copy'}
                 </button>
               </div>
-              <div className="whitespace-pre-wrap text-sm text-gray-800">{generatedContent.content}</div>
+              <div className="whitespace-pre-wrap text-sm text-gray-800">
+                {generatedContent.content}
+              </div>
               {generatedContent.voice_match_score != null && (
                 <p className="mt-2 text-xs text-gray-500">
                   Voice match: {Math.round(generatedContent.voice_match_score * 100)}%

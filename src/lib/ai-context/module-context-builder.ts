@@ -478,7 +478,8 @@ function extractWriteInMyVoice(
       `Writing voice: ${str(vp.tone)} tone, ${str(vp.writing_style)} style`
     )
     const themes = Array.isArray(vp.common_themes) ? (vp.common_themes as string[]) : []
-    if (themes.length) summary.recentHighlights.push(`Voice themes: ${themes.slice(0, 5).join(', ')}`)
+    if (themes.length)
+      summary.recentHighlights.push(`Voice themes: ${themes.slice(0, 5).join(', ')}`)
   }
 
   summary.objectiveFacts.push(`${samples.length} writing samples indexed`)
