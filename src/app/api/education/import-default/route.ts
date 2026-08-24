@@ -21,6 +21,7 @@ export async function POST() {
       .from('education_items')
       .select('id')
       .eq('user_id', user.id)
+      .eq('is_active', true)
 
     if (checkError) {
       console.error('Error checking existing education items:', checkError)
