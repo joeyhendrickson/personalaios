@@ -1110,6 +1110,29 @@ body {
   font-size: 0.875rem;
 }
 
+.budget-analysis-tab .budget-analysis-inner-tabs {
+  display: flex;
+  gap: 1rem;
+  border-bottom: 1px solid hsl(43 76% 52% / 0.3);
+}
+
+.budget-analysis-tab .budget-analysis-inner-tab {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 0.5rem 0.15rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: hsl(0 0% 38%);
+  cursor: pointer;
+}
+
+.budget-analysis-tab .budget-analysis-inner-tab--active {
+  color: hsl(43 55% 26%);
+  border-bottom-color: hsl(43 76% 52%);
+}
+
 .budget-analysis-tab .budget-analysis-subcard {
   background-color: hsl(0 0% 100%);
   border: 1px solid hsl(43 76% 52% / 0.28);
@@ -1271,6 +1294,19 @@ body {
 .dark .budget-analysis-tab .budget-analysis-meta {
   background-color: hsl(43 14% 8%) !important;
   border-color: hsl(43 76% 52% / 0.4) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-inner-tabs {
+  border-bottom-color: hsl(43 76% 52% / 0.35) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-inner-tab {
+  color: hsl(0 0% 72%) !important;
+}
+
+.dark .budget-analysis-tab .budget-analysis-inner-tab--active {
+  color: hsl(43 80% 65%) !important;
+  border-bottom-color: hsl(43 76% 52%) !important;
 }
 
 .dark .budget-analysis-tab .budget-analysis-subcard,
