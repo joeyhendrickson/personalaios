@@ -381,7 +381,7 @@ const translations = {
     'report.intro':
       'Generate a styled progress plan with a profile of who you are, what drove your motivation, where your attention went, and a SWOT analysis—plus highlights you can share or frame for motivation!',
     'report.premiumUnlimited': 'Premium — unlimited reports',
-    'report.standardQuota': 'Standard plan: {used} / {limit} report used this week',
+    'report.standardQuota': 'Standard plan: {used} / {limit} reports this week',
     'report.nextAvailable': 'Next available:',
     'report.periodLabel': 'Report period',
     'report.period.weekly': 'Weekly',
@@ -406,7 +406,7 @@ const translations = {
     'report.upgradePremium': 'Upgrade to Premium for unlimited reports',
     'report.generateProgressReport': 'Generate progress report',
     'report.quotaLimitMessage':
-      'Standard accounts can generate 1 progress report per calendar week. Upgrade to Premium for unlimited reports.',
+      'Standard accounts can generate 2 progress reports per calendar week. Upgrade to Premium for unlimited reports.',
   },
   es: {
     // Dashboard
@@ -778,7 +778,7 @@ const translations = {
     'report.intro':
       'Genera un plan de progreso con un perfil de quién eres, qué impulsó tu motivación, dónde pusiste tu atención y un análisis FODA—¡más destacados que puedes compartir o enmarcar para motivarte!',
     'report.premiumUnlimited': 'Premium — informes ilimitados',
-    'report.standardQuota': 'Plan estándar: {used} / {limit} informe usado esta semana',
+    'report.standardQuota': 'Plan estándar: {used} / {limit} informes esta semana',
     'report.nextAvailable': 'Próximo disponible:',
     'report.periodLabel': 'Período del informe',
     'report.period.weekly': 'Semanal',
@@ -803,7 +803,7 @@ const translations = {
     'report.upgradePremium': 'Actualiza a Premium para informes ilimitados',
     'report.generateProgressReport': 'Generar informe de progreso',
     'report.quotaLimitMessage':
-      'Las cuentas estándar pueden generar 1 informe de progreso por semana calendario. Actualiza a Premium para informes ilimitados.',
+      'Las cuentas estándar pueden generar 2 informes de progreso por semana calendario. Actualiza a Premium para informes ilimitados.',
   },
 }
 
