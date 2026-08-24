@@ -104,6 +104,14 @@ export const LIFE_HACK_CATALOG: LifeHackModule[] = [
     description: 'Nightly gratitude practice with mood tracking and streaks.',
     coachHint: 'For gratitude, mood awareness, and emotional wellbeing',
   },
+  {
+    id: 'write-in-my-voice',
+    title: 'Write In My Voice',
+    category: 'Productivity',
+    description:
+      'Learn your writing style from past posts and emails, then generate new content in your authentic voice.',
+    coachHint: 'For writing in your personal tone — blogs, social posts, emails, and books',
+  },
 ]
 
 const byId = new Map(LIFE_HACK_CATALOG.map((m) => [m.id, m]))

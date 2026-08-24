@@ -327,6 +327,34 @@ const catalog: Record<string, Record<Language, ModuleCatalogEntry>> = {
       ],
     },
   },
+  'write-in-my-voice': {
+    en: {
+      title: 'Write In My Voice',
+      description:
+        'Upload your past writing and generate new content — blogs, social posts, emails, and books — in your authentic personal voice.',
+      features: [
+        'Writing Sample Upload',
+        'Voice Analysis',
+        'Blog & Social Drafts',
+        'Email & Book Excerpts',
+        'Cross-Module Context',
+        'RAG Voice Corpus',
+      ],
+    },
+    es: {
+      title: 'Escribe Con Mi Voz',
+      description:
+        'Sube tu escritura previa y genera contenido nuevo — blogs, redes sociales, correos y libros — con tu voz personal auténtica.',
+      features: [
+        'Subida de muestras',
+        'Análisis de voz',
+        'Borradores de blog y redes',
+        'Correos y extractos de libros',
+        'Contexto entre módulos',
+        'Corpus RAG de voz',
+      ],
+    },
+  },
 }
 
 export function getModuleCatalogEntry(

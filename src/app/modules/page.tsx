@@ -271,6 +271,24 @@ const modules: Module[] = [
     ],
     complexity: 'beginner',
   },
+  {
+    id: 'write-in-my-voice',
+    title: 'Write In My Voice',
+    description:
+      'Upload your past writing — Facebook posts, blogs, emails — and generate new content in your authentic personal voice.',
+    category: 'Productivity',
+    icon: <PenTool className="h-8 w-8" />,
+    status: 'available',
+    features: [
+      'Writing Sample Upload',
+      'Voice Analysis',
+      'Blog & Social Drafts',
+      'Email & Book Excerpts',
+      'Cross-Module Context',
+      'RAG Voice Corpus',
+    ],
+    complexity: 'intermediate',
+  },
 ]
 
 // Purpose/intent keywords per module so search can match on what a module is *for*,
@@ -479,6 +497,24 @@ const MODULE_KEYWORDS: Record<string, string[]> = {
     'wellbeing',
     'thanks',
     'grateful',
+  ],
+  'write-in-my-voice': [
+    'write',
+    'writing',
+    'voice',
+    'tone',
+    'style',
+    'blog',
+    'post',
+    'email',
+    'content',
+    'draft',
+    'ghostwrite',
+    'author',
+    'copy',
+    'social media',
+    'book',
+    'newsletter',
   ],
 }
 

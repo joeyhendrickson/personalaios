@@ -56,6 +56,11 @@ export const MODULE_TABLE_MAPPINGS: Record<string, string[]> = {
     'habit_master_insights',
   ],
   'gratitude-journal': ['gratitude_journal_entries'],
+  'write-in-my-voice': [
+    'write_in_my_voice_samples',
+    'write_in_my_voice_profiles',
+    'write_in_my_voice_drafts',
+  ],
   'narrative-integration': [
     'narrative_integration_sessions',
     'narrative_integration_events',
@@ -122,6 +127,13 @@ export const MODULE_ADVISORY_CATEGORIES: Record<string, string[]> = {
     'vision casting',
   ],
   'gratitude-journal': ['gratitude', 'emotional stability', 'spiritual growth', 'self-care'],
+  'write-in-my-voice': [
+    'writing',
+    'content creation',
+    'personal branding',
+    'communication',
+    'life management',
+  ],
   'habit-master': ['habits improvement', 'habit management', 'focus', 'emotional stability'],
   'calendar-ai': [
     'calendar integration',
