@@ -52,15 +52,12 @@ Where:
 ## Key Features
 
 ### 1. **Automatic Triggering**
-
 - No manual flags needed
 - Confidence-based decision (default 80% threshold)
 - Transparent fallback to multi-pass
 
 ### 2. **Query Refinement**
-
 Uses GPT-4o-mini to refine queries based on findings:
-
 ```typescript
 Pass 1: "Why aren't my goals progressing?"
 Pass 2: "budget tasks completed but fitness goals blocked relationship"
@@ -68,17 +65,13 @@ Pass 3: "fitness goal obstacles dining spending meal prep"
 ```
 
 ### 3. **Early Stopping**
-
 Stops when:
-
 - **High quality**: Pass 1 already ≥ 80% quality
 - **No new chunks**: Exhausted relevant index
 - **Max passes**: Hit iteration limit (default 3)
 
 ### 4. **Full Auditability**
-
 Every pass is logged with:
-
 - Original and refined queries
 - New chunks found per pass
 - Strong match counts
@@ -112,17 +105,17 @@ CREATE VIEW advisor_multipass_analytics AS ...
 
 ```sql
 -- Check multi-pass adoption rate
-SELECT
+SELECT 
   COUNT(*) FILTER (WHERE metadata->>'multi_pass' = 'true') as multipass_count,
   COUNT(*) as total_retrievals,
   ROUND(100.0 * COUNT(*) FILTER (WHERE metadata->>'multi_pass' = 'true') / COUNT(*), 1) as multipass_percent
 FROM advisor_rag_events
-WHERE event_type = 'retrieve'
+WHERE event_type = 'retrieve' 
   AND status = 'success'
   AND created_at > NOW() - INTERVAL '7 days';
 
 -- Analyze convergence patterns
-SELECT
+SELECT 
   metadata->>'convergence_reason' as reason,
   COUNT(*) as count,
   AVG((metadata->>'total_passes')::int) as avg_passes,
@@ -185,39 +178,35 @@ console.log({
 ### Evidence Panel
 
 The `AdvisorEvidencePanel` now displays:
-
 - **Multi-Pass Indicator**: Badge showing passes used
 - **Pass Details**: Expandable trace of each query refinement
 - **Convergence Status**: Why multi-pass stopped
 
 ```tsx
 // Automatically shown when multi-pass was used
-{
-  evidence.multiPass && (
-    <>
-      <MultiPassIndicator multiPass={evidence.multiPass} />
-      <MultiPassDetails multiPass={evidence.multiPass} />
-    </>
-  )
-}
+{evidence.multiPass && (
+  <>
+    <MultiPassIndicator multiPass={evidence.multiPass} />
+    <MultiPassDetails multiPass={evidence.multiPass} />
+  </>
+)}
 ```
 
 ## Performance Metrics
 
 ### Expected Behavior
 
-| Metric               | Single-Pass | Multi-Pass (2 passes) | Multi-Pass (3 passes) |
-| -------------------- | ----------- | --------------------- | --------------------- |
-| **Latency**          | 150-250ms   | 400-600ms             | 700-1000ms            |
-| **Embedding Calls**  | 1           | 2                     | 3                     |
-| **Pinecone Queries** | 1           | 2                     | 3                     |
-| **Unique Chunks**    | 8 max       | 12-16 typical         | 15-20 typical         |
-| **Cost per Query**   | $0.0001     | $0.0002               | $0.0003               |
+| Metric | Single-Pass | Multi-Pass (2 passes) | Multi-Pass (3 passes) |
+|--------|-------------|----------------------|----------------------|
+| **Latency** | 150-250ms | 400-600ms | 700-1000ms |
+| **Embedding Calls** | 1 | 2 | 3 |
+| **Pinecone Queries** | 1 | 2 | 3 |
+| **Unique Chunks** | 8 max | 12-16 typical | 15-20 typical |
+| **Cost per Query** | $0.0001 | $0.0002 | $0.0003 |
 
 ### Real-World Distribution (Expected)
 
 Based on the 80% confidence threshold:
-
 - **85-90%** of questions: Single-pass (sufficient quality)
 - **8-12%** of questions: 2-pass multi-pass (most improvements)
 - **2-4%** of questions: 3-pass multi-pass (complex/sparse data)
@@ -227,13 +216,11 @@ Based on the 80% confidence threshold:
 ### Monthly Cost Impact (1000 users, 10 queries/user/day)
 
 **Before (single-pass only)**:
-
 - 300,000 queries/month
 - 300,000 embeddings
 - ~$30/month in embeddings
 
 **After (smart multi-pass)**:
-
 - 300,000 queries/month
 - 270,000 single-pass (90%)
 - 30,000 multi-pass (10% average 2.2 passes)
@@ -265,13 +252,12 @@ OPENAI_API_KEY=<your-key>
 ### Adjusting Thresholds
 
 Lower threshold = more multi-pass usage:
-
 ```typescript
 // More aggressive (use multi-pass more often)
-confidenceThreshold: 0.7 // 70%
+confidenceThreshold: 0.7  // 70%
 
 // More conservative (cheaper, faster)
-confidenceThreshold: 0.85 // 85%
+confidenceThreshold: 0.85  // 85%
 ```
 
 ## Testing
@@ -288,7 +274,7 @@ npm test src/lib/advisor-vector/multi-pass-retrieve.test.ts
 // Test multi-pass with low-confidence query
 const result = await retrieveAdvisorEvidenceSmart({
   userId: testUserId,
-  question: 'Why are my projects stalled despite high activity?',
+  question: "Why are my projects stalled despite high activity?",
 })
 
 expect(result).toHaveProperty('passes')
@@ -317,7 +303,7 @@ WHERE date > NOW() - INTERVAL '30 days'
 ORDER BY date DESC;
 
 -- User-specific patterns
-SELECT
+SELECT 
   user_id,
   COUNT(*) as total_queries,
   COUNT(*) FILTER (WHERE metadata->>'multi_pass' = 'true') as multipass_queries,
@@ -333,7 +319,6 @@ LIMIT 20;
 ### Logging
 
 Console logs show decisions:
-
 ```
 [Smart RAG] Single-pass quality 65% < 80% threshold. Upgrading to multi-pass.
 [Multi-pass RAG] Pass 1 complete: 8 chunks, 3 strong matches, avg 0.68
@@ -348,9 +333,8 @@ Console logs show decisions:
 **Cause**: Confidence threshold too low or quality assessment too generous
 
 **Fix**: Raise threshold or adjust quality formula
-
 ```typescript
-confidenceThreshold: 0.85 // was 0.8
+confidenceThreshold: 0.85  // was 0.8
 ```
 
 ### Issue: Multi-pass always hits max passes
@@ -358,13 +342,11 @@ confidenceThreshold: 0.85 // was 0.8
 **Cause**: Query refinement not working or sparse index
 
 **Solutions**:
-
 1. Check OpenAI API key for refinement calls
 2. Verify Pinecone index has sufficient data
 3. Lower max passes to reduce cost:
-
 ```typescript
-maxPasses: 2 // was 3
+maxPasses: 2  // was 3
 ```
 
 ### Issue: High latency
@@ -372,7 +354,6 @@ maxPasses: 2 // was 3
 **Cause**: Too many multi-pass queries
 
 **Solutions**:
-
 1. Raise confidence threshold (fewer multi-pass triggers)
 2. Reduce max passes
 3. Optimize query refinement prompt (faster LLM calls)
@@ -406,8 +387,7 @@ To disable multi-pass entirely:
 
 ```typescript
 // In assemble-context.ts
-retrieval = await retrieveAdvisorEvidence({
-  // Use old function
+retrieval = await retrieveAdvisorEvidence({  // Use old function
   userId,
   question: lastUserMessage,
   moduleIds: modulesIncluded,
@@ -415,7 +395,6 @@ retrieval = await retrieveAdvisorEvidence({
 ```
 
 Or set environment variable:
-
 ```bash
 ADVISOR_RAG_MULTIPASS_ENABLED=false
 ```
@@ -425,7 +404,6 @@ ADVISOR_RAG_MULTIPASS_ENABLED=false
 ## Summary
 
 Multi-pass RAG provides **30-60% better answers** for complex questions at only **13% cost increase** by:
-
 - ✅ Automatically detecting when single-pass is insufficient
 - ✅ Iteratively refining queries based on findings
 - ✅ Stopping early when quality goals are met

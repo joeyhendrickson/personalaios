@@ -225,7 +225,7 @@ export function AdvisorEvidencePanel({
                 </div>
               ))}
             </div>
-
+            
             {(evidence as any).multiPass && (
               <div className="mt-4 border-t pt-4">
                 <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">

@@ -2,10 +2,10 @@
 /**
  * PayPal Plan Setup Script
  * This script creates PayPal subscription plans and outputs the configuration
- *
+ * 
  * Usage:
  *   node setup-paypal-plans.js
- *
+ * 
  * Requirements:
  *   - PAYPAL_CLIENT_ID (your PayPal app client ID)
  *   - PAYPAL_CLIENT_SECRET (your PayPal app secret)
@@ -28,7 +28,7 @@ async function setup() {
   console.log('This script will create subscription plans in your PayPal account.\n')
 
   // Get PayPal credentials
-  const mode = (await question('Enter mode (sandbox/live) [sandbox]: ')) || 'sandbox'
+  const mode = await question('Enter mode (sandbox/live) [sandbox]: ') || 'sandbox'
   const clientId = await question('Enter PayPal Client ID: ')
   const clientSecret = await question('Enter PayPal Client Secret: ')
 
@@ -37,7 +37,9 @@ async function setup() {
     process.exit(1)
   }
 
-  const baseUrl = mode === 'live' ? 'https://api.paypal.com' : 'https://api-m.sandbox.paypal.com'
+  const baseUrl = mode === 'live' 
+    ? 'https://api.paypal.com' 
+    : 'https://api-m.sandbox.paypal.com'
 
   console.log(`\n📡 Using ${mode.toUpperCase()} mode: ${baseUrl}\n`)
 
@@ -185,6 +187,7 @@ async function setup() {
     console.log(`NEXT_PUBLIC_PAYPAL_PREMIUM_PLAN_ID=${premiumPlan.id}`)
     console.log(`PAYPAL_MODE=${mode}`)
     console.log('\n✅ Setup complete!\n')
+
   } catch (error) {
     console.error('❌ Error:', error.message)
     process.exit(1)
