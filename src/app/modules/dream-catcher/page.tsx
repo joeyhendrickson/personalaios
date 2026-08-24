@@ -28,7 +28,10 @@ import {
   Map,
 } from 'lucide-react'
 import {
-  INTAKE_QUESTION_COUNT,
+  getJourneyBeat,
+  getJourneyBeatLabel,
+  getReplyChips,
+  JOURNEY_BEATS,
   normalizeDreamCatcherPhase,
   STREAMLINED_PHASES,
 } from '@/lib/dream-catcher/streamlined-phases'
@@ -526,7 +529,7 @@ function DreamCatcherModuleContent() {
           const resumeMessage: ChatMessage = {
             id: 'resume',
             role: 'assistant',
-            content: `Welcome back! 🌟 I've loaded your saved progress. We were in the ${session.assessment_data.current_phase || 'personality'} phase. Let's continue where we left off!\n\nWhen you're ready to continue, type your responses or click the microphone button to speak your response.`,
+            content: `Welcome back — I saved your place. Tap a chip or type a short answer whenever you're ready.`,
             timestamp: new Date(),
             phase: session.assessment_data.current_phase || 'personality',
           }
@@ -549,8 +552,8 @@ function DreamCatcherModuleContent() {
   useEffect(() => {
     if (!sessionId && !isLoadingSession && messages.length === 0) {
       const welcomeContent = isNewUser
-        ? `Welcome to LifeStacks! I'll ask up to ${INTAKE_QUESTION_COUNT} thoughtful questions — adapted to your answers — about your goals, projects, tactics, habits, fitness, relationships, and what gets in your way. This usually takes about 10–15 minutes.\n\nThen we'll define your goals, projects, and step-by-step tasks in order — your full Life Plan (2–4 goals, 3–7 projects, 4–15 tasks, up to 5 habits) distributed across your dashboard and life modules.\n\nAt the end you'll review and confirm before anything is created.\n\nHere's the first question: What matters most to you right now? Tell me about your top priorities in your own words.`
-        : `Welcome back to Dream Catcher! We'll walk through up to ${INTAKE_QUESTION_COUNT} adaptive questions to refresh your Life Plan (~10–15 minutes). You'll review everything and confirm before anything is added.\n\nWhat matters most to you right now? Tell me about your top priorities in your own words.`
+        ? `Welcome. I'll catch what matters — one short question at a time — then sketch your Life Plan.\n\nWhat matters most to you right now?`
+        : `Welcome back. One question at a time — tap a chip or type a short answer.\n\nWhat matters most to you right now?`
 
       const welcomeMessage: ChatMessage = {
         id: 'welcome',
@@ -1113,6 +1116,13 @@ function DreamCatcherModuleContent() {
   const phaseStepIndex = STREAMLINED_PHASES.indexOf(
     normalizedPhase as (typeof STREAMLINED_PHASES)[number]
   )
+  const journeyBeat = getJourneyBeat(currentPhase)
+  const journeyBeatIndex = JOURNEY_BEATS.indexOf(journeyBeat)
+  const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant')
+  const replyChips =
+    !isLoading && normalizedPhase !== 'confirm' && !showConfirmation
+      ? getReplyChips(String(normalizedPhase), intakeQuestionIndex)
+      : []
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-sky-50">
@@ -1142,7 +1152,7 @@ function DreamCatcherModuleContent() {
                   Dream Catcher
                 </h1>
                 <p className="text-sm text-gray-600">
-                  A short conversation, then confirm your starter dashboard
+                  A few minutes. One question at a time.
                   {!isNewUser && (
                     <span className="ml-2">
                       •{' '}
@@ -1217,61 +1227,127 @@ function DreamCatcherModuleContent() {
                     <div>
                       <h3 className="font-semibold">Dream Catcher</h3>
                       <p className="text-sm text-gray-600">
-                        {phaseInfo.name}
-                        {normalizedPhase === 'intake'
-                          ? ` — question ${Math.min(intakeQuestionIndex + 1, INTAKE_QUESTION_COUNT)} of ${INTAKE_QUESTION_COUNT}`
-                          : phaseStepIndex >= 0
-                            ? ` — step ${phaseStepIndex + 1} of ${STREAMLINED_PHASES.length}`
-                            : ''}
+                        {getJourneyBeatLabel(String(normalizedPhase), intakeQuestionIndex)}
                       </p>
+                      <ol
+                        className="mt-2 flex items-center"
+                        aria-label="Session pace: Catch, Shape, Lock in"
+                      >
+                        {JOURNEY_BEATS.map((beat, i) => {
+                          const labels = { catch: 'Catch', shape: 'Shape', lock: 'Lock in' }
+                          const done = i < journeyBeatIndex
+                          const active = i === journeyBeatIndex
+                          return (
+                            <li key={beat} className="flex items-center">
+                              {i > 0 && (
+                                <span
+                                  className={`mx-1.5 h-0.5 w-7 sm:w-10 rounded-full ${
+                                    i <= journeyBeatIndex ? 'bg-emerald-400' : 'bg-gray-200'
+                                  }`}
+                                  aria-hidden="true"
+                                />
+                              )}
+                              <span className="flex items-center gap-1.5">
+                                <span
+                                  className={`h-2 w-2 rounded-full ${
+                                    active
+                                      ? 'bg-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,0.25)]'
+                                      : done
+                                        ? 'bg-emerald-500'
+                                        : 'bg-gray-300'
+                                  }`}
+                                  aria-hidden="true"
+                                />
+                                <span
+                                  className={`text-xs ${
+                                    active
+                                      ? 'font-semibold text-amber-800'
+                                      : done
+                                        ? 'font-medium text-emerald-700'
+                                        : 'text-gray-400'
+                                  }`}
+                                >
+                                  {labels[beat]}
+                                </span>
+                              </span>
+                            </li>
+                          )
+                        })}
+                      </ol>
                     </div>
                   </div>
                 </div>
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
+                  {messages.map((message, messageIndex) => (
+                    <div key={message.id} className="space-y-2">
                       <div
-                        className={`max-w-[85%] ${message.role === 'user' ? 'order-2' : 'order-1'}`}
+                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
                         <div
-                          className={`flex items-start space-x-2 ${message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}
+                          className={`max-w-[85%] ${message.role === 'user' ? 'order-2' : 'order-1'}`}
                         >
                           <div
-                            className={`p-2 rounded-full ${
-                              message.role === 'user'
-                                ? 'bg-blue-100 text-blue-600'
-                                : 'bg-purple-100 text-purple-600'
-                            }`}
+                            className={`flex items-start space-x-2 ${message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}
                           >
-                            {message.role === 'user' ? (
-                              <User className="h-4 w-4" />
-                            ) : (
-                              <Bot className="h-4 w-4" />
-                            )}
-                          </div>
-                          <div
-                            className={`rounded-lg p-3 ${
-                              message.role === 'user'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-900'
-                            }`}
-                          >
-                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                            <p
-                              className={`text-xs mt-1 ${
-                                message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+                            <div
+                              className={`p-2 rounded-full ${
+                                message.role === 'user'
+                                  ? 'bg-blue-100 text-blue-600'
+                                  : 'bg-purple-100 text-purple-600'
                               }`}
                             >
-                              {formatTime(message.timestamp)}
-                            </p>
+                              {message.role === 'user' ? (
+                                <User className="h-4 w-4" />
+                              ) : (
+                                <Bot className="h-4 w-4" />
+                              )}
+                            </div>
+                            <div
+                              className={`rounded-lg p-3 ${
+                                message.role === 'user'
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-900'
+                              }`}
+                            >
+                              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                              <p
+                                className={`text-xs mt-1 ${
+                                  message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+                                }`}
+                              >
+                                {formatTime(message.timestamp)}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
+                      {message.role === 'assistant' &&
+                        messageIndex === lastAssistantIndex &&
+                        replyChips.length > 0 && (
+                          <div
+                            className="ml-10 flex flex-wrap gap-2"
+                            role="group"
+                            aria-label="Quick replies"
+                          >
+                            {replyChips.map((chip) => (
+                              <button
+                                key={chip.label}
+                                type="button"
+                                onClick={() => sendMessageDirectly(chip.value)}
+                                disabled={isLoading}
+                                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                                  chip.label === 'Skip this one'
+                                    ? 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+                                    : 'border-purple-200 bg-purple-50 text-purple-800 hover:border-purple-400 hover:bg-purple-100 hover:shadow-sm'
+                                }`}
+                              >
+                                {chip.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                     </div>
                   ))}
 
@@ -1284,9 +1360,7 @@ function DreamCatcherModuleContent() {
                         <div className="bg-gray-100 rounded-lg p-3">
                           <div className="flex items-center space-x-2">
                             <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
-                            <span className="text-sm text-gray-600">
-                              Reflecting on your response...
-                            </span>
+                            <span className="text-sm text-gray-600">Catching that…</span>
                           </div>
                         </div>
                       </div>
@@ -1331,7 +1405,9 @@ function DreamCatcherModuleContent() {
                           ? 'Review your dashboard preview below, then confirm'
                           : isListening
                             ? 'Listening...'
-                            : 'Share your thoughts or click mic...'
+                            : replyChips.length > 0
+                              ? 'Tap a chip or type a short answer…'
+                              : 'Share a short answer…'
                       }
                       className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       rows={2}
@@ -1439,7 +1515,7 @@ function DreamCatcherModuleContent() {
                   Journey roadmap
                 </h3>
                 <p className="text-xs text-gray-500 mb-4">
-                  A path through this session — not a menu.
+                  A few minutes to your Life Plan — one beat at a time.
                 </p>
                 <ol className="relative ml-1 list-none">
                   <span
