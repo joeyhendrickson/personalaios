@@ -289,6 +289,26 @@ const modules: Module[] = [
     ],
     complexity: 'intermediate',
   },
+  {
+    id: 'sobriety-tracker',
+    title: 'Sobriety Tracker',
+    description:
+      'Log drinking honestly, reinforce the 12 steps, calculate money saved, and see how the days after drinking show up in Fitness Stats and Budget Master.',
+    category: 'Wellness',
+    icon: <Shield className="h-8 w-8" />,
+    status: 'available',
+    features: [
+      'Daily sober check-in',
+      '12 Step principles',
+      'Savings calculator',
+      'After-drink fitness stats',
+      'Decision journal',
+      'Badges and points',
+      'Budget Master bar scan',
+      'I Am Present rumination link',
+    ],
+    complexity: 'intermediate',
+  },
 ]
 
 // Purpose/intent keywords per module so search can match on what a module is *for*,
@@ -515,6 +535,23 @@ const MODULE_KEYWORDS: Record<string, string[]> = {
     'social media',
     'book',
     'newsletter',
+  ],
+  'sobriety-tracker': [
+    'sobriety',
+    'sober',
+    'alcohol',
+    'drinking',
+    'drink',
+    'recovery',
+    'aa',
+    'twelve steps',
+    '12 steps',
+    'relapse',
+    'bar',
+    'bars',
+    'addiction',
+    'quit drinking',
+    'money saved',
   ],
 }
 

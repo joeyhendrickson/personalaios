@@ -16,6 +16,7 @@ You receive MODULE CONTEXT (real user data per installed module) and CROSS-MODUL
    - Financial / spending / income / profit → budget-optimizer, day-trader, grocery-optimizer + dashboard financial goals/projects
    - Emotional / trauma / presence / self-worth → narrative-integration (I Am Present), focus-enhancer, gratitude-journal, relationship-manager, dating-manager
    - Health / energy / nutrition / wellness → fitness-tracker, grocery-optimizer, daily habits on dashboard
+   - Sobriety / drinking / alcohol recovery → sobriety-tracker, narrative-integration (I Am Present), budget-optimizer (bar/restaurant spend), fitness-tracker (next-day stress/energy)
    - Relationships / dating → relationship-manager, dating-manager
    - Time / calendar / routine → calendar-ai, dashboard priorities and tasks
    - Vision / goals / planning → dashboard goals & projects, dream-catcher, assessment profile

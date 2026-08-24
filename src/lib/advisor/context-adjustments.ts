@@ -12,10 +12,11 @@ const TOPIC_ALIASES: Record<string, string[]> = {
   calendar: ['calendar', 'schedule', 'time'],
   vision: ['vision', 'purpose', 'dream'],
   gratitude: ['gratitude', 'thankful'],
+  sobriety: ['sobriety', 'sober', 'alcohol', 'drinking', 'recovery'],
 }
 
 const TOPIC_TO_MODULES: Record<string, string[]> = {
-  wellness: ['fitness-tracker', 'grocery-optimizer'],
+  wellness: ['fitness-tracker', 'grocery-optimizer', 'sobriety-tracker'],
   financial: ['budget-optimizer', 'day-trader'],
   trading: ['day-trader', 'budget-optimizer'],
   emotional: ['narrative-integration', 'focus-enhancer', 'gratitude-journal'],
@@ -26,6 +27,7 @@ const TOPIC_TO_MODULES: Record<string, string[]> = {
   calendar: ['calendar-ai'],
   vision: ['dream-catcher', 'narrative-integration'],
   gratitude: ['gratitude-journal'],
+  sobriety: ['sobriety-tracker', 'narrative-integration', 'budget-optimizer', 'fitness-tracker'],
 }
 
 function normalize(text: string): string {

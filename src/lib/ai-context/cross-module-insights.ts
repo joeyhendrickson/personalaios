@@ -50,6 +50,7 @@ export function buildCrossModuleInsights(
   const focusMod = getModuleSummary(moduleSummaries, 'focus-enhancer')
   const gratitudeMod = getModuleSummary(moduleSummaries, 'gratitude-journal')
   const groceryMod = getModuleSummary(moduleSummaries, 'grocery-optimizer')
+  const sobrietyMod = getModuleSummary(moduleSummaries, 'sobriety-tracker')
 
   const financialGoals = [
     ...raw.userGoals.filter((g) =>
@@ -162,6 +163,27 @@ export function buildCrossModuleInsights(
       ],
       suggestedFollowUp:
         'Lead with empathy; reference their own words before giving practical next steps.',
+    })
+  }
+
+  if (sobrietyMod?.hasData) {
+    const drinkFact = sobrietyMod.objectiveFacts.find((f) => f.toLowerCase().includes('drank'))
+    const places = sobrietyMod.recentHighlights.find((f) => f.includes('Influence places'))
+    insights.push({
+      id: 'sobriety_recovery_context',
+      category: 'health/wellness',
+      insight: drinkFact
+        ? `Sobriety Tracker has drinking history: ${drinkFact}`
+        : 'Sobriety Tracker has logged recovery data.',
+      relatedModules: [
+        'sobriety-tracker',
+        'fitness-tracker',
+        'budget-optimizer',
+        'narrative-integration',
+      ],
+      suggestedFollowUp: places
+        ? `Cross-check ${places} against Budget Master and next-day fitness stress/energy. If rumination is present, point to I Am Present.`
+        : 'If discussing energy, money, or rumination after drinking, cite Sobriety Tracker logs rather than guessing.',
     })
   }
 

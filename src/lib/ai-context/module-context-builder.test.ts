@@ -29,3 +29,31 @@ describe('buildModuleSummaryForModule fitness-tracker', () => {
     expect(summary.recentHighlights[0]).toContain('Most recent sleep: 6.3h')
   })
 })
+
+describe('buildModuleSummaryForModule sobriety-tracker', () => {
+  it('summarizes sober vs drinking days and influence places', () => {
+    const summary = buildModuleSummaryForModule('sobriety-tracker', {
+      sobriety_daily_logs: [
+        { log_date: '2026-08-13', drank: false, drink_count: 0 },
+        { log_date: '2026-08-10', drank: true, drink_count: 3, notes: 'after work' },
+      ],
+      sobriety_influence_places: [
+        { merchant_name: "Joe's Pub", highlighted: true, user_confirmed: true },
+      ],
+      sobriety_decision_logs: [
+        {
+          drink_date: '2026-08-10',
+          day_offset: 1,
+          has_rumination: true,
+          content: 'Kept replaying the night',
+        },
+      ],
+    })
+
+    expect(summary.hasData).toBe(true)
+    expect(summary.objectiveFacts.some((fact) => fact.includes('1 sober day'))).toBe(true)
+    expect(summary.objectiveFacts.some((fact) => fact.includes('Drank 3 on 2026-08-10'))).toBe(true)
+    expect(summary.recentHighlights.some((h) => h.includes("Joe's Pub"))).toBe(true)
+    expect(summary.subjectiveNotes.some((n) => n.includes('rumination'))).toBe(true)
+  })
+})

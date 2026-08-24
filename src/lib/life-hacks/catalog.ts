@@ -112,6 +112,14 @@ export const LIFE_HACK_CATALOG: LifeHackModule[] = [
       'Learn your writing style from past posts and emails, then generate new content in your authentic voice.',
     coachHint: 'For writing in your personal tone — blogs, social posts, emails, and books',
   },
+  {
+    id: 'sobriety-tracker',
+    title: 'Sobriety Tracker',
+    category: 'Wellness',
+    description:
+      'Log drinking honestly, reinforce recovery principles, track money saved, and connect after-effects to fitness and spending.',
+    coachHint: 'For sobriety, recovery support, drinking patterns, and alcohol spending awareness',
+  },
 ]
 
 const byId = new Map(LIFE_HACK_CATALOG.map((m) => [m.id, m]))

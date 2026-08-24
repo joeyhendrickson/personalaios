@@ -14,6 +14,7 @@ const MODULE_LABELS: Record<string, string> = {
   'narrative-integration': 'I Am Present',
   'gratitude-journal': 'Gratitude',
   'write-in-my-voice': 'Write In My Voice',
+  'sobriety-tracker': 'Sobriety',
   'focus-enhancer': 'Focus',
   'calendar-ai': 'Calendar',
   'dream-catcher': 'Dreams',

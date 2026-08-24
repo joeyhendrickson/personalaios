@@ -92,6 +92,7 @@ const moduleIconsById: Record<string, React.ReactNode> = {
   'narrative-integration': <Sparkles className="h-5 w-5" />,
   'rewards-self-care': <Star className="h-5 w-5" />,
   'gratitude-journal': <Heart className="h-5 w-5" />,
+  'sobriety-tracker': <Shield className="h-5 w-5" />,
 }
 
 const moduleCategoriesById: Record<string, string> = {
@@ -108,6 +109,7 @@ const moduleCategoriesById: Record<string, string> = {
   'narrative-integration': 'Wellness',
   'rewards-self-care': 'Wellness',
   'gratitude-journal': 'Wellness',
+  'sobriety-tracker': 'Wellness',
 }
 
 function normalizeModuleRecommendation(rec: {

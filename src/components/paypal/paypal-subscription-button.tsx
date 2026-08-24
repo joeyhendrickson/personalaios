@@ -125,12 +125,13 @@ export default function PayPalSubscriptionButton({
         }}
         onError={(err) => {
           console.error('❌ PayPal subscription error:', err)
-          const errorMessage = typeof err === 'string' 
-            ? err 
-            : err && typeof err === 'object' && 'message' in err
-            ? String(err.message)
-            : 'Payment processing failed'
-          
+          const errorMessage =
+            typeof err === 'string'
+              ? err
+              : err && typeof err === 'object' && 'message' in err
+                ? String(err.message)
+                : 'Payment processing failed'
+
           // Log detailed error for debugging
           console.error('PayPal Error Details:', {
             error: err,
@@ -138,7 +139,7 @@ export default function PayPalSubscriptionButton({
             userEmail,
             clientIdSet: Boolean(clientId),
           })
-          
+
           onError?.(errorMessage)
         }}
       />

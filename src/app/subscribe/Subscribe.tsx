@@ -78,6 +78,7 @@ export default function Subscribe() {
         'Relationship Manager',
         'Fitness Tracker with AI plans',
         'Budget Master with Plaid integration',
+        'Sobriety Tracker with recovery tools',
         'Market Advisor analysis tools',
         'Priority support',
         'Early access to new features',

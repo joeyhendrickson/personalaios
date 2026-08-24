@@ -10,6 +10,7 @@ export const MODULE_LABELS: Record<string, string> = {
   'narrative-integration': 'I Am Present',
   'gratitude-journal': 'Gratitude Journal',
   'write-in-my-voice': 'Write In My Voice',
+  'sobriety-tracker': 'Sobriety Tracker',
   'fitness-tracker': 'Fitness Tracker',
   'relationship-manager': 'Relationship Manager',
   'dating-manager': 'Dating Management',

@@ -61,6 +61,13 @@ export const MODULE_TABLE_MAPPINGS: Record<string, string[]> = {
     'write_in_my_voice_profiles',
     'write_in_my_voice_drafts',
   ],
+  'sobriety-tracker': [
+    'sobriety_daily_logs',
+    'sobriety_decision_logs',
+    'sobriety_influence_places',
+    'sobriety_user_badges',
+    'sobriety_profiles',
+  ],
   'narrative-integration': [
     'narrative_integration_sessions',
     'narrative_integration_events',
@@ -133,6 +140,13 @@ export const MODULE_ADVISORY_CATEGORIES: Record<string, string[]> = {
     'personal branding',
     'communication',
     'life management',
+  ],
+  'sobriety-tracker': [
+    'health/wellness',
+    'habits improvement',
+    'emotional stability',
+    'self-care',
+    'spending improvement',
   ],
   'habit-master': ['habits improvement', 'habit management', 'focus', 'emotional stability'],
   'calendar-ai': [
