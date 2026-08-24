@@ -17,6 +17,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { buildPersonSummary, parsePersonSummary } from '@/lib/dream-catcher/person-summary'
+import { PersonLifeSummary } from '@/components/dream-catcher/person-life-summary'
 
 type ConversationMessage = {
   id?: string
@@ -110,6 +112,7 @@ export default function SavedDreamDetailPage() {
   const data = session.assessment_data
   const messages = data.conversation_messages ?? []
   const title = data.session_title || 'Saved Dream'
+  const personSummary = parsePersonSummary(data) ?? buildPersonSummary(data)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -149,7 +152,13 @@ export default function SavedDreamDetailPage() {
 
       <div className="container mx-auto grid gap-6 px-6 py-8 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-1">
-          {data.vision_statement && (
+          {(personSummary.who_you_are ||
+            personSummary.vision ||
+            personSummary.goals.length > 0) && (
+            <PersonLifeSummary summary={personSummary} variant="saved" />
+          )}
+
+          {data.vision_statement && !personSummary.vision && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center text-base">

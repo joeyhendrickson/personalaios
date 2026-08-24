@@ -5,10 +5,13 @@ import { openai } from '@ai-sdk/openai'
 import { env } from '@/lib/env'
 import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import {
+  getIntakeCap,
   getIntakeQuestionContext,
   getStreamlinedPhaseInstructions,
-  INTAKE_QUESTION_COUNT,
+  isVisionAcceptance,
+  normalizeDreamCatcherPath,
   normalizeDreamCatcherPhase,
+  type DreamCatcherPath,
 } from '@/lib/dream-catcher/streamlined-phases'
 import {
   clampAssessmentData,
@@ -59,13 +62,20 @@ export async function POST(request: NextRequest) {
     const userData = await fetchUserData(supabase, user.id)
 
     // Generate response based on current phase
+    const intakePath =
+      normalizeDreamCatcherPath(body.intake_path) ??
+      normalizeDreamCatcherPath(assessment_data.intake_path) ??
+      'discovery'
+
     const response = await generateDreamCatcherResponse(
       message,
       current_phase,
       assessment_data,
       userData,
       conversation_history,
-      body.personality_question_index ?? body.intake_question_index ?? 0
+      body.personality_question_index ?? body.intake_question_index ?? 0,
+      Boolean(body.vision_accepted) || isVisionAcceptance(message),
+      intakePath
     )
 
     // Store the conversation in activity logs
@@ -157,24 +167,27 @@ async function generateDreamCatcherResponse(
   assessmentData: any,
   userData: any,
   conversationHistory: any[],
-  intakeQuestionIndex: number = 0
+  intakeQuestionIndex: number = 0,
+  visionAccepted: boolean = false,
+  path: DreamCatcherPath = 'discovery'
 ) {
+  const intakeCap = getIntakeCap(path)
   const normalizedPhase = normalizeDreamCatcherPhase(currentPhase)
-  const clampedIndex = Math.min(Math.max(intakeQuestionIndex, 0), INTAKE_QUESTION_COUNT)
+  const clampedIndex = Math.min(Math.max(intakeQuestionIndex, 0), intakeCap)
 
   // Hard stop: after all intake questions, move to vision without another AI call on stale index
-  if (normalizedPhase === 'intake' && clampedIndex >= INTAKE_QUESTION_COUNT) {
+  if (normalizedPhase === 'intake' && clampedIndex >= intakeCap) {
     return {
       message:
         "Thank you for sharing so much with me. I've gathered what I need from our conversation — let's shape your vision next. What would you say is the single sentence that captures who you're becoming?",
       next_phase: 'vision',
-      intake_question_index: INTAKE_QUESTION_COUNT,
-      assessment_data: clampAssessmentData(assessmentData),
+      intake_question_index: intakeCap,
+      assessment_data: clampAssessmentData({ ...assessmentData, intake_path: path }),
     }
   }
 
-  const phaseInstruction = getStreamlinedPhaseInstructions(normalizedPhase, clampedIndex)
-  const intakeContext = getIntakeQuestionContext(clampedIndex, normalizedPhase)
+  const phaseInstruction = getStreamlinedPhaseInstructions(normalizedPhase, clampedIndex, path)
+  const intakeContext = getIntakeQuestionContext(clampedIndex, normalizedPhase, path)
 
   const hasExistingDashboard =
     userData.goals.length > 0 || userData.projects.length > 0 || userData.habits.length > 0
@@ -184,7 +197,8 @@ async function generateDreamCatcherResponse(
   const promptSummary = summarizeAssessmentForPrompt(assessmentData)
 
   const prompt = `
-You are Dream Catcher, a warm LifeStacks onboarding coach. Help users discover what matters and prepare a starter dashboard — quickly, without overwhelming them.
+You are Dream Catcher, a warm LifeStacks onboarding coach. Help users discover what matters and prepare a starter dashboard.
+PATH: ${path === 'fast' ? 'fast catch — keep it brief; half the beats are still a short scene' : 'discovery journey — about 50% journalistic story beats; infer the Life Plan from what happened, not from labels'}.
 
 ${phaseInstruction}
 ${intakeContext}
@@ -214,7 +228,7 @@ USER'S CURRENT MESSAGE:
 "${message}"
 
 INSTRUCTIONS:
-1. Be warm, concise, and encouraging — no long lectures
+1. Be warm, concise, and encouraging — keep the conversational message under ~3 short sentences (bullets ok when listing goals/projects/tasks)
 2. Ask ONE question at a time in intake phase only
 3. In assessment_data, include ONLY NEW extracted items per array field (server merges and deduplicates)
 4. Use next_phase values only from: intake, vision, goals, projects, tasks, summary, confirm
@@ -222,9 +236,13 @@ INSTRUCTIONS:
 6. In goals phase: ONLY goals_generated — then next_phase "projects"
 7. In projects phase: ONLY project_ideas (milestones/strategies, NOT goal copies) — then next_phase "tasks"
 8. In tasks phase: ONLY task_ideas (concrete tactics linked to projects) — then next_phase "summary"
-9. In summary phase, write life_plan_summary — then move to confirm
-10. In confirm phase, do not ask questions — point user to the Life Plan preview panel
-11. Return ONLY valid JSON — no markdown fences
+9. In summary phase, write person_summary (who_you_are, vision, goals, narrative) and life_plan_summary — then move to confirm
+10. In confirm phase, do not ask questions — point the user to Take The Next Step (that stores the summary and is when they arrive at their dashboard)
+11. Never mention remaining questions, totals, or how long this will take
+12. Treat tap-chip replies and "Skip this one" as complete answers; skip covered themes and end intake early when you have enough for a Life Plan
+13. On STORY BEATS: ask for scenes (who/where/what happened). Infer goals, blockers, people, and habits from the story — do not ask them to name their conclusions
+14. In vision phase, stay on vision until the user keeps/accepts the painted vision; do not push anything to the dashboard
+15. Return ONLY valid JSON — no markdown fences
 
 RESPONSE FORMAT (JSON only):
 {
@@ -238,6 +256,7 @@ RESPONSE FORMAT (JSON only):
     "dreams_discovered": [],
     "vision_statement": "",
     "life_plan_summary": "",
+    "person_summary": { "who_you_are": "", "vision": "", "goals": [], "narrative": "" },
     "goals_generated": [
       { "goal": "...", "description": "unique why + how success is measured", "category": "...", "priority": "high|medium|low", "timeline": "...", "target_value": 0, "target_unit": "..." }
     ],
@@ -265,7 +284,7 @@ RESPONSE FORMAT (JSON only):
         {
           role: 'system',
           content:
-            'You are Dream Catcher, an expert personal consultant helping people discover their authentic dreams and create actionable plans. You are warm, empathetic, curious, and skilled at asking powerful questions. Always respond with valid JSON only — no markdown code fences.',
+            'You are Dream Catcher, a warm coach who catches what matters in a quick, one-question-at-a-time chat. Keep replies under three short sentences. Never mention remaining questions or how long the session will take. Always respond with valid JSON only — no markdown code fences.',
         },
         {
           role: 'user',
@@ -334,12 +353,9 @@ RESPONSE FORMAT (JSON only):
   }
 
   // Enforce intake cap server-side
-  if (
-    normalizedPhase === 'intake' &&
-    Number(parsedResponse.intake_question_index) >= INTAKE_QUESTION_COUNT
-  ) {
+  if (normalizedPhase === 'intake' && Number(parsedResponse.intake_question_index) >= intakeCap) {
     parsedResponse.next_phase = 'vision'
-    parsedResponse.intake_question_index = INTAKE_QUESTION_COUNT
+    parsedResponse.intake_question_index = intakeCap
   }
 
   // Merge assessment data with deduplication and caps
@@ -351,6 +367,7 @@ RESPONSE FORMAT (JSON only):
   } else {
     parsedResponse.assessment_data = clampAssessmentData(assessmentData)
   }
+  ;(parsedResponse.assessment_data as Record<string, unknown>).intake_path = path
 
   // Goals phase: replace goals array when AI sends a full finalized set
   if (
@@ -428,6 +445,17 @@ RESPONSE FORMAT (JSON only):
         : taskCount < DREAM_CATCHER_LIMITS.tasks.min
           ? 'tasks'
           : 'summary'
+  }
+
+  // Hold on the painted vision until the user keeps it — never skip to dashboard items.
+  const visionText =
+    typeof merged?.vision_statement === 'string' ? merged.vision_statement.trim() : ''
+  const acceptedVision = visionAccepted || isVisionAcceptance(message)
+  if (normalizedPhase === 'vision' && visionText.length > 0 && !acceptedVision) {
+    parsedResponse.next_phase = 'vision'
+  }
+  if (normalizedPhase === 'vision' && visionText.length > 0 && acceptedVision) {
+    parsedResponse.next_phase = 'goals'
   }
 
   return parsedResponse

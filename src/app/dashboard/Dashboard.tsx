@@ -75,6 +75,7 @@ import { useGuardedAsync } from '@/hooks/use-guarded-async'
 import { parseIntFromForm } from '@/lib/form/numeric-input'
 import { parseApiErrorResponse } from '@/lib/fetch/parse-api-error'
 import { ExpandableDescription } from '@/components/ui/expandable-description'
+import { NextStepWelcome } from '@/components/dream-catcher/next-step-welcome'
 
 // Type definitions
 
@@ -1862,31 +1863,7 @@ export default function Dashboard() {
       {/* Trial Status Banner */}
       {trialUser && <TrialStatusBanner email={trialUser.email} />}
 
-      {showLifePlanWelcome && (
-        <div className="bg-primary text-black">
-          <div className="container mx-auto px-6 py-4 flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <CheckCircle className="h-6 w-6 flex-shrink-0 mt-0.5 text-black" />
-              <div>
-                <p className="font-semibold text-black">Your Life Plan is ready</p>
-                <p className="text-sm text-black/90 mt-1">
-                  Goals, projects, tasks, habits, and education are below. Fitness, gratitude,
-                  relationships, and focus ruminations were added to their modules — explore them
-                  from Modules when you are ready.
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowLifePlanWelcome(false)}
-              className="text-black/80 hover:text-black flex-shrink-0"
-              aria-label="Dismiss"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-      )}
+      {showLifePlanWelcome && <NextStepWelcome onDismiss={() => setShowLifePlanWelcome(false)} />}
 
       <div className="container mx-auto px-6 pt-8 pb-24">
         {/* Vision statement (from Dream Catcher; editable & AI-updatable) */}

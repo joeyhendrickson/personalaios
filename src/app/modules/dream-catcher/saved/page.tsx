@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { buildPersonSummary, parsePersonSummary } from '@/lib/dream-catcher/person-summary'
 
 interface SavedSession {
   id: string
@@ -38,6 +39,12 @@ interface SavedSession {
     executive_skills?: any
     executive_blocking_factors?: any
     personality_question_index?: number
+    person_summary?: {
+      who_you_are?: string
+      vision?: string
+      goals?: string[]
+      narrative?: string
+    }
   }
   completed_at: string | null
   created_at: string
@@ -189,144 +196,154 @@ export default function SavedDreamsPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sessions.map((session) => (
-              <Card key={session.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg">
-                        {session.assessment_data.session_title || 'Dream Catcher Session'}
-                        {session.assessment_data.goals_generated &&
-                        session.assessment_data.goals_generated.length > 0 ? (
-                          <span className="ml-2 text-sm font-normal text-green-600">
-                            <CheckCircle className="h-4 w-4 inline mr-1" />
-                            Completed
+            {sessions.map((session) => {
+              const summary =
+                parsePersonSummary(session.assessment_data as unknown as Record<string, unknown>) ??
+                buildPersonSummary(session.assessment_data as unknown as Record<string, unknown>)
+              return (
+                <Card key={session.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-lg">
+                          {session.assessment_data.session_title || 'Dream Catcher Session'}
+                          {session.assessment_data.goals_generated &&
+                          session.assessment_data.goals_generated.length > 0 ? (
+                            <span className="ml-2 text-sm font-normal text-green-600">
+                              <CheckCircle className="h-4 w-4 inline mr-1" />
+                              Completed
+                            </span>
+                          ) : (
+                            <span className="ml-2 text-sm font-normal text-blue-600">
+                              In Progress
+                            </span>
+                          )}
+                        </CardTitle>
+                        <CardDescription>
+                          <span className="mr-2 inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-800">
+                            {sourceLabel(session.assessment_data.session_source)}
                           </span>
-                        ) : (
-                          <span className="ml-2 text-sm font-normal text-blue-600">
-                            In Progress
-                          </span>
-                        )}
-                      </CardTitle>
-                      <CardDescription>
-                        <span className="mr-2 inline-block rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-800">
-                          {sourceLabel(session.assessment_data.session_source)}
-                        </span>
-                        {session.completed_at
-                          ? new Date(session.completed_at).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                            })
-                          : new Date(session.created_at).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                            })}
-                      </CardDescription>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(session.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {session.assessment_data.vision_statement && (
-                    <div className="mb-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                      <div className="flex items-start space-x-2">
-                        <Eye className="h-4 w-4 text-purple-600 mt-0.5" />
-                        <p className="text-sm text-gray-700 italic line-clamp-2">
-                          "{session.assessment_data.vision_statement}"
-                        </p>
+                          {session.completed_at
+                            ? new Date(session.completed_at).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              })
+                            : new Date(session.created_at).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              })}
+                        </CardDescription>
                       </div>
-                    </div>
-                  )}
-
-                  {session.assessment_data.goals_generated && (
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-700 mb-2">
-                        {session.assessment_data.goals_generated.length} Goals Generated
-                      </p>
-                      <div className="space-y-1">
-                        {session.assessment_data.goals_generated.slice(0, 3).map((goal, i) => (
-                          <div key={i} className="text-xs text-gray-600 flex items-center">
-                            <Target className="h-3 w-3 mr-1 text-purple-600" />
-                            <span className="truncate">{goal.goal}</span>
-                          </div>
-                        ))}
-                        {session.assessment_data.goals_generated.length > 3 && (
-                          <p className="text-xs text-gray-500">
-                            +{session.assessment_data.goals_generated.length - 3} more goals
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {session.assessment_data.conversation_messages &&
-                    session.assessment_data.conversation_messages.length > 0 && (
-                      <p className="mb-4 text-xs text-gray-500">
-                        {session.assessment_data.conversation_messages.length} saved responses
-                      </p>
-                    )}
-
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Link href={`/modules/dream-catcher/saved/${session.id}`} className="flex-1">
-                      <Button variant="outline" className="w-full" size="sm">
-                        <BookOpen className="h-4 w-4 mr-2" />
-                        View Saved Dream
-                      </Button>
-                    </Link>
-                    {/* Continue button - show if session is incomplete */}
-                    {(!session.assessment_data.goals_generated ||
-                      session.assessment_data.goals_generated.length === 0) && (
                       <Button
-                        onClick={() =>
-                          router.push(`/modules/dream-catcher?sessionId=${session.id}`)
-                        }
-                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                        variant="ghost"
                         size="sm"
+                        onClick={() => handleDelete(session.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
-                        <Play className="h-4 w-4 mr-2" />
-                        Continue
+                        <Trash2 className="h-4 w-4" />
                       </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {summary.who_you_are.trim().length > 0 && (
+                      <p className="mb-4 text-sm leading-relaxed text-gray-700 line-clamp-3">
+                        {summary.who_you_are}
+                      </p>
                     )}
-                    {/* Autofill button - only show if goals exist */}
-                    {session.assessment_data.goals_generated &&
-                      session.assessment_data.goals_generated.length > 0 && (
+                    {session.assessment_data.vision_statement && (
+                      <div className="mb-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                        <div className="flex items-start space-x-2">
+                          <Eye className="h-4 w-4 text-purple-600 mt-0.5" />
+                          <p className="text-sm text-gray-700 italic line-clamp-2">
+                            "{session.assessment_data.vision_statement}"
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {session.assessment_data.goals_generated && (
+                      <div className="mb-4">
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          {session.assessment_data.goals_generated.length} Goals Generated
+                        </p>
+                        <div className="space-y-1">
+                          {session.assessment_data.goals_generated.slice(0, 3).map((goal, i) => (
+                            <div key={i} className="text-xs text-gray-600 flex items-center">
+                              <Target className="h-3 w-3 mr-1 text-purple-600" />
+                              <span className="truncate">{goal.goal}</span>
+                            </div>
+                          ))}
+                          {session.assessment_data.goals_generated.length > 3 && (
+                            <p className="text-xs text-gray-500">
+                              +{session.assessment_data.goals_generated.length - 3} more goals
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {session.assessment_data.conversation_messages &&
+                      session.assessment_data.conversation_messages.length > 0 && (
+                        <p className="mb-4 text-xs text-gray-500">
+                          {session.assessment_data.conversation_messages.length} saved responses
+                        </p>
+                      )}
+
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Link href={`/modules/dream-catcher/saved/${session.id}`} className="flex-1">
+                        <Button variant="outline" className="w-full" size="sm">
+                          <BookOpen className="h-4 w-4 mr-2" />
+                          View Saved Dream
+                        </Button>
+                      </Link>
+                      {/* Continue button - show if session is incomplete */}
+                      {(!session.assessment_data.goals_generated ||
+                        session.assessment_data.goals_generated.length === 0) && (
                         <Button
                           onClick={() =>
-                            handleAutofill(
-                              session.id,
-                              session.assessment_data.goals_generated || []
-                            )
+                            router.push(`/modules/dream-catcher?sessionId=${session.id}`)
                           }
-                          disabled={autofilling === session.id}
-                          className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                          className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
                           size="sm"
                         >
-                          {autofilling === session.id ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              Adding...
-                            </>
-                          ) : (
-                            <>
-                              <Target className="h-4 w-4 mr-2" />
-                              Add to Dashboard
-                            </>
-                          )}
+                          <Play className="h-4 w-4 mr-2" />
+                          Continue
                         </Button>
                       )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                      {/* Autofill button - only show if goals exist */}
+                      {session.assessment_data.goals_generated &&
+                        session.assessment_data.goals_generated.length > 0 && (
+                          <Button
+                            onClick={() =>
+                              handleAutofill(
+                                session.id,
+                                session.assessment_data.goals_generated || []
+                              )
+                            }
+                            disabled={autofilling === session.id}
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                            size="sm"
+                          >
+                            {autofilling === session.id ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                Adding...
+                              </>
+                            ) : (
+                              <>
+                                <Target className="h-4 w-4 mr-2" />
+                                Add to Dashboard
+                              </>
+                            )}
+                          </Button>
+                        )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         )}
       </div>

@@ -12,6 +12,7 @@ import {
   type DreamCatcherConversationMessage,
 } from '@/lib/dream-catcher/save-session'
 import { createIamPresentStartersFromIntake } from '@/lib/dream-catcher/create-iam-present-starters'
+import { withPersonSummary } from '@/lib/dream-catcher/person-summary'
 
 function formatCommitMessage(
   counts: Record<string, number>,
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
 
     let saved_session_id: string | undefined
     const saveResult = await saveDreamCatcherSession(supabase, user.id, {
-      assessment_data: raw,
+      assessment_data: withPersonSummary(raw),
       conversation_messages,
       current_phase: typeof raw.current_phase === 'string' ? raw.current_phase : 'confirm',
       intake_question_index:

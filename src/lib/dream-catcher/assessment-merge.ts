@@ -1,4 +1,5 @@
 import { DREAM_CATCHER_LIMITS } from '@/lib/dream-catcher/plan-limits'
+import { isPersonSummary, mergePersonSummary } from '@/lib/dream-catcher/person-summary'
 
 type RecordLike = Record<string, unknown>
 
@@ -77,6 +78,12 @@ export function mergeAssessmentData(existing: object, incoming: RecordLike): Rec
 
   for (const [key, value] of Object.entries(incoming)) {
     if (value === undefined || value === null || value === '') continue
+
+    if (key === 'person_summary') {
+      const mergedSummary = mergePersonSummary(merged[key], value)
+      if (mergedSummary) merged[key] = mergedSummary
+      continue
+    }
 
     const config = ARRAY_FIELD_CONFIG.find((c) => c.key === key)
 
@@ -163,8 +170,16 @@ export function summarizeAssessmentForPrompt(data: RecordLike): RecordLike {
     vision_statement: clamped.vision_statement,
     life_plan_summary:
       typeof clamped.life_plan_summary === 'string'
-        ? (clamped.life_plan_summary as string).slice(0, 800)
+        ? (clamped.life_plan_summary as string).slice(0, 1600)
         : undefined,
+    person_summary: isPersonSummary(clamped.person_summary)
+      ? {
+          who_you_are: clamped.person_summary.who_you_are.slice(0, 800),
+          vision: clamped.person_summary.vision.slice(0, 600),
+          goals: clamped.person_summary.goals.slice(0, 8),
+          narrative: clamped.person_summary.narrative.slice(0, 1600),
+        }
+      : undefined,
     goals_generated: clamped.goals_generated,
     project_ideas: clamped.project_ideas,
     habit_ideas: clamped.habit_ideas,

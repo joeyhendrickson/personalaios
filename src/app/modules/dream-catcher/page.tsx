@@ -25,16 +25,35 @@ import {
   Volume2,
   VolumeX,
   Shield,
+  Map,
+  ArrowRight,
 } from 'lucide-react'
 import {
-  INTAKE_QUESTION_COUNT,
+  getIntakeQuestionTheme,
+  getJourneyBeat,
+  getJourneyBeatLabel,
+  getReplyChips,
+  isStoryIntakeTheme,
+  isVisionAcceptance,
+  JOURNEY_BEATS,
+  normalizeDreamCatcherPath,
   normalizeDreamCatcherPhase,
   STREAMLINED_PHASES,
+  type DreamCatcherPath,
 } from '@/lib/dream-catcher/streamlined-phases'
 import { mergeAssessmentData, clampAssessmentData } from '@/lib/dream-catcher/assessment-merge'
 import { DREAM_CATCHER_LIMITS } from '@/lib/dream-catcher/plan-limits'
 import type { OnboardingPlan } from '@/lib/dream-catcher/generate-onboarding-plan'
 import type { DashboardPlanPreview } from '@/lib/dream-catcher/dashboard-plan-preview'
+import {
+  buildPersonSummary,
+  parsePersonSummary,
+  withPersonSummary,
+  type PersonSummary,
+} from '@/lib/dream-catcher/person-summary'
+import { VisionCanvas } from '@/components/dream-catcher/vision-canvas'
+import { JourneyPathPicker } from '@/components/dream-catcher/journey-path-picker'
+import { PersonLifeSummary } from '@/components/dream-catcher/person-life-summary'
 
 interface ChatMessage {
   id: string
@@ -62,7 +81,10 @@ interface AssessmentData {
   }>
   dreams_discovered?: string[]
   vision_statement?: string
+  vision_accepted?: boolean
+  intake_path?: DreamCatcherPath
   life_plan_summary?: string
+  person_summary?: PersonSummary
   goals_generated?: Array<{
     goal: string
     description?: string
@@ -109,6 +131,11 @@ interface AssessmentData {
   }>
 }
 
+function outputPersonSummary(data: AssessmentData): PersonSummary {
+  const record = data as unknown as Record<string, unknown>
+  return parsePersonSummary(record) ?? buildPersonSummary(record)
+}
+
 function DreamCatcherModuleContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -117,7 +144,7 @@ function DreamCatcherModuleContent() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingSession, setIsLoadingSession] = useState(false)
+  const [isLoadingSession, setIsLoadingSession] = useState(Boolean(sessionId))
   const [currentPhase, setCurrentPhase] = useState<
     'intake' | 'vision' | 'goals' | 'projects' | 'tasks' | 'summary' | 'confirm'
   >('intake')
@@ -129,6 +156,8 @@ function DreamCatcherModuleContent() {
   const [pendingPlan, setPendingPlan] = useState<OnboardingPlan | null>(null)
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
+  const [visionAccepted, setVisionAccepted] = useState(false)
+  const [intakePath, setIntakePath] = useState<DreamCatcherPath | null>(null)
   const [showExitWarning, setShowExitWarning] = useState(false)
   const [exitHasProgress, setExitHasProgress] = useState(false)
   const [isAutofilling, setIsAutofilling] = useState(false)
@@ -137,6 +166,7 @@ function DreamCatcherModuleContent() {
   const [continuousMode, setContinuousMode] = useState(false)
   const [micPermissionError, setMicPermissionError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const visionCanvasRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
   const synthRef = useRef<SpeechSynthesis | null>(null)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
@@ -498,6 +528,31 @@ function DreamCatcherModuleContent() {
           )
         }
 
+        const restoredPhase = normalizeDreamCatcherPhase(
+          session.assessment_data.current_phase || 'intake'
+        )
+        const pastVision =
+          restoredPhase === 'goals' ||
+          restoredPhase === 'projects' ||
+          restoredPhase === 'tasks' ||
+          restoredPhase === 'summary' ||
+          restoredPhase === 'confirm'
+        setVisionAccepted(
+          Boolean(session.assessment_data.vision_accepted) ||
+            (pastVision && Boolean(session.assessment_data.vision_statement))
+        )
+
+        const savedPath = normalizeDreamCatcherPath(session.assessment_data.intake_path)
+        if (savedPath) {
+          setIntakePath(savedPath)
+        } else if (
+          session.assessment_data.conversation_messages &&
+          Array.isArray(session.assessment_data.conversation_messages) &&
+          session.assessment_data.conversation_messages.length > 0
+        ) {
+          setIntakePath('discovery')
+        }
+
         const savedIndex =
           session.assessment_data.intake_question_index ??
           session.assessment_data.personality_question_index
@@ -525,7 +580,7 @@ function DreamCatcherModuleContent() {
           const resumeMessage: ChatMessage = {
             id: 'resume',
             role: 'assistant',
-            content: `Welcome back! 🌟 I've loaded your saved progress. We were in the ${session.assessment_data.current_phase || 'personality'} phase. Let's continue where we left off!\n\nWhen you're ready to continue, type your responses or click the microphone button to speak your response.`,
+            content: `Welcome back — I saved your place. Tap a chip or type a short answer whenever you're ready.`,
             timestamp: new Date(),
             phase: session.assessment_data.current_phase || 'personality',
           }
@@ -544,23 +599,32 @@ function DreamCatcherModuleContent() {
     }
   }
 
-  // Initialize with welcome message (only if no sessionId and not loading and no messages exist)
-  useEffect(() => {
-    if (!sessionId && !isLoadingSession && messages.length === 0) {
-      const welcomeContent = isNewUser
-        ? `Welcome to LifeStacks! I'll ask up to ${INTAKE_QUESTION_COUNT} thoughtful questions — adapted to your answers — about your goals, projects, tactics, habits, fitness, relationships, and what gets in your way. This usually takes about 10–15 minutes.\n\nThen we'll define your goals, projects, and step-by-step tasks in order — your full Life Plan (2–4 goals, 3–7 projects, 4–15 tasks, up to 5 habits) distributed across your dashboard and life modules.\n\nAt the end you'll review and confirm before anything is created.\n\nHere's the first question: What matters most to you right now? Tell me about your top priorities in your own words.`
-        : `Welcome back to Dream Catcher! We'll walk through up to ${INTAKE_QUESTION_COUNT} adaptive questions to refresh your Life Plan (~10–15 minutes). You'll review everything and confirm before anything is added.\n\nWhat matters most to you right now? Tell me about your top priorities in your own words.`
-
-      const welcomeMessage: ChatMessage = {
+  const choosePath = (path: DreamCatcherPath) => {
+    setIntakePath(path)
+    setAssessmentData((prev) => ({ ...prev, intake_path: path }))
+    const content =
+      path === 'fast'
+        ? 'Fast catch. What matters most to you right now?'
+        : 'Discovery it is. Tell me about a recent day that felt like you — what happened, who was there, what did you actually spend yourself on?'
+    setMessages([
+      {
         id: 'welcome',
         role: 'assistant',
-        content: welcomeContent,
+        content,
         timestamp: new Date(),
         phase: 'intake',
-      }
-      setMessages([welcomeMessage])
+      },
+    ])
+  }
+
+  const hadPaintedVisionRef = useRef(false)
+  useEffect(() => {
+    const has = Boolean(assessmentData.vision_statement?.trim())
+    if (has && !hadPaintedVisionRef.current) {
+      visionCanvasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-  }, [isNewUser, sessionId, isLoadingSession, messages.length])
+    hadPaintedVisionRef.current = has
+  }, [assessmentData.vision_statement])
 
   const loadDashboardPreview = async (data: AssessmentData): Promise<OnboardingPlan | null> => {
     if (!data.goals_generated || data.goals_generated.length === 0) return null
@@ -594,8 +658,11 @@ function DreamCatcherModuleContent() {
     }
   }
 
-  const sendMessageDirectly = async (messageText: string) => {
-    if (!messageText.trim() || isLoading) return
+  const sendMessageDirectly = async (
+    messageText: string,
+    overrides?: { visionAccepted?: boolean; visionStatement?: string }
+  ) => {
+    if (!messageText.trim() || isLoading || !intakePath) return
 
     // Stop the mic when user submits a message
     if (continuousMode || isRecognitionRunningRef.current) {
@@ -641,9 +708,20 @@ function DreamCatcherModuleContent() {
             phase: msg.phase,
           })),
           current_phase: currentPhase,
-          assessment_data: assessmentData,
+          assessment_data: {
+            ...assessmentData,
+            intake_path: intakePath ?? assessmentData.intake_path,
+            ...(overrides?.visionStatement
+              ? {
+                  vision_statement: overrides.visionStatement,
+                  vision_accepted: true,
+                }
+              : {}),
+          },
           personality_question_index: intakeQuestionIndex,
           intake_question_index: intakeQuestionIndex,
+          vision_accepted: overrides?.visionAccepted ?? visionAccepted,
+          intake_path: intakePath ?? assessmentData.intake_path,
         }),
       })
 
@@ -657,9 +735,49 @@ function DreamCatcherModuleContent() {
         // Remove markdown formatting from AI response
         const cleanResponse = data.response.replace(/\*\*/g, '').replace(/\n\n\n+/g, '\n\n')
 
-        const nextPhase = data.next_phase
+        let nextPhase = data.next_phase
           ? (normalizeDreamCatcherPhase(data.next_phase) as typeof currentPhase)
           : currentPhase
+
+        let mergedAssessment = assessmentData
+        if (data.assessment_data) {
+          mergedAssessment = clampAssessmentData(
+            mergeAssessmentData(assessmentData, data.assessment_data)
+          ) as AssessmentData
+          if (overrides?.visionStatement) {
+            mergedAssessment = {
+              ...mergedAssessment,
+              vision_statement: overrides.visionStatement,
+            }
+          }
+          setAssessmentData(mergedAssessment)
+        } else if (overrides?.visionStatement) {
+          mergedAssessment = {
+            ...assessmentData,
+            vision_statement: overrides.visionStatement,
+          }
+          setAssessmentData(mergedAssessment)
+        }
+
+        const acceptedNow =
+          visionAccepted || Boolean(overrides?.visionAccepted) || isVisionAcceptance(messageText)
+        if (acceptedNow && !visionAccepted) {
+          setVisionAccepted(true)
+          mergedAssessment = { ...mergedAssessment, vision_accepted: true }
+          setAssessmentData(mergedAssessment)
+        }
+
+        const paintedVision = Boolean(mergedAssessment.vision_statement?.trim())
+        if (paintedVision && !acceptedNow && nextPhase !== 'intake' && nextPhase !== 'vision') {
+          nextPhase = 'vision'
+        }
+
+        if (nextPhase === 'summary' || nextPhase === 'confirm') {
+          mergedAssessment = withPersonSummary(
+            mergedAssessment as unknown as Record<string, unknown>
+          ) as AssessmentData
+          setAssessmentData(mergedAssessment)
+        }
 
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
@@ -676,14 +794,8 @@ function DreamCatcherModuleContent() {
           if (nextPhase !== 'intake') {
             setIntakeQuestionIndex(0)
           }
-        }
-
-        let mergedAssessment = assessmentData
-        if (data.assessment_data) {
-          mergedAssessment = clampAssessmentData(
-            mergeAssessmentData(assessmentData, data.assessment_data)
-          ) as AssessmentData
-          setAssessmentData(mergedAssessment)
+        } else if (nextPhase !== currentPhase) {
+          setCurrentPhase(nextPhase)
         }
 
         if (
@@ -746,6 +858,22 @@ function DreamCatcherModuleContent() {
     const messageToSend = inputMessage.trim()
     setInputMessage('')
     await sendMessageDirectly(messageToSend)
+  }
+
+  const handleKeepVision = (statement: string) => {
+    const next = statement.trim()
+    if (!next || isLoading) return
+    setAssessmentData((prev) => ({ ...prev, vision_statement: next, vision_accepted: true }))
+    setVisionAccepted(true)
+    void sendMessageDirectly('Yes — keep this vision. Let’s shape the goals from it.', {
+      visionAccepted: true,
+      visionStatement: next,
+    })
+  }
+
+  const handleRefineVision = (prompt: string) => {
+    if (!prompt.trim() || isLoading) return
+    void sendMessageDirectly(prompt)
   }
 
   const requestMicrophonePermission = async (): Promise<boolean> => {
@@ -928,7 +1056,7 @@ function DreamCatcherModuleContent() {
 
     try {
       // Include conversation messages and current state in saved data
-      const saveData = {
+      const saveData = withPersonSummary({
         ...assessmentData,
         conversation_messages: messages.map((msg) => ({
           id: msg.id,
@@ -940,8 +1068,10 @@ function DreamCatcherModuleContent() {
         current_phase: currentPhase,
         intake_question_index: intakeQuestionIndex,
         personality_question_index: intakeQuestionIndex,
+        vision_accepted: visionAccepted,
+        intake_path: intakePath ?? assessmentData.intake_path,
         session_source: isNewUser ? 'onboarding' : 'dream_catcher',
-      }
+      })
 
       const response = await fetch('/api/modules/dream-catcher/save', {
         method: 'POST',
@@ -994,7 +1124,7 @@ function DreamCatcherModuleContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          assessment_data: {
+          assessment_data: withPersonSummary({
             ...assessmentData,
             conversation_messages: messages.map((msg) => ({
               id: msg.id,
@@ -1005,8 +1135,10 @@ function DreamCatcherModuleContent() {
             })),
             current_phase: currentPhase,
             intake_question_index: intakeQuestionIndex,
+            vision_accepted: visionAccepted,
+            intake_path: intakePath ?? assessmentData.intake_path,
             session_source: isNewUser ? 'onboarding' : 'dream_catcher',
-          },
+          }),
           vision_statement: assessmentData.vision_statement,
           is_new_user: isNewUser,
           plan: planToCommit,
@@ -1018,13 +1150,7 @@ function DreamCatcherModuleContent() {
         throw new Error(errorData.error || 'Failed to set up dashboard')
       }
 
-      const data = await response.json()
-      const c = data.counts || {}
-      alert(
-        data.message ||
-          `Dashboard updated: ${c.goals_added ?? data.goals_added ?? 0} goals, ${c.projects_added ?? 0} projects, ${c.tasks_added ?? 0} tasks, ${c.habits_added ?? 0} habits added.`
-      )
-
+      // Taking the next step is arriving at the dashboard — skip the success alert.
       router.push('/dashboard?onboarded=true&lifePlan=1')
     } catch (error) {
       console.error('Error setting up dashboard:', error)
@@ -1048,7 +1174,12 @@ function DreamCatcherModuleContent() {
     const normalized = normalizeDreamCatcherPhase(phase)
     const phases = {
       intake: {
-        name: 'Quick Intake',
+        name:
+          intakePath === 'fast'
+            ? 'Fast catch'
+            : intakePath === 'discovery'
+              ? 'Discovery'
+              : 'Choose a path',
         icon: <User className="h-4 w-4" />,
         bgClass: 'bg-amber-100',
         borderClass: 'border-amber-200',
@@ -1112,6 +1243,25 @@ function DreamCatcherModuleContent() {
   const phaseStepIndex = STREAMLINED_PHASES.indexOf(
     normalizedPhase as (typeof STREAMLINED_PHASES)[number]
   )
+  const journeyBeat = getJourneyBeat(currentPhase)
+  const journeyBeatIndex = JOURNEY_BEATS.indexOf(journeyBeat)
+  const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant')
+  const hasPaintedVision = Boolean(assessmentData.vision_statement?.trim())
+  const storyBeat =
+    Boolean(intakePath) &&
+    normalizedPhase === 'intake' &&
+    isStoryIntakeTheme(
+      getIntakeQuestionTheme(intakeQuestionIndex, intakePath ?? 'discovery'),
+      intakePath ?? 'discovery'
+    )
+  const replyChips =
+    !isLoading &&
+    normalizedPhase !== 'confirm' &&
+    !showConfirmation &&
+    normalizedPhase !== 'vision' &&
+    intakePath
+      ? getReplyChips(String(normalizedPhase), intakeQuestionIndex, intakePath)
+      : []
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-sky-50">
@@ -1141,7 +1291,11 @@ function DreamCatcherModuleContent() {
                   Dream Catcher
                 </h1>
                 <p className="text-sm text-gray-600">
-                  A short conversation, then confirm your starter dashboard
+                  {!intakePath
+                    ? 'Choose a fast catch or a longer discovery.'
+                    : intakePath === 'fast'
+                      ? 'Fast catch. One question at a time.'
+                      : 'Discovery journey. One question at a time.'}
                   {!isNewUser && (
                     <span className="ml-2">
                       •{' '}
@@ -1195,6 +1349,21 @@ function DreamCatcherModuleContent() {
       </div>
 
       <div className="container mx-auto px-6 py-8">
+        {hasPaintedVision && (
+          <div ref={visionCanvasRef} className="mb-8">
+            <VisionCanvas
+              statement={assessmentData.vision_statement!.trim()}
+              dreams={assessmentData.dreams_discovered}
+              accepted={visionAccepted}
+              busy={isLoading}
+              onChange={(next) =>
+                setAssessmentData((prev) => ({ ...prev, vision_statement: next }))
+              }
+              onKeep={handleKeepVision}
+              onRefine={handleRefineVision}
+            />
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Chat Interface */}
           <div className="lg:col-span-3">
@@ -1204,6 +1373,10 @@ function DreamCatcherModuleContent() {
                   <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
                   <p className="text-gray-600">Loading your saved progress...</p>
                 </div>
+              </div>
+            ) : !intakePath ? (
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200 p-8 shadow-lg">
+                <JourneyPathPicker onChoose={choosePath} />
               </div>
             ) : (
               <div className="bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 h-[600px] flex flex-col shadow-lg">
@@ -1216,61 +1389,131 @@ function DreamCatcherModuleContent() {
                     <div>
                       <h3 className="font-semibold">Dream Catcher</h3>
                       <p className="text-sm text-gray-600">
-                        {phaseInfo.name}
-                        {normalizedPhase === 'intake'
-                          ? ` — question ${Math.min(intakeQuestionIndex + 1, INTAKE_QUESTION_COUNT)} of ${INTAKE_QUESTION_COUNT}`
-                          : phaseStepIndex >= 0
-                            ? ` — step ${phaseStepIndex + 1} of ${STREAMLINED_PHASES.length}`
-                            : ''}
+                        {getJourneyBeatLabel(
+                          String(normalizedPhase),
+                          intakeQuestionIndex,
+                          intakePath ?? 'discovery'
+                        )}
                       </p>
+                      <ol
+                        className="mt-2 flex items-center"
+                        aria-label="Session pace: Catch, Shape, Lock in"
+                      >
+                        {JOURNEY_BEATS.map((beat, i) => {
+                          const labels = { catch: 'Catch', shape: 'Shape', lock: 'Lock in' }
+                          const done = i < journeyBeatIndex
+                          const active = i === journeyBeatIndex
+                          return (
+                            <li key={beat} className="flex items-center">
+                              {i > 0 && (
+                                <span
+                                  className={`mx-1.5 h-0.5 w-7 sm:w-10 rounded-full ${
+                                    i <= journeyBeatIndex ? 'bg-emerald-400' : 'bg-gray-200'
+                                  }`}
+                                  aria-hidden="true"
+                                />
+                              )}
+                              <span className="flex items-center gap-1.5">
+                                <span
+                                  className={`h-2 w-2 rounded-full ${
+                                    active
+                                      ? 'bg-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,0.25)]'
+                                      : done
+                                        ? 'bg-emerald-500'
+                                        : 'bg-gray-300'
+                                  }`}
+                                  aria-hidden="true"
+                                />
+                                <span
+                                  className={`text-xs ${
+                                    active
+                                      ? 'font-semibold text-amber-800'
+                                      : done
+                                        ? 'font-medium text-emerald-700'
+                                        : 'text-gray-400'
+                                  }`}
+                                >
+                                  {labels[beat]}
+                                </span>
+                              </span>
+                            </li>
+                          )
+                        })}
+                      </ol>
                     </div>
                   </div>
                 </div>
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
+                  {messages.map((message, messageIndex) => (
+                    <div key={message.id} className="space-y-2">
                       <div
-                        className={`max-w-[85%] ${message.role === 'user' ? 'order-2' : 'order-1'}`}
+                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
                         <div
-                          className={`flex items-start space-x-2 ${message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}
+                          className={`max-w-[85%] ${message.role === 'user' ? 'order-2' : 'order-1'}`}
                         >
                           <div
-                            className={`p-2 rounded-full ${
-                              message.role === 'user'
-                                ? 'bg-blue-100 text-blue-600'
-                                : 'bg-purple-100 text-purple-600'
-                            }`}
+                            className={`flex items-start space-x-2 ${message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}
                           >
-                            {message.role === 'user' ? (
-                              <User className="h-4 w-4" />
-                            ) : (
-                              <Bot className="h-4 w-4" />
-                            )}
-                          </div>
-                          <div
-                            className={`rounded-lg p-3 ${
-                              message.role === 'user'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-900'
-                            }`}
-                          >
-                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                            <p
-                              className={`text-xs mt-1 ${
-                                message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+                            <div
+                              className={`p-2 rounded-full ${
+                                message.role === 'user'
+                                  ? 'bg-blue-100 text-blue-600'
+                                  : 'bg-purple-100 text-purple-600'
                               }`}
                             >
-                              {formatTime(message.timestamp)}
-                            </p>
+                              {message.role === 'user' ? (
+                                <User className="h-4 w-4" />
+                              ) : (
+                                <Bot className="h-4 w-4" />
+                              )}
+                            </div>
+                            <div
+                              className={`rounded-lg p-3 ${
+                                message.role === 'user'
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-900'
+                              }`}
+                            >
+                              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                              <p
+                                className={`text-xs mt-1 ${
+                                  message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+                                }`}
+                              >
+                                {formatTime(message.timestamp)}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
+                      {message.role === 'assistant' &&
+                        messageIndex === lastAssistantIndex &&
+                        replyChips.length > 0 && (
+                          <div
+                            className="ml-10 flex flex-wrap gap-2"
+                            role="group"
+                            aria-label="Quick replies"
+                          >
+                            {replyChips.map((chip) => (
+                              <button
+                                key={chip.label}
+                                type="button"
+                                onClick={() => sendMessageDirectly(chip.value)}
+                                disabled={isLoading}
+                                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                                  chip.label === 'Skip this one'
+                                    ? 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+                                    : 'border-purple-200 bg-purple-50 text-purple-800 hover:border-purple-400 hover:bg-purple-100 hover:shadow-sm'
+                                }`}
+                              >
+                                {chip.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                     </div>
                   ))}
 
@@ -1283,9 +1526,7 @@ function DreamCatcherModuleContent() {
                         <div className="bg-gray-100 rounded-lg p-3">
                           <div className="flex items-center space-x-2">
                             <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
-                            <span className="text-sm text-gray-600">
-                              Reflecting on your response...
-                            </span>
+                            <span className="text-sm text-gray-600">Catching that…</span>
                           </div>
                         </div>
                       </div>
@@ -1330,7 +1571,13 @@ function DreamCatcherModuleContent() {
                           ? 'Review your dashboard preview below, then confirm'
                           : isListening
                             ? 'Listening...'
-                            : 'Share your thoughts or click mic...'
+                            : storyBeat
+                              ? 'Tell what happened — a scene, not a label…'
+                              : intakePath === 'discovery'
+                                ? 'Tell a short story, or tap a chip…'
+                                : replyChips.length > 0
+                                  ? 'Tap a chip or type a short answer…'
+                                  : 'Share a short answer…'
                       }
                       className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       rows={2}
@@ -1428,13 +1675,37 @@ function DreamCatcherModuleContent() {
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="space-y-6">
-              {/* Progress */}
-              <div className="bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 p-4 shadow-lg">
-                <h3 className="font-semibold mb-3 flex items-center">
-                  <Target className="h-4 w-4 mr-2" />
-                  Journey Progress
+              {/* Roadmap — display only, not a navigation control */}
+              <div
+                className="bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 p-4 shadow-lg pointer-events-none select-none"
+                aria-label="Journey roadmap"
+              >
+                <h3 className="font-semibold mb-1 flex items-center text-gray-900">
+                  <Map className="h-4 w-4 mr-2 text-amber-700" aria-hidden="true" />
+                  Journey roadmap
                 </h3>
-                <div className="space-y-2">
+                <p className="text-xs text-gray-500 mb-4">
+                  {!intakePath
+                    ? 'Choose a fast catch or a longer discovery.'
+                    : intakePath === 'fast'
+                      ? 'A few minutes to your Life Plan — one beat at a time.'
+                      : 'A longer walk to your Life Plan — stories, then the sketch.'}
+                </p>
+                <ol className="relative ml-1 list-none">
+                  <span
+                    className="pointer-events-none absolute left-[13px] top-3 bottom-3 w-0.5 bg-gray-200"
+                    aria-hidden="true"
+                  />
+                  <span
+                    className="pointer-events-none absolute left-[13px] top-3 w-0.5 bg-gradient-to-b from-emerald-500 to-amber-400"
+                    style={{
+                      height:
+                        phaseStepIndex < 0
+                          ? '0%'
+                          : `calc(${(phaseStepIndex / Math.max(STREAMLINED_PHASES.length - 1, 1)) * 100}% - 0.25rem)`,
+                    }}
+                    aria-hidden="true"
+                  />
                   {STREAMLINED_PHASES.map((phase) => {
                     const info = getPhaseInfo(phase)
                     const isActive = normalizeDreamCatcherPhase(currentPhase) === phase
@@ -1442,28 +1713,49 @@ function DreamCatcherModuleContent() {
                     const isCompleted =
                       phaseStepIndex > phaseOrder || (phase === 'confirm' && showConfirmation)
                     return (
-                      <div
+                      <li
                         key={phase}
-                        className={`p-2 rounded ${
-                          isActive
-                            ? `${info.bgClass} border-2 ${info.borderActiveClass}`
-                            : isCompleted
-                              ? 'bg-green-50 border border-green-200'
-                              : 'bg-gray-50 border border-gray-200'
-                        }`}
+                        aria-current={isActive ? 'step' : undefined}
+                        className="relative flex items-start gap-3 pb-5 last:pb-0"
                       >
-                        <div className="flex items-center space-x-2">
+                        <span
+                          className={`relative z-10 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${
+                            isActive
+                              ? 'border-amber-500 bg-white text-amber-700 shadow-[0_0_0_4px_rgba(245,158,11,0.18)]'
+                              : isCompleted
+                                ? 'border-emerald-500 bg-emerald-500 text-white'
+                                : 'border-gray-300 bg-white text-gray-400'
+                          }`}
+                          aria-hidden="true"
+                        >
                           {isCompleted && !isActive ? (
-                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <CheckCircle className="h-3.5 w-3.5" />
                           ) : (
                             info.icon
                           )}
-                          <span className="text-sm font-medium">{info.name}</span>
+                        </span>
+                        <div className="min-w-0 pt-0.5">
+                          <p
+                            className={`text-sm leading-snug ${
+                              isActive
+                                ? 'font-semibold text-amber-900'
+                                : isCompleted
+                                  ? 'font-medium text-emerald-800'
+                                  : 'font-medium text-gray-400'
+                            }`}
+                          >
+                            {info.name}
+                          </p>
+                          {isActive && (
+                            <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-600">
+                              You are here
+                            </p>
+                          )}
                         </div>
-                      </div>
+                      </li>
                     )
                   })}
-                </div>
+                </ol>
               </div>
 
               {/* Assessment Summary */}
@@ -1561,8 +1853,9 @@ function DreamCatcherModuleContent() {
               {showConfirmation && assessmentData.goals_generated && (
                 <div className="space-y-2">
                   <p className="text-xs text-gray-600">
-                    Review the dashboard preview below. Confirming adds new items only — nothing you
-                    already have will be removed.
+                    {isNewUser
+                      ? 'This summary is who you are, your vision, and your goals. Take The Next Step stores it in Dream Catcher and brings you into LifeStacks — your dashboard.'
+                      : 'Review who you are, your vision, and your goals. Take The Next Step stores this in Dream Catcher and opens your dashboard.'}
                   </p>
                   <button
                     onClick={handleAutofillDashboard}
@@ -1572,7 +1865,7 @@ function DreamCatcherModuleContent() {
                     {isAutofilling ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Setting up...</span>
+                        <span>Stepping into LifeStacks...</span>
                       </>
                     ) : isLoadingPreview ? (
                       <>
@@ -1581,8 +1874,8 @@ function DreamCatcherModuleContent() {
                       </>
                     ) : (
                       <>
-                        <CheckCircle className="h-4 w-4" />
-                        <span>Confirm & Setup My Dashboard</span>
+                        <ArrowRight className="h-4 w-4" />
+                        <span>Take The Next Step</span>
                       </>
                     )}
                   </button>
@@ -1607,35 +1900,18 @@ function DreamCatcherModuleContent() {
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Confirm Your Life Plan</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Take The Next Step</h2>
                 <p className="text-sm text-gray-600">
                   {isNewUser
-                    ? 'This creates your starter dashboard and life modules from your answers.'
-                    : 'New items will be added alongside what you already have.'}
+                    ? 'This is who you are, your vision, and your goals. Taking the next step stores this in Dream Catcher and brings you into LifeStacks — that is when you arrive at your dashboard.'
+                    : 'New items will be added alongside what you already have. Taking the next step stores this summary in Dream Catcher and opens your dashboard.'}
                 </p>
               </div>
             </div>
 
-            {(assessmentData.life_plan_summary || dashboardPreview?.life_plan_summary) && (
-              <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="font-semibold text-gray-900 mb-2 flex items-center">
-                  <Sparkles className="h-4 w-4 mr-2 text-blue-600" />
-                  Your Life Plan Summary
-                </h3>
-                <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
-                  {assessmentData.life_plan_summary || dashboardPreview?.life_plan_summary}
-                </p>
-              </div>
-            )}
-
-            {assessmentData.vision_statement && (
-              <div className="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                <h3 className="font-semibold text-gray-900 mb-1">Vision</h3>
-                <p className="text-gray-700 italic">
-                  &ldquo;{assessmentData.vision_statement}&rdquo;
-                </p>
-              </div>
-            )}
+            <div className="mb-6">
+              <PersonLifeSummary summary={outputPersonSummary(assessmentData)} />
+            </div>
 
             {isLoadingPreview && (
               <div className="flex items-center gap-2 text-sm text-gray-600 py-8 justify-center">
@@ -1805,12 +2081,12 @@ function DreamCatcherModuleContent() {
                 {isAutofilling ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Setting up your dashboard...</span>
+                    <span>Stepping into LifeStacks...</span>
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="h-5 w-5" />
-                    <span>Confirm & Setup My Dashboard</span>
+                    <ArrowRight className="h-5 w-5" />
+                    <span>Take The Next Step</span>
                   </>
                 )}
               </button>
@@ -1825,36 +2101,30 @@ function DreamCatcherModuleContent() {
           </div>
         )}
 
-        {/* Life Plan summary — shown during summary phase before confirm */}
-        {showResults && assessmentData.life_plan_summary && !showConfirmation && (
-          <div className="mt-8 bg-white/90 backdrop-blur-sm rounded-lg border border-blue-200 p-6 shadow-lg">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Sparkles className="h-6 w-6 text-blue-600" />
+        {/* Person / vision / goals summary — shown during summary phase before confirm */}
+        {showResults &&
+          (assessmentData.life_plan_summary ||
+            assessmentData.person_summary ||
+            assessmentData.vision_statement) &&
+          !showConfirmation && (
+            <div className="mt-8 bg-white/90 backdrop-blur-sm rounded-lg border border-amber-200 p-6 shadow-lg">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-3 bg-amber-100 rounded-lg">
+                  <Sparkles className="h-6 w-6 text-amber-700" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Who You Are, Your Vision, and Your Goals
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    This is the Dream Catcher output. Next you take the next step into LifeStacks —
+                    that is when you arrive at your dashboard.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Who You Are & What You&apos;re Building
-                </h2>
-                <p className="text-sm text-gray-600">
-                  Review this summary — next you&apos;ll confirm your full Life Plan on the
-                  dashboard.
-                </p>
-              </div>
+              <PersonLifeSummary summary={outputPersonSummary(assessmentData)} />
             </div>
-            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed mb-4">
-              {assessmentData.life_plan_summary}
-            </p>
-            {assessmentData.vision_statement && (
-              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                <h3 className="font-semibold text-gray-900 mb-1">Your Vision</h3>
-                <p className="text-gray-700 italic">
-                  &ldquo;{assessmentData.vision_statement}&rdquo;
-                </p>
-              </div>
-            )}
-          </div>
-        )}
+          )}
 
         {/* Results Section — session summary */}
         {showResults && assessmentData.goals_generated && !showConfirmation && (
@@ -1872,16 +2142,6 @@ function DreamCatcherModuleContent() {
                 </p>
               </div>
             </div>
-
-            {assessmentData.vision_statement && (
-              <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
-                <h3 className="font-semibold text-gray-900 mb-2 flex items-center">
-                  <Eye className="h-4 w-4 mr-2 text-purple-600" />
-                  Your Vision Statement
-                </h3>
-                <p className="text-gray-700 italic">"{assessmentData.vision_statement}"</p>
-              </div>
-            )}
 
             {assessmentData.executive_skills && (
               <div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-indigo-200">
@@ -2019,12 +2279,12 @@ function DreamCatcherModuleContent() {
                   {isAutofilling ? (
                     <>
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      <span>Setting up your dashboard...</span>
+                      <span>Stepping into LifeStacks...</span>
                     </>
                   ) : (
                     <>
-                      <Target className="h-5 w-5" />
-                      <span>Set Up My Dashboard</span>
+                      <ArrowRight className="h-5 w-5" />
+                      <span>Take The Next Step</span>
                     </>
                   )}
                 </button>
@@ -2055,12 +2315,12 @@ function DreamCatcherModuleContent() {
                     {isAutofilling ? (
                       <>
                         <Loader2 className="h-5 w-5 animate-spin" />
-                        <span>Autofilling...</span>
+                        <span>Stepping into LifeStacks...</span>
                       </>
                     ) : (
                       <>
-                        <Target className="h-5 w-5" />
-                        <span>Add to Dashboard</span>
+                        <ArrowRight className="h-5 w-5" />
+                        <span>Take The Next Step</span>
                       </>
                     )}
                   </button>
