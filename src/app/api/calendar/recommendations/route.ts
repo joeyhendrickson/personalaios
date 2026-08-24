@@ -5,11 +5,11 @@ import { env } from '@/lib/env'
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 
 import {
-  ALL_DAYS,
   assignWindowId,
   formatWindowsForPrompt,
   normalizePreferences,
 } from '@/lib/calendar/preferences'
+import { normalizeWeekday } from '@/lib/calendar/weekday'
 
 type Recommendation = {
   id: string
@@ -122,10 +122,7 @@ Respond ONLY with JSON of this exact shape:
     const recommendations: Recommendation[] = (parsed.recommendations || [])
       .map((raw, i): Recommendation | null => {
         const r = raw as Record<string, unknown>
-        const weekdayRaw = String(r.weekday)
-        const weekday = (ALL_DAYS as readonly string[]).includes(weekdayRaw)
-          ? weekdayRaw
-          : allowedDays[0]
+        const weekday = normalizeWeekday(String(r.weekday), allowedDays[0] ?? 'mon')
         const fallbackWindow = windows[0]
         const startTime = /^\d{1,2}:\d{2}$/.test(String(r.start_time))
           ? String(r.start_time).padStart(5, '0')
