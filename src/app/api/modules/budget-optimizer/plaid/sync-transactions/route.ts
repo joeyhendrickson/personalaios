@@ -153,6 +153,40 @@ export async function POST(request: NextRequest) {
       `Received ${transactions.length} transactions from Plaid for date range ${startDate} to ${endDate}`
     )
 
+    const { data: userConnections } = await supabase
+      .from('bank_connections')
+      .select('id')
+      .eq('user_id', user.id)
+    const userConnectionIds = (userConnections || []).map((connection) => connection.id)
+    const { data: userBankAccounts } = userConnectionIds.length
+      ? await supabase
+          .from('bank_accounts')
+          .select('id')
+          .in('bank_connection_id', userConnectionIds)
+      : { data: [] as Array<{ id: string }> }
+    const userBankAccountIds = (userBankAccounts || []).map((account) => account.id)
+
+    const plaidIds = [
+      ...new Set(
+        transactions
+          .map((transaction) => transaction.transaction_id)
+          .filter((id): id is string => Boolean(id))
+      ),
+    ]
+    const existingByPlaidId = new Map<string, { id: string }>()
+    if (plaidIds.length > 0 && userBankAccountIds.length > 0) {
+      const { data: existingRows } = await supabase
+        .from('transactions')
+        .select('id, transaction_id')
+        .in('bank_account_id', userBankAccountIds)
+        .in('transaction_id', plaidIds)
+      for (const row of existingRows || []) {
+        if (row.transaction_id && !existingByPlaidId.has(row.transaction_id)) {
+          existingByPlaidId.set(row.transaction_id, { id: row.id })
+        }
+      }
+    }
+
     // Process and store transactions
     const transactionsToInsert = []
     const transactionsToUpdate = []
@@ -180,13 +214,9 @@ export async function POST(request: NextRequest) {
       // migration 015 schema but not in SETUP_BUDGET_OPTIMIZER.sql schema
       // If you need these fields, you'll need to add them via a migration
 
-      // Check if transaction already exists
-      const { data: existingTransaction } = await supabase
-        .from('transactions')
-        .select('id')
-        .eq('bank_account_id', bankAccount.id)
-        .eq('transaction_id', transaction.transaction_id)
-        .single()
+      const existingTransaction = transaction.transaction_id
+        ? existingByPlaidId.get(transaction.transaction_id)
+        : undefined
 
       if (existingTransaction) {
         transactionsToUpdate.push({ id: existingTransaction.id, ...transactionData })

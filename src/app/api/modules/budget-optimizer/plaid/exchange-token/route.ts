@@ -231,6 +231,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to store bank accounts' }, { status: 500 })
     }
 
+    const masks = new Set(
+      accounts.map((account) => account.mask).filter((mask): mask is string => Boolean(mask))
+    )
+    if (institution_id && institution_id !== 'unknown' && masks.size > 0) {
+      const { data: siblingConnections } = await supabase
+        .from('bank_connections')
+        .select('id, bank_accounts(mask)')
+        .eq('user_id', user.id)
+        .eq('institution_id', institution_id)
+        .neq('id', bankConnection.id)
+        .neq('status', 'disconnected')
+
+      const staleIds = (siblingConnections || [])
+        .filter((connection) =>
+          ((connection.bank_accounts as Array<{ mask?: string | null }> | null) || []).some(
+            (account) => account.mask && masks.has(account.mask)
+          )
+        )
+        .map((connection) => connection.id)
+
+      if (staleIds.length > 0) {
+        await supabase
+          .from('bank_connections')
+          .update({ status: 'disconnected', updated_at: new Date().toISOString() })
+          .in('id', staleIds)
+      }
+    }
+
     // Create default budget categories for the user if they don't exist
     const { error: categoriesError } = await supabase.rpc('get_default_budget_categories', {
       user_uuid: user.id,

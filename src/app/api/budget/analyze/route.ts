@@ -11,6 +11,7 @@ import {
   parseBudgetAnalysisText,
 } from '@/lib/budget/normalize-budget-analysis'
 import { computeExpectedCategoryActuals } from '@/lib/budget/match-expected-category-actuals'
+import { collapseLedgerDuplicates } from '@/lib/budget/collapse-ledger-duplicates'
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,14 +68,19 @@ export async function POST(request: NextRequest) {
     // Get user's bank connection IDs first (to support both schema variants)
     const { data: userConnections, error: connectionsError } = await supabase
       .from('bank_connections')
-      .select('id')
+      .select('id, status')
       .eq('user_id', user.id)
 
     if (connectionsError) {
       console.error('Error fetching bank connections:', connectionsError)
     }
 
-    const connectionIds = userConnections?.map((c) => c.id) || []
+    const activeConnections = (userConnections || []).filter(
+      (connection) => connection.status === 'active'
+    )
+    const connectionsForLedger =
+      activeConnections.length > 0 ? activeConnections : userConnections || []
+    const connectionIds = connectionsForLedger.map((c) => c.id)
 
     // Get bank account IDs for these connections
     const { data: bankAccounts, error: accountsError } = await supabase
@@ -110,7 +116,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 })
     }
 
-    const transactionsToAnalyze = transactions || []
+    const transactionsToAnalyze = collapseLedgerDuplicates(transactions || [])
 
     // Calculate last 30 days for actuals summary
     const thirtyDaysAgo = new Date()
@@ -139,7 +145,7 @@ export async function POST(request: NextRequest) {
       console.error('Error fetching last 30 days transactions:', last30DaysError)
     }
 
-    const last30DaysRows = last30DaysTransactions || []
+    const last30DaysRows = collapseLedgerDuplicates(last30DaysTransactions || [])
     const last30DayIds = last30DaysRows.map((t: any) => t.id)
 
     const [{ data: transactionRules }, overridesResult] = await Promise.all([
