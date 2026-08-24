@@ -4,7 +4,7 @@ import {
   assertRewardDescriptionUnique,
   dedupeRewardsForAvailableByDescription,
 } from '@/lib/rewards/reward-description'
-import { sumEarnedPoints } from '@/lib/points/sum-earned-points'
+import { computeRewardsBalance } from '@/lib/rewards/points-balance'
 import { z } from 'zod'
 
 // Schema for creating a custom reward
@@ -120,18 +120,13 @@ export async function GET() {
       console.error('Error fetching points:', pointsError)
     }
 
-    const totalPoints = sumEarnedPoints(allPointsData)
-
-    // Calculate total points spent on redeemed awards
-    // Sum up all points from rewards that are redeemed (is_redeemed = true)
     const redeemedRewards = userRewards?.filter((ur) => ur.is_redeemed) || []
-    const totalRedeemed = redeemedRewards.reduce((sum, userReward) => {
-      const pointCost = userReward.custom_point_cost || userReward.rewards?.point_cost || 0
-      return sum + pointCost
-    }, 0)
-
-    // Calculate current available points
-    const currentPoints = totalPoints - totalRedeemed
+    const { totalPoints, totalRedeemed, currentPoints } = computeRewardsBalance(
+      allPointsData,
+      redeemedRewards.map(
+        (userReward) => userReward.custom_point_cost || userReward.rewards?.point_cost || 0
+      )
+    )
 
     console.log('Main rewards API - Points calculation:', {
       totalPoints,

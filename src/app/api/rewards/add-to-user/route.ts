@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { sumEarnedPoints } from '@/lib/points/sum-earned-points'
+import { computeRewardsBalance } from '@/lib/rewards/points-balance'
 import { z } from 'zod'
 
 // Schema for adding a reward to user
@@ -48,9 +48,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch points' }, { status: 500 })
     }
 
-    const totalEarnedPoints = sumEarnedPoints(allPointsData)
-
-    // Get total points spent on redeemed rewards
     const { data: userRewards, error: userRewardsError } = await supabase
       .from('user_rewards')
       .select('custom_point_cost, rewards(point_cost), is_redeemed')
@@ -62,13 +59,19 @@ export async function POST(request: NextRequest) {
     }
 
     const redeemedRewards = userRewards?.filter((ur) => ur.is_redeemed) || []
-    const totalRedeemed = redeemedRewards.reduce((sum, userReward) => {
-      const reward = Array.isArray(userReward.rewards) ? userReward.rewards[0] : userReward.rewards
-      const pointCost = userReward.custom_point_cost || reward?.point_cost || 0
-      return sum + pointCost
-    }, 0)
-
-    const currentPoints = totalEarnedPoints - totalRedeemed
+    const {
+      totalPoints: totalEarnedPoints,
+      totalRedeemed,
+      currentPoints,
+    } = computeRewardsBalance(
+      allPointsData,
+      redeemedRewards.map((userReward) => {
+        const reward = Array.isArray(userReward.rewards)
+          ? userReward.rewards[0]
+          : userReward.rewards
+        return userReward.custom_point_cost || reward?.point_cost || 0
+      })
+    )
 
     // Check if user has enough points
     if (currentPoints < reward.point_cost) {

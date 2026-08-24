@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { computeRewardsBalance } from '@/lib/rewards/points-balance'
 import { z } from 'zod'
 import { randomBytes } from 'crypto'
 
@@ -36,26 +37,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Partner reward not found or inactive' }, { status: 404 })
     }
 
-    // Get user's current points balance
     const { data: pointsData } = await supabase
       .from('points_ledger')
       .select('points')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
+      .gt('points', 0)
+      .limit(20000)
 
-    const totalPoints = pointsData?.points || 0
-
-    // Get total points redeemed
     const { data: redeemedData } = await supabase
       .from('point_redemptions')
       .select('points_spent')
       .eq('user_id', user.id)
 
-    const totalRedeemed =
-      redeemedData?.reduce((sum, redemption) => sum + redemption.points_spent, 0) || 0
-    const currentPoints = totalPoints - totalRedeemed
+    const { currentPoints } = computeRewardsBalance(
+      pointsData,
+      (redeemedData || []).map((redemption) => redemption.points_spent)
+    )
 
     // Check if user has enough points
     if (currentPoints < partnerReward.point_cost) {
