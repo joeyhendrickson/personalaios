@@ -29,6 +29,7 @@ export type SobrietyProfile = {
   typical_drink_cost: number
   typical_drinks_per_week: number
   typical_drink_label: string
+  typical_drinks_per_outing: number
   sobriety_start_date: string | null
   created_at: string
   updated_at: string
@@ -44,6 +45,7 @@ export type SobrietyInfluencePlace = {
   total_spend: number
   highlighted: boolean
   user_confirmed: boolean
+  counts_as_sober_outing: boolean
   created_at: string
   updated_at: string
 }

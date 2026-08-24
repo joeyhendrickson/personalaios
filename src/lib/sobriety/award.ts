@@ -58,12 +58,12 @@ export async function syncSobrietyBadges(
     supabase.from('sobriety_decision_logs').select('id').eq('user_id', userId),
     supabase
       .from('sobriety_influence_places')
-      .select('id')
+      .select('id, visit_count, counts_as_sober_outing')
       .eq('user_id', userId)
       .eq('user_confirmed', true),
     supabase
       .from('sobriety_profiles')
-      .select('typical_drink_cost, typical_drinks_per_week')
+      .select('typical_drink_cost, typical_drinks_per_week, typical_drinks_per_outing')
       .eq('user_id', userId)
       .maybeSingle(),
     supabase.from('sobriety_user_badges').select('badge_id').eq('user_id', userId),
@@ -75,7 +75,12 @@ export async function syncSobrietyBadges(
   const savings = computeDrinkSavings({
     typicalDrinkCost: Number(profile?.typical_drink_cost ?? 8),
     typicalDrinksPerWeek: Number(profile?.typical_drinks_per_week ?? 7),
+    typicalDrinksPerOuting: Number(profile?.typical_drinks_per_outing ?? 2),
     soberDayCount: soberDays,
+    restaurantPlaces: (places || []).map((place) => ({
+      visit_count: Number(place.visit_count ?? 0),
+      counts_as_sober_outing: Boolean(place.counts_as_sober_outing),
+    })),
   })
 
   const earned = evaluateEarnedBadgeIds({

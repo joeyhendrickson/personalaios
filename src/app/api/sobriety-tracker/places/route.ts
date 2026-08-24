@@ -19,6 +19,7 @@ const confirmSchema = z.object({
         sample_dates: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
         transaction_ids: z.array(z.string()).optional(),
         add_dates_to_log: z.boolean().optional(),
+        counts_as_sober_outing: z.boolean().optional(),
       })
     )
     .min(1)
@@ -29,6 +30,7 @@ const patchSchema = z.object({
   id: z.string().uuid(),
   highlighted: z.boolean().optional(),
   user_confirmed: z.boolean().optional(),
+  counts_as_sober_outing: z.boolean().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -57,8 +59,9 @@ export async function POST(request: NextRequest) {
             visit_count: place.visit_count ?? 1,
             last_seen_date: place.last_seen_date ?? null,
             total_spend: place.total_spend ?? 0,
-            highlighted: true,
+            highlighted: place.counts_as_sober_outing ? false : true,
             user_confirmed: true,
+            counts_as_sober_outing: Boolean(place.counts_as_sober_outing),
           },
           { onConflict: 'user_id,merchant_name' }
         )
@@ -88,7 +91,7 @@ export async function POST(request: NextRequest) {
           added_to_log: Boolean(place.add_dates_to_log),
         })
 
-        if (!place.add_dates_to_log) continue
+        if (!place.add_dates_to_log || place.counts_as_sober_outing) continue
 
         const { data: existing } = await supabase
           .from('sobriety_daily_logs')
@@ -152,6 +155,9 @@ export async function PATCH(request: NextRequest) {
     const updates: Record<string, unknown> = {}
     if (typeof body.highlighted === 'boolean') updates.highlighted = body.highlighted
     if (typeof body.user_confirmed === 'boolean') updates.user_confirmed = body.user_confirmed
+    if (typeof body.counts_as_sober_outing === 'boolean') {
+      updates.counts_as_sober_outing = body.counts_as_sober_outing
+    }
 
     const { data, error } = await supabase
       .from('sobriety_influence_places')

@@ -95,9 +95,10 @@ export default function SobrietyTrackerPage() {
   const [notes, setNotes] = useState('')
   const [cost, setCost] = useState(8)
   const [drinksPerWeek, setDrinksPerWeek] = useState(7)
+  const [drinksPerOuting, setDrinksPerOuting] = useState(2)
   const [analyzing, setAnalyzing] = useState(false)
   const [candidates, setCandidates] = useState<BarCandidate[]>([])
-  const [selectedPlaces, setSelectedPlaces] = useState<Record<string, boolean>>({})
+  const [placeChoice, setPlaceChoice] = useState<Record<string, 'drank' | 'sober'>>({})
   const [addDatesToLog, setAddDatesToLog] = useState(true)
   const [analysisMeta, setAnalysisMeta] = useState<{ live: number; cached: number } | null>(null)
   const [decisionDrafts, setDecisionDrafts] = useState<
@@ -112,6 +113,7 @@ export default function SobrietyTrackerPage() {
     setData(json)
     setCost(Number(json.profile.typical_drink_cost))
     setDrinksPerWeek(Number(json.profile.typical_drinks_per_week))
+    setDrinksPerOuting(Number(json.profile.typical_drinks_per_outing ?? 2))
     if (json.todaysLog?.drank) setDrinkCount(json.todaysLog.drink_count || 1)
     if (json.todaysLog?.notes) setNotes(json.todaysLog.notes)
     const drafts: Record<string, { content: string; rumination: boolean }> = {}
@@ -178,6 +180,7 @@ export default function SobrietyTrackerPage() {
         body: JSON.stringify({
           typical_drink_cost: cost,
           typical_drinks_per_week: drinksPerWeek,
+          typical_drinks_per_outing: drinksPerOuting,
           typical_drink_label: data?.profile.typical_drink_label || 'drink',
           sobriety_start_date: data?.profile.sobriety_start_date,
         }),
@@ -232,11 +235,11 @@ export default function SobrietyTrackerPage() {
         live: json.liveTransactionCount || 0,
         cached: json.cachedMerchantCount || 0,
       })
-      const preselect: Record<string, boolean> = {}
+      const preselect: Record<string, 'drank' | 'sober'> = {}
       for (const c of json.candidates || []) {
-        if (c.category === 'bar') preselect[c.merchant_name] = true
+        preselect[c.merchant_name] = c.category === 'bar' ? 'drank' : 'sober'
       }
-      setSelectedPlaces(preselect)
+      setPlaceChoice(preselect)
       if (!(json.candidates || []).length)
         flash('No likely bars or restaurants found in Budget Master.')
     } catch (error) {
@@ -247,7 +250,7 @@ export default function SobrietyTrackerPage() {
   }
 
   const confirmPlaces = async () => {
-    const chosen = candidates.filter((c) => selectedPlaces[c.merchant_name])
+    const chosen = candidates.filter((c) => placeChoice[c.merchant_name])
     if (!chosen.length) return
     setSaving(true)
     try {
@@ -255,27 +258,34 @@ export default function SobrietyTrackerPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          places: chosen.map((c) => ({
-            merchant_name: c.merchant_name,
-            category: c.category,
-            visit_count: c.visit_count,
-            total_spend: c.total_spend,
-            last_seen_date: c.last_seen_date,
-            sample_dates: c.sample_dates,
-            transaction_ids: c.transaction_ids,
-            add_dates_to_log: addDatesToLog,
-          })),
+          places: chosen.map((c) => {
+            const soberOuting = placeChoice[c.merchant_name] === 'sober'
+            return {
+              merchant_name: c.merchant_name,
+              category: c.category,
+              visit_count: c.visit_count,
+              total_spend: c.total_spend,
+              last_seen_date: c.last_seen_date,
+              sample_dates: c.sample_dates,
+              transaction_ids: c.transaction_ids,
+              add_dates_to_log: addDatesToLog && !soberOuting,
+              counts_as_sober_outing: soberOuting,
+            }
+          }),
         }),
       })
       const json = await response.json()
       if (!response.ok) throw new Error(json.error || 'Could not save places')
       await load()
+      const soberCount = chosen.filter((c) => placeChoice[c.merchant_name] === 'sober').length
       flash(
         addDatesToLog && json.addedLogDates?.length
           ? `Saved places and added ${json.addedLogDates.length} drinking day(s) to your log.`
-          : 'Influence places saved to the front of the app.'
+          : soberCount
+            ? `Saved places. ${soberCount} restaurant visit group(s) count toward drink savings.`
+            : 'Influence places saved to the front of the app.'
       )
-      setTab('today')
+      setTab('savings')
     } catch (error) {
       flash(error instanceof Error ? error.message : 'Could not save places')
     } finally {
@@ -297,6 +307,26 @@ export default function SobrietyTrackerPage() {
       await load()
     } catch (error) {
       flash(error instanceof Error ? error.message : 'Could not update highlight')
+    }
+  }
+
+  const toggleSoberOuting = async (place: SobrietyInfluencePlace) => {
+    try {
+      const response = await fetch('/api/sobriety-tracker/places', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: place.id,
+          counts_as_sober_outing: !place.counts_as_sober_outing,
+        }),
+      })
+      const json = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(json.error || 'Could not update savings selection')
+      }
+      await load()
+    } catch (error) {
+      flash(error instanceof Error ? error.message : 'Could not update savings selection')
     }
   }
 
@@ -425,6 +455,11 @@ export default function SobrietyTrackerPage() {
             <DollarSign className="h-6 w-6 text-emerald-600 mx-auto mb-1" />
             <p className="text-2xl font-bold">{formatUsd(data.savings.savedToDate)}</p>
             <p className="text-xs text-slate-500">Estimated saved</p>
+            {data.savings.fromRestaurantVisits > 0 && (
+              <p className="text-[11px] text-emerald-800 mt-1">
+                Includes {formatUsd(data.savings.fromRestaurantVisits)} from sober restaurant visits
+              </p>
+            )}
           </div>
         </div>
 
@@ -675,10 +710,11 @@ export default function SobrietyTrackerPage() {
           <section className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
             <h2 className="text-xl font-semibold">Money kept by not drinking</h2>
             <p className="text-sm text-slate-600">
-              Uses your typical drink cost and weekly count, times sober days logged. Adjust to
-              match your real pattern.
+              Baseline savings uses typical drink cost × weekly drinks × sober days. Restaurant
+              savings uses restaurants you visited but did not drink at, times drinks you would
+              usually order there.
             </p>
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <label className="text-sm">
                 Typical cost per drink
                 <input
@@ -701,6 +737,17 @@ export default function SobrietyTrackerPage() {
                   className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
                 />
               </label>
+              <label className="text-sm">
+                Average drinks per restaurant visit
+                <input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={drinksPerOuting}
+                  onChange={(e) => setDrinksPerOuting(Number(e.target.value))}
+                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+                />
+              </label>
             </div>
             <button
               onClick={saveProfile}
@@ -712,9 +759,61 @@ export default function SobrietyTrackerPage() {
             <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
               {metricBox('Per day', formatUsd(data.savings.dailyCost))}
               {metricBox('Per week', formatUsd(data.savings.weeklyCost))}
-              {metricBox('Per year', formatUsd(data.savings.yearlyCost))}
-              {metricBox('Saved so far', formatUsd(data.savings.savedToDate))}
+              {metricBox('From sober days', formatUsd(data.savings.fromSoberDays))}
+              {metricBox('From restaurants', formatUsd(data.savings.fromRestaurantVisits))}
             </div>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-medium text-emerald-950">Total estimated saved</p>
+              <p className="text-2xl font-bold text-emerald-900">
+                {formatUsd(data.savings.savedToDate)}
+              </p>
+              <p className="text-sm text-emerald-900 mt-2">
+                {data.savings.restaurant.visitCount} restaurant visit
+                {data.savings.restaurant.visitCount === 1 ? '' : 's'} selected ×{' '}
+                {data.savings.restaurant.drinksPerOuting} drink
+                {data.savings.restaurant.drinksPerOuting === 1 ? '' : 's'} each ={' '}
+                {data.savings.restaurant.drinksAvoided} drinks not bought (
+                {formatUsd(data.savings.fromRestaurantVisits)}).
+              </p>
+            </div>
+            {data.places.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="font-medium">Count these restaurant visits as drinks skipped</h3>
+                <p className="text-sm text-slate-600">
+                  Select places you went to but did not drink at. Unselected places do not add to
+                  restaurant savings.
+                </p>
+                {data.places.map((place) => (
+                  <label
+                    key={place.id}
+                    className="flex items-start gap-3 rounded-lg border border-slate-200 p-3"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={Boolean(place.counts_as_sober_outing)}
+                      onChange={() => void toggleSoberOuting(place)}
+                    />
+                    <div>
+                      <p className="font-medium">
+                        {place.merchant_name}{' '}
+                        <span className="text-xs uppercase text-slate-500">{place.category}</span>
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {place.visit_count} visit{place.visit_count === 1 ? '' : 's'}
+                        {place.counts_as_sober_outing
+                          ? ` · ${formatUsd(place.visit_count * drinksPerOuting * cost)} estimated skipped drinks`
+                          : ''}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-slate-500">
+              Analyze restaurants in the Places tab, then mark the ones you visited without
+              drinking.
+            </p>
           </section>
         )}
 
@@ -792,9 +891,8 @@ export default function SobrietyTrackerPage() {
               Budget Master place analysis
             </h2>
             <p className="text-sm text-slate-600">
-              Scans live Budget Master transactions and cached merchant rollups for bars and
-              restaurants where you may have been drinking. You choose which places to keep. Nothing
-              is added to your drinking log until you confirm.
+              Scans live Budget Master transactions for bars and restaurants. Mark places you drank
+              at, or restaurants you visited without drinking so those visits count toward savings.
             </p>
             <div className="flex flex-wrap gap-3">
               <button
@@ -830,24 +928,13 @@ export default function SobrietyTrackerPage() {
                     checked={addDatesToLog}
                     onChange={(e) => setAddDatesToLog(e.target.checked)}
                   />
-                  Add selected visit dates to my drinking log
+                  Add “drank here” visit dates to my drinking log
                 </label>
                 {candidates.map((c) => (
-                  <label
+                  <div
                     key={c.merchant_name}
-                    className="flex items-start gap-3 rounded-lg border border-slate-200 p-3"
+                    className="rounded-lg border border-slate-200 p-3 space-y-2"
                   >
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={Boolean(selectedPlaces[c.merchant_name])}
-                      onChange={(e) =>
-                        setSelectedPlaces((prev) => ({
-                          ...prev,
-                          [c.merchant_name]: e.target.checked,
-                        }))
-                      }
-                    />
                     <div>
                       <p className="font-medium">
                         {c.merchant_name}{' '}
@@ -859,14 +946,45 @@ export default function SobrietyTrackerPage() {
                         {c.confidence} confidence
                       </p>
                     </div>
-                  </label>
+                    <fieldset className="flex flex-wrap gap-3 text-sm">
+                      <legend className="sr-only">How to count {c.merchant_name}</legend>
+                      {(
+                        [
+                          ['skip', 'Skip'],
+                          ['drank', 'Drank here'],
+                          ['sober', 'Visited, did not drink'],
+                        ] as const
+                      ).map(([value, label]) => (
+                        <label key={value} className="inline-flex items-center gap-1.5">
+                          <input
+                            type="radio"
+                            name={`place-${c.merchant_name}`}
+                            checked={
+                              value === 'skip'
+                                ? !placeChoice[c.merchant_name]
+                                : placeChoice[c.merchant_name] === value
+                            }
+                            onChange={() =>
+                              setPlaceChoice((prev) => {
+                                const next = { ...prev }
+                                if (value === 'skip') delete next[c.merchant_name]
+                                else next[c.merchant_name] = value
+                                return next
+                              })
+                            }
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </fieldset>
+                  </div>
                 ))}
                 <button
                   onClick={confirmPlaces}
-                  disabled={saving || !Object.values(selectedPlaces).some(Boolean)}
+                  disabled={saving || !Object.keys(placeChoice).length}
                   className="rounded-md bg-amber-600 text-white px-4 py-2 text-sm disabled:opacity-50"
                 >
-                  Keep selected places on the front of the app
+                  Save selected places
                 </button>
               </div>
             )}
@@ -874,19 +992,36 @@ export default function SobrietyTrackerPage() {
               <div className="pt-4 border-t border-slate-200 space-y-2">
                 <h3 className="font-medium">Saved influence places</h3>
                 {data.places.map((place) => (
-                  <div key={place.id} className="flex items-center justify-between text-sm py-2">
+                  <div
+                    key={place.id}
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm py-2"
+                  >
                     <span>
                       {place.merchant_name}{' '}
+                      <span className="text-xs uppercase text-slate-500">{place.category}</span>{' '}
                       {place.highlighted && (
                         <CheckCircle className="inline h-3.5 w-3.5 text-amber-600" />
                       )}
+                      {place.counts_as_sober_outing && (
+                        <span className="ml-1 text-xs text-emerald-800">· skipped drinks</span>
+                      )}
                     </span>
-                    <button
-                      onClick={() => toggleHighlight(place)}
-                      className="text-emerald-800 underline"
-                    >
-                      {place.highlighted ? 'Remove highlight' : 'Highlight'}
-                    </button>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => void toggleSoberOuting(place)}
+                        className="text-emerald-800 underline"
+                      >
+                        {place.counts_as_sober_outing
+                          ? 'Do not count for savings'
+                          : 'Count as drinks skipped'}
+                      </button>
+                      <button
+                        onClick={() => void toggleHighlight(place)}
+                        className="text-emerald-800 underline"
+                      >
+                        {place.highlighted ? 'Remove highlight' : 'Highlight'}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

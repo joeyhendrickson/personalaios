@@ -6,6 +6,7 @@ import { syncSobrietyBadges } from '@/lib/sobriety/award'
 const profileSchema = z.object({
   typical_drink_cost: z.number().min(0).max(500),
   typical_drinks_per_week: z.number().min(0).max(100),
+  typical_drinks_per_outing: z.number().min(0).max(20).optional(),
   typical_drink_label: z.string().min(1).max(80).optional(),
   sobriety_start_date: z
     .string()
@@ -33,6 +34,7 @@ export async function PUT(request: NextRequest) {
           user_id: user.id,
           typical_drink_cost: body.typical_drink_cost,
           typical_drinks_per_week: body.typical_drinks_per_week,
+          typical_drinks_per_outing: body.typical_drinks_per_outing ?? 2,
           typical_drink_label: body.typical_drink_label || 'drink',
           sobriety_start_date: body.sobriety_start_date ?? null,
         },

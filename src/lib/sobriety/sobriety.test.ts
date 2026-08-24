@@ -15,6 +15,26 @@ describe('computeDrinkSavings', () => {
     expect(result.weeklyCost).toBe(70)
     expect(result.dailyCost).toBe(10)
     expect(result.savedToDate).toBe(100)
+    expect(result.fromSoberDays).toBe(100)
+    expect(result.fromRestaurantVisits).toBe(0)
+  })
+
+  it('adds restaurant visit savings for selected sober outings', () => {
+    const result = computeDrinkSavings({
+      typicalDrinkCost: 8,
+      typicalDrinksPerWeek: 7,
+      soberDayCount: 0,
+      typicalDrinksPerOuting: 2,
+      restaurantPlaces: [
+        { visit_count: 3, counts_as_sober_outing: true },
+        { visit_count: 10, counts_as_sober_outing: false },
+        { visit_count: 1, counts_as_sober_outing: true },
+      ],
+    })
+    expect(result.restaurant.visitCount).toBe(4)
+    expect(result.restaurant.drinksAvoided).toBe(8)
+    expect(result.fromRestaurantVisits).toBe(64)
+    expect(result.savedToDate).toBe(64)
   })
 
   it('treats invalid numbers as zero', () => {
