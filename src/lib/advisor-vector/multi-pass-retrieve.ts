@@ -37,6 +37,33 @@ export async function retrieveAdvisorEvidenceMultiPass(input: {
   confidenceThreshold?: number
 }): Promise<MultiPassRetrievalResult> {
   const startTime = Date.now()
+  try {
+    return await retrieveAdvisorEvidenceMultiPassUnsafe(input, startTime)
+  } catch (error) {
+    console.error('[Multi-pass RAG] Retrieval failed:', error)
+    return {
+      chunks: [],
+      usedRag: false,
+      latencyMs: Date.now() - startTime,
+      indexFresh: false,
+      passes: [],
+      totalNewChunks: 0,
+      converged: true,
+      convergenceReason: 'no_new_chunks',
+    }
+  }
+}
+
+async function retrieveAdvisorEvidenceMultiPassUnsafe(
+  input: {
+    userId: string
+    question: string
+    moduleIds?: string[]
+    maxPasses?: number
+    confidenceThreshold?: number
+  },
+  startTime: number
+): Promise<MultiPassRetrievalResult> {
   const maxPasses = input.maxPasses ?? 3
   const confidenceThreshold = input.confidenceThreshold ?? 0.8
 
@@ -174,12 +201,22 @@ async function executeRetrievalPass(input: {
     }
   }
 
-  const matches = await queryAdvisorVectors(
-    input.userId,
-    queryVector,
-    DEFAULT_TOP_K,
-    input.moduleIds
-  )
+  let matches: Awaited<ReturnType<typeof queryAdvisorVectors>> = []
+  try {
+    matches = await queryAdvisorVectors(input.userId, queryVector, DEFAULT_TOP_K, input.moduleIds)
+  } catch (error) {
+    console.error('[Multi-pass RAG] Pinecone query failed:', error)
+    return {
+      passNumber: input.passNumber,
+      query: input.query,
+      queryRefinement: input.passNumber > 1 ? 'Pinecone query failed' : null,
+      chunks: [],
+      newChunksFound: 0,
+      strongMatches: 0,
+      avgScore: 0,
+      durationMs: Date.now() - passStart,
+    }
+  }
 
   const chunks: AdvisorRetrievedChunk[] = matches.map((m, i) => ({
     chunkId: m.chunkId,

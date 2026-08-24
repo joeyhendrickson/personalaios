@@ -211,7 +211,7 @@ export function formatCrossModuleInsightsForPrompt(
 
   const lines = summary.insights.map(
     (i) =>
-      `- [${i.category}] ${i.insight} (modules: ${i.relatedModules.join(', ')})${i.suggestedFollowUp ? ` → ${i.suggestedFollowUp}` : ''}`
+      `- [${i.category}] ${i.insight} (modules: ${(i.relatedModules ?? []).join(', ')})${i.suggestedFollowUp ? ` → ${i.suggestedFollowUp}` : ''}`
   )
 
   return `CROSS-MODULE SIGNALS (use as decision-tree hints — verify against MODULE CONTEXT before stating as fact):\n${lines.join('\n')}`

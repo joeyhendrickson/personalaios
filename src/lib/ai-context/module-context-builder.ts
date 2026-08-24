@@ -655,21 +655,25 @@ export function formatModuleContextForPrompt(summaries: ModuleContextSummary[]):
     const factLimit = isBudget ? 16 : 8
     const noteLimit = isBudget ? 8 : 6
     const recentLimit = isBudget ? 14 : 5
-    const lines: string[] = [`### ${s.moduleId} (${s.categories.slice(0, 3).join(', ')})`]
+    const categories = Array.isArray(s.categories) ? s.categories : []
+    const objectiveFacts = Array.isArray(s.objectiveFacts) ? s.objectiveFacts : []
+    const subjectiveNotes = Array.isArray(s.subjectiveNotes) ? s.subjectiveNotes : []
+    const recentHighlights = Array.isArray(s.recentHighlights) ? s.recentHighlights : []
+    const lines: string[] = [`### ${s.moduleId} (${categories.slice(0, 3).join(', ')})`]
     if (s.aiSummary && !isBudget) {
       lines.push(`Summary: ${s.aiSummary}`)
     } else {
       if (s.aiSummary && isBudget) {
         lines.push(`Summary (may omit merchants — prefer Facts/Recent below): ${s.aiSummary}`)
       }
-      if (s.objectiveFacts.length) {
-        lines.push('Facts: ' + s.objectiveFacts.slice(0, factLimit).join(' | '))
+      if (objectiveFacts.length) {
+        lines.push('Facts: ' + objectiveFacts.slice(0, factLimit).join(' | '))
       }
-      if (s.subjectiveNotes.length) {
-        lines.push('User-provided/subjective: ' + s.subjectiveNotes.slice(0, noteLimit).join(' | '))
+      if (subjectiveNotes.length) {
+        lines.push('User-provided/subjective: ' + subjectiveNotes.slice(0, noteLimit).join(' | '))
       }
-      if (s.recentHighlights.length) {
-        lines.push('Recent: ' + s.recentHighlights.slice(0, recentLimit).join(' | '))
+      if (recentHighlights.length) {
+        lines.push('Recent: ' + recentHighlights.slice(0, recentLimit).join(' | '))
       }
     }
     return lines.join('\n')

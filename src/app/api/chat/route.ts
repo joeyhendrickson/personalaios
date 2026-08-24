@@ -5,7 +5,7 @@ import { ADVISOR_CROSS_MODULE_GUIDELINES } from '@/lib/ai-context/advisory-guide
 import { defaultOpenaiModel } from '@/lib/ai/default-openai-model'
 import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import { logAfterVercelSdkCall } from '@/lib/ai/usage-logger'
-import { encodeAdvisorEvidenceHeader } from '@/lib/advisor/evidence'
+import { buildAdvisorChatHeaders } from '@/lib/advisor/chat-response-headers'
 import {
   buildAdvisorLengthInstructions,
   isFactualDataQuestion,
@@ -101,6 +101,8 @@ function looksLikeProductivityChallenge(text: string): boolean {
   return hits.some((h) => t.includes(h))
 }
 
+export const maxDuration = 60
+
 export async function POST(req: Request) {
   const requestStartMs = Date.now()
   let logUserId: string | null = null
@@ -151,14 +153,28 @@ export async function POST(req: Request) {
       }
     }
 
-    const { systemContext, usedCache, sourceChips, evidence } = await assembleAIContext(user.id, {
-      messages: messages.map((m: { role: string; content: string }) => ({
-        role: m.role,
-        content: typeof m.content === 'string' ? m.content : '',
-      })),
-      currentModule: typeof currentModule === 'string' ? currentModule : undefined,
-      contextAdjustments: typeof contextAdjustments === 'string' ? contextAdjustments : undefined,
-    })
+    let systemContext = ''
+    let usedCache = false
+    let sourceChips: Awaited<ReturnType<typeof assembleAIContext>>['sourceChips']
+    let evidence: Awaited<ReturnType<typeof assembleAIContext>>['evidence']
+    try {
+      const assembled = await assembleAIContext(user.id, {
+        messages: messages.map((m: { role: string; content: string }) => ({
+          role: m.role,
+          content: typeof m.content === 'string' ? m.content : '',
+        })),
+        currentModule: typeof currentModule === 'string' ? currentModule : undefined,
+        contextAdjustments: typeof contextAdjustments === 'string' ? contextAdjustments : undefined,
+      })
+      systemContext = assembled.systemContext
+      usedCache = assembled.usedCache
+      sourceChips = assembled.sourceChips
+      evidence = assembled.evidence
+    } catch (error) {
+      console.error('Chat API context assembly failed; answering without user context:', error)
+      systemContext =
+        'USER CONTEXT: Unavailable this turn. Answer helpfully from the conversation without inventing dashboard facts.'
+    }
 
     if (usedCache) {
       console.log('Chat API using cached context')
@@ -351,28 +367,26 @@ ${language === 'es' ? 'Respond in Spanish (español) for all your messages. Use 
     })
 
     return new Response(plainTextStream, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        ...(sourceChips?.length
-          ? { 'X-Advisor-Sources': encodeURIComponent(JSON.stringify(sourceChips)) }
-          : {}),
-        ...(evidence ? { 'X-Advisor-Evidence': encodeAdvisorEvidenceHeader(evidence) } : {}),
-      },
+      headers: buildAdvisorChatHeaders({ sourceChips, evidence }),
     })
   } catch (error) {
     console.error('Chat API error:', error)
     if (logUserId) {
-      await logAfterVercelSdkCall({
-        startMs: requestStartMs,
-        userId: logUserId,
-        module: 'chat',
-        action: 'generate_chat_response',
-        route: '/api/chat',
-        model: resolveOpenAIModelId(),
-        description: 'Generated chat response using current user context.',
-        status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
+      try {
+        await logAfterVercelSdkCall({
+          startMs: requestStartMs,
+          userId: logUserId,
+          module: 'chat',
+          action: 'generate_chat_response',
+          route: '/api/chat',
+          model: resolveOpenAIModelId(),
+          description: 'Generated chat response using current user context.',
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
+      } catch (logError) {
+        console.error('Chat API failed to log error:', logError)
+      }
     }
     return new Response(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, {
       status: 500,
