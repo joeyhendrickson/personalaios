@@ -1,6 +1,7 @@
 # Service Account Keys (CRITICAL - Never commit these!)
 service-account.json
 *.json
+!vercel.json
 
 # Environment Variables
 .env
