@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
+  deleteNarrativeIntegrationSession,
   getNarrativeIntegrationSession,
   updateNarrativeIntegrationSession,
 } from '@/lib/narrative-integration/actions'
@@ -28,5 +29,17 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ sessionId
       { error: e instanceof Error ? e.message : 'Failed to update session' },
       { status: 500 }
     )
+  }
+}
+
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ sessionId: string }> }) {
+  try {
+    const { sessionId } = await ctx.params
+    await deleteNarrativeIntegrationSession(sessionId)
+    return NextResponse.json({ message: 'Session deleted' }, { status: 200 })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Failed to delete session'
+    const status = message === 'Unauthorized' ? 401 : 500
+    return NextResponse.json({ error: message }, { status })
   }
 }

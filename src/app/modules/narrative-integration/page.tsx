@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Check, Pencil, Plus, Sparkles, X } from 'lucide-react'
+import { ArrowLeft, Check, Pencil, Plus, Sparkles, Trash2, X } from 'lucide-react'
 
 type SessionRow = {
   id: string
@@ -22,6 +22,7 @@ export default function NarrativeIntegrationDashboardPage() {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [renameSaving, setRenameSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const displayTitle = (title: string | null) => title?.trim() || 'I Am Present Session'
 
@@ -60,6 +61,36 @@ export default function NarrativeIntegrationDashboardPage() {
       setError(e instanceof Error ? e.message : 'Failed to rename session')
     } finally {
       setRenameSaving(false)
+    }
+  }
+
+  const deleteSession = async (session: SessionRow) => {
+    if (
+      !confirm(
+        `Delete “${displayTitle(session.title)}”? This removes the session and cannot be undone.`
+      )
+    ) {
+      return
+    }
+
+    const previous = sessions
+    setSessions((prev) => prev.filter((s) => s.id !== session.id))
+    if (renamingId === session.id) cancelRename()
+
+    try {
+      setDeletingId(session.id)
+      setError(null)
+      const res = await fetch(`/api/modules/narrative-integration/sessions/${session.id}`, {
+        method: 'DELETE',
+        cache: 'no-store',
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || 'Failed to delete session')
+    } catch (e) {
+      setSessions(previous)
+      setError(e instanceof Error ? e.message : 'Failed to delete session')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -194,9 +225,9 @@ export default function NarrativeIntegrationDashboardPage() {
           <div className="px-5 py-4 border-b border-gray-200">
             <h2 className="font-semibold text-gray-900">Your sessions</h2>
             <p className="text-sm text-gray-600">
-              Open one to continue, rename any session, or start a new session for a different loop.
-              Sessions titled &quot;Intake worry/blocker/concern&quot; were created from your Dream
-              Catcher setup.
+              Open one to continue, rename or delete any session, or start a new session for a
+              different loop. Sessions titled &quot;Intake worry/blocker/concern&quot; were created
+              from your Dream Catcher setup.
             </p>
           </div>
 
@@ -265,6 +296,15 @@ export default function NarrativeIntegrationDashboardPage() {
                               aria-label={`Rename ${displayTitle(s.title)}`}
                             >
                               <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteSession(s)}
+                              disabled={deletingId === s.id}
+                              className="shrink-0 p-1.5 rounded-md text-gray-500 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
+                              aria-label={`Delete ${displayTitle(s.title)}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                           <p className="text-xs text-gray-500 mt-1">
