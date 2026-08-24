@@ -5,11 +5,13 @@ import { openai } from '@ai-sdk/openai'
 import { env } from '@/lib/env'
 import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import {
+  getIntakeCap,
   getIntakeQuestionContext,
   getStreamlinedPhaseInstructions,
-  INTAKE_QUESTION_COUNT,
   isVisionAcceptance,
+  normalizeDreamCatcherPath,
   normalizeDreamCatcherPhase,
+  type DreamCatcherPath,
 } from '@/lib/dream-catcher/streamlined-phases'
 import {
   clampAssessmentData,
@@ -60,6 +62,11 @@ export async function POST(request: NextRequest) {
     const userData = await fetchUserData(supabase, user.id)
 
     // Generate response based on current phase
+    const intakePath =
+      normalizeDreamCatcherPath(body.intake_path) ??
+      normalizeDreamCatcherPath(assessment_data.intake_path) ??
+      'discovery'
+
     const response = await generateDreamCatcherResponse(
       message,
       current_phase,
@@ -67,7 +74,8 @@ export async function POST(request: NextRequest) {
       userData,
       conversation_history,
       body.personality_question_index ?? body.intake_question_index ?? 0,
-      Boolean(body.vision_accepted) || isVisionAcceptance(message)
+      Boolean(body.vision_accepted) || isVisionAcceptance(message),
+      intakePath
     )
 
     // Store the conversation in activity logs
@@ -160,24 +168,26 @@ async function generateDreamCatcherResponse(
   userData: any,
   conversationHistory: any[],
   intakeQuestionIndex: number = 0,
-  visionAccepted: boolean = false
+  visionAccepted: boolean = false,
+  path: DreamCatcherPath = 'discovery'
 ) {
+  const intakeCap = getIntakeCap(path)
   const normalizedPhase = normalizeDreamCatcherPhase(currentPhase)
-  const clampedIndex = Math.min(Math.max(intakeQuestionIndex, 0), INTAKE_QUESTION_COUNT)
+  const clampedIndex = Math.min(Math.max(intakeQuestionIndex, 0), intakeCap)
 
   // Hard stop: after all intake questions, move to vision without another AI call on stale index
-  if (normalizedPhase === 'intake' && clampedIndex >= INTAKE_QUESTION_COUNT) {
+  if (normalizedPhase === 'intake' && clampedIndex >= intakeCap) {
     return {
       message:
         "Thank you for sharing so much with me. I've gathered what I need from our conversation — let's shape your vision next. What would you say is the single sentence that captures who you're becoming?",
       next_phase: 'vision',
-      intake_question_index: INTAKE_QUESTION_COUNT,
-      assessment_data: clampAssessmentData(assessmentData),
+      intake_question_index: intakeCap,
+      assessment_data: clampAssessmentData({ ...assessmentData, intake_path: path }),
     }
   }
 
-  const phaseInstruction = getStreamlinedPhaseInstructions(normalizedPhase, clampedIndex)
-  const intakeContext = getIntakeQuestionContext(clampedIndex, normalizedPhase)
+  const phaseInstruction = getStreamlinedPhaseInstructions(normalizedPhase, clampedIndex, path)
+  const intakeContext = getIntakeQuestionContext(clampedIndex, normalizedPhase, path)
 
   const hasExistingDashboard =
     userData.goals.length > 0 || userData.projects.length > 0 || userData.habits.length > 0
@@ -187,7 +197,8 @@ async function generateDreamCatcherResponse(
   const promptSummary = summarizeAssessmentForPrompt(assessmentData)
 
   const prompt = `
-You are Dream Catcher, a warm LifeStacks onboarding coach. Help users discover what matters and prepare a starter dashboard — quickly, without overwhelming them.
+You are Dream Catcher, a warm LifeStacks onboarding coach. Help users discover what matters and prepare a starter dashboard.
+PATH: ${path === 'fast' ? 'fast catch — keep it brief' : 'discovery journey — invite stories, do not rush'}.
 
 ${phaseInstruction}
 ${intakeContext}
@@ -340,12 +351,9 @@ RESPONSE FORMAT (JSON only):
   }
 
   // Enforce intake cap server-side
-  if (
-    normalizedPhase === 'intake' &&
-    Number(parsedResponse.intake_question_index) >= INTAKE_QUESTION_COUNT
-  ) {
+  if (normalizedPhase === 'intake' && Number(parsedResponse.intake_question_index) >= intakeCap) {
     parsedResponse.next_phase = 'vision'
-    parsedResponse.intake_question_index = INTAKE_QUESTION_COUNT
+    parsedResponse.intake_question_index = intakeCap
   }
 
   // Merge assessment data with deduplication and caps
@@ -357,6 +365,7 @@ RESPONSE FORMAT (JSON only):
   } else {
     parsedResponse.assessment_data = clampAssessmentData(assessmentData)
   }
+  ;(parsedResponse.assessment_data as Record<string, unknown>).intake_path = path
 
   // Goals phase: replace goals array when AI sends a full finalized set
   if (

@@ -33,14 +33,17 @@ import {
   getReplyChips,
   isVisionAcceptance,
   JOURNEY_BEATS,
+  normalizeDreamCatcherPath,
   normalizeDreamCatcherPhase,
   STREAMLINED_PHASES,
+  type DreamCatcherPath,
 } from '@/lib/dream-catcher/streamlined-phases'
 import { mergeAssessmentData, clampAssessmentData } from '@/lib/dream-catcher/assessment-merge'
 import { DREAM_CATCHER_LIMITS } from '@/lib/dream-catcher/plan-limits'
 import type { OnboardingPlan } from '@/lib/dream-catcher/generate-onboarding-plan'
 import type { DashboardPlanPreview } from '@/lib/dream-catcher/dashboard-plan-preview'
 import { VisionCanvas } from '@/components/dream-catcher/vision-canvas'
+import { JourneyPathPicker } from '@/components/dream-catcher/journey-path-picker'
 
 interface ChatMessage {
   id: string
@@ -69,6 +72,7 @@ interface AssessmentData {
   dreams_discovered?: string[]
   vision_statement?: string
   vision_accepted?: boolean
+  intake_path?: DreamCatcherPath
   life_plan_summary?: string
   goals_generated?: Array<{
     goal: string
@@ -124,7 +128,7 @@ function DreamCatcherModuleContent() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingSession, setIsLoadingSession] = useState(false)
+  const [isLoadingSession, setIsLoadingSession] = useState(Boolean(sessionId))
   const [currentPhase, setCurrentPhase] = useState<
     'intake' | 'vision' | 'goals' | 'projects' | 'tasks' | 'summary' | 'confirm'
   >('intake')
@@ -137,6 +141,7 @@ function DreamCatcherModuleContent() {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [visionAccepted, setVisionAccepted] = useState(false)
+  const [intakePath, setIntakePath] = useState<DreamCatcherPath | null>(null)
   const [showExitWarning, setShowExitWarning] = useState(false)
   const [exitHasProgress, setExitHasProgress] = useState(false)
   const [isAutofilling, setIsAutofilling] = useState(false)
@@ -521,6 +526,17 @@ function DreamCatcherModuleContent() {
             (pastVision && Boolean(session.assessment_data.vision_statement))
         )
 
+        const savedPath = normalizeDreamCatcherPath(session.assessment_data.intake_path)
+        if (savedPath) {
+          setIntakePath(savedPath)
+        } else if (
+          session.assessment_data.conversation_messages &&
+          Array.isArray(session.assessment_data.conversation_messages) &&
+          session.assessment_data.conversation_messages.length > 0
+        ) {
+          setIntakePath('discovery')
+        }
+
         const savedIndex =
           session.assessment_data.intake_question_index ??
           session.assessment_data.personality_question_index
@@ -567,23 +583,23 @@ function DreamCatcherModuleContent() {
     }
   }
 
-  // Initialize with welcome message (only if no sessionId and not loading and no messages exist)
-  useEffect(() => {
-    if (!sessionId && !isLoadingSession && messages.length === 0) {
-      const welcomeContent = isNewUser
-        ? `Welcome. I'll catch what matters — one short question at a time — then sketch your Life Plan.\n\nWhat matters most to you right now?`
-        : `Welcome back. One question at a time — tap a chip or type a short answer.\n\nWhat matters most to you right now?`
-
-      const welcomeMessage: ChatMessage = {
+  const choosePath = (path: DreamCatcherPath) => {
+    setIntakePath(path)
+    setAssessmentData((prev) => ({ ...prev, intake_path: path }))
+    const content =
+      path === 'fast'
+        ? 'Fast catch. What matters most to you right now?'
+        : 'Discovery it is. Tell me a bit of the story — what mattered most in a recent week that felt like you?'
+    setMessages([
+      {
         id: 'welcome',
         role: 'assistant',
-        content: welcomeContent,
+        content,
         timestamp: new Date(),
         phase: 'intake',
-      }
-      setMessages([welcomeMessage])
-    }
-  }, [isNewUser, sessionId, isLoadingSession, messages.length])
+      },
+    ])
+  }
 
   const hadPaintedVisionRef = useRef(false)
   useEffect(() => {
@@ -630,7 +646,7 @@ function DreamCatcherModuleContent() {
     messageText: string,
     overrides?: { visionAccepted?: boolean; visionStatement?: string }
   ) => {
-    if (!messageText.trim() || isLoading) return
+    if (!messageText.trim() || isLoading || !intakePath) return
 
     // Stop the mic when user submits a message
     if (continuousMode || isRecognitionRunningRef.current) {
@@ -678,6 +694,7 @@ function DreamCatcherModuleContent() {
           current_phase: currentPhase,
           assessment_data: {
             ...assessmentData,
+            intake_path: intakePath ?? assessmentData.intake_path,
             ...(overrides?.visionStatement
               ? {
                   vision_statement: overrides.visionStatement,
@@ -688,6 +705,7 @@ function DreamCatcherModuleContent() {
           personality_question_index: intakeQuestionIndex,
           intake_question_index: intakeQuestionIndex,
           vision_accepted: overrides?.visionAccepted ?? visionAccepted,
+          intake_path: intakePath ?? assessmentData.intake_path,
         }),
       })
 
@@ -1028,6 +1046,7 @@ function DreamCatcherModuleContent() {
         intake_question_index: intakeQuestionIndex,
         personality_question_index: intakeQuestionIndex,
         vision_accepted: visionAccepted,
+        intake_path: intakePath ?? assessmentData.intake_path,
         session_source: isNewUser ? 'onboarding' : 'dream_catcher',
       }
 
@@ -1094,6 +1113,7 @@ function DreamCatcherModuleContent() {
             current_phase: currentPhase,
             intake_question_index: intakeQuestionIndex,
             vision_accepted: visionAccepted,
+            intake_path: intakePath ?? assessmentData.intake_path,
             session_source: isNewUser ? 'onboarding' : 'dream_catcher',
           },
           vision_statement: assessmentData.vision_statement,
@@ -1137,7 +1157,12 @@ function DreamCatcherModuleContent() {
     const normalized = normalizeDreamCatcherPhase(phase)
     const phases = {
       intake: {
-        name: 'Quick Intake',
+        name:
+          intakePath === 'fast'
+            ? 'Fast catch'
+            : intakePath === 'discovery'
+              ? 'Discovery'
+              : 'Choose a path',
         icon: <User className="h-4 w-4" />,
         bgClass: 'bg-amber-100',
         borderClass: 'border-amber-200',
@@ -1206,8 +1231,12 @@ function DreamCatcherModuleContent() {
   const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant')
   const hasPaintedVision = Boolean(assessmentData.vision_statement?.trim())
   const replyChips =
-    !isLoading && normalizedPhase !== 'confirm' && !showConfirmation && normalizedPhase !== 'vision'
-      ? getReplyChips(String(normalizedPhase), intakeQuestionIndex)
+    !isLoading &&
+    normalizedPhase !== 'confirm' &&
+    !showConfirmation &&
+    normalizedPhase !== 'vision' &&
+    intakePath
+      ? getReplyChips(String(normalizedPhase), intakeQuestionIndex, intakePath)
       : []
 
   return (
@@ -1238,7 +1267,11 @@ function DreamCatcherModuleContent() {
                   Dream Catcher
                 </h1>
                 <p className="text-sm text-gray-600">
-                  A few minutes. One question at a time.
+                  {!intakePath
+                    ? 'Choose a fast catch or a longer discovery.'
+                    : intakePath === 'fast'
+                      ? 'Fast catch. One question at a time.'
+                      : 'Discovery journey. One question at a time.'}
                   {!isNewUser && (
                     <span className="ml-2">
                       •{' '}
@@ -1317,6 +1350,10 @@ function DreamCatcherModuleContent() {
                   <p className="text-gray-600">Loading your saved progress...</p>
                 </div>
               </div>
+            ) : !intakePath ? (
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200 p-8 shadow-lg">
+                <JourneyPathPicker onChoose={choosePath} />
+              </div>
             ) : (
               <div className="bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 h-[600px] flex flex-col shadow-lg">
                 {/* Chat Header */}
@@ -1328,7 +1365,11 @@ function DreamCatcherModuleContent() {
                     <div>
                       <h3 className="font-semibold">Dream Catcher</h3>
                       <p className="text-sm text-gray-600">
-                        {getJourneyBeatLabel(String(normalizedPhase), intakeQuestionIndex)}
+                        {getJourneyBeatLabel(
+                          String(normalizedPhase),
+                          intakeQuestionIndex,
+                          intakePath ?? 'discovery'
+                        )}
                       </p>
                       <ol
                         className="mt-2 flex items-center"
@@ -1506,9 +1547,11 @@ function DreamCatcherModuleContent() {
                           ? 'Review your dashboard preview below, then confirm'
                           : isListening
                             ? 'Listening...'
-                            : replyChips.length > 0
-                              ? 'Tap a chip or type a short answer…'
-                              : 'Share a short answer…'
+                            : intakePath === 'discovery'
+                              ? 'Tell a short story, or tap a chip…'
+                              : replyChips.length > 0
+                                ? 'Tap a chip or type a short answer…'
+                                : 'Share a short answer…'
                       }
                       className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       rows={2}
@@ -1616,7 +1659,11 @@ function DreamCatcherModuleContent() {
                   Journey roadmap
                 </h3>
                 <p className="text-xs text-gray-500 mb-4">
-                  A few minutes to your Life Plan — one beat at a time.
+                  {!intakePath
+                    ? 'Choose a fast catch or a longer discovery.'
+                    : intakePath === 'fast'
+                      ? 'A few minutes to your Life Plan — one beat at a time.'
+                      : 'A longer walk to your Life Plan — stories, then the sketch.'}
                 </p>
                 <ol className="relative ml-1 list-none">
                   <span

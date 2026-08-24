@@ -15,6 +15,32 @@ export type StreamlinedPhase = (typeof STREAMLINED_PHASES)[number]
 
 export const INTAKE_QUESTION_COUNT = DREAM_CATCHER_LIMITS.intakeQuestions
 
+export const DREAM_CATCHER_PATHS = ['fast', 'discovery'] as const
+export type DreamCatcherPath = (typeof DREAM_CATCHER_PATHS)[number]
+
+/** Core themes for the fast path — enough to draft a Life Plan without the long walk. */
+export const FAST_INTAKE_THEMES = [
+  'priorities',
+  'future_vision',
+  'blockers',
+  'focus_areas',
+  'quantifiable_goals',
+  'projects',
+  'habits',
+  'final_context',
+] as const
+
+export function normalizeDreamCatcherPath(path: unknown): DreamCatcherPath | null {
+  if (path === 'fast' || path === 'discovery') return path
+  return null
+}
+
+export function getIntakeCap(path: DreamCatcherPath): number {
+  return path === 'fast'
+    ? DREAM_CATCHER_LIMITS.intakeQuestionsFast
+    : DREAM_CATCHER_LIMITS.intakeQuestions
+}
+
 /** Themes guide what to explore — questions adapt to the user's answers; they need not follow a fixed script. */
 export const INTAKE_QUESTION_THEMES = [
   'priorities',
@@ -85,35 +111,77 @@ export function normalizeDreamCatcherPhase(phase: string): StreamlinedPhase | st
   return legacyToStreamlined[phase] ?? phase
 }
 
-export function getIntakeQuestionTheme(index: number): string {
-  return INTAKE_QUESTION_THEMES[Math.min(Math.max(index, 0), INTAKE_QUESTION_COUNT - 1)]
+export function getIntakeQuestionTheme(
+  index: number,
+  path: DreamCatcherPath = 'discovery'
+): string {
+  const themes = path === 'fast' ? FAST_INTAKE_THEMES : INTAKE_QUESTION_THEMES
+  return themes[Math.min(Math.max(index, 0), themes.length - 1)]
+}
+
+/** Story-first prompts for the discovery path (~half the themes). */
+const DISCOVERY_STORY_EXAMPLES: Partial<Record<(typeof INTAKE_QUESTION_THEMES)[number], string>> = {
+  priorities: 'Tell me about a recent week that felt like you. What mattered most in it, and why?',
+  future_vision:
+    'Walk me through a great Tuesday a year from now — where are you, who is there, what did you just do?',
+  blockers: 'Tell me about a time that thing got in your way. What happened, and how did it land?',
+  focus_areas:
+    'Where do you want life to look different a year from now? Describe the scene, not just the category.',
+  ruminations: 'When that loop shows up, what story does it tell you? Give me a recent moment.',
+  gratitude_items: 'Tell me about a recent moment you were actually grateful — what was happening?',
+  key_relationships: 'Who would you call after a hard day? Tell me a little about them.',
+  final_context: 'Anything else from your story I should know before we paint the vision?',
+}
+
+export function getIntakeQuestionExample(theme: string, path: DreamCatcherPath): string {
+  if (path === 'discovery') {
+    const story = DISCOVERY_STORY_EXAMPLES[theme as (typeof INTAKE_QUESTION_THEMES)[number]]
+    if (story) return story
+  }
+  const i = INTAKE_QUESTION_THEMES.indexOf(theme as (typeof INTAKE_QUESTION_THEMES)[number])
+  return INTAKE_QUESTION_EXAMPLES[i] ?? INTAKE_QUESTION_EXAMPLES[0]
 }
 
 export function getIntakeQuestionContext(
   intakeQuestionIndex: number,
-  currentPhase: string
+  currentPhase: string,
+  path: DreamCatcherPath = 'discovery'
 ): string {
   if (normalizeDreamCatcherPhase(currentPhase) !== 'intake') return ''
-  const q = Math.min(Math.max(intakeQuestionIndex, 0), INTAKE_QUESTION_COUNT - 1)
-  return `INTAKE THEME (internal only): ${getIntakeQuestionTheme(q)} [${q + 1}/${INTAKE_QUESTION_COUNT}]. Never tell the user this index, remaining count, or how long intake takes. Keep the chat feeling quick — one short question, then move. Skip or combine later themes if already answered. Finish intake before ${INTAKE_QUESTION_COUNT} when you have enough to draft a Life Plan.`
+  const cap = getIntakeCap(path)
+  const q = Math.min(Math.max(intakeQuestionIndex, 0), cap - 1)
+  const theme = getIntakeQuestionTheme(q, path)
+  if (path === 'fast') {
+    return `PATH: fast. INTAKE THEME (internal only): ${theme} [${q + 1}/${cap}]. Never tell the user this index or duration. Combine remaining themes when answers are rich. Finish at or before ${cap} as soon as you can draft a Life Plan.`
+  }
+  return `PATH: discovery. INTAKE THEME (internal only): ${theme} [${q + 1}/${cap}]. Never tell the user this index or duration. Invite a short story or scene when it fits. Draw conclusions from their narrative. Skip only if the theme is already clearly answered. Cap at ${cap}.`
 }
 
 export function getStreamlinedPhaseInstructions(
   currentPhase: string,
-  intakeQuestionIndex: number
+  intakeQuestionIndex: number,
+  path: DreamCatcherPath = 'discovery'
 ): string {
   const phase = normalizeDreamCatcherPhase(currentPhase)
 
   if (phase === 'intake') {
-    const q = Math.min(Math.max(intakeQuestionIndex, 0), INTAKE_QUESTION_COUNT - 1)
-    const theme = getIntakeQuestionTheme(q)
-    const example = INTAKE_QUESTION_EXAMPLES[q]
+    const cap = getIntakeCap(path)
+    const q = Math.min(Math.max(intakeQuestionIndex, 0), cap - 1)
+    const theme = getIntakeQuestionTheme(q, path)
+    const example = getIntakeQuestionExample(theme, path)
+    const pathRules =
+      path === 'fast'
+        ? `This is the FAST path. One short beat per turn. Tap-chip replies are complete answers. Combine leftover themes when you can. Move to vision as soon as you can draft 2–4 goals, a few projects, and first steps — at most ${cap} questions.`
+        : `This is the DISCOVERY path. Do not rush. Often invite a short story, scene, or memory — not just a label. Draw the Life Plan from their narrative, not only from their conclusions. Cover themes more fully; skip only if already clearly answered. Cap at ${cap}.`
+
     return `
-You are in the INTAKE phase. Ask exactly ONE short question — warm, conversational, never a list of questions.
+You are in the INTAKE phase. Ask exactly ONE question — warm, conversational, never a list of questions.
 
-PACE (critical): Keep each assistant message under 3 short sentences. Acknowledge in a few words, then ask the next question. NEVER mention question numbers, remaining questions, totals, or how long this will take. Treat tap-chip replies and "Skip this one" as complete answers — do not re-ask.
+${pathRules}
 
-Internal theme: ${theme} [${q + 1}/${INTAKE_QUESTION_COUNT}]. Use the theme as a guide and adapt based on what the user already shared. Skip or combine themes if that area is already clear. Prefer finishing intake early when answers are rich enough to draft goals, projects, and first steps.
+PACE: Keep each assistant message under 3 short sentences (discovery may use one extra sentence to invite a story). Acknowledge in a few words, then ask the next question. NEVER mention question numbers, remaining questions, totals, or how long this will take. Treat tap-chip replies and "Skip this one" as complete answers — do not re-ask.
+
+Internal theme: ${theme} [${q + 1}/${cap}]. Use the theme as a guide and adapt based on what the user already shared.
 
 Example question for this theme (adapt, do not copy verbatim if redundant):
 "${example}"
@@ -123,8 +191,8 @@ After the user answers:
 - Extract ONLY NEW structured data into assessment_data (see extraction map). Do NOT re-send entire arrays — only items learned from this answer.
 - Keep draft goals to at most ${DREAM_CATCHER_LIMITS.goals.max} entries total during intake.
 - Increment intake_question_index by 1 (or jump ahead if you skipped themes).
-- If more is needed and ${q + 1} < ${INTAKE_QUESTION_COUNT}, ask the next natural question (next theme: ${getIntakeQuestionTheme(Math.min(q + 1, INTAKE_QUESTION_COUNT - 1))}).
-- As soon as you have enough for a Life Plan — or after question ${INTAKE_QUESTION_COUNT} — give a 1-sentence recap and transition to vision (set next_phase to "vision").
+- If more is needed and ${q + 1} < ${cap}, ask the next natural question (next theme: ${getIntakeQuestionTheme(Math.min(q + 1, cap - 1), path)}).
+- As soon as you have enough for a Life Plan — or after question ${cap} — give a 1-sentence recap and transition to vision (set next_phase to "vision").
 
 EXTRACTION MAP (merge into assessment_data; only add NEW items from this answer):
 - priorities/future_vision/blockers/focus_areas → personal_insights, dreams_discovered, personality_traits as relevant
@@ -147,7 +215,7 @@ EXTRACTION MAP (merge into assessment_data; only add NEW items from this answer)
 - key_relationships/relationship_cadence → key_relationships
 - final_context → append to personal_insights
 
-Do NOT ask about executive skills inventories or long personality tests. Cap intake at ${INTAKE_QUESTION_COUNT} questions; finish sooner when you can.
+Do NOT ask about executive skills inventories or long personality tests. Cap intake at ${cap} questions; finish sooner on the fast path.
 `
   }
 
@@ -422,9 +490,16 @@ export function getJourneyBeat(phase: string): JourneyBeat {
   return 'lock'
 }
 
-export function getJourneyBeatLabel(phase: string, intakeQuestionIndex: number): string {
+export function getJourneyBeatLabel(
+  phase: string,
+  intakeQuestionIndex: number,
+  path: DreamCatcherPath = 'discovery'
+): string {
   const n = normalizeDreamCatcherPhase(phase)
   if (n === 'intake') {
+    if (path === 'fast') {
+      return intakeQuestionIndex <= 3 ? 'Fast catch' : 'Almost ready to sketch'
+    }
     if (intakeQuestionIndex <= 5) return 'Catching the dream'
     if (intakeQuestionIndex <= 12) return 'Getting specific'
     return 'Almost ready to sketch'
@@ -438,10 +513,14 @@ export function getJourneyBeatLabel(phase: string, intakeQuestionIndex: number):
 }
 
 /** Tappable one-beat answers for the current question. Empty in confirm. */
-export function getReplyChips(phase: string, intakeQuestionIndex: number): ReplyChip[] {
+export function getReplyChips(
+  phase: string,
+  intakeQuestionIndex: number,
+  path: DreamCatcherPath = 'discovery'
+): ReplyChip[] {
   const n = normalizeDreamCatcherPhase(phase)
   if (n === 'intake') {
-    const theme = getIntakeQuestionTheme(intakeQuestionIndex) as IntakeTheme
+    const theme = getIntakeQuestionTheme(intakeQuestionIndex, path) as IntakeTheme
     return INTAKE_REPLY_CHIPS[theme] ?? chips()
   }
   return PHASE_REPLY_CHIPS[n as StreamlinedPhase] ?? []

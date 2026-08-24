@@ -1,7 +1,9 @@
 /** Hard caps for Dream Catcher starter dashboard generation. */
 export const DREAM_CATCHER_LIMITS = {
-  /** Max intake questions Dream Catcher asks before moving to vision. */
+  /** Max intake questions on the discovery path before moving to vision. */
   intakeQuestions: 20,
+  /** Max intake questions on the fast path. */
+  intakeQuestionsFast: 8,
   /** Target intake duration guidance for prompts (minutes). */
   intakeMinutesMax: 15,
   goals: { min: 2, max: 4 },
