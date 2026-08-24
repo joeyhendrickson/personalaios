@@ -1,8 +1,10 @@
 'use client'
 
-import { useMemo } from 'react'
-import { TrendingDown, TrendingUp, Minus, Clock } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { TrendingDown, TrendingUp, Minus, Clock, Loader2 } from 'lucide-react'
 import type { FitnessBiometricRow } from './BiometricsSection'
+import EnergyGrowthChart from './EnergyGrowthChart'
+import { lastEnergyByDay, type DatedValue } from '@/lib/fitness/energy-growth-chart'
 
 type FitnessStat = {
   id: string
@@ -88,6 +90,69 @@ export default function FitnessProgressPanel(props: {
     return rows
   }, [fitnessStats])
 
+  const [showEnergyGrowth, setShowEnergyGrowth] = useState(false)
+  const [compareNetWorth, setCompareNetWorth] = useState(false)
+  const [comparePoints, setComparePoints] = useState(false)
+  const [netWorthSeries, setNetWorthSeries] = useState<DatedValue[]>([])
+  const [pointsSeries, setPointsSeries] = useState<DatedValue[]>([])
+  const [loadingCompare, setLoadingCompare] = useState(false)
+  const [compareError, setCompareError] = useState<string | null>(null)
+
+  const energySeries = useMemo(() => lastEnergyByDay(biometrics), [biometrics])
+
+  useEffect(() => {
+    if (!showEnergyGrowth || energySeries.length === 0) return
+    if (!compareNetWorth && !comparePoints) return
+
+    const from = energySeries[0]!.date
+    const to = energySeries[energySeries.length - 1]!.date
+    let cancelled = false
+
+    const load = async () => {
+      setLoadingCompare(true)
+      setCompareError(null)
+      try {
+        const requests: Promise<void>[] = []
+        if (compareNetWorth) {
+          requests.push(
+            fetch('/api/budget/net-worth-history', { cache: 'no-store' }).then(async (res) => {
+              const json = await res.json().catch(() => ({}))
+              if (!res.ok) throw new Error(json.error || 'Failed to load net worth')
+              const points = (json.points || []) as Array<{ date: string; netWorth: number }>
+              if (!cancelled) {
+                setNetWorthSeries(points.map((p) => ({ date: p.date, value: p.netWorth })))
+              }
+            })
+          )
+        }
+        if (comparePoints) {
+          requests.push(
+            fetch(`/api/points/daily?from=${from}&to=${to}`, { cache: 'no-store' }).then(
+              async (res) => {
+                const json = await res.json().catch(() => ({}))
+                if (!res.ok) throw new Error(json.error || 'Failed to load daily points')
+                const days = (json.days || []) as DatedValue[]
+                if (!cancelled) setPointsSeries(days)
+              }
+            )
+          )
+        }
+        await Promise.all(requests)
+      } catch (error) {
+        if (!cancelled) {
+          setCompareError(error instanceof Error ? error.message : 'Failed to load comparison data')
+        }
+      } finally {
+        if (!cancelled) setLoadingCompare(false)
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [showEnergyGrowth, compareNetWorth, comparePoints, energySeries])
+
   const energyTrend = useMemo(() => {
     const sorted = [...biometrics].sort(
       (a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
@@ -156,7 +221,73 @@ export default function FitnessProgressPanel(props: {
   return (
     <div className="space-y-8">
       <div>
-        <h4 className="text-sm font-semibold text-gray-900 mb-3">Energy over time</h4>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h4 className="text-sm font-semibold text-gray-900">Energy over time</h4>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="inline-flex items-center gap-1.5 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={compareNetWorth}
+                onChange={(e) => setCompareNetWorth(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              Net Worth
+            </label>
+            <label className="inline-flex items-center gap-1.5 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={comparePoints}
+                onChange={(e) => setComparePoints(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              Points
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowEnergyGrowth((open) => !open)}
+              disabled={energySeries.length === 0}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 text-sm"
+            >
+              <TrendingUp className="h-4 w-4 mr-2" />
+              {showEnergyGrowth ? 'Hide Growth' : 'Track Growth'}
+            </button>
+          </div>
+        </div>
+        {showEnergyGrowth && (
+          <div className="mb-4 rounded-lg border border-gray-200 p-4 bg-white">
+            <p className="text-sm text-gray-600 mb-3">
+              Energy is plotted as % change from your first logged day. Optionally add Net Worth and
+              daily earned Points as extra lines so all three share one growth scale.
+            </p>
+            {compareError && <p className="text-sm text-red-700 mb-2">{compareError}</p>}
+            {loadingCompare ? (
+              <p className="text-sm text-gray-500 inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading comparison data…
+              </p>
+            ) : (
+              <>
+                {compareNetWorth && netWorthSeries.length === 0 && (
+                  <p className="text-xs text-gray-500 mb-2">
+                    No net worth history yet. Connect a bank account in Budget Master to compare.
+                  </p>
+                )}
+                {comparePoints && pointsSeries.length === 0 && (
+                  <p className="text-xs text-gray-500 mb-2">
+                    No earned points in this date range yet.
+                  </p>
+                )}
+                <EnergyGrowthChart
+                  energy={energySeries}
+                  netWorth={netWorthSeries}
+                  dailyPoints={pointsSeries}
+                  includeNetWorth={compareNetWorth}
+                  includePoints={comparePoints}
+                />
+              </>
+            )}
+          </div>
+        )}
         {energyTrend.length === 0 ? (
           <p className="text-sm text-gray-500">No biometrics yet.</p>
         ) : (
