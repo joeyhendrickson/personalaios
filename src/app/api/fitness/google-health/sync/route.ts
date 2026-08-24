@@ -8,6 +8,8 @@ import { fetchDailySteps, fetchSleepMinutes, fetchRestingHeartRate } from '@/lib
 import { computeContextualEnergyLevel } from '@/lib/fitness/contextual-energy'
 import { normalizeBiometricRow } from '@/lib/fitness/normalize-biometrics'
 import { refreshUserContextCache } from '@/lib/ai-context/cache-generator'
+import { localDateString } from '@/lib/fitness/snapshot-daily-energy'
+import { addDaysToYmd, dateFromYmd } from '@/lib/fitness/timezone-dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,13 +29,6 @@ function isMissingColumnError(error: { message?: string } | null): boolean {
   return (
     msg.includes('column') && (msg.includes('does not exist') || msg.includes('could not find'))
   )
-}
-
-function ymd(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
 }
 
 type BiometricWriteRow = {
@@ -161,6 +156,15 @@ export async function POST() {
       // Fall back to user-scoped client if service role is not configured.
     }
 
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('timezone')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const timezone = profile?.timezone || 'America/New_York'
+    const userToday = localDateString(timezone)
+
     const DAYS_TO_SYNC = 7
     const now = new Date()
 
@@ -178,8 +182,8 @@ export async function POST() {
     } | null = null
 
     for (let i = 0; i < DAYS_TO_SYNC; i++) {
-      const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
-      const syncDate = ymd(day)
+      const syncDate = addDaysToYmd(userToday, -i)
+      const day = dateFromYmd(syncDate)
 
       let sleepHours: number | null = null
       let restingHeartRate: number | null = null
@@ -231,8 +235,7 @@ export async function POST() {
         energy_level_self_1_10: null,
       })
 
-      const startOfDay = new Date(day.getFullYear(), day.getMonth(), day.getDate())
-      const recordedAt = i === 0 ? now : new Date(startOfDay.getTime() + 12 * 60 * 60 * 1000)
+      const recordedAt = i === 0 ? now : new Date(day.getTime() + 12 * 60 * 60 * 1000)
 
       const row: BiometricWriteRow = {
         sleep_hours: mergedSleep,
