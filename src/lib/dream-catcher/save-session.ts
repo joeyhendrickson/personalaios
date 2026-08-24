@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { withPersonSummary } from '@/lib/dream-catcher/person-summary'
 
 export type DreamCatcherConversationMessage = {
   id?: string
@@ -64,7 +65,7 @@ export function buildDreamCatcherSessionPayload(input: SaveDreamCatcherSessionIn
   } = input
 
   const payload: Record<string, unknown> = {
-    ...assessment_data,
+    ...withPersonSummary(assessment_data),
   }
 
   if (conversation_messages?.length) {

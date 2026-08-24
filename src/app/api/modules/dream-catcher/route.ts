@@ -236,8 +236,8 @@ INSTRUCTIONS:
 6. In goals phase: ONLY goals_generated — then next_phase "projects"
 7. In projects phase: ONLY project_ideas (milestones/strategies, NOT goal copies) — then next_phase "tasks"
 8. In tasks phase: ONLY task_ideas (concrete tactics linked to projects) — then next_phase "summary"
-9. In summary phase, write life_plan_summary — then move to confirm
-10. In confirm phase, do not ask questions — point user to the Life Plan preview panel
+9. In summary phase, write person_summary (who_you_are, vision, goals, narrative) and life_plan_summary — then move to confirm
+10. In confirm phase, do not ask questions — point the user to Take The Next Step (that stores the summary and is when they arrive at their dashboard)
 11. Never mention remaining questions, totals, or how long this will take
 12. Treat tap-chip replies and "Skip this one" as complete answers; skip covered themes and end intake early when you have enough for a Life Plan
 13. On STORY BEATS: ask for scenes (who/where/what happened). Infer goals, blockers, people, and habits from the story — do not ask them to name their conclusions
@@ -256,6 +256,7 @@ RESPONSE FORMAT (JSON only):
     "dreams_discovered": [],
     "vision_statement": "",
     "life_plan_summary": "",
+    "person_summary": { "who_you_are": "", "vision": "", "goals": [], "narrative": "" },
     "goals_generated": [
       { "goal": "...", "description": "unique why + how success is measured", "category": "...", "priority": "high|medium|low", "timeline": "...", "target_value": 0, "target_unit": "..." }
     ],

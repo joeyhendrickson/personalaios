@@ -460,7 +460,7 @@ ${formatPlanLimitsForPrompt()}
 - TASKS must be concrete tactics/steps (setup, outreach, research, practice, review) — never repeat a goal or project title
 - Prefer task_ideas from intake; each task needs a unique description and must link to a project via project_title
 - Distribute ${DREAM_CATCHER_LIMITS.tasks.min}-${DREAM_CATCHER_LIMITS.tasks.max} tasks across projects (at least 1 per project)
-- life_plan_summary: 2-3 sentence overview for the user
+- life_plan_summary: 2 short paragraphs of who this person is, their vision, and their goals
 
 Return ONLY valid JSON (no markdown):
 {

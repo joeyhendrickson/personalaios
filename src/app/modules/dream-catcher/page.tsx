@@ -26,6 +26,7 @@ import {
   VolumeX,
   Shield,
   Map,
+  ArrowRight,
 } from 'lucide-react'
 import {
   getIntakeQuestionTheme,
@@ -44,8 +45,15 @@ import { mergeAssessmentData, clampAssessmentData } from '@/lib/dream-catcher/as
 import { DREAM_CATCHER_LIMITS } from '@/lib/dream-catcher/plan-limits'
 import type { OnboardingPlan } from '@/lib/dream-catcher/generate-onboarding-plan'
 import type { DashboardPlanPreview } from '@/lib/dream-catcher/dashboard-plan-preview'
+import {
+  buildPersonSummary,
+  parsePersonSummary,
+  withPersonSummary,
+  type PersonSummary,
+} from '@/lib/dream-catcher/person-summary'
 import { VisionCanvas } from '@/components/dream-catcher/vision-canvas'
 import { JourneyPathPicker } from '@/components/dream-catcher/journey-path-picker'
+import { PersonLifeSummary } from '@/components/dream-catcher/person-life-summary'
 
 interface ChatMessage {
   id: string
@@ -76,6 +84,7 @@ interface AssessmentData {
   vision_accepted?: boolean
   intake_path?: DreamCatcherPath
   life_plan_summary?: string
+  person_summary?: PersonSummary
   goals_generated?: Array<{
     goal: string
     description?: string
@@ -120,6 +129,11 @@ interface AssessmentData {
     contact_frequency_days?: number
     priority_level?: number
   }>
+}
+
+function outputPersonSummary(data: AssessmentData): PersonSummary {
+  const record = data as unknown as Record<string, unknown>
+  return parsePersonSummary(record) ?? buildPersonSummary(record)
 }
 
 function DreamCatcherModuleContent() {
@@ -758,6 +772,13 @@ function DreamCatcherModuleContent() {
           nextPhase = 'vision'
         }
 
+        if (nextPhase === 'summary' || nextPhase === 'confirm') {
+          mergedAssessment = withPersonSummary(
+            mergedAssessment as unknown as Record<string, unknown>
+          ) as AssessmentData
+          setAssessmentData(mergedAssessment)
+        }
+
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
@@ -1035,7 +1056,7 @@ function DreamCatcherModuleContent() {
 
     try {
       // Include conversation messages and current state in saved data
-      const saveData = {
+      const saveData = withPersonSummary({
         ...assessmentData,
         conversation_messages: messages.map((msg) => ({
           id: msg.id,
@@ -1050,7 +1071,7 @@ function DreamCatcherModuleContent() {
         vision_accepted: visionAccepted,
         intake_path: intakePath ?? assessmentData.intake_path,
         session_source: isNewUser ? 'onboarding' : 'dream_catcher',
-      }
+      })
 
       const response = await fetch('/api/modules/dream-catcher/save', {
         method: 'POST',
@@ -1103,7 +1124,7 @@ function DreamCatcherModuleContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          assessment_data: {
+          assessment_data: withPersonSummary({
             ...assessmentData,
             conversation_messages: messages.map((msg) => ({
               id: msg.id,
@@ -1117,7 +1138,7 @@ function DreamCatcherModuleContent() {
             vision_accepted: visionAccepted,
             intake_path: intakePath ?? assessmentData.intake_path,
             session_source: isNewUser ? 'onboarding' : 'dream_catcher',
-          },
+          }),
           vision_statement: assessmentData.vision_statement,
           is_new_user: isNewUser,
           plan: planToCommit,
@@ -1129,13 +1150,7 @@ function DreamCatcherModuleContent() {
         throw new Error(errorData.error || 'Failed to set up dashboard')
       }
 
-      const data = await response.json()
-      const c = data.counts || {}
-      alert(
-        data.message ||
-          `Dashboard updated: ${c.goals_added ?? data.goals_added ?? 0} goals, ${c.projects_added ?? 0} projects, ${c.tasks_added ?? 0} tasks, ${c.habits_added ?? 0} habits added.`
-      )
-
+      // Taking the next step is arriving at the dashboard — skip the success alert.
       router.push('/dashboard?onboarded=true&lifePlan=1')
     } catch (error) {
       console.error('Error setting up dashboard:', error)
@@ -1838,8 +1853,9 @@ function DreamCatcherModuleContent() {
               {showConfirmation && assessmentData.goals_generated && (
                 <div className="space-y-2">
                   <p className="text-xs text-gray-600">
-                    Review the dashboard preview below. Confirming adds new items only — nothing you
-                    already have will be removed.
+                    {isNewUser
+                      ? 'This summary is who you are, your vision, and your goals. Take The Next Step stores it in Dream Catcher and brings you into LifeStacks — your dashboard.'
+                      : 'Review who you are, your vision, and your goals. Take The Next Step stores this in Dream Catcher and opens your dashboard.'}
                   </p>
                   <button
                     onClick={handleAutofillDashboard}
@@ -1849,7 +1865,7 @@ function DreamCatcherModuleContent() {
                     {isAutofilling ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Setting up...</span>
+                        <span>Stepping into LifeStacks...</span>
                       </>
                     ) : isLoadingPreview ? (
                       <>
@@ -1858,8 +1874,8 @@ function DreamCatcherModuleContent() {
                       </>
                     ) : (
                       <>
-                        <CheckCircle className="h-4 w-4" />
-                        <span>Confirm & Setup My Dashboard</span>
+                        <ArrowRight className="h-4 w-4" />
+                        <span>Take The Next Step</span>
                       </>
                     )}
                   </button>
@@ -1884,26 +1900,18 @@ function DreamCatcherModuleContent() {
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Confirm Your Life Plan</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Take The Next Step</h2>
                 <p className="text-sm text-gray-600">
                   {isNewUser
-                    ? 'This creates your starter dashboard and life modules from your answers. Your vision is added then — not before.'
-                    : 'New items will be added alongside what you already have. Your vision is added when you confirm.'}
+                    ? 'This is who you are, your vision, and your goals. Taking the next step stores this in Dream Catcher and brings you into LifeStacks — that is when you arrive at your dashboard.'
+                    : 'New items will be added alongside what you already have. Taking the next step stores this summary in Dream Catcher and opens your dashboard.'}
                 </p>
               </div>
             </div>
 
-            {(assessmentData.life_plan_summary || dashboardPreview?.life_plan_summary) && (
-              <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="font-semibold text-gray-900 mb-2 flex items-center">
-                  <Sparkles className="h-4 w-4 mr-2 text-blue-600" />
-                  Your Life Plan Summary
-                </h3>
-                <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
-                  {assessmentData.life_plan_summary || dashboardPreview?.life_plan_summary}
-                </p>
-              </div>
-            )}
+            <div className="mb-6">
+              <PersonLifeSummary summary={outputPersonSummary(assessmentData)} />
+            </div>
 
             {isLoadingPreview && (
               <div className="flex items-center gap-2 text-sm text-gray-600 py-8 justify-center">
@@ -2073,12 +2081,12 @@ function DreamCatcherModuleContent() {
                 {isAutofilling ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Setting up your dashboard...</span>
+                    <span>Stepping into LifeStacks...</span>
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="h-5 w-5" />
-                    <span>Confirm & Setup My Dashboard</span>
+                    <ArrowRight className="h-5 w-5" />
+                    <span>Take The Next Step</span>
                   </>
                 )}
               </button>
@@ -2093,28 +2101,30 @@ function DreamCatcherModuleContent() {
           </div>
         )}
 
-        {/* Life Plan summary — shown during summary phase before confirm */}
-        {showResults && assessmentData.life_plan_summary && !showConfirmation && (
-          <div className="mt-8 bg-white/90 backdrop-blur-sm rounded-lg border border-blue-200 p-6 shadow-lg">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Sparkles className="h-6 w-6 text-blue-600" />
+        {/* Person / vision / goals summary — shown during summary phase before confirm */}
+        {showResults &&
+          (assessmentData.life_plan_summary ||
+            assessmentData.person_summary ||
+            assessmentData.vision_statement) &&
+          !showConfirmation && (
+            <div className="mt-8 bg-white/90 backdrop-blur-sm rounded-lg border border-amber-200 p-6 shadow-lg">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-3 bg-amber-100 rounded-lg">
+                  <Sparkles className="h-6 w-6 text-amber-700" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Who You Are, Your Vision, and Your Goals
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    This is the Dream Catcher output. Next you take the next step into LifeStacks —
+                    that is when you arrive at your dashboard.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Who You Are & What You&apos;re Building
-                </h2>
-                <p className="text-sm text-gray-600">
-                  Review this summary — next you&apos;ll confirm your full Life Plan on the
-                  dashboard.
-                </p>
-              </div>
+              <PersonLifeSummary summary={outputPersonSummary(assessmentData)} />
             </div>
-            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed mb-4">
-              {assessmentData.life_plan_summary}
-            </p>
-          </div>
-        )}
+          )}
 
         {/* Results Section — session summary */}
         {showResults && assessmentData.goals_generated && !showConfirmation && (
@@ -2269,12 +2279,12 @@ function DreamCatcherModuleContent() {
                   {isAutofilling ? (
                     <>
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      <span>Setting up your dashboard...</span>
+                      <span>Stepping into LifeStacks...</span>
                     </>
                   ) : (
                     <>
-                      <Target className="h-5 w-5" />
-                      <span>Set Up My Dashboard</span>
+                      <ArrowRight className="h-5 w-5" />
+                      <span>Take The Next Step</span>
                     </>
                   )}
                 </button>
@@ -2305,12 +2315,12 @@ function DreamCatcherModuleContent() {
                     {isAutofilling ? (
                       <>
                         <Loader2 className="h-5 w-5 animate-spin" />
-                        <span>Autofilling...</span>
+                        <span>Stepping into LifeStacks...</span>
                       </>
                     ) : (
                       <>
-                        <Target className="h-5 w-5" />
-                        <span>Add to Dashboard</span>
+                        <ArrowRight className="h-5 w-5" />
+                        <span>Take The Next Step</span>
                       </>
                     )}
                   </button>

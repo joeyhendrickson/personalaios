@@ -324,9 +324,15 @@ Present tasks as a short grouped list, then transition to summary (set next_phas
     return `
 You are in the SUMMARY phase. Do NOT ask new intake questions.
 
-Write a warm, personal life_plan_summary in 2 short paragraphs covering who this person is, what they are building, and how their dashboard will support them. Do not write an essay.
+Write a person_summary of this human from their stories:
+- who_you_are: 2-4 sentences of who they are (drawn from the scenes they told, in their words — not a label dump)
+- vision: their kept vision_statement
+- goals: the goal titles only
+- narrative: a short through-line of who they are, their vision, and their goals
 
-Set life_plan_summary in assessment_data. Transition to confirm (set next_phase to "confirm") after presenting the summary.
+Also set life_plan_summary to that same narrative (2 short paragraphs). Do not write an essay.
+
+Set person_summary and life_plan_summary in assessment_data. Transition to confirm (set next_phase to "confirm") after presenting the summary.
 `
   }
 
@@ -334,10 +340,13 @@ Set life_plan_summary in assessment_data. Transition to confirm (set next_phase 
     return `
 You are in the CONFIRM phase. Do NOT ask new questions.
 
-Summarize vision, life_plan_summary highlights, and what will be created:
+Name who they are, their vision, and their goals in one tight recap. Then tell them:
+Taking "Take The Next Step" stores this summary in Dream Catcher and is how they enter LifeStacks — that is when they arrive at their dashboard.
+
+What will be created:
 ${formatPlanLimitsForPrompt()}
 
-Tell the user to review the Life Plan preview panel and click "Confirm & Setup My Dashboard" when it looks right. Keep this under 3 sentences. Never mention remaining questions or duration.
+Keep this under 3 sentences. Never mention remaining questions or duration. Do not say "Confirm & Setup My Dashboard".
 `
   }
 
