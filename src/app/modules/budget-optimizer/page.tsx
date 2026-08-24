@@ -4164,16 +4164,16 @@ export default function BudgetOptimizerModule() {
         {/* Transactions Tab */}
         {activeTab === 'transactions' ? (
           <div
-            className={
+            className={`budget-transactions-tab ${
               showTransactionRulesModal ? 'grid grid-cols-1 lg:grid-cols-3 gap-6' : 'space-y-6'
-            }
+            }`}
           >
             <div className={showTransactionRulesModal ? 'lg:col-span-2' : ''}>
               <div className="flex flex-wrap gap-2 mb-4">
                 <button
                   onClick={loadTransactions}
                   disabled={isLoading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                  className="budget-gold-btn-primary px-4 py-2 disabled:opacity-50"
                 >
                   <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                   {isLoading ? 'Loading...' : 'Refresh'}
@@ -4182,10 +4182,10 @@ export default function BudgetOptimizerModule() {
                   type="button"
                   onClick={scanForDuplicateTransactions}
                   disabled={isLoading || transactions.length === 0}
-                  className={`px-4 py-2 rounded-lg disabled:opacity-50 flex items-center gap-2 ${
+                  className={`px-4 py-2 disabled:opacity-50 ${
                     duplicateTransactionIds.size > 0
-                      ? 'bg-purple-700 text-white ring-2 ring-purple-300 ring-offset-2'
-                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                      ? 'budget-gold-btn-active'
+                      : 'budget-gold-btn-primary'
                   }`}
                   title="Find duplicate transactions: same bank transaction number, or the same amount across different accounts within a few days (e.g. PayPal + checking transfer)"
                 >
@@ -4197,7 +4197,7 @@ export default function BudgetOptimizerModule() {
                   <button
                     type="button"
                     onClick={clearDuplicateScan}
-                    className="px-3 py-2 text-sm rounded-lg border border-purple-200 text-purple-800 bg-purple-50 hover:bg-purple-100 dark:border-purple-500/40 dark:text-purple-200 dark:bg-purple-950/40 dark:hover:bg-purple-950/60"
+                    className="budget-gold-btn-outline px-3 py-2 text-sm"
                   >
                     Clear highlights
                   </button>
@@ -4205,7 +4205,7 @@ export default function BudgetOptimizerModule() {
                 <button
                   onClick={() => void saveVerifiedPeriodForDateRange()}
                   disabled={isLoading || savingVerifiedPeriod || !dateRange.start || !dateRange.end}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                  className="budget-gold-btn-primary px-4 py-2 disabled:opacity-50"
                   title="Store a compact summary of this date range for AI budget analysis. After you correct income/expense/transfer choices, save here so wider-range analysis reuses this snapshot when transactions have not changed."
                 >
                   <Save className={`h-4 w-4 ${savingVerifiedPeriod ? 'opacity-70' : ''}`} />
@@ -4214,7 +4214,7 @@ export default function BudgetOptimizerModule() {
                 {verifiedPeriods.some(
                   (p) => p.start_date === dateRange.start && p.end_date === dateRange.end
                 ) && (
-                  <span className="self-center text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-2 py-1">
+                  <span className="budget-gold-chip self-center text-xs rounded px-2 py-1">
                     This range is saved for analysis
                   </span>
                 )}
@@ -4222,7 +4222,7 @@ export default function BudgetOptimizerModule() {
                   <button
                     onClick={syncAllConnections}
                     disabled={isLoading}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                    className="budget-gold-btn-primary px-4 py-2 disabled:opacity-50"
                     title="Sync transactions from all bank connections for the selected date range"
                   >
                     <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -4245,10 +4245,8 @@ export default function BudgetOptimizerModule() {
                       await loadTransactionRules()
                     }
                   }}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 ${
-                    showTransactionRulesModal
-                      ? 'bg-purple-800 text-white ring-2 ring-purple-300 ring-offset-2'
-                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                  className={`px-4 py-2 disabled:opacity-50 ${
+                    showTransactionRulesModal ? 'budget-gold-btn-active' : 'budget-gold-btn-primary'
                   }`}
                   title="Manage transaction categorization rules and colors"
                 >
@@ -4355,7 +4353,7 @@ export default function BudgetOptimizerModule() {
                       <button
                         onClick={syncAllConnections}
                         disabled={isLoading}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                        className="budget-gold-btn-primary px-4 py-2 disabled:opacity-50"
                       >
                         {isLoading ? 'Syncing...' : 'Sync All'}
                       </button>
@@ -4456,7 +4454,7 @@ export default function BudgetOptimizerModule() {
                         )}
                       </span>
                       {duplicateScanMessage && (
-                        <span className="text-sm text-purple-700 dark:text-purple-300">
+                        <span className="text-sm budget-gold-chip rounded px-2 py-1">
                           {duplicateScanMessage}
                         </span>
                       )}
@@ -4464,7 +4462,7 @@ export default function BudgetOptimizerModule() {
                         <button
                           onClick={loadMoreTransactions}
                           disabled={isLoading}
-                          className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg border border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          className="budget-gold-btn-outline px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {isLoading ? (
                             <>
@@ -4517,7 +4515,7 @@ export default function BudgetOptimizerModule() {
                               isDuplicate
                                 ? 'budget-duplicate-txn'
                                 : isSelected
-                                  ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50/50'
+                                  ? 'budget-gold-selected'
                                   : 'border-gray-200 hover:border-gray-300'
                             }`}
                           >
@@ -4579,7 +4577,11 @@ export default function BudgetOptimizerModule() {
                                       onClick={() =>
                                         setTransactionTypeOverride(transaction.id, 'income')
                                       }
-                                      className="p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                                      className={`p-2 budget-gold-icon-btn ${
+                                        isIncome && !isMoneyTransfer
+                                          ? 'budget-gold-icon-btn--on'
+                                          : ''
+                                      }`}
                                       title="Mark as income"
                                     >
                                       <TrendingUp className="h-4 w-4" />
@@ -4588,7 +4590,9 @@ export default function BudgetOptimizerModule() {
                                       onClick={() =>
                                         setTransactionTypeOverride(transaction.id, 'transfer')
                                       }
-                                      className="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                                      className={`p-2 budget-gold-icon-btn ${
+                                        isMoneyTransfer ? 'budget-gold-icon-btn--on' : ''
+                                      }`}
                                       title="Mark as transfer"
                                     >
                                       <Minus className="h-4 w-4" />
@@ -4597,14 +4601,16 @@ export default function BudgetOptimizerModule() {
                                       onClick={() =>
                                         setTransactionTypeOverride(transaction.id, 'expense')
                                       }
-                                      className="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                                      className={`p-2 budget-gold-icon-btn ${
+                                        isExpense ? 'budget-gold-icon-btn--on' : ''
+                                      }`}
                                       title="Mark as expense"
                                     >
                                       <TrendingDown className="h-4 w-4" />
                                     </button>
                                     <button
                                       onClick={() => excludeTransaction(transaction.id)}
-                                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                                      className="p-2 budget-gold-icon-btn"
                                       title="Remove duplicate"
                                     >
                                       <X className="h-4 w-4" />
@@ -4613,10 +4619,10 @@ export default function BudgetOptimizerModule() {
                                       onClick={() =>
                                         !transaction.is_flagged && flagTransaction(transaction.id)
                                       }
-                                      className={`p-2 rounded-lg transition-colors ${
+                                      className={`p-2 budget-gold-icon-btn ${
                                         transaction.is_flagged
-                                          ? 'bg-red-100 text-red-600 cursor-default'
-                                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                          ? 'budget-gold-icon-btn--on cursor-default'
+                                          : ''
                                       }`}
                                       title={
                                         transaction.is_flagged
@@ -4645,7 +4651,7 @@ export default function BudgetOptimizerModule() {
                                     <button
                                       type="button"
                                       onClick={() => saveSelectedTransactionAmount(transaction.id)}
-                                      className="p-1.5 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                      className="p-1.5 budget-gold-icon-btn budget-gold-icon-btn--on"
                                       title="Save amount"
                                     >
                                       <Save className="h-3.5 w-3.5" />
@@ -4654,7 +4660,7 @@ export default function BudgetOptimizerModule() {
                                       <button
                                         type="button"
                                         onClick={() => resetSelectedTransactionAmount(transaction)}
-                                        className="p-1.5 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs"
+                                        className="p-1.5 budget-gold-icon-btn text-xs"
                                         title="Reset to bank amount"
                                       >
                                         Reset
@@ -4682,7 +4688,9 @@ export default function BudgetOptimizerModule() {
                                   {formatCurrency(transaction.amount)}
                                 </div>
                                 {transaction.amount_override != null && (
-                                  <div className="text-[11px] text-blue-600">Edited amount</div>
+                                  <div className="text-[11px] text-[hsl(43_55%_32%)]">
+                                    Edited amount
+                                  </div>
                                 )}
                                 {transaction.transaction_categorizations?.[0]
                                   ?.budget_categories && (
@@ -4704,7 +4712,7 @@ export default function BudgetOptimizerModule() {
                         <button
                           onClick={loadMoreTransactions}
                           disabled={isLoading}
-                          className="px-6 py-3 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg border border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          className="budget-gold-btn-outline px-6 py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {isLoading ? (
                             <>
@@ -4731,7 +4739,7 @@ export default function BudgetOptimizerModule() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                        <Settings className="h-5 w-5 text-purple-600" />
+                        <Settings className="h-5 w-5 text-[hsl(43_76%_42%)]" />
                         Transaction rules
                       </h3>
                       <p className="text-xs text-gray-600 mt-1">
@@ -4750,7 +4758,7 @@ export default function BudgetOptimizerModule() {
                           category_type: 'personal',
                         })
                       }}
-                      className="p-1 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                      className="p-1 budget-gold-icon-btn"
                       title="Close"
                     >
                       <X className="h-5 w-5" />
@@ -4810,7 +4818,7 @@ export default function BudgetOptimizerModule() {
                         type="button"
                         onClick={() => void saveTransactionRule()}
                         disabled={isSavingRule || !transactionRuleForm.keyword.trim()}
-                        className="flex-1 min-w-[8rem] px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium"
+                        className="budget-gold-btn-primary flex-1 min-w-[8rem] px-3 py-2 disabled:opacity-50 text-sm"
                       >
                         {isSavingRule ? 'Saving…' : editingRuleId ? 'Update rule' : 'Add rule'}
                       </button>
@@ -4825,7 +4833,7 @@ export default function BudgetOptimizerModule() {
                               category_type: 'personal',
                             })
                           }}
-                          className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+                          className="budget-gold-btn-outline px-3 py-2 text-sm"
                         >
                           Cancel
                         </button>
@@ -4864,7 +4872,7 @@ export default function BudgetOptimizerModule() {
                               <button
                                 type="button"
                                 onClick={() => editTransactionRule(rule)}
-                                className="p-1.5 rounded text-blue-600 hover:bg-blue-50"
+                                className="p-1.5 budget-gold-icon-btn"
                                 title="Edit"
                               >
                                 <Edit className="h-4 w-4" />
@@ -4872,7 +4880,7 @@ export default function BudgetOptimizerModule() {
                               <button
                                 type="button"
                                 onClick={() => void deleteTransactionRule(rule.id)}
-                                className="p-1.5 rounded text-red-600 hover:bg-red-50"
+                                className="p-1.5 budget-gold-icon-btn"
                                 title="Delete"
                               >
                                 <Trash2 className="h-4 w-4" />
