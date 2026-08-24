@@ -8,6 +8,7 @@ import {
   getIntakeQuestionContext,
   getStreamlinedPhaseInstructions,
   INTAKE_QUESTION_COUNT,
+  isVisionAcceptance,
   normalizeDreamCatcherPhase,
 } from '@/lib/dream-catcher/streamlined-phases'
 import {
@@ -65,7 +66,8 @@ export async function POST(request: NextRequest) {
       assessment_data,
       userData,
       conversation_history,
-      body.personality_question_index ?? body.intake_question_index ?? 0
+      body.personality_question_index ?? body.intake_question_index ?? 0,
+      Boolean(body.vision_accepted) || isVisionAcceptance(message)
     )
 
     // Store the conversation in activity logs
@@ -157,7 +159,8 @@ async function generateDreamCatcherResponse(
   assessmentData: any,
   userData: any,
   conversationHistory: any[],
-  intakeQuestionIndex: number = 0
+  intakeQuestionIndex: number = 0,
+  visionAccepted: boolean = false
 ) {
   const normalizedPhase = normalizeDreamCatcherPhase(currentPhase)
   const clampedIndex = Math.min(Math.max(intakeQuestionIndex, 0), INTAKE_QUESTION_COUNT)
@@ -226,7 +229,8 @@ INSTRUCTIONS:
 10. In confirm phase, do not ask questions — point user to the Life Plan preview panel
 11. Never mention remaining questions, totals, or how long this will take
 12. Treat tap-chip replies and "Skip this one" as complete answers; skip covered themes and end intake early when you have enough for a Life Plan
-13. Return ONLY valid JSON — no markdown fences
+13. In vision phase, stay on vision until the user keeps/accepts the painted vision; do not push anything to the dashboard
+14. Return ONLY valid JSON — no markdown fences
 
 RESPONSE FORMAT (JSON only):
 {
@@ -430,6 +434,17 @@ RESPONSE FORMAT (JSON only):
         : taskCount < DREAM_CATCHER_LIMITS.tasks.min
           ? 'tasks'
           : 'summary'
+  }
+
+  // Hold on the painted vision until the user keeps it — never skip to dashboard items.
+  const visionText =
+    typeof merged?.vision_statement === 'string' ? merged.vision_statement.trim() : ''
+  const acceptedVision = visionAccepted || isVisionAcceptance(message)
+  if (normalizedPhase === 'vision' && visionText.length > 0 && !acceptedVision) {
+    parsedResponse.next_phase = 'vision'
+  }
+  if (normalizedPhase === 'vision' && visionText.length > 0 && acceptedVision) {
+    parsedResponse.next_phase = 'goals'
   }
 
   return parsedResponse

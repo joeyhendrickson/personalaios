@@ -31,6 +31,7 @@ import {
   getJourneyBeat,
   getJourneyBeatLabel,
   getReplyChips,
+  isVisionAcceptance,
   JOURNEY_BEATS,
   normalizeDreamCatcherPhase,
   STREAMLINED_PHASES,
@@ -39,6 +40,7 @@ import { mergeAssessmentData, clampAssessmentData } from '@/lib/dream-catcher/as
 import { DREAM_CATCHER_LIMITS } from '@/lib/dream-catcher/plan-limits'
 import type { OnboardingPlan } from '@/lib/dream-catcher/generate-onboarding-plan'
 import type { DashboardPlanPreview } from '@/lib/dream-catcher/dashboard-plan-preview'
+import { VisionCanvas } from '@/components/dream-catcher/vision-canvas'
 
 interface ChatMessage {
   id: string
@@ -66,6 +68,7 @@ interface AssessmentData {
   }>
   dreams_discovered?: string[]
   vision_statement?: string
+  vision_accepted?: boolean
   life_plan_summary?: string
   goals_generated?: Array<{
     goal: string
@@ -133,6 +136,7 @@ function DreamCatcherModuleContent() {
   const [pendingPlan, setPendingPlan] = useState<OnboardingPlan | null>(null)
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
+  const [visionAccepted, setVisionAccepted] = useState(false)
   const [showExitWarning, setShowExitWarning] = useState(false)
   const [exitHasProgress, setExitHasProgress] = useState(false)
   const [isAutofilling, setIsAutofilling] = useState(false)
@@ -141,6 +145,7 @@ function DreamCatcherModuleContent() {
   const [continuousMode, setContinuousMode] = useState(false)
   const [micPermissionError, setMicPermissionError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const visionCanvasRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
   const synthRef = useRef<SpeechSynthesis | null>(null)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
@@ -502,6 +507,20 @@ function DreamCatcherModuleContent() {
           )
         }
 
+        const restoredPhase = normalizeDreamCatcherPhase(
+          session.assessment_data.current_phase || 'intake'
+        )
+        const pastVision =
+          restoredPhase === 'goals' ||
+          restoredPhase === 'projects' ||
+          restoredPhase === 'tasks' ||
+          restoredPhase === 'summary' ||
+          restoredPhase === 'confirm'
+        setVisionAccepted(
+          Boolean(session.assessment_data.vision_accepted) ||
+            (pastVision && Boolean(session.assessment_data.vision_statement))
+        )
+
         const savedIndex =
           session.assessment_data.intake_question_index ??
           session.assessment_data.personality_question_index
@@ -566,6 +585,15 @@ function DreamCatcherModuleContent() {
     }
   }, [isNewUser, sessionId, isLoadingSession, messages.length])
 
+  const hadPaintedVisionRef = useRef(false)
+  useEffect(() => {
+    const has = Boolean(assessmentData.vision_statement?.trim())
+    if (has && !hadPaintedVisionRef.current) {
+      visionCanvasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    hadPaintedVisionRef.current = has
+  }, [assessmentData.vision_statement])
+
   const loadDashboardPreview = async (data: AssessmentData): Promise<OnboardingPlan | null> => {
     if (!data.goals_generated || data.goals_generated.length === 0) return null
 
@@ -598,7 +626,10 @@ function DreamCatcherModuleContent() {
     }
   }
 
-  const sendMessageDirectly = async (messageText: string) => {
+  const sendMessageDirectly = async (
+    messageText: string,
+    overrides?: { visionAccepted?: boolean; visionStatement?: string }
+  ) => {
     if (!messageText.trim() || isLoading) return
 
     // Stop the mic when user submits a message
@@ -645,9 +676,18 @@ function DreamCatcherModuleContent() {
             phase: msg.phase,
           })),
           current_phase: currentPhase,
-          assessment_data: assessmentData,
+          assessment_data: {
+            ...assessmentData,
+            ...(overrides?.visionStatement
+              ? {
+                  vision_statement: overrides.visionStatement,
+                  vision_accepted: true,
+                }
+              : {}),
+          },
           personality_question_index: intakeQuestionIndex,
           intake_question_index: intakeQuestionIndex,
+          vision_accepted: overrides?.visionAccepted ?? visionAccepted,
         }),
       })
 
@@ -661,9 +701,42 @@ function DreamCatcherModuleContent() {
         // Remove markdown formatting from AI response
         const cleanResponse = data.response.replace(/\*\*/g, '').replace(/\n\n\n+/g, '\n\n')
 
-        const nextPhase = data.next_phase
+        let nextPhase = data.next_phase
           ? (normalizeDreamCatcherPhase(data.next_phase) as typeof currentPhase)
           : currentPhase
+
+        let mergedAssessment = assessmentData
+        if (data.assessment_data) {
+          mergedAssessment = clampAssessmentData(
+            mergeAssessmentData(assessmentData, data.assessment_data)
+          ) as AssessmentData
+          if (overrides?.visionStatement) {
+            mergedAssessment = {
+              ...mergedAssessment,
+              vision_statement: overrides.visionStatement,
+            }
+          }
+          setAssessmentData(mergedAssessment)
+        } else if (overrides?.visionStatement) {
+          mergedAssessment = {
+            ...assessmentData,
+            vision_statement: overrides.visionStatement,
+          }
+          setAssessmentData(mergedAssessment)
+        }
+
+        const acceptedNow =
+          visionAccepted || Boolean(overrides?.visionAccepted) || isVisionAcceptance(messageText)
+        if (acceptedNow && !visionAccepted) {
+          setVisionAccepted(true)
+          mergedAssessment = { ...mergedAssessment, vision_accepted: true }
+          setAssessmentData(mergedAssessment)
+        }
+
+        const paintedVision = Boolean(mergedAssessment.vision_statement?.trim())
+        if (paintedVision && !acceptedNow && nextPhase !== 'intake' && nextPhase !== 'vision') {
+          nextPhase = 'vision'
+        }
 
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
@@ -680,14 +753,8 @@ function DreamCatcherModuleContent() {
           if (nextPhase !== 'intake') {
             setIntakeQuestionIndex(0)
           }
-        }
-
-        let mergedAssessment = assessmentData
-        if (data.assessment_data) {
-          mergedAssessment = clampAssessmentData(
-            mergeAssessmentData(assessmentData, data.assessment_data)
-          ) as AssessmentData
-          setAssessmentData(mergedAssessment)
+        } else if (nextPhase !== currentPhase) {
+          setCurrentPhase(nextPhase)
         }
 
         if (
@@ -750,6 +817,22 @@ function DreamCatcherModuleContent() {
     const messageToSend = inputMessage.trim()
     setInputMessage('')
     await sendMessageDirectly(messageToSend)
+  }
+
+  const handleKeepVision = (statement: string) => {
+    const next = statement.trim()
+    if (!next || isLoading) return
+    setAssessmentData((prev) => ({ ...prev, vision_statement: next, vision_accepted: true }))
+    setVisionAccepted(true)
+    void sendMessageDirectly('Yes — keep this vision. Let’s shape the goals from it.', {
+      visionAccepted: true,
+      visionStatement: next,
+    })
+  }
+
+  const handleRefineVision = (prompt: string) => {
+    if (!prompt.trim() || isLoading) return
+    void sendMessageDirectly(prompt)
   }
 
   const requestMicrophonePermission = async (): Promise<boolean> => {
@@ -944,6 +1027,7 @@ function DreamCatcherModuleContent() {
         current_phase: currentPhase,
         intake_question_index: intakeQuestionIndex,
         personality_question_index: intakeQuestionIndex,
+        vision_accepted: visionAccepted,
         session_source: isNewUser ? 'onboarding' : 'dream_catcher',
       }
 
@@ -1009,6 +1093,7 @@ function DreamCatcherModuleContent() {
             })),
             current_phase: currentPhase,
             intake_question_index: intakeQuestionIndex,
+            vision_accepted: visionAccepted,
             session_source: isNewUser ? 'onboarding' : 'dream_catcher',
           },
           vision_statement: assessmentData.vision_statement,
@@ -1119,8 +1204,9 @@ function DreamCatcherModuleContent() {
   const journeyBeat = getJourneyBeat(currentPhase)
   const journeyBeatIndex = JOURNEY_BEATS.indexOf(journeyBeat)
   const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant')
+  const hasPaintedVision = Boolean(assessmentData.vision_statement?.trim())
   const replyChips =
-    !isLoading && normalizedPhase !== 'confirm' && !showConfirmation
+    !isLoading && normalizedPhase !== 'confirm' && !showConfirmation && normalizedPhase !== 'vision'
       ? getReplyChips(String(normalizedPhase), intakeQuestionIndex)
       : []
 
@@ -1206,6 +1292,21 @@ function DreamCatcherModuleContent() {
       </div>
 
       <div className="container mx-auto px-6 py-8">
+        {hasPaintedVision && (
+          <div ref={visionCanvasRef} className="mb-8">
+            <VisionCanvas
+              statement={assessmentData.vision_statement!.trim()}
+              dreams={assessmentData.dreams_discovered}
+              accepted={visionAccepted}
+              busy={isLoading}
+              onChange={(next) =>
+                setAssessmentData((prev) => ({ ...prev, vision_statement: next }))
+              }
+              onKeep={handleKeepVision}
+              onRefine={handleRefineVision}
+            />
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Chat Interface */}
           <div className="lg:col-span-3">
@@ -1728,8 +1829,8 @@ function DreamCatcherModuleContent() {
                 <h2 className="text-2xl font-bold text-gray-900">Confirm Your Life Plan</h2>
                 <p className="text-sm text-gray-600">
                   {isNewUser
-                    ? 'This creates your starter dashboard and life modules from your answers.'
-                    : 'New items will be added alongside what you already have.'}
+                    ? 'This creates your starter dashboard and life modules from your answers. Your vision is added then — not before.'
+                    : 'New items will be added alongside what you already have. Your vision is added when you confirm.'}
                 </p>
               </div>
             </div>
@@ -1742,15 +1843,6 @@ function DreamCatcherModuleContent() {
                 </h3>
                 <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
                   {assessmentData.life_plan_summary || dashboardPreview?.life_plan_summary}
-                </p>
-              </div>
-            )}
-
-            {assessmentData.vision_statement && (
-              <div className="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                <h3 className="font-semibold text-gray-900 mb-1">Vision</h3>
-                <p className="text-gray-700 italic">
-                  &ldquo;{assessmentData.vision_statement}&rdquo;
                 </p>
               </div>
             )}
@@ -1963,14 +2055,6 @@ function DreamCatcherModuleContent() {
             <p className="text-gray-700 whitespace-pre-wrap leading-relaxed mb-4">
               {assessmentData.life_plan_summary}
             </p>
-            {assessmentData.vision_statement && (
-              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                <h3 className="font-semibold text-gray-900 mb-1">Your Vision</h3>
-                <p className="text-gray-700 italic">
-                  &ldquo;{assessmentData.vision_statement}&rdquo;
-                </p>
-              </div>
-            )}
           </div>
         )}
 
@@ -1990,16 +2074,6 @@ function DreamCatcherModuleContent() {
                 </p>
               </div>
             </div>
-
-            {assessmentData.vision_statement && (
-              <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
-                <h3 className="font-semibold text-gray-900 mb-2 flex items-center">
-                  <Eye className="h-4 w-4 mr-2 text-purple-600" />
-                  Your Vision Statement
-                </h3>
-                <p className="text-gray-700 italic">"{assessmentData.vision_statement}"</p>
-              </div>
-            )}
 
             {assessmentData.executive_skills && (
               <div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-indigo-200">

@@ -153,9 +153,11 @@ Do NOT ask about executive skills inventories or long personality tests. Cap int
 
   if (phase === 'vision') {
     return `
-You are in the VISION phase. Synthesize a vision statement from everything collected in intake.
+You are in the VISION phase. Paint a vivid vision_statement (2-3 present-tense sentences) from everything collected in intake.
 
-Keep it snappy: at most ONE clarifying question if needed, then a polished vision_statement (2-3 sentences, present tense) and transition to goals (set next_phase to "goals"). Never mention remaining steps or duration.
+A painted canvas on screen shows the full vision. Keep the chat short — invite them to sit with it, edit it, or tell you what to change. Never mention remaining steps or duration.
+
+Stay on next_phase "vision" until the user clearly keeps/accepts the vision (e.g. "keep this vision", "that's the vibe", "yes"). If they ask to rewrite (bolder, softer, more personal, or their own edit), update vision_statement and remain on vision. Do NOT move to goals until they accept.
 `
   }
 
@@ -358,11 +360,39 @@ const INTAKE_REPLY_CHIPS: Record<IntakeTheme, ReplyChip[]> = {
   ),
 }
 
+export function isVisionAcceptance(message: string): boolean {
+  const t = message.trim().toLowerCase()
+  return (
+    t.includes('keep this vision') ||
+    t.includes('that vision matches') ||
+    t.includes("that's the vibe") ||
+    t.includes('thats the vibe') ||
+    t.includes('this is my vision')
+  )
+}
+
 const PHASE_REPLY_CHIPS: Partial<Record<StreamlinedPhase, ReplyChip[]>> = {
-  vision: chips(
-    ['That’s the vibe', 'Yes — that vision matches. Keep going.'],
-    ['Make it bolder', 'Close, but make the vision a bit bolder and more specific.']
-  ),
+  vision: [
+    {
+      label: 'Keep this vision',
+      value: 'Yes — keep this vision. Let’s shape the goals from it.',
+    },
+    {
+      label: 'Make it bolder',
+      value:
+        'Rewrite the vision so it is bolder and more specific. Stay on the vision — do not move to goals yet.',
+    },
+    {
+      label: 'Softer',
+      value:
+        'Rewrite the vision so it feels warmer and more grounded. Stay on the vision — do not move to goals yet.',
+    },
+    {
+      label: 'More personal',
+      value:
+        'Rewrite the vision in my own voice, more personal and present-tense. Stay on the vision — do not move to goals yet.',
+    },
+  ],
   goals: chips(
     ['Those goals work', 'Those goals work. Keep going.'],
     ['Tweak the targets', 'Close — please tweak the targets to better match what I said.']
@@ -399,7 +429,7 @@ export function getJourneyBeatLabel(phase: string, intakeQuestionIndex: number):
     if (intakeQuestionIndex <= 12) return 'Getting specific'
     return 'Almost ready to sketch'
   }
-  if (n === 'vision') return 'Sketching your vision'
+  if (n === 'vision') return 'Paint your vision'
   if (n === 'goals') return 'Naming your goals'
   if (n === 'projects') return 'Choosing projects'
   if (n === 'tasks') return 'Laying out first steps'
