@@ -26,6 +26,7 @@ import {
   MessageSquare,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { sumEarnedPoints } from '@/lib/points/sum-earned-points'
 import DisciplineTrophies from '@/components/discipline/discipline-trophies'
 import TotalHabitTrophies from '@/components/trophies/total-habit-trophies'
 import SigninStreakTrophies from '@/components/trophies/signin-streak-trophies'
@@ -103,13 +104,16 @@ export default function ProfilePage() {
           .eq('status', 'completed'),
       ])
 
-      // Fetch total points
+      // Total Points = points earned. Ignore reversals/adjustments (large negatives)
+      // so a single correction cannot wipe the lifetime total.
       const { data: pointsData } = await supabase
         .from('points_ledger')
         .select('points')
         .eq('user_id', user?.id)
+        .gt('points', 0)
+        .limit(20000)
 
-      const totalPoints = pointsData?.reduce((sum, entry) => sum + (entry.points || 0), 0) || 0
+      const totalPoints = sumEarnedPoints(pointsData)
 
       let dailyCheckIns = 0
       if (user?.id) {
@@ -531,7 +535,7 @@ export default function ProfilePage() {
                           <span className="text-white text-sm font-bold">★</span>
                         </div>
                         <div className="text-2xl font-bold text-orange-900">
-                          {stats.totalPoints}
+                          {stats.totalPoints.toLocaleString()}
                         </div>
                         <div className="text-sm text-orange-700">Total Points</div>
                       </div>

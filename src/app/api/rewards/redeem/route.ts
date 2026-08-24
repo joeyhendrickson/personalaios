@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { sumEarnedPoints } from '@/lib/points/sum-earned-points'
 import { z } from 'zod'
 
 const redeemRewardSchema = z.object({
@@ -53,19 +54,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Reward not unlocked yet' }, { status: 400 })
     }
 
-    // Get total earned points (sum all positive points from points_ledger)
+    // Get total earned points (positive ledger entries only)
     const { data: allPointsData, error: pointsError } = await supabase
       .from('points_ledger')
       .select('points')
       .eq('user_id', user.id)
+      .gt('points', 0)
+      .limit(20000)
 
     if (pointsError) {
       console.error('Error fetching points:', pointsError)
       return NextResponse.json({ error: 'Failed to fetch points' }, { status: 500 })
     }
 
-    const totalEarnedPoints =
-      allPointsData?.reduce((sum, entry) => sum + (entry.points || 0), 0) || 0
+    const totalEarnedPoints = sumEarnedPoints(allPointsData)
 
     // Get total points spent on redeemed rewards
     const { data: userRewards, error: userRewardsError } = await supabase
