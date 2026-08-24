@@ -119,23 +119,52 @@ export function getIntakeQuestionTheme(
   return themes[Math.min(Math.max(index, 0), themes.length - 1)]
 }
 
-/** Story-first prompts for the discovery path (~half the themes). */
-const DISCOVERY_STORY_EXAMPLES: Partial<Record<(typeof INTAKE_QUESTION_THEMES)[number], string>> = {
-  priorities: 'Tell me about a recent week that felt like you. What mattered most in it, and why?',
+/** About half of discovery questions are journalistic story beats; the rest are concrete follow-through. */
+export const DISCOVERY_STORY_THEMES = [
+  'priorities',
+  'future_vision',
+  'blockers',
+  'focus_areas',
+  'projects',
+  'habits',
+  'ruminations',
+  'coping',
+  'gratitude_items',
+  'key_relationships',
+] as const
+
+/** Half of the fast path — a short scene, not a label. */
+export const FAST_STORY_THEMES = ['priorities', 'future_vision', 'blockers', 'focus_areas'] as const
+
+export function isStoryIntakeTheme(theme: string, path: DreamCatcherPath): boolean {
+  const set = path === 'fast' ? FAST_STORY_THEMES : DISCOVERY_STORY_THEMES
+  return (set as readonly string[]).includes(theme)
+}
+
+/** Journalistic story prompts — scenes and moments, not self-summary. */
+const STORY_QUESTION_EXAMPLES: Partial<Record<(typeof INTAKE_QUESTION_THEMES)[number], string>> = {
+  priorities:
+    'Tell me about a recent day or week that felt like you. What happened, who was there, what did you actually spend yourself on?',
   future_vision:
-    'Walk me through a great Tuesday a year from now — where are you, who is there, what did you just do?',
-  blockers: 'Tell me about a time that thing got in your way. What happened, and how did it land?',
+    'Walk me through a Tuesday a year from now that went well — where are you, what did you just do, who is in the room?',
+  blockers:
+    'Tell me about a time that thing got in the way. What were you trying to do, and what actually happened?',
   focus_areas:
-    'Where do you want life to look different a year from now? Describe the scene, not just the category.',
-  ruminations: 'When that loop shows up, what story does it tell you? Give me a recent moment.',
-  gratitude_items: 'Tell me about a recent moment you were actually grateful — what was happening?',
-  key_relationships: 'Who would you call after a hard day? Tell me a little about them.',
-  final_context: 'Anything else from your story I should know before we paint the vision?',
+    'Describe a scene you want more of a year from now. Not the category — the room, the hour, the people.',
+  projects:
+    'Tell me about a time you tried to move something important. What did you start, and how did it go?',
+  habits: 'Walk me through a morning or evening that worked. What did you actually do, in order?',
+  ruminations: 'When that loop showed up recently, what was the scene? What was it telling you?',
+  coping: 'Tell me about a time you got unstuck. What did you do, and what shifted?',
+  gratitude_items:
+    'Tell me about a recent moment you were actually grateful — where were you, what was happening?',
+  key_relationships:
+    'Who would you call after a hard day? Tell me a small story about them — a moment, not a title.',
 }
 
 export function getIntakeQuestionExample(theme: string, path: DreamCatcherPath): string {
-  if (path === 'discovery') {
-    const story = DISCOVERY_STORY_EXAMPLES[theme as (typeof INTAKE_QUESTION_THEMES)[number]]
+  if (isStoryIntakeTheme(theme, path)) {
+    const story = STORY_QUESTION_EXAMPLES[theme as (typeof INTAKE_QUESTION_THEMES)[number]]
     if (story) return story
   }
   const i = INTAKE_QUESTION_THEMES.indexOf(theme as (typeof INTAKE_QUESTION_THEMES)[number])
@@ -151,10 +180,12 @@ export function getIntakeQuestionContext(
   const cap = getIntakeCap(path)
   const q = Math.min(Math.max(intakeQuestionIndex, 0), cap - 1)
   const theme = getIntakeQuestionTheme(q, path)
+  const storyBeat = isStoryIntakeTheme(theme, path)
+  const beat = storyBeat ? 'STORY BEAT (journalistic)' : 'FACT BEAT'
   if (path === 'fast') {
-    return `PATH: fast. INTAKE THEME (internal only): ${theme} [${q + 1}/${cap}]. Never tell the user this index or duration. Combine remaining themes when answers are rich. Finish at or before ${cap} as soon as you can draft a Life Plan.`
+    return `PATH: fast. ${beat}. THEME (internal only): ${theme} [${q + 1}/${cap}]. Never tell the user this index or duration. ${storyBeat ? 'Ask for a short scene; infer labels yourself.' : 'Keep it concrete and brief.'} Combine remaining themes when answers are rich. Finish at or before ${cap} as soon as you can draft a Life Plan.`
   }
-  return `PATH: discovery. INTAKE THEME (internal only): ${theme} [${q + 1}/${cap}]. Never tell the user this index or duration. Invite a short story or scene when it fits. Draw conclusions from their narrative. Skip only if the theme is already clearly answered. Cap at ${cap}.`
+  return `PATH: discovery. ${beat}. THEME (internal only): ${theme} [${q + 1}/${cap}]. Never tell the user this index or duration. ${storyBeat ? 'Invite a specific story/scene (who, where, what happened). Do NOT ask them to name their priorities, goals, or labels — you infer those from the story.' : 'You may be more direct, but still ground it in their week — not a personality quiz.'} Skip only if the theme is already clearly answered. Cap at ${cap}.`
 }
 
 export function getStreamlinedPhaseInstructions(
@@ -169,15 +200,29 @@ export function getStreamlinedPhaseInstructions(
     const q = Math.min(Math.max(intakeQuestionIndex, 0), cap - 1)
     const theme = getIntakeQuestionTheme(q, path)
     const example = getIntakeQuestionExample(theme, path)
+    const storyBeat = isStoryIntakeTheme(theme, path)
     const pathRules =
       path === 'fast'
-        ? `This is the FAST path. One short beat per turn. Tap-chip replies are complete answers. Combine leftover themes when you can. Move to vision as soon as you can draft 2–4 goals, a few projects, and first steps — at most ${cap} questions.`
-        : `This is the DISCOVERY path. Do not rush. Often invite a short story, scene, or memory — not just a label. Draw the Life Plan from their narrative, not only from their conclusions. Cover themes more fully; skip only if already clearly answered. Cap at ${cap}.`
+        ? `This is the FAST path. One short beat per turn. About half the beats are mini-scenes (story); the rest are concrete. Tap-chip replies are complete answers. Combine leftover themes when you can. Move to vision as soon as you can draft 2–4 goals, a few projects, and first steps — at most ${cap} questions.`
+        : `This is the DISCOVERY path. About 50% of questions are STORY BEATS (journalistic): ask for a scene, memory, or what happened — not their objective conclusions. The other half may be more direct. Draw the Life Plan from their narrative. Cover themes more fully; skip only if already clearly answered. Cap at ${cap}.`
+
+    const storyRules = storyBeat
+      ? `
+THIS QUESTION IS A STORY BEAT (journalistic):
+- Ask for a specific moment: who, where, what happened, how it felt.
+- Do NOT ask them to list priorities, goals, traits, or categories. You will infer those.
+- If they only give a label ("health", "career") or a setting with no story, do NOT increment intake_question_index — ask what happened in a recent scene.
+- After a real story, extract structured data from what occurred (goals, blockers, people, habits, projects) using their words in descriptions.
+`
+      : `
+THIS QUESTION IS A FACT BEAT: you may be more direct (numbers, cadence, timeline) but still ground it in their week, not a quiz.
+`
 
     return `
 You are in the INTAKE phase. Ask exactly ONE question — warm, conversational, never a list of questions.
 
 ${pathRules}
+${storyRules}
 
 PACE: Keep each assistant message under 3 short sentences (discovery may use one extra sentence to invite a story). Acknowledge in a few words, then ask the next question. NEVER mention question numbers, remaining questions, totals, or how long this will take. Treat tap-chip replies and "Skip this one" as complete answers — do not re-ask.
 
@@ -188,9 +233,9 @@ Example question for this theme (adapt, do not copy verbatim if redundant):
 
 After the user answers:
 - Acknowledge briefly (a few words, not a recap).
-- Extract ONLY NEW structured data into assessment_data (see extraction map). Do NOT re-send entire arrays — only items learned from this answer.
+- Extract ONLY NEW structured data into assessment_data (see extraction map). Infer conclusions from stories — do not wait for them to name the takeaway. Do NOT re-send entire arrays — only items learned from this answer.
 - Keep draft goals to at most ${DREAM_CATCHER_LIMITS.goals.max} entries total during intake.
-- Increment intake_question_index by 1 (or jump ahead if you skipped themes).
+- Increment intake_question_index by 1 (or jump ahead if you skipped themes). On a STORY BEAT, only increment if you got an actual scene/story (or they skipped).
 - If more is needed and ${q + 1} < ${cap}, ask the next natural question (next theme: ${getIntakeQuestionTheme(Math.min(q + 1, cap - 1), path)}).
 - As soon as you have enough for a Life Plan — or after question ${cap} — give a 1-sentence recap and transition to vision (set next_phase to "vision").
 
@@ -221,7 +266,7 @@ Do NOT ask about executive skills inventories or long personality tests. Cap int
 
   if (phase === 'vision') {
     return `
-You are in the VISION phase. Paint a vivid vision_statement (2-3 present-tense sentences) from everything collected in intake.
+You are in the VISION phase. Paint a vivid vision_statement (2-3 present-tense sentences) from the stories collected in intake — write it as if you were reporting who they are becoming, not repeating a slogan they never said.
 
 A painted canvas on screen shows the full vision. Keep the chat short — invite them to sit with it, edit it, or tell you what to change. Never mention remaining steps or duration.
 
@@ -232,6 +277,8 @@ Stay on next_phase "vision" until the user clearly keeps/accepts the vision (e.g
   if (phase === 'goals') {
     return `
 You are in the GOALS phase. Finalize ONLY the ${DREAM_CATCHER_LIMITS.goals.min}-${DREAM_CATCHER_LIMITS.goals.max} dashboard goals — do not finalize projects or tasks yet.
+
+Infer the goals from the stories they told. Descriptions should sound like their scenes, not slogans they never said. Do not make them pick "top goals" if the narrative already shows them.
 
 Each goal in goals_generated needs: goal, description (unique — why this matters + how success is measured), category, priority (high|medium|low), timeline, target_value + target_unit.
 
@@ -428,6 +475,120 @@ const INTAKE_REPLY_CHIPS: Record<IntakeTheme, ReplyChip[]> = {
   ),
 }
 
+/** Scene-starters for story beats — openings, not conclusions. */
+const STORY_REPLY_CHIPS: Partial<Record<IntakeTheme, ReplyChip[]>> = {
+  priorities: chips(
+    [
+      'A work week',
+      'Let me tell you about a recent work week: I was deep in it, late, proud and tired.',
+    ],
+    [
+      'A night at home',
+      'Let me tell you about a night at home: the people I care about were there, and that’s where my attention went.',
+    ],
+    [
+      'A health stretch',
+      'Let me tell you about a recent stretch with my body and energy — that’s what the week was really about.',
+    ]
+  ),
+  future_vision: chips(
+    [
+      'A free Tuesday',
+      'A year from now, picture a Tuesday: I finish meaningful work by afternoon and the evening is mine.',
+    ],
+    [
+      'A table full of people',
+      'A year from now: a table full of people I love, and I am not rushing away from it.',
+    ],
+    [
+      'A strong morning',
+      'A year from now I wake up already in motion — body good, mind clear, the day feels like mine.',
+    ]
+  ),
+  blockers: chips(
+    [
+      'A stalled afternoon',
+      'There was an afternoon I meant to move something important and I just… didn’t. Time and doubt ate it.',
+    ],
+    [
+      'A drained week',
+      'There was a week I had the plan and no energy left. That’s what got in the way.',
+    ],
+    [
+      'A money pause',
+      'There was a moment I stopped because of money — I could see the next step and couldn’t take it.',
+    ]
+  ),
+  focus_areas: chips(
+    [
+      'The work scene',
+      'The scene I want more of is me doing work that actually matters, without the scramble.',
+    ],
+    ['The home scene', 'The scene I want more of is being present at home — not half in my inbox.'],
+    [
+      'The body scene',
+      'The scene I want more of is feeling strong in my body on an ordinary morning.',
+    ]
+  ),
+  projects: chips(
+    [
+      'I started something',
+      'I started something that mattered — here’s how it went, messy but real.',
+    ],
+    ['It stalled', 'I tried to move a project and it stalled. I’ll tell you what I actually did.'],
+    [
+      'Not sure yet',
+      'I don’t have a project story yet — help me pull one from what I already said.',
+    ]
+  ),
+  habits: chips(
+    [
+      'A morning that worked',
+      'I’ll walk you through a morning that worked — what I actually did, in order.',
+    ],
+    [
+      'An evening that worked',
+      'I’ll walk you through an evening that worked — wind-down, not a perfect routine.',
+    ],
+    [
+      'Still chaotic',
+      'Most days are still chaotic. I’ll tell you the one thing that sometimes sticks.',
+    ]
+  ),
+  ruminations: chips(
+    [
+      'A work loop',
+      'The other night the work loop started — I’ll tell you the scene and what it kept saying.',
+    ],
+    ['A 3am worry', 'There was a 3am worry. I’ll tell you what it was about and how it showed up.'],
+    [
+      'Not much lately',
+      'I don’t have a strong loop lately. Skip the story — nothing loud right now.',
+    ]
+  ),
+  coping: chips(
+    ['A walk that helped', 'I got unstuck by going for a walk. I’ll tell you what shifted.'],
+    ['I talked it out', 'I got unstuck by talking it out with someone. Here’s how that went.'],
+    ['I wrote it down', 'I got unstuck by writing it down. I’ll tell you what I actually did.']
+  ),
+  gratitude_items: chips(
+    ['A person in the room', 'A recent grateful moment: a person was in the room and I noticed.'],
+    [
+      'A small ordinary thing',
+      'A recent grateful moment was small and ordinary — I’ll tell you where I was.',
+    ],
+    ['My body showed up', 'A recent grateful moment was my body actually showing up for me.']
+  ),
+  key_relationships: chips(
+    [
+      'I’d call this person',
+      'After a hard day I’d call this person. Here’s a small moment that shows why.',
+    ],
+    ['Family scene', 'There’s a family moment that shows who matters — I’ll tell you that scene.'],
+    ['A friend who gets it', 'There’s a friend who gets it. Here’s a small story about them.']
+  ),
+}
+
 export function isVisionAcceptance(message: string): boolean {
   const t = message.trim().toLowerCase()
   return (
@@ -521,6 +682,9 @@ export function getReplyChips(
   const n = normalizeDreamCatcherPhase(phase)
   if (n === 'intake') {
     const theme = getIntakeQuestionTheme(intakeQuestionIndex, path) as IntakeTheme
+    if (isStoryIntakeTheme(theme, path)) {
+      return STORY_REPLY_CHIPS[theme] ?? INTAKE_REPLY_CHIPS[theme] ?? chips()
+    }
     return INTAKE_REPLY_CHIPS[theme] ?? chips()
   }
   return PHASE_REPLY_CHIPS[n as StreamlinedPhase] ?? []

@@ -44,8 +44,8 @@ export function JourneyPathPicker({ onChoose }: JourneyPathPickerProps) {
           </span>
           <h3 className="mt-3 text-lg font-semibold text-sky-950">Discovery journey</h3>
           <p className="mt-1 text-sm leading-relaxed text-gray-600">
-            A longer walk through who you are. Tell stories and scenes — we draw the plan from your
-            narrative.
+            A longer walk through who you are. About half the questions ask for a story — we draw
+            the plan from what happened, not from labels.
           </p>
           <span className="mt-4 inline-flex text-sm font-medium text-sky-800 group-hover:underline">
             Start the discovery journey →

@@ -28,9 +28,11 @@ import {
   Map,
 } from 'lucide-react'
 import {
+  getIntakeQuestionTheme,
   getJourneyBeat,
   getJourneyBeatLabel,
   getReplyChips,
+  isStoryIntakeTheme,
   isVisionAcceptance,
   JOURNEY_BEATS,
   normalizeDreamCatcherPath,
@@ -589,7 +591,7 @@ function DreamCatcherModuleContent() {
     const content =
       path === 'fast'
         ? 'Fast catch. What matters most to you right now?'
-        : 'Discovery it is. Tell me a bit of the story — what mattered most in a recent week that felt like you?'
+        : 'Discovery it is. Tell me about a recent day that felt like you — what happened, who was there, what did you actually spend yourself on?'
     setMessages([
       {
         id: 'welcome',
@@ -1230,6 +1232,13 @@ function DreamCatcherModuleContent() {
   const journeyBeatIndex = JOURNEY_BEATS.indexOf(journeyBeat)
   const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant')
   const hasPaintedVision = Boolean(assessmentData.vision_statement?.trim())
+  const storyBeat =
+    Boolean(intakePath) &&
+    normalizedPhase === 'intake' &&
+    isStoryIntakeTheme(
+      getIntakeQuestionTheme(intakeQuestionIndex, intakePath ?? 'discovery'),
+      intakePath ?? 'discovery'
+    )
   const replyChips =
     !isLoading &&
     normalizedPhase !== 'confirm' &&
@@ -1547,11 +1556,13 @@ function DreamCatcherModuleContent() {
                           ? 'Review your dashboard preview below, then confirm'
                           : isListening
                             ? 'Listening...'
-                            : intakePath === 'discovery'
-                              ? 'Tell a short story, or tap a chip…'
-                              : replyChips.length > 0
-                                ? 'Tap a chip or type a short answer…'
-                                : 'Share a short answer…'
+                            : storyBeat
+                              ? 'Tell what happened — a scene, not a label…'
+                              : intakePath === 'discovery'
+                                ? 'Tell a short story, or tap a chip…'
+                                : replyChips.length > 0
+                                  ? 'Tap a chip or type a short answer…'
+                                  : 'Share a short answer…'
                       }
                       className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       rows={2}
