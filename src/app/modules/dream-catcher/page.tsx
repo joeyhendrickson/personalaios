@@ -25,6 +25,7 @@ import {
   Volume2,
   VolumeX,
   Shield,
+  Map,
 } from 'lucide-react'
 import {
   INTAKE_QUESTION_COUNT,
@@ -1428,13 +1429,33 @@ function DreamCatcherModuleContent() {
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="space-y-6">
-              {/* Progress */}
-              <div className="bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 p-4 shadow-lg">
-                <h3 className="font-semibold mb-3 flex items-center">
-                  <Target className="h-4 w-4 mr-2" />
-                  Journey Progress
+              {/* Roadmap — display only, not a navigation control */}
+              <div
+                className="bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 p-4 shadow-lg pointer-events-none select-none"
+                aria-label="Journey roadmap"
+              >
+                <h3 className="font-semibold mb-1 flex items-center text-gray-900">
+                  <Map className="h-4 w-4 mr-2 text-amber-700" aria-hidden="true" />
+                  Journey roadmap
                 </h3>
-                <div className="space-y-2">
+                <p className="text-xs text-gray-500 mb-4">
+                  A path through this session — not a menu.
+                </p>
+                <ol className="relative ml-1 list-none">
+                  <span
+                    className="pointer-events-none absolute left-[13px] top-3 bottom-3 w-0.5 bg-gray-200"
+                    aria-hidden="true"
+                  />
+                  <span
+                    className="pointer-events-none absolute left-[13px] top-3 w-0.5 bg-gradient-to-b from-emerald-500 to-amber-400"
+                    style={{
+                      height:
+                        phaseStepIndex < 0
+                          ? '0%'
+                          : `calc(${(phaseStepIndex / Math.max(STREAMLINED_PHASES.length - 1, 1)) * 100}% - 0.25rem)`,
+                    }}
+                    aria-hidden="true"
+                  />
                   {STREAMLINED_PHASES.map((phase) => {
                     const info = getPhaseInfo(phase)
                     const isActive = normalizeDreamCatcherPhase(currentPhase) === phase
@@ -1442,28 +1463,49 @@ function DreamCatcherModuleContent() {
                     const isCompleted =
                       phaseStepIndex > phaseOrder || (phase === 'confirm' && showConfirmation)
                     return (
-                      <div
+                      <li
                         key={phase}
-                        className={`p-2 rounded ${
-                          isActive
-                            ? `${info.bgClass} border-2 ${info.borderActiveClass}`
-                            : isCompleted
-                              ? 'bg-green-50 border border-green-200'
-                              : 'bg-gray-50 border border-gray-200'
-                        }`}
+                        aria-current={isActive ? 'step' : undefined}
+                        className="relative flex items-start gap-3 pb-5 last:pb-0"
                       >
-                        <div className="flex items-center space-x-2">
+                        <span
+                          className={`relative z-10 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${
+                            isActive
+                              ? 'border-amber-500 bg-white text-amber-700 shadow-[0_0_0_4px_rgba(245,158,11,0.18)]'
+                              : isCompleted
+                                ? 'border-emerald-500 bg-emerald-500 text-white'
+                                : 'border-gray-300 bg-white text-gray-400'
+                          }`}
+                          aria-hidden="true"
+                        >
                           {isCompleted && !isActive ? (
-                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <CheckCircle className="h-3.5 w-3.5" />
                           ) : (
                             info.icon
                           )}
-                          <span className="text-sm font-medium">{info.name}</span>
+                        </span>
+                        <div className="min-w-0 pt-0.5">
+                          <p
+                            className={`text-sm leading-snug ${
+                              isActive
+                                ? 'font-semibold text-amber-900'
+                                : isCompleted
+                                  ? 'font-medium text-emerald-800'
+                                  : 'font-medium text-gray-400'
+                            }`}
+                          >
+                            {info.name}
+                          </p>
+                          {isActive && (
+                            <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-600">
+                              You are here
+                            </p>
+                          )}
                         </div>
-                      </div>
+                      </li>
                     )
                   })}
-                </div>
+                </ol>
               </div>
 
               {/* Assessment Summary */}
