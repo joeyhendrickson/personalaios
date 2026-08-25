@@ -404,7 +404,7 @@ Thank you!`
                 </li>
                 <li className="flex items-center">
                   <Check className="h-5 w-5 text-gray-400 mr-3" />
-                  <span className="text-gray-500">Exclusive Life Hacks</span>
+                  <span className="text-gray-500">Exclusive Stacks</span>
                 </li>
                 <li className="flex items-center">
                   <Check className="h-5 w-5 text-gray-400 mr-3" />
@@ -628,20 +628,20 @@ Thank you!`
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-2 text-black">What are Life Hacks?</h3>
+                  <h3 className="font-semibold text-lg mb-2 text-black">What are Stacks?</h3>
                   <p className="text-gray-600">
-                    Life Hacks are installable AI tools you add from the Modules hub. Each one
-                    extends LifeStacks for a specific area of life — finance, fitness,
-                    relationships, scheduling, focus, and more. Install only what you need; they
-                    work alongside your dashboard goals and tasks.
+                    Stacks are installable AI tools you add from the Stacks hub. Each one extends
+                    LifeStacks for a specific area of life — finance, fitness, relationships,
+                    scheduling, focus, and more. Install only what you need; they work alongside
+                    your dashboard goals and tasks.
                   </p>
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg mb-2 text-black">
-                    Which Life Hacks are included?
+                    Which Stacks are included?
                   </h3>
                   <p className="text-gray-600">
-                    Premium Coaching includes every Life Hack, including recent additions such as{' '}
+                    Premium Coaching includes every Stack, including recent additions such as{' '}
                     <strong>Dream Catcher</strong> (vision and goal discovery),{' '}
                     <strong>I Am Present</strong> (past-event processing),{' '}
                     <strong>Lifestacks Calendar</strong> (Google Calendar scheduling),{' '}
@@ -659,8 +659,8 @@ Thank you!`
                   <p className="text-gray-600">
                     New members start with Dream Catcher — a conversational assessment that builds
                     your vision and generates goals, projects, and tasks on your dashboard. You can
-                    then install Life Hacks from the Modules page as you are ready. The AI Advisor
-                    can pull context from your installed Life Hacks when giving advice.
+                    then install Stacks from the Stacks page as you are ready. The AI Advisor can
+                    pull context from your installed Stacks when giving advice.
                   </p>
                 </div>
                 <div>
@@ -678,7 +678,7 @@ Thank you!`
                   </h3>
                   <p className="text-gray-600">
                     Premium Coaching at {monthlyPremiumCoachingDisplay}/month includes full platform
-                    access to all Life Hacks and dashboard features, 1-on-1 coaching, goal review,
+                    access to all Stacks and dashboard features, 1-on-1 coaching, goal review,
                     personalized support, weekly group meeting access, and direct founder access to
                     help improve LifeStacks.ai.
                   </p>

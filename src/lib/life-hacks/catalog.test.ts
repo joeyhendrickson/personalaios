@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { LIFE_HACK_CATALOG, formatLifeHacksForCoachPrompt } from './catalog'
 
 describe('LIFE_HACK_CATALOG', () => {
-  it('lists Sobriety Tracker so it appears in Available Life Hacks', () => {
+  it('lists Sobriety Tracker so it appears in Available Stacks', () => {
     const sobriety = LIFE_HACK_CATALOG.find((module) => module.id === 'sobriety-tracker')
     expect(sobriety).toMatchObject({
       id: 'sobriety-tracker',

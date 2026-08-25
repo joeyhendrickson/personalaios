@@ -1,5 +1,5 @@
 /**
- * Canonical Life Hacks shown on /modules (Life Hacks hub).
+ * Canonical Stacks shown on /modules (Stacks hub).
  * Keep AI Life Coach recommendations in sync with this list.
  */
 

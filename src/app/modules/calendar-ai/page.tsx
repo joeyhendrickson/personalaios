@@ -17,6 +17,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { AppShell } from '@/components/layout/app-shell'
 import {
   assignWindowId,
   createDefaultWindow,
@@ -423,535 +424,542 @@ export default function LifestacksCalendarPage() {
   const pendingCount = recs.filter((r) => !r.added).length
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-6 py-6">
-          <div className="flex items-center gap-4">
-            <Link href="/modules">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Life Hacks
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-                <Calendar className="h-8 w-8 mr-3 text-blue-600" />
-                Lifestacks Calendar
-              </h1>
-              <p className="text-sm text-gray-600">
-                Let Lifestacks recommend tasks and habits to schedule into your Google Calendar.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-6 py-8 max-w-3xl space-y-6">
-        {/* Connection */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">Google Calendar</h2>
-          {status === null ? (
-            <p className="text-sm text-gray-500 inline-flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Checking calendar connection…
-            </p>
-          ) : status.configured === false ? (
-            <div className="space-y-3 text-sm text-gray-700">
-              <p className="text-amber-700 font-medium">
-                Google Calendar isn&apos;t configured on the server yet.
-              </p>
-              <p>
-                Yes — you need a Google Cloud OAuth client. Add these to{' '}
-                <code className="text-xs bg-gray-100 px-1 rounded">.env.local</code>, restart the
-                dev server, then try again:
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-gray-600">
-                <li>
-                  <code className="text-xs">GOOGLE_CLIENT_ID</code> and{' '}
-                  <code className="text-xs">GOOGLE_CLIENT_SECRET</code> (or{' '}
-                  <code className="text-xs">GOOGLE_CALENDAR_*</code> equivalents)
-                </li>
-                <li>
-                  <code className="text-xs">NEXT_PUBLIC_SITE_URL</code> — e.g.{' '}
-                  <code className="text-xs">http://localhost:3000</code>
-                </li>
-                <li>
-                  In Google Cloud: enable <strong>Google Calendar API</strong>, configure OAuth
-                  consent screen, and add redirect URI{' '}
-                  <code className="text-xs break-all">
-                    {typeof window !== 'undefined'
-                      ? window.location.origin
-                      : 'http://localhost:3000'}
-                    /api/calendar/callback
-                  </code>
-                </li>
-                <li>
-                  Run Supabase migration{' '}
-                  <code className="text-xs">065_create_calendar_integration.sql</code>
-                </li>
-              </ul>
-            </div>
-          ) : status.connected ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-700">
-                <CheckCircle2 className="h-4 w-4" />
-                Connected
-              </span>
-              {status.connected_email && (
-                <span className="text-xs text-gray-500">{status.connected_email}</span>
-              )}
-              <button
-                onClick={handleDisconnect}
-                className="text-sm text-gray-500 hover:text-red-600 ml-auto"
-              >
-                Disconnect
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {status.status === 'needs_reauth' && (
-                <p className="inline-flex items-center gap-1.5 text-sm text-amber-700">
-                  <AlertTriangle className="h-4 w-4" /> Reconnect needed
+    <AppShell active="calendar">
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white border-b border-gray-200">
+          <div className="container mx-auto px-6 py-6">
+            <div className="flex items-center gap-4">
+              <Link href="/modules">
+                <Button variant="outline" size="sm">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Stacks
+                </Button>
+              </Link>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+                  <Calendar className="h-8 w-8 mr-3 text-blue-600" />
+                  Lifestacks Calendar
+                </h1>
+                <p className="text-sm text-gray-600">
+                  Let Lifestacks recommend tasks and habits to schedule into your Google Calendar.
                 </p>
-              )}
-              <p className="text-sm text-gray-600">
-                Sign in with Google and authorize Lifestacks to add events to your calendar.
-              </p>
-              {status.oauth?.redirect_uri && (
-                <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-950 space-y-2">
-                  <p className="font-medium">
-                    If Google shows redirect_uri_mismatch, register this exact URI:
-                  </p>
-                  <code className="block break-all bg-white/80 px-2 py-1 rounded border border-amber-100">
-                    {status.oauth.redirect_uri}
-                  </code>
-                  {status.oauth.client_id_suffix && (
-                    <p className="text-amber-900">
-                      OAuth client ID ends with:{' '}
-                      <code className="bg-white/80 px-1 rounded">
-                        {status.oauth.client_id_suffix}
-                      </code>{' '}
-                      (must match the client in Google Cloud → Credentials)
-                    </p>
-                  )}
-                  {(() => {
-                    const uri = status.oauth!.redirect_uri
-                    const alt = uri.includes('://www.')
-                      ? uri.replace('://www.', '://')
-                      : uri.replace('://', '://www.')
-                    if (alt === uri) return null
-                    return (
-                      <p className="text-amber-900">
-                        If you use www, also add:{' '}
-                        <code className="bg-white/80 px-1 rounded break-all">{alt}</code>
-                      </p>
-                    )
-                  })()}
-                </div>
-              )}
-              <Button
-                onClick={handleConnect}
-                disabled={connecting}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {connecting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <LinkIcon className="h-4 w-4 mr-2" />
-                )}
-                Connect Google Calendar
-              </Button>
-            </div>
-          )}
-          {connectMessage && <p className="mt-3 text-sm text-green-700">{connectMessage}</p>}
-          {connectError && <p className="mt-3 text-sm text-red-600">{connectError}</p>}
-        </div>
-
-        {/* Scheduling window */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">
-            When can Lifestacks schedule items?
-          </h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Add one or more windows with allowed times and days. The AI will only schedule inside
-            these windows.
-          </p>
-          <div className="space-y-4 mb-4">
-            {prefs.windows.map((window, index) => (
-              <div
-                key={window.id}
-                className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-gray-900">Window {index + 1}</h3>
-                  {prefs.windows.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeWindow(window.id)}
-                      className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-red-600"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Remove
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <label className="block">
-                    <span className="text-sm font-medium text-gray-700">Earliest time</span>
-                    <select
-                      value={window.start_hour}
-                      onChange={(e) =>
-                        updateWindow(window.id, { start_hour: parseInt(e.target.value, 10) })
-                      }
-                      className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                    >
-                      {Array.from({ length: 20 }, (_, i) => i + 5).map((h) => (
-                        <option key={h} value={h}>
-                          {hourLabel(h)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-medium text-gray-700">Latest time</span>
-                    <select
-                      value={window.end_hour}
-                      onChange={(e) =>
-                        updateWindow(window.id, { end_hour: parseInt(e.target.value, 10) })
-                      }
-                      className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                    >
-                      {Array.from({ length: 20 }, (_, i) => i + 5).map((h) => (
-                        <option key={h} value={h}>
-                          {hourLabel(h)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-700 block mb-2">Days</span>
-                  <div className="flex flex-wrap gap-2">
-                    {DAYS.map((d) => {
-                      const selected = window.days.includes(d.key)
-                      return (
-                        <button
-                          key={d.key}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() => toggleDay(window.id, d.key)}
-                          className={`calendar-day-pill px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                            selected ? 'calendar-day-pill--active' : ''
-                          }`}
-                        >
-                          {d.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-                {scheduledForWindow(window).length > 0 && (
-                  <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
-                    <p className="text-xs font-semibold text-blue-800 mb-2">
-                      Selected for this window ({scheduledForWindow(window).length})
-                    </p>
-                    <ul className="space-y-2">
-                      {scheduledForWindow(window).map((rec) => (
-                        <li
-                          key={rec.id}
-                          className="text-sm text-gray-800 rounded-md bg-white/70 border border-blue-100 px-3 py-2"
-                        >
-                          <span className="font-medium">{rec.title}</span>
-                          <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 ml-2">
-                            {rec.source_type}
-                          </span>
-                          <p className="text-xs text-gray-600 mt-0.5">
-                            {DAYS.find((d) => d.key === rec.weekday)?.label} · {rec.start_time} ·{' '}
-                            {rec.duration_minutes} min
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {addedForWindow(window).length > 0 && (
-                  <div className="rounded-md border border-green-200 bg-green-50 p-3">
-                    <p className="text-xs font-semibold text-green-800 mb-2 flex items-center gap-1.5">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Added to Google Calendar ({addedForWindow(window).length})
-                    </p>
-                    <ul className="space-y-2">{addedForWindow(window).map(renderAddedItem)}</ul>
-                  </div>
-                )}
               </div>
-            ))}
-          </div>
-          {unmatchedAdded.length > 0 && (
-            <div className="rounded-md border border-green-200 bg-green-50 p-4 mb-4">
-              <p className="text-xs font-semibold text-green-800 mb-2 flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Added outside saved windows ({unmatchedAdded.length})
-              </p>
-              <ul className="space-y-2">{unmatchedAdded.map(renderAddedItem)}</ul>
             </div>
-          )}
-          <Button type="button" onClick={addWindow} variant="outline" size="sm" className="mb-4">
-            <Plus className="h-4 w-4 mr-2" />
-            Add time window
-          </Button>
-          <div>
-            <Button
-              onClick={() => void savePrefs()}
-              disabled={savingPrefs}
-              variant="outline"
-              size="sm"
-            >
-              {savingPrefs ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              Save windows
-            </Button>
-            {prefsMessage && (
-              <p
-                className={`mt-2 text-sm ${prefsMessage.includes('saved') ? 'text-green-700' : 'text-red-600'}`}
-              >
-                {prefsMessage}
-              </p>
-            )}
           </div>
         </div>
 
-        {/* Recommendations */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">Schedule Items</h2>
-            <p className="text-sm text-gray-600 mb-3">
-              Save your windows, generate recommendations, select items, assign each to a window,
-              then add to Google Calendar.
-            </p>
-            <Button
-              onClick={() => void generate()}
-              disabled={generating || savingPrefs}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {generating ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4 mr-2" />
-              )}
-              {generating ? 'Generating…' : 'Generate recommendations'}
-            </Button>
+        <div className="container mx-auto px-6 py-8 max-w-3xl space-y-6">
+          {/* Connection */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">Google Calendar</h2>
+            {status === null ? (
+              <p className="text-sm text-gray-500 inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Checking calendar connection…
+              </p>
+            ) : status.configured === false ? (
+              <div className="space-y-3 text-sm text-gray-700">
+                <p className="text-amber-700 font-medium">
+                  Google Calendar isn&apos;t configured on the server yet.
+                </p>
+                <p>
+                  Yes — you need a Google Cloud OAuth client. Add these to{' '}
+                  <code className="text-xs bg-gray-100 px-1 rounded">.env.local</code>, restart the
+                  dev server, then try again:
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-gray-600">
+                  <li>
+                    <code className="text-xs">GOOGLE_CLIENT_ID</code> and{' '}
+                    <code className="text-xs">GOOGLE_CLIENT_SECRET</code> (or{' '}
+                    <code className="text-xs">GOOGLE_CALENDAR_*</code> equivalents)
+                  </li>
+                  <li>
+                    <code className="text-xs">NEXT_PUBLIC_SITE_URL</code> — e.g.{' '}
+                    <code className="text-xs">http://localhost:3000</code>
+                  </li>
+                  <li>
+                    In Google Cloud: enable <strong>Google Calendar API</strong>, configure OAuth
+                    consent screen, and add redirect URI{' '}
+                    <code className="text-xs break-all">
+                      {typeof window !== 'undefined'
+                        ? window.location.origin
+                        : 'http://localhost:3000'}
+                      /api/calendar/callback
+                    </code>
+                  </li>
+                  <li>
+                    Run Supabase migration{' '}
+                    <code className="text-xs">065_create_calendar_integration.sql</code>
+                  </li>
+                </ul>
+              </div>
+            ) : status.connected ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Connected
+                </span>
+                {status.connected_email && (
+                  <span className="text-xs text-gray-500">{status.connected_email}</span>
+                )}
+                <button
+                  onClick={handleDisconnect}
+                  className="text-sm text-gray-500 hover:text-red-600 ml-auto"
+                >
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {status.status === 'needs_reauth' && (
+                  <p className="inline-flex items-center gap-1.5 text-sm text-amber-700">
+                    <AlertTriangle className="h-4 w-4" /> Reconnect needed
+                  </p>
+                )}
+                <p className="text-sm text-gray-600">
+                  Sign in with Google and authorize Lifestacks to add events to your calendar.
+                </p>
+                {status.oauth?.redirect_uri && (
+                  <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-950 space-y-2">
+                    <p className="font-medium">
+                      If Google shows redirect_uri_mismatch, register this exact URI:
+                    </p>
+                    <code className="block break-all bg-white/80 px-2 py-1 rounded border border-amber-100">
+                      {status.oauth.redirect_uri}
+                    </code>
+                    {status.oauth.client_id_suffix && (
+                      <p className="text-amber-900">
+                        OAuth client ID ends with:{' '}
+                        <code className="bg-white/80 px-1 rounded">
+                          {status.oauth.client_id_suffix}
+                        </code>{' '}
+                        (must match the client in Google Cloud → Credentials)
+                      </p>
+                    )}
+                    {(() => {
+                      const uri = status.oauth!.redirect_uri
+                      const alt = uri.includes('://www.')
+                        ? uri.replace('://www.', '://')
+                        : uri.replace('://', '://www.')
+                      if (alt === uri) return null
+                      return (
+                        <p className="text-amber-900">
+                          If you use www, also add:{' '}
+                          <code className="bg-white/80 px-1 rounded break-all">{alt}</code>
+                        </p>
+                      )
+                    })()}
+                  </div>
+                )}
+                <Button
+                  onClick={handleConnect}
+                  disabled={connecting}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {connecting ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <LinkIcon className="h-4 w-4 mr-2" />
+                  )}
+                  Connect Google Calendar
+                </Button>
+              </div>
+            )}
+            {connectMessage && <p className="mt-3 text-sm text-green-700">{connectMessage}</p>}
+            {connectError && <p className="mt-3 text-sm text-red-600">{connectError}</p>}
           </div>
 
-          {recsError && (
-            <p className="text-sm font-medium text-red-700 mb-3" role="alert">
-              {recsError}
+          {/* Scheduling window */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+              When can Lifestacks schedule items?
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Add one or more windows with allowed times and days. The AI will only schedule inside
+              these windows.
             </p>
-          )}
-          {recsMessage && <p className="text-sm text-gray-600 mb-3">{recsMessage}</p>}
-
-          {recs.length > 0 && (
-            <div className="space-y-3">
-              {recs.map((rec) => {
-                const recWindow =
-                  prefs.windows.find((w) => w.id === rec.window_id) ?? prefs.windows[0]
-                const dayOptions = DAYS.filter((d) => recWindow?.days.includes(d.key))
-
-                return (
-                  <div
-                    key={rec.id}
-                    className={`rounded-lg border p-4 ${
-                      rec.added ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={!!rec.selected}
-                        disabled={rec.added}
-                        onChange={(e) => updateRec(rec.id, { selected: e.target.checked })}
-                        className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600"
-                      />
-                      <div className="flex-1 min-w-0">
-                        {editingId === rec.id ? (
-                          <div className="space-y-2">
-                            <input
-                              value={rec.title}
-                              onChange={(e) => updateRec(rec.id, { title: e.target.value })}
-                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm font-medium"
-                            />
-                            <textarea
-                              value={rec.description}
-                              onChange={(e) => updateRec(rec.id, { description: e.target.value })}
-                              rows={2}
-                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                            />
-                            <div className="flex flex-wrap gap-2">
-                              <select
-                                value={rec.window_id ?? recWindow?.id ?? ''}
-                                onChange={(e) => assignRecWindow(rec.id, e.target.value)}
-                                className="border border-gray-300 rounded px-2 py-1 text-sm"
-                              >
-                                {prefs.windows.map((w, i) => (
-                                  <option key={w.id} value={w.id}>
-                                    {windowLabel(i, w)}
-                                  </option>
-                                ))}
-                              </select>
-                              <select
-                                value={rec.weekday}
-                                onChange={(e) => updateRec(rec.id, { weekday: e.target.value })}
-                                className="border border-gray-300 rounded px-2 py-1 text-sm"
-                              >
-                                {dayOptions.map((d) => (
-                                  <option key={d.key} value={d.key}>
-                                    {d.label}
-                                  </option>
-                                ))}
-                              </select>
-                              <input
-                                type="time"
-                                value={rec.start_time}
-                                onChange={(e) => updateRec(rec.id, { start_time: e.target.value })}
-                                className="border border-gray-300 rounded px-2 py-1 text-sm"
-                              />
-                              <select
-                                value={rec.duration_minutes}
-                                onChange={(e) =>
-                                  updateRec(rec.id, {
-                                    duration_minutes: parseInt(e.target.value, 10),
-                                  })
-                                }
-                                className="border border-gray-300 rounded px-2 py-1 text-sm"
-                              >
-                                {[15, 30, 45, 60, 90, 120].map((m) => (
-                                  <option key={m} value={m}>
-                                    {m} min
-                                  </option>
-                                ))}
-                              </select>
-                              <select
-                                value={rec.recurrence}
-                                onChange={(e) =>
-                                  updateRec(rec.id, {
-                                    recurrence: e.target.value as Recommendation['recurrence'],
-                                  })
-                                }
-                                className="border border-gray-300 rounded px-2 py-1 text-sm"
-                              >
-                                <option value="none">One-time</option>
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                              </select>
-                            </div>
-                            <button
-                              onClick={() => setEditingId(null)}
-                              className="text-sm text-blue-600 hover:text-blue-800"
-                            >
-                              Done
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-gray-900">{rec.title}</span>
-                              <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
-                                {rec.source_type}
-                              </span>
-                              {rec.recurrence !== 'none' && (
-                                <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
-                                  <Repeat className="h-3 w-3" />
-                                  {rec.recurrence}
-                                </span>
-                              )}
-                            </div>
-                            {rec.description && (
-                              <p className="text-sm text-gray-600 mt-0.5">{rec.description}</p>
-                            )}
-                            <p className="text-xs text-gray-500 mt-1">
+            <div className="space-y-4 mb-4">
+              {prefs.windows.map((window, index) => (
+                <div
+                  key={window.id}
+                  className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-gray-900">Window {index + 1}</h3>
+                    {prefs.windows.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeWindow(window.id)}
+                        className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-red-600"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label className="block">
+                      <span className="text-sm font-medium text-gray-700">Earliest time</span>
+                      <select
+                        value={window.start_hour}
+                        onChange={(e) =>
+                          updateWindow(window.id, { start_hour: parseInt(e.target.value, 10) })
+                        }
+                        className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      >
+                        {Array.from({ length: 20 }, (_, i) => i + 5).map((h) => (
+                          <option key={h} value={h}>
+                            {hourLabel(h)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="text-sm font-medium text-gray-700">Latest time</span>
+                      <select
+                        value={window.end_hour}
+                        onChange={(e) =>
+                          updateWindow(window.id, { end_hour: parseInt(e.target.value, 10) })
+                        }
+                        className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      >
+                        {Array.from({ length: 20 }, (_, i) => i + 5).map((h) => (
+                          <option key={h} value={h}>
+                            {hourLabel(h)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-700 block mb-2">Days</span>
+                    <div className="flex flex-wrap gap-2">
+                      {DAYS.map((d) => {
+                        const selected = window.days.includes(d.key)
+                        return (
+                          <button
+                            key={d.key}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => toggleDay(window.id, d.key)}
+                            className={`calendar-day-pill px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                              selected ? 'calendar-day-pill--active' : ''
+                            }`}
+                          >
+                            {d.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  {scheduledForWindow(window).length > 0 && (
+                    <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
+                      <p className="text-xs font-semibold text-blue-800 mb-2">
+                        Selected for this window ({scheduledForWindow(window).length})
+                      </p>
+                      <ul className="space-y-2">
+                        {scheduledForWindow(window).map((rec) => (
+                          <li
+                            key={rec.id}
+                            className="text-sm text-gray-800 rounded-md bg-white/70 border border-blue-100 px-3 py-2"
+                          >
+                            <span className="font-medium">{rec.title}</span>
+                            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 ml-2">
+                              {rec.source_type}
+                            </span>
+                            <p className="text-xs text-gray-600 mt-0.5">
                               {DAYS.find((d) => d.key === rec.weekday)?.label} · {rec.start_time} ·{' '}
                               {rec.duration_minutes} min
                             </p>
-                            <label className="flex items-center gap-2 mt-2 text-xs text-gray-600">
-                              <span>Time window:</span>
-                              <select
-                                value={rec.window_id ?? recWindow?.id ?? ''}
-                                disabled={rec.added}
-                                onChange={(e) => assignRecWindow(rec.id, e.target.value)}
-                                className="border border-gray-300 rounded px-2 py-1 text-sm text-gray-900"
-                              >
-                                {prefs.windows.map((w, i) => (
-                                  <option key={w.id} value={w.id}>
-                                    {windowLabel(i, w)}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          </>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {rec.added ? (
-                          <span className="inline-flex items-center gap-1 text-sm text-green-700">
-                            <Check className="h-4 w-4" /> Added
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setEditingId(editingId === rec.id ? null : rec.id)}
-                              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
-                              title="Edit"
-                            >
-                              <Edit3 className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void addRecsToCalendar([rec])}
-                              disabled={adding || !status?.connected}
-                              className="p-1.5 text-green-700 hover:bg-green-50 rounded disabled:opacity-40"
-                              title="Add to Calendar"
-                            >
-                              <Calendar className="h-4 w-4" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  </div>
-                )
-              })}
-
-              <div className="flex items-center justify-between pt-2">
-                <p className="text-sm text-gray-600">
-                  {selectedCount > 0 ? `${selectedCount} selected` : `${pendingCount} ready to add`}
-                </p>
-                <Button
-                  type="button"
-                  onClick={() => void addSelected()}
-                  disabled={adding || pendingCount === 0 || !status?.connected}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {adding ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Calendar className="h-4 w-4 mr-2" />
                   )}
-                  Add to Calendar
-                </Button>
-              </div>
-              {!status?.connected && (
-                <p className="text-xs text-amber-700">
-                  Connect Google Calendar above to add events.
+                  {addedForWindow(window).length > 0 && (
+                    <div className="rounded-md border border-green-200 bg-green-50 p-3">
+                      <p className="text-xs font-semibold text-green-800 mb-2 flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Added to Google Calendar ({addedForWindow(window).length})
+                      </p>
+                      <ul className="space-y-2">{addedForWindow(window).map(renderAddedItem)}</ul>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {unmatchedAdded.length > 0 && (
+              <div className="rounded-md border border-green-200 bg-green-50 p-4 mb-4">
+                <p className="text-xs font-semibold text-green-800 mb-2 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Added outside saved windows ({unmatchedAdded.length})
                 </p>
-              )}
-              {status?.connected && selectedCount === 0 && pendingCount > 0 && (
-                <p className="text-xs text-gray-500">
-                  No boxes checked — Add to Calendar will add every item that is not already added.
+                <ul className="space-y-2">{unmatchedAdded.map(renderAddedItem)}</ul>
+              </div>
+            )}
+            <Button type="button" onClick={addWindow} variant="outline" size="sm" className="mb-4">
+              <Plus className="h-4 w-4 mr-2" />
+              Add time window
+            </Button>
+            <div>
+              <Button
+                onClick={() => void savePrefs()}
+                disabled={savingPrefs}
+                variant="outline"
+                size="sm"
+              >
+                {savingPrefs ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Save windows
+              </Button>
+              {prefsMessage && (
+                <p
+                  className={`mt-2 text-sm ${prefsMessage.includes('saved') ? 'text-green-700' : 'text-red-600'}`}
+                >
+                  {prefsMessage}
                 </p>
               )}
             </div>
-          )}
+          </div>
+
+          {/* Recommendations */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">Schedule Items</h2>
+              <p className="text-sm text-gray-600 mb-3">
+                Save your windows, generate recommendations, select items, assign each to a window,
+                then add to Google Calendar.
+              </p>
+              <Button
+                onClick={() => void generate()}
+                disabled={generating || savingPrefs}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {generating ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                {generating ? 'Generating…' : 'Generate recommendations'}
+              </Button>
+            </div>
+
+            {recsError && (
+              <p className="text-sm font-medium text-red-700 mb-3" role="alert">
+                {recsError}
+              </p>
+            )}
+            {recsMessage && <p className="text-sm text-gray-600 mb-3">{recsMessage}</p>}
+
+            {recs.length > 0 && (
+              <div className="space-y-3">
+                {recs.map((rec) => {
+                  const recWindow =
+                    prefs.windows.find((w) => w.id === rec.window_id) ?? prefs.windows[0]
+                  const dayOptions = DAYS.filter((d) => recWindow?.days.includes(d.key))
+
+                  return (
+                    <div
+                      key={rec.id}
+                      className={`rounded-lg border p-4 ${
+                        rec.added ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={!!rec.selected}
+                          disabled={rec.added}
+                          onChange={(e) => updateRec(rec.id, { selected: e.target.checked })}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600"
+                        />
+                        <div className="flex-1 min-w-0">
+                          {editingId === rec.id ? (
+                            <div className="space-y-2">
+                              <input
+                                value={rec.title}
+                                onChange={(e) => updateRec(rec.id, { title: e.target.value })}
+                                className="w-full border border-gray-300 rounded px-2 py-1 text-sm font-medium"
+                              />
+                              <textarea
+                                value={rec.description}
+                                onChange={(e) => updateRec(rec.id, { description: e.target.value })}
+                                rows={2}
+                                className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                              />
+                              <div className="flex flex-wrap gap-2">
+                                <select
+                                  value={rec.window_id ?? recWindow?.id ?? ''}
+                                  onChange={(e) => assignRecWindow(rec.id, e.target.value)}
+                                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                >
+                                  {prefs.windows.map((w, i) => (
+                                    <option key={w.id} value={w.id}>
+                                      {windowLabel(i, w)}
+                                    </option>
+                                  ))}
+                                </select>
+                                <select
+                                  value={rec.weekday}
+                                  onChange={(e) => updateRec(rec.id, { weekday: e.target.value })}
+                                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                >
+                                  {dayOptions.map((d) => (
+                                    <option key={d.key} value={d.key}>
+                                      {d.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="time"
+                                  value={rec.start_time}
+                                  onChange={(e) =>
+                                    updateRec(rec.id, { start_time: e.target.value })
+                                  }
+                                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                />
+                                <select
+                                  value={rec.duration_minutes}
+                                  onChange={(e) =>
+                                    updateRec(rec.id, {
+                                      duration_minutes: parseInt(e.target.value, 10),
+                                    })
+                                  }
+                                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                >
+                                  {[15, 30, 45, 60, 90, 120].map((m) => (
+                                    <option key={m} value={m}>
+                                      {m} min
+                                    </option>
+                                  ))}
+                                </select>
+                                <select
+                                  value={rec.recurrence}
+                                  onChange={(e) =>
+                                    updateRec(rec.id, {
+                                      recurrence: e.target.value as Recommendation['recurrence'],
+                                    })
+                                  }
+                                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                >
+                                  <option value="none">One-time</option>
+                                  <option value="daily">Daily</option>
+                                  <option value="weekly">Weekly</option>
+                                </select>
+                              </div>
+                              <button
+                                onClick={() => setEditingId(null)}
+                                className="text-sm text-blue-600 hover:text-blue-800"
+                              >
+                                Done
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-gray-900">{rec.title}</span>
+                                <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
+                                  {rec.source_type}
+                                </span>
+                                {rec.recurrence !== 'none' && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                                    <Repeat className="h-3 w-3" />
+                                    {rec.recurrence}
+                                  </span>
+                                )}
+                              </div>
+                              {rec.description && (
+                                <p className="text-sm text-gray-600 mt-0.5">{rec.description}</p>
+                              )}
+                              <p className="text-xs text-gray-500 mt-1">
+                                {DAYS.find((d) => d.key === rec.weekday)?.label} · {rec.start_time}{' '}
+                                · {rec.duration_minutes} min
+                              </p>
+                              <label className="flex items-center gap-2 mt-2 text-xs text-gray-600">
+                                <span>Time window:</span>
+                                <select
+                                  value={rec.window_id ?? recWindow?.id ?? ''}
+                                  disabled={rec.added}
+                                  onChange={(e) => assignRecWindow(rec.id, e.target.value)}
+                                  className="border border-gray-300 rounded px-2 py-1 text-sm text-gray-900"
+                                >
+                                  {prefs.windows.map((w, i) => (
+                                    <option key={w.id} value={w.id}>
+                                      {windowLabel(i, w)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {rec.added ? (
+                            <span className="inline-flex items-center gap-1 text-sm text-green-700">
+                              <Check className="h-4 w-4" /> Added
+                            </span>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setEditingId(editingId === rec.id ? null : rec.id)}
+                                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                                title="Edit"
+                              >
+                                <Edit3 className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void addRecsToCalendar([rec])}
+                                disabled={adding || !status?.connected}
+                                className="p-1.5 text-green-700 hover:bg-green-50 rounded disabled:opacity-40"
+                                title="Add to Calendar"
+                              >
+                                <Calendar className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                <div className="flex items-center justify-between pt-2">
+                  <p className="text-sm text-gray-600">
+                    {selectedCount > 0
+                      ? `${selectedCount} selected`
+                      : `${pendingCount} ready to add`}
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={() => void addSelected()}
+                    disabled={adding || pendingCount === 0 || !status?.connected}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {adding ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Calendar className="h-4 w-4 mr-2" />
+                    )}
+                    Add to Calendar
+                  </Button>
+                </div>
+                {!status?.connected && (
+                  <p className="text-xs text-amber-700">
+                    Connect Google Calendar above to add events.
+                  </p>
+                )}
+                {status?.connected && selectedCount === 0 && pendingCount > 0 && (
+                  <p className="text-xs text-gray-500">
+                    No boxes checked — Add to Calendar will add every item that is not already
+                    added.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

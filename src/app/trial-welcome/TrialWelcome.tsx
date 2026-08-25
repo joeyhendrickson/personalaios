@@ -128,7 +128,7 @@ export default function TrialWelcome() {
           <p>✨ Your 7-day free trial includes:</p>
           <ul className="space-y-1">
             <li>Full access to all features</li>
-            <li>Life Hacks & Business Hacks</li>
+            <li>Stacks & Business Hacks</li>
             <li>AI-powered insights</li>
             <li>Progress tracking</li>
           </ul>
