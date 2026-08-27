@@ -120,16 +120,6 @@ body {
   filter: invert(1);
 }
 
-/* AppShell chrome is always charcoal. Use an inline SVG mark filled white
- * so iOS/Safari dark-mode image inversion cannot turn the stacked layers black. */
-.app-shell-mark {
-  color: #ffffff;
-  fill: #ffffff;
-  color-scheme: only light;
-  filter: none !important;
-  -webkit-filter: none !important;
-}
-
 /* ---------------------------------------------------------------------------
  * Dark-mode remaps for hardcoded utility classes.
  * Much of the app uses literal light colors (bg-white, text-gray-900, light
