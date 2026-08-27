@@ -400,7 +400,7 @@ export function TodayAtAGlance({
 
         <Card title={t('glance.aiInsight')}>
           <div className="mb-3 flex justify-end">
-            <Sparkles className="h-5 w-5 text-violet-500" />
+            <Sparkles className="h-5 w-5 text-gold" />
           </div>
           <p className="text-[15px] leading-relaxed text-gray-600">
             {loading ? t('common.loading') : data?.insight}

@@ -282,9 +282,9 @@ function generatePatternAnnotations(
     const bottomEnd = xScale(19)
 
     annotations.push(`
-      <line x1="${topStart}" y1="${yScale(priceData[0].high)}" x2="${topEnd}" y2="${yScale(priceData[19].high)}" stroke="#8b5cf6" stroke-width="2" opacity="0.8"/>
-      <line x1="${bottomStart}" y1="${yScale(priceData[0].low)}" x2="${bottomEnd}" y2="${yScale(priceData[19].low)}" stroke="#8b5cf6" stroke-width="2" opacity="0.8"/>
-      <text x="${topStart + 20}" y="${yScale(priceData[0].high) - 10}" font-family="Arial, sans-serif" font-size="12" fill="#8b5cf6" font-weight="bold">Triangle</text>
+      <line x1="${topStart}" y1="${yScale(priceData[0].high)}" x2="${topEnd}" y2="${yScale(priceData[19].high)}" stroke="#C4A035" stroke-width="2" opacity="0.8"/>
+      <line x1="${bottomStart}" y1="${yScale(priceData[0].low)}" x2="${bottomEnd}" y2="${yScale(priceData[19].low)}" stroke="#C4A035" stroke-width="2" opacity="0.8"/>
+      <text x="${topStart + 20}" y="${yScale(priceData[0].high) - 10}" font-family="Arial, sans-serif" font-size="12" fill="#C4A035" font-weight="bold">Triangle</text>
     `)
   }
 

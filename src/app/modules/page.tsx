@@ -833,7 +833,7 @@ export default function ModulesPage() {
       case 'installed':
         return 'text-blue-600 bg-blue-50 border-blue-200'
       case 'premium':
-        return 'text-purple-600 bg-purple-50 border-purple-200'
+        return 'text-gold bg-[hsl(var(--brand-gold-50))] border-[hsl(var(--brand-gold-200))]'
       default:
         return 'text-gray-600 bg-gray-50 border-gray-200'
     }
@@ -956,7 +956,7 @@ export default function ModulesPage() {
                 )}
               </button>
               {module.status === 'premium' && (
-                <button className="px-3 py-2 border border-purple-300 text-purple-600 rounded-md hover:bg-purple-50 transition-colors text-sm font-medium">
+                <button className="px-3 py-2 border border-gold text-gold rounded-md hover:bg-[hsl(var(--brand-gold-50))] transition-colors text-sm font-medium">
                   <Star className="h-4 w-4" />
                 </button>
               )}
@@ -1316,7 +1316,7 @@ export default function ModulesPage() {
                         )}
                       </button>
                       {module.status === 'premium' && (
-                        <button className="px-3 py-2 border border-purple-300 text-purple-600 rounded-md hover:bg-purple-50 transition-colors text-sm font-medium">
+                        <button className="px-3 py-2 border border-gold text-gold rounded-md hover:bg-[hsl(var(--brand-gold-50))] transition-colors text-sm font-medium">
                           <Star className="h-4 w-4" />
                         </button>
                       )}
