@@ -1,5 +1,10 @@
 import { google } from 'googleapis'
 import { googleApiErrorMessage } from '@/lib/calendar/google-api-error'
+import {
+  parseGoogleCalendarEvent,
+  type GoogleCalendarEvent,
+  type RawGoogleCalendarEvent,
+} from '@/lib/calendar/google-events'
 
 /**
  * Google Calendar integration for Lifestacks Calendar.
@@ -180,4 +185,48 @@ export async function createCalendarEvent(
   }
 
   return { id: payload.id ?? null, htmlLink: payload.htmlLink ?? null }
+}
+
+export async function listCalendarEvents(
+  accessToken: string,
+  range: { timeMin: string; timeMax: string }
+): Promise<GoogleCalendarEvent[]> {
+  const collected: GoogleCalendarEvent[] = []
+  let pageToken: string | undefined
+
+  do {
+    const url = new URL('https://www.googleapis.com/calendar/v3/calendars/primary/events')
+    url.searchParams.set('timeMin', range.timeMin)
+    url.searchParams.set('timeMax', range.timeMax)
+    url.searchParams.set('singleEvents', 'true')
+    url.searchParams.set('orderBy', 'startTime')
+    url.searchParams.set('maxResults', '250')
+    if (pageToken) url.searchParams.set('pageToken', pageToken)
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    const payload = (await res.json().catch(() => ({}))) as {
+      items?: RawGoogleCalendarEvent[]
+      nextPageToken?: string
+      error?: { message?: string; errors?: Array<{ message?: string }> }
+    }
+
+    if (!res.ok) {
+      throw new GoogleCalendarRequestError(
+        googleApiErrorMessage({ response: { data: payload } }) ||
+          `Google Calendar error ${res.status}`,
+        res.status
+      )
+    }
+
+    for (const item of payload.items ?? []) {
+      const parsed = parseGoogleCalendarEvent(item)
+      if (parsed) collected.push(parsed)
+    }
+
+    pageToken = payload.nextPageToken
+  } while (pageToken && collected.length < 500)
+
+  return collected
 }
