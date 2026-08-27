@@ -60,7 +60,7 @@ export async function shouldSkipRefresh(
 }
 
 function summarizationModelId(): string {
-  return process.env.OPENAI_SUMMARIZATION_MODEL?.trim() || resolveOpenAIModelId()
+  return resolveOpenAIModelId()
 }
 
 function simpleChecksum(obj: unknown): string {

@@ -12,7 +12,7 @@ const LARGE_MODULE_RECORD_THRESHOLD = 12
 const LARGE_BUDGET_TX_THRESHOLD = 40
 
 function summarizationModelId(): string {
-  return process.env.OPENAI_SUMMARIZATION_MODEL?.trim() || resolveOpenAIModelId()
+  return resolveOpenAIModelId()
 }
 
 function needsAiSummary(summary: ModuleContextSummary, budgetTxCount?: number): boolean {

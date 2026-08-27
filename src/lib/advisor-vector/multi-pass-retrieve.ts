@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { embedText } from '@/lib/ai/embeddings'
-import { resolveOpenAIFallbackModelId } from '@/lib/ai/openai-model-id'
+import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import { queryAdvisorVectors } from './client'
 import { DEFAULT_TOP_K, STRONG_MATCH_SCORE } from './config'
 import type { AdvisorRetrievedChunk, AdvisorVectorRetrieveResult } from './types'
@@ -271,7 +271,7 @@ async function refineQueryBasedOnResults(input: {
   try {
     const openai = new OpenAI({ apiKey })
     const completion = await openai.chat.completions.create({
-      model: resolveOpenAIFallbackModelId(),
+      model: resolveOpenAIModelId(),
       temperature: 0.3,
       max_tokens: 80,
       messages: [

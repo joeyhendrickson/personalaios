@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Dream Catcher AI model is unavailable',
-          details: `Set OPENAI_MODEL in your environment to a model your API key can use (e.g. gpt-5.6-terra). Current model: ${resolveOpenAIModelId()}`,
+          details: `Set OPENAI_MODEL in your environment to a model your API key can use (e.g. gpt-5.6-luna). Current model: ${resolveOpenAIModelId()}`,
         },
         { status: 500 }
       )

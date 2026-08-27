@@ -19,9 +19,12 @@ describe('OpenAI model ids', () => {
     if (previous !== undefined) process.env.OPENAI_MODEL = previous
   })
 
-  it('uses gpt-5.6-terra as the chat fallback', () => {
-    expect(OPENAI_FALLBACK_CHAT_MODEL_ID).toBe('gpt-5.6-terra')
-    expect(resolveOpenAIFallbackModelId()).toBe('gpt-5.6-terra')
+  it('uses gpt-5.6-luna for generative fallbacks as well', () => {
+    const previous = process.env.OPENAI_FALLBACK_MODEL
+    delete process.env.OPENAI_FALLBACK_MODEL
+    expect(OPENAI_FALLBACK_CHAT_MODEL_ID).toBe('gpt-5.6-luna')
+    expect(resolveOpenAIFallbackModelId()).toBe('gpt-5.6-luna')
+    if (previous !== undefined) process.env.OPENAI_FALLBACK_MODEL = previous
   })
 
   it('uses gpt-realtime-2.1 for spoken chat', () => {

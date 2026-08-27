@@ -337,7 +337,7 @@ export async function POST(req: NextRequest) {
 
     let userFacingError = errMsg
     if (errMsg.includes('model_not_found') || errMsg.includes('does not exist')) {
-      userFacingError = `OpenAI model "${model}" is not available for your API key. Set OPENAI_MODEL in your environment to a model you have access to (e.g. gpt-5.6-terra).`
+      userFacingError = `OpenAI model "${model}" is not available for your API key. Set OPENAI_MODEL in your environment to a model you have access to (e.g. gpt-5.6-luna).`
     } else if (errMsg.includes('Incorrect API key') || errMsg.includes('invalid_api_key')) {
       userFacingError = 'OpenAI API key is invalid. Check your OPENAI_API_KEY environment variable.'
     } else if (errMsg.includes('Rate limit') || errMsg.includes('429')) {
