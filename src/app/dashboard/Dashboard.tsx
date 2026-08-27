@@ -1129,14 +1129,18 @@ export default function Dashboard() {
 
   const toggleTask = async (taskId: string) => {
     try {
-      const task = tasks.find((t) => t.id === taskId)
+      const task = allTasks.find((t) => t.id === taskId)
       if (!task) return
 
       const newStatus = task.status === 'completed' ? 'pending' : 'completed'
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify(
+          newStatus === 'completed'
+            ? { status: 'completed', completed_at: new Date().toISOString() }
+            : { status: 'pending', completed_at: null }
+        ),
       })
 
       if (response.ok) {
@@ -1157,6 +1161,10 @@ export default function Dashboard() {
           } catch (pointsError) {
             console.error('Error adding points to ledger:', pointsError)
           }
+        }
+
+        if (newStatus === 'pending') {
+          setShowCompleted(false)
         }
 
         await fetchDashboardData() // Refresh data
@@ -2943,9 +2951,15 @@ export default function Dashboard() {
                           >
                             <div className="flex items-start gap-3">
                               <div className="mt-1 shrink-0">
-                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleTask(task.id)}
+                                  className="task-checkbox flex h-5 w-5 items-center justify-center rounded-full border-2 border-green-500 bg-green-500 transition-colors hover:bg-green-600 hover:border-green-600"
+                                  title="Move back to tasks"
+                                  aria-label={`Mark "${task.title}" as not completed`}
+                                >
                                   <CheckCircle className="h-3 w-3 text-white" />
-                                </div>
+                                </button>
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-start justify-between gap-2">

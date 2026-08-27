@@ -37,6 +37,7 @@ const updateTaskSchema = z.object({
     .or(z.literal(''))
     .transform((val) => (val === '' ? undefined : val)),
   status: z.enum(['pending', 'in_progress', 'completed']).optional(),
+  completed_at: z.string().nullable().optional(),
 })
 
 // PATCH /api/tasks/[id] - Update task properties
