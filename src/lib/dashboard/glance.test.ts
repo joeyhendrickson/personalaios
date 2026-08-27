@@ -53,9 +53,30 @@ describe('homepage glance helpers', () => {
       new Date(),
       4
     )
-    expect(plan.items.map((item) => item.title)).toEqual(['Morning Workout', 'Team Call'])
+    expect(plan.items.map((item) => item.title)).toEqual(['Morning Workout'])
     expect(plan.remaining).toBe(2)
     expect(plan.completedToday).toBe(1)
+  })
+
+  it('shows only high-priority open tasks in Today’s Plan when any exist', () => {
+    const plan = selectTodayPlan(
+      [
+        { id: 'm1', title: 'Medium chore', status: 'pending', priority: 'medium', sort_order: 90 },
+        { id: 'h2', title: 'Call investor', status: 'pending', priority: 'high', sort_order: 5 },
+        {
+          id: 'h1',
+          title: 'Ship landing page',
+          status: 'pending',
+          priority: 'high',
+          sort_order: 40,
+        },
+        { id: 'l1', title: 'Low later', status: 'pending', priority: 'low', sort_order: 80 },
+      ],
+      [],
+      new Date(),
+      4
+    )
+    expect(plan.items.map((item) => item.title)).toEqual(['Ship landing page', 'Call investor'])
   })
 
   it('uses dated goals and projects for upcoming', () => {

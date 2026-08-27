@@ -170,11 +170,18 @@ export function attachMonthChange(
   }
 }
 
+function priorityBand(priority: unknown): 0 | 1 | 2 {
+  const value = typeof priority === 'string' ? priority.toLowerCase() : ''
+  if (value === 'high') return 0
+  if (value === 'low') return 2
+  return 1
+}
+
 function taskRank(priority: unknown, sortOrder: unknown): number {
-  const band = typeof priority === 'string' ? priority.toLowerCase() : ''
-  const bandRank = band === 'high' ? 0 : band === 'low' ? 2 : 1
-  const order = typeof sortOrder === 'number' ? sortOrder : 9999
-  return bandRank * 10000 + order
+  const band = priorityBand(priority)
+  const order = typeof sortOrder === 'number' ? sortOrder : 0
+  // Lower rank first: high band, then higher dashboard sort_order (top of list).
+  return band * 1_000_000 - order
 }
 
 export function selectTodayPlan(
@@ -196,7 +203,9 @@ export function selectTodayPlan(
     )
   }).length
 
-  const ranked = [...openTasks].sort(
+  const highTasks = openTasks.filter((task) => priorityBand(task.priority) === 0)
+  const pool = highTasks.length > 0 ? highTasks : openTasks
+  const ranked = [...pool].sort(
     (a, b) => taskRank(a.priority, a.sort_order) - taskRank(b.priority, b.sort_order)
   )
 

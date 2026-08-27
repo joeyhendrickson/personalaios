@@ -94,22 +94,57 @@ function Card({
   title,
   children,
   className,
+  href,
+  onActivate,
 }: {
   title: string
   children: React.ReactNode
   className?: string
+  href?: string
+  onActivate?: () => void
 }) {
-  return (
-    <section
-      className={cn(
-        'flex min-h-[280px] flex-col rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.06)]',
-        className
-      )}
-    >
+  const classes = cn(
+    'flex min-h-[280px] flex-col rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.06)]',
+    (href || onActivate) &&
+      'cursor-pointer transition-shadow hover:shadow-[0_12px_36px_rgba(15,23,42,0.12)]',
+    className
+  )
+  const inner = (
+    <>
       <h2 className="mb-4 text-[15px] font-semibold text-gray-800">{title}</h2>
       <div className="flex flex-1 flex-col">{children}</div>
-    </section>
+    </>
   )
+
+  if (href) {
+    return (
+      <Link href={href} className={classes} aria-label={title}>
+        {inner}
+      </Link>
+    )
+  }
+
+  if (onActivate) {
+    return (
+      <section
+        className={classes}
+        role="link"
+        tabIndex={0}
+        aria-label={title}
+        onClick={onActivate}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onActivate()
+          }
+        }}
+      >
+        {inner}
+      </section>
+    )
+  }
+
+  return <section className={classes}>{inner}</section>
 }
 
 export function TodayAtAGlance({
@@ -201,10 +236,20 @@ export function TodayAtAGlance({
   const planProgress =
     data && data.plan.total > 0 ? Math.round((data.plan.completedToday / data.plan.total) * 100) : 0
 
+  const scrollToTasks = () => {
+    if (typeof window === 'undefined') return
+    if (window.location.hash === '#tasks') {
+      document.getElementById('tasks')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+    window.location.hash = 'tasks'
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+  }
+
   return (
     <div className="px-4 pb-8 pt-6 sm:px-8">
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-        <Card title={t('glance.todaysPlan')}>
+        <Card title={t('glance.todaysPlan')} onActivate={scrollToTasks}>
           {loading ? (
             <p className="text-sm text-gray-500">{t('common.loading')}</p>
           ) : data?.plan.items.length ? (
@@ -212,7 +257,10 @@ export function TodayAtAGlance({
               <ul className="flex-1 space-y-4">
                 {data.plan.items.map((item) => (
                   <li key={item.id} className="flex items-start justify-between gap-3">
-                    <label className="flex min-w-0 items-start gap-3">
+                    <label
+                      className="flex min-w-0 items-start gap-3"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <input
                         type="checkbox"
                         aria-label={`Complete ${item.title}`}
@@ -245,15 +293,12 @@ export function TodayAtAGlance({
             </>
           ) : (
             <p className="text-sm text-gray-500">
-              {t('glance.noTasks')}{' '}
-              <Link href="/dashboard#tasks" className="text-blue-600 hover:underline">
-                {t('glance.addTasks')}
-              </Link>
+              {t('glance.noTasks')} {t('glance.addTasks')}
             </p>
           )}
         </Card>
 
-        <Card title={t('glance.health')}>
+        <Card title={t('glance.health')} href="/modules/fitness-tracker">
           {data?.health.heartValue || data?.health.sleepLabel || data?.health.steps ? (
             <>
               <div className="mb-4 flex items-center gap-2">
@@ -284,15 +329,12 @@ export function TodayAtAGlance({
             </>
           ) : (
             <p className="text-sm text-gray-500">
-              {t('glance.noHealth')}{' '}
-              <Link href="/modules/fitness-tracker" className="text-blue-600 hover:underline">
-                {t('glance.openFitness')}
-              </Link>
+              {t('glance.noHealth')} {t('glance.openFitness')}
             </p>
           )}
         </Card>
 
-        <Card title={t('glance.financial')}>
+        <Card title={t('glance.financial')} href="/modules/budget-optimizer">
           {data?.finance.netWorth != null ? (
             <>
               <p className="text-sm text-gray-500">Net Worth</p>
@@ -327,10 +369,7 @@ export function TodayAtAGlance({
             </>
           ) : (
             <p className="text-sm text-gray-500">
-              {t('glance.noFinance')}{' '}
-              <Link href="/modules/budget-optimizer" className="text-blue-600 hover:underline">
-                {t('glance.openBudget')}
-              </Link>
+              {t('glance.noFinance')} {t('glance.openBudget')}
             </p>
           )}
         </Card>

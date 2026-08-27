@@ -295,7 +295,7 @@ export function AppShell({
             alt=""
             width={32}
             height={32}
-            className="h-8 w-8 shrink-0 rounded object-contain"
+            className="h-8 w-8 shrink-0 rounded object-contain invert"
           />
           <span className="truncate font-semibold max-[380px]:hidden">LifeStacks</span>
         </Link>
