@@ -203,10 +203,6 @@ export function TodayAtAGlance({
 
   return (
     <div className="px-4 pb-8 pt-6 sm:px-8">
-      <h1 className="mb-6 text-3xl font-bold tracking-tight text-[#1f2933] sm:text-4xl">
-        {t('glance.title')}
-      </h1>
-
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         <Card title={t('glance.todaysPlan')}>
           {loading ? (

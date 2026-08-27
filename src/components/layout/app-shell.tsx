@@ -288,25 +288,29 @@ export function AppShell({
     <div className="min-h-screen bg-[#f3f4f6]">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[260px] lg:block">{sidebar}</aside>
 
-      <div className="sticky top-0 z-30 flex items-center justify-between bg-[#1a1d23] px-4 py-3 text-white lg:hidden">
-        <Link href="/dashboard" className="flex items-center gap-2">
+      <div className="sticky top-0 z-30 flex items-center justify-between gap-2 bg-[#1a1d23] px-3 py-3 text-white lg:hidden">
+        <Link href="/dashboard" className="flex min-w-0 items-center gap-2">
           <Image
             src="/LifeStacks-logo.png"
             alt=""
             width={32}
             height={32}
-            className="h-8 w-8 rounded object-contain"
+            className="h-8 w-8 shrink-0 rounded object-contain"
           />
-          <span className="font-semibold">LifeStacks</span>
+          <span className="truncate font-semibold max-[380px]:hidden">LifeStacks</span>
         </Link>
-        <button
-          type="button"
-          aria-label="Open menu"
-          onClick={() => setMobileOpen(true)}
-          className="rounded-md p-2 text-white hover:bg-white/10"
-        >
-          <Menu className="h-5 w-5 text-white" stroke="currentColor" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <LanguageToggle compact />
+          <ThemeToggle compact />
+          <button
+            type="button"
+            aria-label="Open menu"
+            onClick={() => setMobileOpen(true)}
+            className="rounded-md p-2 text-white hover:bg-white/10"
+          >
+            <Menu className="h-5 w-5 text-white" stroke="currentColor" />
+          </button>
+        </div>
       </div>
 
       {mobileOpen && (
