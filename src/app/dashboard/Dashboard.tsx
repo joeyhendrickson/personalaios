@@ -2428,7 +2428,8 @@ export default function Dashboard() {
                                         </span>
                                         {rec.target_value && (
                                           <span>
-                                            Target: {rec.target_unit === 'dollars' ? '$' : ''}
+                                            {t('goals.target')}:{' '}
+                                            {rec.target_unit === 'dollars' ? '$' : ''}
                                             {rec.target_value.toLocaleString()}
                                             {rec.target_unit !== 'dollars' && ` ${rec.target_unit}`}
                                           </span>
@@ -2537,12 +2538,13 @@ export default function Dashboard() {
                                     </div>
                                   </div>
 
-                                  {(goal as any).target_value ? (
+                                  {(goal as any).target_value || (goal as any).current_value ? (
                                     <p className="text-xs text-gray-500 mt-2">
-                                      Target: {(goal as any).target_value}{' '}
-                                      {(goal as any).target_unit || ''}
-                                      {(goal as any).current_value
-                                        ? ` · Current: ${(goal as any).current_value}`
+                                      {t('goals.current')}: {(goal as any).current_value ?? 0}
+                                      {(goal as any).target_value
+                                        ? ` · ${t('goals.target')}: ${(goal as any).target_value} ${
+                                            (goal as any).target_unit || ''
+                                          }`.trimEnd()
                                         : ''}
                                     </p>
                                   ) : null}
@@ -3756,15 +3758,39 @@ export default function Dashboard() {
                   <option value="yearly">Yearly</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Target Value</label>
-                <input
-                  type="number"
-                  id="add-goal-target-value"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter target value"
-                  min="0"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label
+                    htmlFor="add-goal-current-value"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    {t('goals.current')}
+                  </label>
+                  <input
+                    type="number"
+                    id="add-goal-current-value"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0"
+                    min="0"
+                    step="any"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="add-goal-target-value"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    {t('goals.target')}
+                  </label>
+                  <input
+                    type="number"
+                    id="add-goal-target-value"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter target"
+                    min="0"
+                    step="any"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Target Unit</label>
@@ -3803,6 +3829,10 @@ export default function Dashboard() {
                       (document.getElementById('add-goal-target-value') as HTMLInputElement)
                         ?.value || '0'
                     )
+                    const current_value = parseFloat(
+                      (document.getElementById('add-goal-current-value') as HTMLInputElement)
+                        ?.value || '0'
+                    )
                     const target_unit = (
                       document.getElementById('add-goal-target-unit') as HTMLInputElement
                     )?.value
@@ -3820,7 +3850,8 @@ export default function Dashboard() {
                             title,
                             description,
                             goal_type,
-                            target_value,
+                            target_value: Number.isFinite(target_value) ? target_value : 0,
+                            current_value: Number.isFinite(current_value) ? current_value : 0,
                             target_unit,
                             priority_level,
                           }),
@@ -3834,6 +3865,9 @@ export default function Dashboard() {
                             ''
                           ;(
                             document.getElementById('add-goal-description') as HTMLTextAreaElement
+                          ).value = ''
+                          ;(
+                            document.getElementById('add-goal-current-value') as HTMLInputElement
                           ).value = ''
                           ;(
                             document.getElementById('add-goal-target-value') as HTMLInputElement
@@ -3917,15 +3951,39 @@ export default function Dashboard() {
                   <option value="yearly">Yearly</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Target Value</label>
-                <input
-                  type="number"
-                  id="edit-high-level-goal-target-value"
-                  defaultValue={(editingGoal as any).target_value || ''}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="0"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label
+                    htmlFor="edit-high-level-goal-current-value"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    {t('goals.current')}
+                  </label>
+                  <input
+                    type="number"
+                    id="edit-high-level-goal-current-value"
+                    defaultValue={(editingGoal as any).current_value ?? ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="0"
+                    step="any"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="edit-high-level-goal-target-value"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    {t('goals.target')}
+                  </label>
+                  <input
+                    type="number"
+                    id="edit-high-level-goal-target-value"
+                    defaultValue={(editingGoal as any).target_value || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="0"
+                    step="any"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Target Unit</label>
@@ -3934,18 +3992,6 @@ export default function Dashboard() {
                   id="edit-high-level-goal-target-unit"
                   defaultValue={(editingGoal as any).target_unit || ''}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Current Value
-                </label>
-                <input
-                  type="number"
-                  id="edit-high-level-goal-current-value"
-                  defaultValue={(editingGoal as any).current_value || ''}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="0"
                 />
               </div>
               <div>

@@ -82,6 +82,8 @@ const translations = {
     'goals.priority': 'Priority',
     'goals.priorityLevel': 'Priority Level (1-5)',
     'goals.priorityScore': 'Priority Score (0-100)',
+    'goals.current': 'Current',
+    'goals.target': 'Target',
 
     // Projects
     'projects.title': 'Measurable things I really need to achieve in my life right now',
@@ -507,6 +509,8 @@ const translations = {
     'goals.priority': 'Prioridad',
     'goals.priorityLevel': 'Nivel de Prioridad (1-5)',
     'goals.priorityScore': 'Puntuación de Prioridad (0-100)',
+    'goals.current': 'Actual',
+    'goals.target': 'Objetivo',
 
     // Projects
     'projects.title': 'Cosas medibles que realmente necesito lograr en mi vida ahora mismo',
