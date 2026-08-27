@@ -235,7 +235,7 @@ Return your response as a JSON object with this structure:
 ${spanishResponseInstruction(language)}`
     console.log('[Project-Goal-Alignment] Prompt generated, length:', prompt.length)
 
-    // Default chat model (gpt-5-mini unless OPENAI_MODEL is set)
+    // Default chat model (gpt-5.6-luna unless OPENAI_MODEL is set)
     let text: string
     try {
       console.log('[Project-Goal-Alignment] Calling OpenAI API...')

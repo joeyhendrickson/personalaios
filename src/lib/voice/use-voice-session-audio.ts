@@ -20,10 +20,10 @@ function rmsFromAnalyser(analyser: AnalyserNode, buf: Uint8Array<ArrayBuffer>): 
 export function useVoiceSessionAudio(
   active: boolean,
   phase: VoiceSessionPhase,
-  onInterrupt: () => void
+  onInterrupt: () => void,
+  mediaStream?: MediaStream | null
 ): number[] {
   const [levels, setLevels] = useState<number[]>(() => Array(BAR_COUNT).fill(0.08))
-  const streamRef = useRef<MediaStream | null>(null)
   const ctxRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const rafRef = useRef<number | null>(null)
@@ -40,14 +40,12 @@ export function useVoiceSessionAudio(
   }, [phase])
 
   useEffect(() => {
-    if (!active) {
+    if (!active || !mediaStream) {
       interruptAboveSinceRef.current = null
       if (rafRef.current != null) {
         cancelAnimationFrame(rafRef.current)
         rafRef.current = null
       }
-      streamRef.current?.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
       void ctxRef.current?.close()
       ctxRef.current = null
       analyserRef.current = null
@@ -59,23 +57,13 @@ export function useVoiceSessionAudio(
 
     const start = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true },
-          video: false,
-        })
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop())
-          return
-        }
-
         const ctx = new AudioContext()
-        const source = ctx.createMediaStreamSource(stream)
+        const source = ctx.createMediaStreamSource(mediaStream)
         const analyser = ctx.createAnalyser()
         analyser.fftSize = 256
         analyser.smoothingTimeConstant = 0.72
         source.connect(analyser)
 
-        streamRef.current = stream
         ctxRef.current = ctx
         analyserRef.current = analyser
 
@@ -135,13 +123,11 @@ export function useVoiceSessionAudio(
         cancelAnimationFrame(rafRef.current)
         rafRef.current = null
       }
-      streamRef.current?.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
       void ctxRef.current?.close()
       ctxRef.current = null
       analyserRef.current = null
     }
-  }, [active])
+  }, [active, mediaStream])
 
   return levels
 }

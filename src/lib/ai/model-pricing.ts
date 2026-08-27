@@ -18,6 +18,16 @@ export type ModelPricing = {
 export const OPENAI_MODEL_PRICING_USD_PER_1M: Record<string, ModelPricing> = {
   // Default app model — update from https://openai.com/pricing when needed
   [OPENAI_DEFAULT_CHAT_MODEL_ID]: {
+    inputPer1M: 0.2,
+    cachedInputPer1M: 0.02,
+    outputPer1M: 1.2,
+  },
+  'gpt-5.6-terra': {
+    inputPer1M: 2.0,
+    cachedInputPer1M: 0.2,
+    outputPer1M: 12.0,
+  },
+  'gpt-5-mini': {
     inputPer1M: 0.25,
     cachedInputPer1M: 0.025,
     outputPer1M: 2.0,

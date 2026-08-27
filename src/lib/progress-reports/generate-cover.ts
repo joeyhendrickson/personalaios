@@ -2,6 +2,7 @@ import 'server-only'
 
 import OpenAI from 'openai'
 import { logAIUsage } from '@/lib/ai/usage-logger'
+import { resolveOpenAIImageModelId } from '@/lib/ai/openai-model-id'
 
 export async function generateCoverImageBase64(
   userId: string,
@@ -16,40 +17,43 @@ export async function generateCoverImageBase64(
 
   const client = new OpenAI({ apiKey })
   const started = Date.now()
+  const model = resolveOpenAIImageModelId()
 
   try {
     const response = await client.images.generate({
-      model: 'dall-e-3',
+      model,
       prompt: `${coverArtPrompt}. Theme: "${periodLabel}" progress report cover. No words or letters in the image.`,
       n: 1,
       size: '1024x1024',
-      quality: 'standard',
-      response_format: 'b64_json',
+      quality: 'medium',
     })
+
+    const usage = (response as { usage?: { input_tokens?: number; output_tokens?: number } }).usage
 
     await logAIUsage({
       userId,
       module: 'progress-reports',
-      action: 'generate_cover_dalle3',
+      action: 'generate_cover_gpt_image',
       route: '/api/progress-reports/generate',
-      model: 'dall-e-3',
+      model,
       provider: 'openai',
+      inputTokens: usage?.input_tokens ?? null,
+      outputTokens: usage?.output_tokens ?? null,
       latencyMs: Date.now() - started,
-      description: 'DALL-E 3 progress report cover',
+      description: 'GPT Image progress report cover',
       metadata: { periodLabel },
-      actualCostUsd: 0.04,
     })
 
     const b64 = response.data?.[0]?.b64_json
     return b64 || null
   } catch (error) {
-    console.error('[progress-reports] DALL-E cover failed:', error)
+    console.error('[progress-reports] Cover image failed:', error)
     await logAIUsage({
       userId,
       module: 'progress-reports',
-      action: 'generate_cover_dalle3',
+      action: 'generate_cover_gpt_image',
       route: '/api/progress-reports/generate',
-      model: 'dall-e-3',
+      model,
       provider: 'openai',
       status: 'error',
       latencyMs: Date.now() - started,

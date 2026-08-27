@@ -186,8 +186,8 @@ const translations = {
     'chat.voiceSession.stop': 'Stop voice session',
     'chat.voiceSession.listening': 'Listening…',
     'chat.voiceSession.processing': 'Thinking…',
-    'chat.voiceSession.speaking': 'Advisor speaking — mic paused',
-    'chat.voiceSession.hint': 'Speak naturally — sends after a brief pause',
+    'chat.voiceSession.speaking': 'Advisor speaking — you can interrupt',
+    'chat.voiceSession.hint': 'Speak naturally — the Advisor hears you in real time',
     'chat.voiceSession.interruptHint': 'Tap here or speak to interrupt',
     'chat.voiceSession.unsupported': 'Voice conversation is not supported in this browser.',
 
@@ -614,8 +614,8 @@ const translations = {
     'chat.voiceSession.stop': 'Detener sesión de voz',
     'chat.voiceSession.listening': 'Escuchando…',
     'chat.voiceSession.processing': 'Pensando…',
-    'chat.voiceSession.speaking': 'El Asesor habla — micrófono en pausa',
-    'chat.voiceSession.hint': 'Habla con naturalidad — se envía tras una breve pausa',
+    'chat.voiceSession.speaking': 'El Asesor habla — puedes interrumpir',
+    'chat.voiceSession.hint': 'Habla con naturalidad — el Asesor te escucha en tiempo real',
     'chat.voiceSession.interruptHint': 'Toca aquí o habla para interrumpir',
     'chat.voiceSession.unsupported': 'La conversación por voz no es compatible con este navegador.',
 

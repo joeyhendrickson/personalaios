@@ -10,14 +10,13 @@ import {
   VoiceSessionControl,
   type VoiceSessionPhase,
 } from '@/components/chat/voice-session-control'
-import {
-  ADVISOR_TTS_FETCH_TIMEOUT_MS,
-  ADVISOR_TTS_MAX_CHARS,
-  stopAllChatAudio,
-  VOICE_SESSION_RESUME_DELAY_MS,
-  VOICE_SESSION_SILENCE_MS,
-} from '@/lib/voice/voice-session'
+import { stopAllChatAudio } from '@/lib/voice/voice-session'
 import { useVoiceSessionAudio } from '@/lib/voice/use-voice-session-audio'
+import {
+  getRealtimeVoiceSupported,
+  startRealtimeVoiceSession,
+  type RealtimeVoiceHandle,
+} from '@/lib/voice/realtime-client'
 import { detectDashboardIntent } from '@/lib/assistant/detect-dashboard-intent'
 import { detectCompletionIntent } from '@/lib/assistant/detect-completion-intent'
 import { DashboardProposalCard } from '@/components/chat/dashboard-proposal-card'
@@ -159,22 +158,22 @@ export function ChatInterface({
     }
   }, [])
 
-  // Voice-related state
+  // Voice-related state (GPT Realtime speech-to-speech)
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [speechSupported, setSpeechSupported] = useState(false)
   const [voiceSessionActive, setVoiceSessionActive] = useState(false)
-  const [lastSpeechTime, setLastSpeechTime] = useState(0)
-  const recognitionRef = useRef<SpeechRecognition | null>(null)
-  const speakGenerationRef = useRef(0)
-  const speechTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [voiceLocalStream, setVoiceLocalStream] = useState<MediaStream | null>(null)
+  const realtimeHandleRef = useRef<RealtimeVoiceHandle | null>(null)
+  const realtimeStartingRef = useRef(false)
+  const assistantVoiceMessageIdRef = useRef<string | null>(null)
   const voiceSessionActiveRef = useRef(false)
   const isSpeakingRef = useRef(false)
   const isLoadingRef = useRef(false)
-  const pendingTranscriptRef = useRef('')
   const formRef = useRef<HTMLFormElement | null>(null)
   const contextRefreshStartedRef = useRef(false)
   const startListeningRef = useRef<() => void>(() => {})
+  const startVoiceSessionRef = useRef<() => Promise<void>>(async () => {})
   const submitMessageRef = useRef<(text: string) => Promise<void>>(async () => {})
 
   useEffect(() => {
@@ -240,7 +239,7 @@ export function ChatInterface({
     return match?.[1]
   })()
 
-  // Keep speech recognition callbacks in sync with React state
+  // Keep voice session flags in sync with React state
   useEffect(() => {
     voiceSessionActiveRef.current = voiceSessionActive
   }, [voiceSessionActive])
@@ -248,26 +247,21 @@ export function ChatInterface({
     isSpeakingRef.current = isSpeaking
   }, [isSpeaking])
 
-  const clearSpeechSubmitTimeout = () => {
-    if (speechTimeoutRef.current) {
-      clearTimeout(speechTimeoutRef.current)
-      speechTimeoutRef.current = null
-    }
-  }
-
   const invalidatePendingSpeech = useCallback(() => {
-    speakGenerationRef.current += 1
     stopAllChatAudio()
+    realtimeHandleRef.current?.interrupt()
     setIsSpeaking(false)
     isSpeakingRef.current = false
+  }, [])
+
+  useEffect(() => {
+    setSpeechSupported(getRealtimeVoiceSupported())
   }, [])
 
   useEffect(() => {
     const onPageHidden = () => {
       if (document.visibilityState !== 'hidden') return
       invalidatePendingSpeech()
-      clearSpeechSubmitTimeout()
-      pendingTranscriptRef.current = ''
     }
     document.addEventListener('visibilitychange', onPageHidden)
     window.addEventListener('pagehide', onPageHidden)
@@ -277,114 +271,13 @@ export function ChatInterface({
     }
   }, [invalidatePendingSpeech])
 
-  const pauseRecognitionForAssistant = () => {
-    clearSpeechSubmitTimeout()
-    pendingTranscriptRef.current = ''
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop()
-      } catch {
-        // ignore
-      }
-    }
-  }
-
-  const resumeRecognitionAfterAssistant = () => {
-    if (!voiceSessionActiveRef.current) return
-    if (isSpeakingRef.current || isLoadingRef.current) return
-    window.setTimeout(() => {
-      if (!voiceSessionActiveRef.current || isSpeakingRef.current || isLoadingRef.current) return
-      if (!recognitionRef.current) return
-      try {
-        recognitionRef.current.start()
-      } catch {
-        // already started
-      }
-    }, VOICE_SESSION_RESUME_DELAY_MS)
-  }
-
-  // Initialize speech recognition
-  useEffect(() => {
-    // Check for speech recognition support
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-      if (SpeechRecognition) {
-        setSpeechSupported(true)
-        recognitionRef.current = new SpeechRecognition()
-        recognitionRef.current.continuous = true // Enable continuous listening
-        recognitionRef.current.interimResults = true // Get interim results for better UX
-        recognitionRef.current.lang = 'en-US'
-
-        recognitionRef.current.onstart = () => {
-          setIsListening(true)
-        }
-
-        recognitionRef.current.onresult = (event) => {
-          if (!voiceSessionActiveRef.current || isSpeakingRef.current || isLoadingRef.current) {
-            return
-          }
-
-          let finalTranscript = ''
-          let interimTranscript = ''
-
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript
-            if (event.results[i].isFinal) {
-              finalTranscript += transcript
-            } else {
-              interimTranscript += transcript
-            }
-          }
-
-          const currentTranscript = (finalTranscript + interimTranscript).trim()
-          if (!currentTranscript) return
-
-          pendingTranscriptRef.current = currentTranscript
-          setInput(currentTranscript)
-          setLastSpeechTime(Date.now())
-          clearSpeechSubmitTimeout()
-
-          speechTimeoutRef.current = setTimeout(() => {
-            if (!voiceSessionActiveRef.current || isSpeakingRef.current || isLoadingRef.current) {
-              return
-            }
-            const textToSubmit = pendingTranscriptRef.current.trim()
-            if (textToSubmit) {
-              pendingTranscriptRef.current = ''
-              setInput('')
-              void submitMessageRef.current(textToSubmit)
-            }
-          }, VOICE_SESSION_SILENCE_MS)
-        }
-
-        recognitionRef.current.onerror = (event) => {
-          console.error('Speech recognition error:', event.error)
-          if (event.error === 'no-speech' || event.error === 'aborted') {
-            if (voiceSessionActiveRef.current && !isSpeakingRef.current && !isLoadingRef.current) {
-              resumeRecognitionAfterAssistant()
-            }
-            return
-          }
-          setIsListening(false)
-        }
-
-        recognitionRef.current.onend = () => {
-          setIsListening(false)
-          if (voiceSessionActiveRef.current && !isSpeakingRef.current && !isLoadingRef.current) {
-            resumeRecognitionAfterAssistant()
-          }
-        }
-      }
-    }
-  }, [])
-
   // Cleanup voice session on unmount
   useEffect(() => {
     return () => {
-      clearSpeechSubmitTimeout()
-      invalidatePendingSpeech()
+      realtimeHandleRef.current?.stop()
+      realtimeHandleRef.current = null
     }
-  }, [invalidatePendingSpeech])
+  }, [])
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [savedSessions, setSavedSessions] = useState<SavedChatSession[]>([])
@@ -1032,7 +925,7 @@ export function ChatInterface({
         (data?.formattedPrompt as string | undefined) ||
         'Give me a concise briefing based on my dashboard data.'
       if (!voiceSessionActiveRef.current && wakeWordEnabled) {
-        startVoiceSession()
+        await startVoiceSessionRef.current()
       }
       await submitMessage(prompt)
     } catch {
@@ -1128,9 +1021,20 @@ export function ChatInterface({
       setInput('')
     }
 
+    if (
+      realtimeHandleRef.current &&
+      voiceSessionActiveRef.current &&
+      !options?.contextAdjustments
+    ) {
+      realtimeHandleRef.current.sendText(trimmed)
+      if (!options?.skipUserMessage) {
+        void proposeCompletionFromMessage(trimmed)
+      }
+      return
+    }
+
     isLoadingRef.current = true
     setIsLoading(true)
-    pauseRecognitionForAssistant()
 
     const apiHistory = options?.historyOverride ?? messages
     const apiMessages = options?.skipUserMessage
@@ -1281,26 +1185,6 @@ export function ChatInterface({
           },
         ])
       }
-
-      // Speak when voice session is active (hands-free conversation loop)
-      if (finalContent && voiceSessionActiveRef.current) {
-        pauseRecognitionForAssistant()
-        const cleanMessage = finalContent
-          // Remove markdown formatting
-          .replace(/\*\*(.*?)\*\*/g, '$1')
-          .replace(/\*(.*?)\*/g, '$1')
-          .replace(/`(.*?)`/g, '$1')
-          .replace(/#{1,6}\s+/g, '')
-          .replace(/^\s*[-*+]\s+/gm, '')
-          .replace(/^\s*\d+\.\s+/gm, '')
-          // Remove excessive whitespace
-          .replace(/\s+/g, ' ')
-          .trim()
-
-        speakText(cleanMessage)
-      } else if (voiceSessionActiveRef.current) {
-        resumeRecognitionAfterAssistant()
-      }
     } catch (error) {
       console.error('Error sending message:', error)
       const status = (error as Error & { status?: number }).status
@@ -1320,9 +1204,6 @@ export function ChatInterface({
           },
         ]
       })
-      if (voiceSessionActiveRef.current) {
-        resumeRecognitionAfterAssistant()
-      }
     } finally {
       isLoadingRef.current = false
       setIsLoading(false)
@@ -1354,43 +1235,152 @@ export function ChatInterface({
     })
   }
 
-  const startVoiceSession = () => {
-    if (!recognitionRef.current || voiceSessionActive) return
-    stopAllChatAudio()
-    setIsSpeaking(false)
-    isSpeakingRef.current = false
-    setVoiceSessionActive(true)
-    voiceSessionActiveRef.current = true
-    pauseWakeWordListener()
-    pendingTranscriptRef.current = ''
-    try {
-      recognitionRef.current.start()
-    } catch (error) {
-      console.error('Error starting speech recognition:', error)
-    }
-  }
-
   const endVoiceSession = () => {
+    realtimeHandleRef.current?.stop()
+    realtimeHandleRef.current = null
+    realtimeStartingRef.current = false
+    assistantVoiceMessageIdRef.current = null
+    setVoiceLocalStream(null)
     invalidatePendingSpeech()
     setVoiceSessionActive(false)
     voiceSessionActiveRef.current = false
-    clearSpeechSubmitTimeout()
-    pendingTranscriptRef.current = ''
     setInput('')
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop()
-      } catch {
-        // ignore
-      }
-    }
     setIsListening(false)
+    setIsLoading(false)
+    isLoadingRef.current = false
     if (wakeWordEnabled) {
       resumeWakeWordListener()
     }
   }
 
-  startListeningRef.current = startVoiceSession
+  const startVoiceSession = async () => {
+    if (voiceSessionActiveRef.current || realtimeStartingRef.current) return
+    if (!getRealtimeVoiceSupported()) {
+      setSpeechSupported(false)
+      return
+    }
+
+    realtimeStartingRef.current = true
+    stopAllChatAudio()
+    setIsSpeaking(false)
+    isSpeakingRef.current = false
+    setVoiceSessionActive(true)
+    voiceSessionActiveRef.current = true
+    setIsListening(true)
+    pauseWakeWordListener()
+
+    try {
+      const handle = await startRealtimeVoiceSession({
+        language,
+        currentModule: currentModuleFromPath,
+        history: messages
+          .filter((m) => m.id !== 'welcome' && m.content.trim())
+          .map((m) => ({ role: m.role, content: m.content })),
+        onLocalStream: setVoiceLocalStream,
+        onSpeechStarted: () => {
+          setIsListening(true)
+          setIsSpeaking(false)
+          isSpeakingRef.current = false
+          setIsLoading(false)
+          isLoadingRef.current = false
+        },
+        onSpeechStopped: () => {
+          setIsListening(false)
+          setIsLoading(true)
+          isLoadingRef.current = true
+        },
+        onAssistantStarted: () => {
+          setIsSpeaking(true)
+          isSpeakingRef.current = true
+          setIsListening(false)
+          setIsLoading(true)
+          isLoadingRef.current = true
+        },
+        onAssistantDone: () => {
+          setIsSpeaking(false)
+          isSpeakingRef.current = false
+          setIsLoading(false)
+          isLoadingRef.current = false
+          if (voiceSessionActiveRef.current) setIsListening(true)
+        },
+        onUserTranscript: (text, final) => {
+          if (!final) {
+            setInput(text)
+            return
+          }
+          setInput('')
+          setMessages((prev) => {
+            const last = prev[prev.length - 1]
+            if (last?.role === 'user' && last.content === text) return prev
+            return [...prev, { id: `rt-u-${Date.now()}`, role: 'user', content: text }]
+          })
+          void proposeCompletionFromMessage(text)
+        },
+        onAssistantTranscript: (text, final) => {
+          if (!final) {
+            const messageId = assistantVoiceMessageIdRef.current ?? `rt-a-${Date.now()}`
+            if (!assistantVoiceMessageIdRef.current) {
+              assistantVoiceMessageIdRef.current = messageId
+              setMessages((prev) => [...prev, { id: messageId, role: 'assistant', content: text }])
+            } else {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === messageId ? { ...msg, content: msg.content + text } : msg
+                )
+              )
+            }
+            return
+          }
+          const messageId = assistantVoiceMessageIdRef.current
+          if (messageId) {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === messageId ? { ...msg, content: text || msg.content } : msg
+              )
+            )
+            assistantVoiceMessageIdRef.current = null
+          } else if (text) {
+            setMessages((prev) => [
+              ...prev,
+              { id: `rt-a-${Date.now()}`, role: 'assistant', content: text },
+            ])
+          }
+        },
+        onError: (message) => {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `rt-err-${Date.now()}`,
+              role: 'assistant',
+              content: `Voice session error: ${message}`,
+            },
+          ])
+        },
+      })
+      realtimeHandleRef.current = handle
+    } catch (error) {
+      console.error('Error starting realtime voice session:', error)
+      endVoiceSession()
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `rt-err-${Date.now()}`,
+          role: 'assistant',
+          content:
+            error instanceof Error
+              ? `Could not start voice chat: ${error.message}`
+              : 'Could not start voice chat. Try again.',
+        },
+      ])
+    } finally {
+      realtimeStartingRef.current = false
+    }
+  }
+
+  startListeningRef.current = () => {
+    void startVoiceSession()
+  }
+  startVoiceSessionRef.current = startVoiceSession
 
   useEffect(() => {
     if (!isExpanded && voiceSessionActive) {
@@ -1399,120 +1389,25 @@ export function ChatInterface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded, voiceSessionActive])
 
-  const speakText = async (text: string) => {
-    if (!voiceSessionActiveRef.current) return
-
-    const generation = ++speakGenerationRef.current
-    pauseRecognitionForAssistant()
-    stopAllChatAudio()
-
-    const cleanText = text
-      .replace(/\*\*/g, '')
-      .replace(/\n/g, ' ')
-      .trim()
-      .slice(0, ADVISOR_TTS_MAX_CHARS)
-
-    if (!cleanText) {
-      resumeRecognitionAfterAssistant()
-      return
-    }
-
-    const canSpeak = () =>
-      voiceSessionActiveRef.current && speakGenerationRef.current === generation
-
-    const controller = new AbortController()
-    const timeoutId = window.setTimeout(() => controller.abort(), ADVISOR_TTS_FETCH_TIMEOUT_MS)
-
-    try {
-      let response = await fetch('/api/elevenlabs/text-to-speech', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleanText }),
-        signal: controller.signal,
-      })
-
-      if (!response.ok) {
-        response = await fetch('/api/openai/text-to-speech', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: cleanText, voice: 'alloy' }),
-          signal: controller.signal,
-        })
-      }
-
-      if (!canSpeak()) return
-
-      if (!response.ok) {
-        console.warn('[Advisor TTS] unavailable:', response.status)
-        resumeRecognitionAfterAssistant()
-        return
-      }
-
-      const blob = await response.blob()
-      if (!canSpeak()) return
-
-      const audioUrl = URL.createObjectURL(blob)
-      const audio = new Audio(audioUrl)
-      ;(window as Window & { __currentChatAudio?: HTMLAudioElement }).__currentChatAudio = audio
-
-      setIsSpeaking(true)
-      isSpeakingRef.current = true
-
-      audio.onplay = () => {
-        if (!canSpeak()) {
-          audio.pause()
-          return
-        }
-        setIsSpeaking(true)
-        isSpeakingRef.current = true
-      }
-
-      audio.onended = () => {
-        setIsSpeaking(false)
-        isSpeakingRef.current = false
-        URL.revokeObjectURL(audioUrl)
-        ;(window as Window & { __currentChatAudio?: HTMLAudioElement }).__currentChatAudio =
-          undefined
-        if (canSpeak()) resumeRecognitionAfterAssistant()
-      }
-
-      audio.onerror = () => {
-        setIsSpeaking(false)
-        isSpeakingRef.current = false
-        URL.revokeObjectURL(audioUrl)
-        ;(window as Window & { __currentChatAudio?: HTMLAudioElement }).__currentChatAudio =
-          undefined
-        if (canSpeak()) resumeRecognitionAfterAssistant()
-      }
-
-      await audio.play()
-    } catch (error) {
-      if (!canSpeak()) return
-      console.warn('[Advisor TTS] failed:', error)
-      resumeRecognitionAfterAssistant()
-    } finally {
-      window.clearTimeout(timeoutId)
-    }
-  }
-
   const voiceSessionPhase: VoiceSessionPhase = voiceSessionActive
     ? isSpeaking
       ? 'speaking'
-      : isLoading
-        ? 'processing'
-        : 'listening'
+      : isListening
+        ? 'listening'
+        : 'processing'
     : 'off'
 
   const interruptAssistantSpeech = useCallback(() => {
     if (!isSpeakingRef.current) return
     invalidatePendingSpeech()
-    resumeRecognitionAfterAssistant()
+    if (voiceSessionActiveRef.current) setIsListening(true)
   }, [invalidatePendingSpeech])
 
   const voiceWaveformLevels = useVoiceSessionAudio(
     voiceSessionActive,
     voiceSessionPhase,
-    interruptAssistantSpeech
+    interruptAssistantSpeech,
+    voiceLocalStream
   )
 
   // Drag handlers — threshold before drag so message text stays selectable
