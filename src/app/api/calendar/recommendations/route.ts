@@ -10,6 +10,9 @@ import {
   normalizePreferences,
 } from '@/lib/calendar/preferences'
 import { normalizeWeekday } from '@/lib/calendar/weekday'
+import { getValidCalendarAccessToken } from '@/lib/calendar/connection'
+import { formatEventTime, localWeekRange } from '@/lib/calendar/google-events'
+import { listCalendarEvents } from '@/lib/google-calendar'
 
 type Recommendation = {
   id: string
@@ -66,6 +69,25 @@ export async function POST() {
     const windows = prefs.windows
     const allowedDays = [...new Set(windows.flatMap((w) => w.days))]
 
+    let existingEventsNote = '(Google Calendar not connected or could not be loaded)'
+    try {
+      const { accessToken } = await getValidCalendarAccessToken(supabase, user.id)
+      const { start, end } = localWeekRange(new Date())
+      const events = await listCalendarEvents(accessToken, {
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
+      })
+      existingEventsNote =
+        events.length === 0
+          ? '(no events on Google Calendar this week)'
+          : events
+              .slice(0, 40)
+              .map((event) => `- ${formatEventTime(event)}: ${event.title}`)
+              .join('\n')
+    } catch {
+      /* display still works without this context */
+    }
+
     if ((!tasks || tasks.length === 0) && (!habits || habits.length === 0)) {
       return NextResponse.json({
         recommendations: [],
@@ -83,6 +105,9 @@ ${(tasks || []).map((t) => `- ${t.title}${t.description ? `: ${t.description}` :
 
 HABITS (recurring; prefer daily or weekly recurrence):
 ${(habits || []).map((h) => `- ${h.title}${h.description ? `: ${h.description}` : ''}`).join('\n') || '(none)'}
+
+EXISTING GOOGLE CALENDAR EVENTS THIS WEEK (do not overlap these):
+${existingEventsNote}
 
 For each task and habit, propose ONE calendar block. Rules:
 - Assign a weekday and start_time (24h "HH:MM") that fall inside one of the allowed windows above.

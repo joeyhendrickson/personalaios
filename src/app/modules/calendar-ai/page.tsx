@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AppShell } from '@/components/layout/app-shell'
+import { GoogleCalendarAgenda } from '@/components/calendar/google-agenda'
 import {
   assignWindowId,
   createDefaultWindow,
@@ -29,6 +30,7 @@ import {
   type CalendarTimeWindow,
   type DayKey,
 } from '@/lib/calendar/preferences'
+import { localWeekRange, type GoogleCalendarEvent } from '@/lib/calendar/google-events'
 import { nextOccurrence, toWallClockDateTime } from '@/lib/calendar/weekday'
 
 type Recommendation = {
@@ -99,6 +101,10 @@ export default function LifestacksCalendarPage() {
   const [recsError, setRecsError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [weekAnchor, setWeekAnchor] = useState(() => new Date())
+  const [googleEvents, setGoogleEvents] = useState<GoogleCalendarEvent[]>([])
+  const [eventsLoading, setEventsLoading] = useState(false)
+  const [eventsError, setEventsError] = useState('')
 
   const loadStatus = useCallback(async () => {
     try {
@@ -121,10 +127,48 @@ export default function LifestacksCalendarPage() {
     }
   }, [])
 
+  const loadEvents = useCallback(
+    async (anchor: Date) => {
+      const { start, end } = localWeekRange(anchor)
+      setEventsLoading(true)
+      setEventsError('')
+      try {
+        const params = new URLSearchParams({
+          from: start.toISOString(),
+          to: end.toISOString(),
+        })
+        const res = await fetch(`/api/calendar/events?${params}`)
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          setGoogleEvents([])
+          setEventsError(json.error || 'Could not load Google Calendar events.')
+          if (json.needsReauth) await loadStatus()
+          return
+        }
+        setGoogleEvents(Array.isArray(json.events) ? json.events : [])
+      } catch {
+        setGoogleEvents([])
+        setEventsError('Could not load Google Calendar events.')
+      } finally {
+        setEventsLoading(false)
+      }
+    },
+    [loadStatus]
+  )
+
   useEffect(() => {
     void loadStatus()
     void loadPrefs()
   }, [loadStatus, loadPrefs])
+
+  useEffect(() => {
+    if (status?.connected) {
+      void loadEvents(weekAnchor)
+      return
+    }
+    setGoogleEvents([])
+    setEventsError('')
+  }, [status?.connected, weekAnchor, loadEvents])
 
   // Handle redirect back from OAuth.
   useEffect(() => {
@@ -175,6 +219,7 @@ export default function LifestacksCalendarPage() {
     if (!confirm('Disconnect Google Calendar?')) return
     await fetch('/api/calendar/disconnect', { method: 'POST' })
     setConnectMessage('')
+    setGoogleEvents([])
     await loadStatus()
   }
 
@@ -364,10 +409,12 @@ export default function LifestacksCalendarPage() {
       }
       if (addedCount > 0 && failures.length === 0) {
         setRecsMessage(`${addedCount} item${addedCount === 1 ? '' : 's'} added to Google Calendar.`)
+        void loadEvents(weekAnchor)
       } else if (addedCount > 0) {
         setRecsError(
           `${addedCount} added. ${failures.length} failed: ${failures.slice(0, 2).join(' ')}`
         )
+        void loadEvents(weekAnchor)
       } else if (failures.length > 0) {
         setRecsError(failures[0])
       }
@@ -441,7 +488,8 @@ export default function LifestacksCalendarPage() {
                   Lifestacks Calendar
                 </h1>
                 <p className="text-sm text-gray-600">
-                  Let Lifestacks recommend tasks and habits to schedule into your Google Calendar.
+                  See your Google Calendar here, then let Lifestacks schedule tasks and habits into
+                  it.
                 </p>
               </div>
             </div>
@@ -517,7 +565,8 @@ export default function LifestacksCalendarPage() {
                   </p>
                 )}
                 <p className="text-sm text-gray-600">
-                  Sign in with Google and authorize Lifestacks to add events to your calendar.
+                  Sign in with Google so Lifestacks can show your events and add new ones to your
+                  calendar.
                 </p>
                 {status.oauth?.redirect_uri && (
                   <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-950 space-y-2">
@@ -568,6 +617,31 @@ export default function LifestacksCalendarPage() {
             {connectMessage && <p className="mt-3 text-sm text-green-700">{connectMessage}</p>}
             {connectError && <p className="mt-3 text-sm text-red-600">{connectError}</p>}
           </div>
+
+          {status?.connected && (
+            <GoogleCalendarAgenda
+              weekAnchor={weekAnchor}
+              events={googleEvents}
+              loading={eventsLoading}
+              error={eventsError}
+              onPrevWeek={() =>
+                setWeekAnchor((current) => {
+                  const next = new Date(current)
+                  next.setDate(next.getDate() - 7)
+                  return next
+                })
+              }
+              onNextWeek={() =>
+                setWeekAnchor((current) => {
+                  const next = new Date(current)
+                  next.setDate(next.getDate() + 7)
+                  return next
+                })
+              }
+              onThisWeek={() => setWeekAnchor(new Date())}
+              onRefresh={() => void loadEvents(weekAnchor)}
+            />
+          )}
 
           {/* Scheduling window */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
