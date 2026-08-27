@@ -34,6 +34,7 @@ async function defaultProfile(supabase: Awaited<ReturnType<typeof createClient>>
         user_id: userId,
         typical_drink_cost: 8,
         typical_drinks_per_week: 7,
+        typical_drinks_per_outing: 2,
         typical_drink_label: 'drink',
       },
       { onConflict: 'user_id' }
@@ -112,7 +113,12 @@ export async function GET() {
     const savings = computeDrinkSavings({
       typicalDrinkCost: Number(profile?.typical_drink_cost ?? 8),
       typicalDrinksPerWeek: Number(profile?.typical_drinks_per_week ?? 7),
+      typicalDrinksPerOuting: Number(profile?.typical_drinks_per_outing ?? 2),
       soberDayCount: soberDays,
+      restaurantPlaces: (places || []).map((place) => ({
+        visit_count: Number(place.visit_count ?? 0),
+        counts_as_sober_outing: Boolean(place.counts_as_sober_outing),
+      })),
     })
     const todaysLog = dailyLogs.find((l) => l.log_date === today) || null
     const drinkLogs = dailyLogs.filter((l) => l.drank)
