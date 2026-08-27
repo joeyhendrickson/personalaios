@@ -1776,9 +1776,6 @@ export default function Dashboard() {
           <Leaderboard currentUserId={user?.id} />
         </div>
 
-        {/* Vision statement (from Dream Catcher; editable & AI-updatable) */}
-        <VisionSection />
-
         {/* Main Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {/* Daily Points Chart */}
@@ -2074,6 +2071,9 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Vision statement (from Dream Catcher; editable & AI-updatable) */}
+        <VisionSection />
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Main Content - Left Column */}
