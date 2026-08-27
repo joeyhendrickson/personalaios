@@ -137,7 +137,7 @@ export function AppShell({
             alt="LifeStacks"
             width={40}
             height={40}
-            className="h-10 w-10 rounded-lg bg-black/40 object-contain p-1"
+            className="h-10 w-10 rounded-lg bg-black/40 object-contain p-1 invert"
           />
           <span className="text-lg font-semibold tracking-tight">LifeStacks</span>
         </Link>
@@ -295,7 +295,7 @@ export function AppShell({
             alt=""
             width={32}
             height={32}
-            className="h-8 w-8 rounded object-contain"
+            className="h-8 w-8 rounded object-contain invert"
           />
           <span className="font-semibold">LifeStacks</span>
         </Link>
@@ -303,9 +303,9 @@ export function AppShell({
           type="button"
           aria-label="Open menu"
           onClick={() => setMobileOpen(true)}
-          className="rounded-md p-2 hover:bg-white/10"
+          className="rounded-md p-2 text-white hover:bg-white/10"
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-5 w-5 text-white" stroke="currentColor" />
         </button>
       </div>
 
@@ -322,9 +322,9 @@ export function AppShell({
               type="button"
               aria-label="Close menu"
               onClick={() => setMobileOpen(false)}
-              className="absolute right-3 top-3 z-10 rounded-md p-1 text-white/70 hover:bg-white/10"
+              className="absolute right-3 top-3 z-10 rounded-md p-1 text-white hover:bg-white/10"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5 text-white" stroke="currentColor" />
             </button>
             {sidebar}
           </div>
