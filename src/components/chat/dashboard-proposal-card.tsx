@@ -1,11 +1,7 @@
 'use client'
 
-import { GraduationCap, LayoutList, Repeat, Target, CheckSquare } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import {
-  buildProposalDisplayModel,
-  type DashboardSectionKey,
-} from '@/lib/assistant/proposal-display'
+import { Check, X } from 'lucide-react'
+import { buildProposalDisplayModel } from '@/lib/assistant/proposal-display'
 import type { ActionProposalRow } from '@/lib/assistant/proposal-schemas'
 
 export type DashboardProposalCardData = {
@@ -20,18 +16,6 @@ type DashboardProposalCardProps = {
   disabled?: boolean
   onConfirm: (id: string) => void
   onSkip: (id: string) => void
-}
-
-const SECTION_STYLES: Record<
-  DashboardSectionKey | 'completion',
-  { badge: string; icon: typeof Target }
-> = {
-  goals: { badge: 'bg-amber-100 text-amber-900 border-amber-200', icon: Target },
-  projects: { badge: 'bg-sky-100 text-sky-800 border-sky-200', icon: LayoutList },
-  tasks: { badge: 'bg-sky-50 text-sky-700 border-sky-200', icon: CheckSquare },
-  habits: { badge: 'bg-amber-50 text-amber-800 border-amber-200', icon: Repeat },
-  education: { badge: 'bg-amber-100 text-amber-900 border-amber-200', icon: GraduationCap },
-  completion: { badge: 'bg-sky-100 text-sky-800 border-sky-200', icon: CheckSquare },
 }
 
 function payloadFromPreview(
@@ -52,64 +36,37 @@ export function DashboardProposalCard({
 }: DashboardProposalCardProps) {
   const payload = payloadFromPreview(proposal.action_type, proposal.preview, proposal.payload)
   const model = buildProposalDisplayModel(proposal.action_type, payload)
-  const styleKey = model.isCompletion ? 'completion' : model.sectionKey
-  const Icon = SECTION_STYLES[styleKey].icon
+  const label = model.isCompletion
+    ? `Mark complete: ${model.headline}`
+    : `Add to ${model.sectionTitle}: ${model.headline}`
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div
-          className={`flex-shrink-0 rounded-lg border p-2 ${SECTION_STYLES[styleKey].badge}`}
-          aria-hidden
-        >
-          <Icon className="h-4 w-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            <span
-              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${SECTION_STYLES[styleKey].badge}`}
-            >
-              {model.sectionTitle} section
-            </span>
-          </div>
-          <p className="text-xs text-gray-600 mb-2">{model.sectionHint}</p>
-          <h4 className="text-sm font-semibold text-gray-900">{model.headline}</h4>
-          {model.details.length > 0 && (
-            <dl className="mt-2 space-y-1.5">
-              {model.details.map((row) => (
-                <div key={row.label} className="text-sm">
-                  <dt className="inline font-medium text-gray-700 after:content-[':_']">
-                    {row.label}
-                  </dt>
-                  <dd className="inline text-gray-600 whitespace-pre-wrap">{row.value}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          {!model.details.length && proposal.preview && (
-            <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{proposal.preview}</p>
-          )}
-        </div>
+    <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1.5">
+      <button
+        type="button"
+        disabled={disabled}
+        aria-label={label}
+        title={label}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black bg-black text-white hover:bg-gray-800 disabled:opacity-50"
+        onClick={() => onConfirm(proposal.id)}
+      >
+        <Check className="h-4 w-4" strokeWidth={3} />
+      </button>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-gray-900">{model.headline}</p>
+        <p className="truncate text-xs text-gray-500">
+          {model.isCompletion ? 'Mark complete' : `Add to ${model.sectionTitle}`}
+        </p>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          disabled={disabled}
-          className="touch-manipulation"
-          onClick={() => onConfirm(proposal.id)}
-        >
-          {model.confirmLabel}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={disabled}
-          className="touch-manipulation"
-          onClick={() => onSkip(proposal.id)}
-        >
-          Skip
-        </Button>
-      </div>
+      <button
+        type="button"
+        disabled={disabled}
+        aria-label="Dismiss"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+        onClick={() => onSkip(proposal.id)}
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   )
 }

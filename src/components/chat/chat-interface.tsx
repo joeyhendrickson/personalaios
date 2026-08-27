@@ -19,8 +19,8 @@ import {
 } from '@/lib/voice/realtime-client'
 import { detectDashboardIntent } from '@/lib/assistant/detect-dashboard-intent'
 import { detectCompletionIntent } from '@/lib/assistant/detect-completion-intent'
+import { advisorOfferedDashboardAdd } from '@/lib/assistant/detect-advisor-proposal-promise'
 import { DashboardProposalCard } from '@/components/chat/dashboard-proposal-card'
-import { buildProposalDisplayModel } from '@/lib/assistant/proposal-display'
 import {
   pauseWakeWordListener,
   resumeWakeWordListener,
@@ -32,7 +32,6 @@ import type { AdvisorEvidence } from '@/types/advisor-evidence'
 import {
   Send,
   Plus,
-  LayoutDashboard,
   Calendar,
   Clock,
   Heart,
@@ -87,8 +86,8 @@ const WELCOME_MESSAGE: ChatMessage = {
 
 • Plan your day and prioritize tasks based on your goals
 • Analyze your progress and suggest improvements
-• Turn a conversation into linked goals, projects, tasks, and habits — discuss what you want, then tap Add to Dashboard to generate proposal cards for each section. Nothing is saved until you confirm each card.
-• Mark tasks or habits complete — say "I finished [name]" and confirm the completion card.
+• Turn a conversation into linked goals, projects, tasks, and habits — I'll ask in chat when something is ready to add. Tap the checkmark to save it. Nothing is saved until you tap the checkmark.
+• Mark tasks or habits complete — say "I finished [name]" and tap the checkmark.
 • Focus on specific areas like "Good Living" or "Enjoyment"
 • Track your habits, education, and priorities
 • Provide personalized advice based on your data
@@ -175,6 +174,11 @@ export function ChatInterface({
   const startListeningRef = useRef<() => void>(() => {})
   const startVoiceSessionRef = useRef<() => Promise<void>>(async () => {})
   const submitMessageRef = useRef<(text: string) => Promise<void>>(async () => {})
+  const proposingRef = useRef(false)
+  const messagesRef = useRef<ChatMessage[]>([])
+  const generateDashboardPlanFromChatRef = useRef<
+    (conversationOverride?: ChatMessage[], options?: { silent?: boolean }) => Promise<void>
+  >(async () => {})
 
   useEffect(() => {
     if (!isExpanded) return
@@ -279,6 +283,7 @@ export function ChatInterface({
     }
   }, [])
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE])
+  messagesRef.current = messages
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [savedSessions, setSavedSessions] = useState<SavedChatSession[]>([])
   const [showSessions, setShowSessions] = useState(false)
@@ -818,17 +823,30 @@ export function ChatInterface({
     }
   }
 
-  const generateDashboardPlanFromChat = async (conversationOverride?: ChatMessage[]) => {
-    const source = conversationOverride ?? messages
+  const generateDashboardPlanFromChat = async (
+    conversationOverride?: ChatMessage[],
+    options?: { silent?: boolean }
+  ) => {
+    if (proposingRef.current) return
+    const source = conversationOverride ?? messagesRef.current
     const chatMessages = source
       .filter((m) => m.id !== 'welcome')
       .map((m) => ({ role: m.role, content: m.content }))
     if (chatMessages.filter((m) => m.role === 'user').length === 0) {
-      alert('Have a short conversation about your goals first, then tap Add to dashboard.')
+      if (options?.silent) return
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: 'Tell me what you want on your dashboard first, then I can add a checkmark.',
+        },
+      ])
       return
     }
 
-    setIsLoading(true)
+    proposingRef.current = true
+    if (!options?.silent) setIsLoading(true)
     try {
       const r = await fetch('/api/assistant/actions/propose', {
         method: 'POST',
@@ -838,32 +856,23 @@ export function ChatInterface({
       })
       const payload = await r.json()
       if (r.ok) {
-        setDashboardPlan({
-          planGroupId: payload.planGroupId,
-          summary: payload.summary,
-          proposals: (payload.proposals as DashboardProposal[]) || [],
+        const incoming = (payload.proposals as DashboardProposal[]) || []
+        setDashboardPlan((prev) => {
+          if (!prev) {
+            return {
+              planGroupId: payload.planGroupId,
+              summary: payload.summary,
+              proposals: incoming,
+            }
+          }
+          const seen = new Set(prev.proposals.map((p) => p.id))
+          return {
+            ...prev,
+            summary: payload.summary || prev.summary,
+            proposals: [...prev.proposals, ...incoming.filter((p) => !seen.has(p.id))],
+          }
         })
-        const proposalList = (payload.proposals as DashboardProposal[]) || []
-        const sectionCounts = proposalList.reduce(
-          (acc, p) => {
-            const key = buildProposalDisplayModel(p.action_type, p.payload || {}).sectionTitle
-            acc[key] = (acc[key] || 0) + 1
-            return acc
-          },
-          {} as Record<string, number>
-        )
-        const sectionSummary = Object.entries(sectionCounts)
-          .map(([section, count]) => `${count} ${section}`)
-          .join(', ')
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            role: 'assistant',
-            content: `${payload.summary}\n\nProposal cards are ready (${sectionSummary}). Review each card below — it shows the dashboard section and exactly what will be added. Tap the button on each card to add it, or use Confirm all. Nothing is saved until you confirm.`,
-          },
-        ])
-      } else {
+      } else if (!options?.silent) {
         setMessages((prev) => [
           ...prev,
           {
@@ -874,9 +883,11 @@ export function ChatInterface({
         ])
       }
     } finally {
-      setIsLoading(false)
+      proposingRef.current = false
+      if (!options?.silent) setIsLoading(false)
     }
   }
+  generateDashboardPlanFromChatRef.current = generateDashboardPlanFromChat
 
   const quickActions = [
     {
@@ -964,7 +975,7 @@ export function ChatInterface({
           {
             id: (Date.now() + 1).toString(),
             role: 'assistant',
-            content: 'Okay — I dismissed those action cards.',
+            content: 'Okay — I dismissed those.',
           },
         ])
         return
@@ -1010,15 +1021,14 @@ export function ChatInterface({
       }
 
       if (intent?.type === 'propose_plan') {
-        const nextMessages = [...messages, userMessage]
+        const nextMessages = [...baseHistory, userMessage]
         setMessages(nextMessages)
         setInput('')
-        await generateDashboardPlanFromChat(nextMessages)
-        return
+        void generateDashboardPlanFromChat(nextMessages, { silent: true })
+      } else {
+        setMessages((prev) => [...prev, userMessage])
+        setInput('')
       }
-
-      setMessages((prev) => [...prev, userMessage])
-      setInput('')
     }
 
     if (
@@ -1172,7 +1182,7 @@ export function ChatInterface({
             id: (Date.now() + 2).toString(),
             role: 'assistant',
             content:
-              'I found possible matches — tap Confirm on the card below to mark it complete. Nothing changes until you confirm.',
+              'I found possible matches — tap the checkmark to mark it complete. Nothing changes until you confirm.',
           },
         ])
       } else if (completionResult.note) {
@@ -1184,6 +1194,18 @@ export function ChatInterface({
             content: completionResult.note!,
           },
         ])
+      }
+
+      if (advisorOfferedDashboardAdd(finalContent)) {
+        const conversation: ChatMessage[] = [
+          ...apiMessages,
+          {
+            id: assistantMessageId || Date.now().toString(),
+            role: 'assistant',
+            content: finalContent,
+          },
+        ]
+        await generateDashboardPlanFromChat(conversation, { silent: true })
       }
     } catch (error) {
       console.error('Error sending message:', error)
@@ -1309,12 +1331,22 @@ export function ChatInterface({
             return
           }
           setInput('')
-          setMessages((prev) => {
-            const last = prev[prev.length - 1]
-            if (last?.role === 'user' && last.content === text) return prev
-            return [...prev, { id: `rt-u-${Date.now()}`, role: 'user', content: text }]
-          })
+          const nextMessages = [...messagesRef.current]
+          const last = nextMessages[nextMessages.length - 1]
+          if (!(last?.role === 'user' && last.content === text)) {
+            nextMessages.push({ id: `rt-u-${Date.now()}`, role: 'user', content: text })
+          }
+          messagesRef.current = nextMessages
+          setMessages(nextMessages)
           void proposeCompletionFromMessage(text)
+          const intent = detectDashboardIntent(text, {
+            hasDashboardPlan: Boolean(dashboardPlan),
+            hasGoalProposals: goalProposals.length > 0,
+            hasPendingActions: pendingActionProposals.length > 0,
+          })
+          if (intent?.type === 'propose_plan') {
+            void generateDashboardPlanFromChatRef.current(nextMessages, { silent: true })
+          }
         },
         onAssistantTranscript: (text, final) => {
           if (!final) {
@@ -1344,6 +1376,15 @@ export function ChatInterface({
               ...prev,
               { id: `rt-a-${Date.now()}`, role: 'assistant', content: text },
             ])
+          }
+          if (text && advisorOfferedDashboardAdd(text)) {
+            const prev = messagesRef.current
+            const conversation = messageId
+              ? prev.map((msg) =>
+                  msg.id === messageId ? { ...msg, content: text || msg.content } : msg
+                )
+              : [...prev, { id: `rt-a-${Date.now()}`, role: 'assistant' as const, content: text }]
+            void generateDashboardPlanFromChatRef.current(conversation, { silent: true })
           }
         },
         onError: (message) => {
@@ -1846,7 +1887,7 @@ export function ChatInterface({
             )}
 
             {onboardingActive && goalProposals.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {goalProposals.map((p) => (
                   <DashboardProposalCard
                     key={p.id}
@@ -1864,97 +1905,43 @@ export function ChatInterface({
               </div>
             )}
 
-            {pendingActionProposals.length > 0 && (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-4 space-y-3">
-                <div className="text-sm font-medium text-emerald-950">Confirm completion</div>
-                <p className="text-sm text-emerald-900">
-                  Each card shows which dashboard section will be updated. Nothing changes until you
-                  confirm.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    disabled={isLoading}
-                    className="touch-manipulation"
-                    onClick={() => void commitAllPendingActions()}
-                  >
-                    Confirm all
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isLoading}
-                    onClick={() => setPendingActionProposals([])}
-                  >
-                    Dismiss
-                  </Button>
-                </div>
-                {pendingActionProposals.map((p) => (
-                  <DashboardProposalCard
-                    key={p.id}
-                    proposal={p}
-                    disabled={isLoading}
-                    onConfirm={(id) => void commitProposalById(id)}
-                    onSkip={(id) =>
-                      setPendingActionProposals((prev) => prev.filter((x) => x.id !== id))
-                    }
-                  />
-                ))}
-              </div>
-            )}
-
-            {dashboardPlan && dashboardPlan.proposals.length > 0 && (
-              <div className="rounded-lg border border-primary/30 bg-primary/10 p-4 space-y-3">
-                <div className="text-sm font-medium text-foreground">Dashboard proposals</div>
-                <p className="text-sm text-foreground/90 whitespace-pre-wrap">
-                  {dashboardPlan.summary}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Each card lists the dashboard section (Goals, Projects, Tasks, Habits, or
-                  Education) and the fields that will be added. Nothing is saved until you confirm.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    disabled={isLoading}
-                    className="touch-manipulation"
-                    onClick={() => void commitFullDashboardPlan()}
-                  >
-                    Confirm all
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isLoading}
-                    onClick={() => setDashboardPlan(null)}
-                  >
-                    Dismiss plan
-                  </Button>
-                </div>
-                {dashboardPlan.proposals.map((p) => (
-                  <DashboardProposalCard
-                    key={p.id}
-                    proposal={p}
-                    disabled={isLoading}
-                    onConfirm={(id) => void commitProposalById(id)}
-                    onSkip={(id) =>
-                      setDashboardPlan((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              proposals: prev.proposals.filter((x) => x.id !== id),
-                            }
-                          : null
-                      )
-                    }
-                  />
-                ))}
-              </div>
-            )}
-
             {messages.map((message) => (
               <div key={message.id}>{formatMessage(message)}</div>
             ))}
+
+            {(pendingActionProposals.length > 0 ||
+              (dashboardPlan && dashboardPlan.proposals.length > 0)) && (
+              <div className="mb-4 flex justify-start">
+                <div className="w-full max-w-[85%] space-y-2">
+                  {pendingActionProposals.map((p) => (
+                    <DashboardProposalCard
+                      key={p.id}
+                      proposal={p}
+                      disabled={isLoading}
+                      onConfirm={(id) => void commitProposalById(id)}
+                      onSkip={(id) =>
+                        setPendingActionProposals((prev) => prev.filter((x) => x.id !== id))
+                      }
+                    />
+                  ))}
+                  {dashboardPlan?.proposals.map((p) => (
+                    <DashboardProposalCard
+                      key={p.id}
+                      proposal={p}
+                      disabled={isLoading}
+                      onConfirm={(id) => void commitProposalById(id)}
+                      onSkip={(id) =>
+                        setDashboardPlan((prev) => {
+                          if (!prev) return null
+                          const proposals = prev.proposals.filter((x) => x.id !== id)
+                          return proposals.length === 0 ? null : { ...prev, proposals }
+                        })
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {isLoading && (
               <div className="flex justify-start mb-4">
@@ -1972,25 +1959,6 @@ export function ChatInterface({
 
           {/* Quick Actions */}
           <div className="p-6 border-t bg-gray-50">
-            {!onboardingActive && (
-              <div className="mb-3">
-                <Button
-                  type="button"
-                  variant="default"
-                  disabled={isLoading || messages.filter((m) => m.role === 'user').length === 0}
-                  className="w-full h-11 touch-manipulation bg-primary text-primary-foreground hover:bg-primary/90"
-                  onClick={() => void generateDashboardPlanFromChat()}
-                >
-                  <LayoutDashboard className="mr-2 h-4 w-4" />
-                  Add to Dashboard
-                </Button>
-                <p className="mt-1.5 text-xs text-gray-600 text-center">
-                  Build proposal cards from this conversation — Goals, Projects, Tasks, Habits, or
-                  Education. Review each card before anything is saved.
-                </p>
-              </div>
-            )}
-
             {/* Voice session */}
             <div className="mb-3">
               <VoiceSessionControl

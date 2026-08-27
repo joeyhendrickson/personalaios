@@ -18,7 +18,7 @@ const translations = {
   en: {
     // Dashboard
     'nav.dashboard': 'Dashboard',
-    'nav.home': 'Home',
+    'nav.home': 'Dashboard',
     'nav.modules': 'Stacks',
     'nav.calendar': 'Calendar',
     'nav.tasks': 'Today',
@@ -34,6 +34,7 @@ const translations = {
     'shell.tagline': "Let's build your best life.",
     'shell.quote': 'Life is short. Build the life you actually want to live.',
     'glance.title': 'Today at a Glance',
+    'dashboard.myDashboard': 'My Dashboard',
     'glance.todaysPlan': "Today's Plan",
     'glance.health': 'Health',
     'glance.financial': 'Financial Overview',
@@ -445,7 +446,7 @@ const translations = {
   es: {
     // Dashboard
     'nav.dashboard': 'Panel',
-    'nav.home': 'Inicio',
+    'nav.home': 'Panel',
     'nav.modules': 'Stacks',
     'nav.calendar': 'Calendario',
     'nav.tasks': 'Hoy',
@@ -461,6 +462,7 @@ const translations = {
     'shell.tagline': 'Construyamos la vida que quieres.',
     'shell.quote': 'La vida es corta. Construye la vida que realmente quieres vivir.',
     'glance.title': 'Hoy de un vistazo',
+    'dashboard.myDashboard': 'Mi panel',
     'glance.todaysPlan': 'Plan de hoy',
     'glance.health': 'Salud',
     'glance.financial': 'Resumen financiero',
