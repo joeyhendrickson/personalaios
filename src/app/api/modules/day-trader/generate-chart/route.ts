@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const { stockSymbol, patternName, patternDescription, chartLocation, keyLevels, timeframe } =
       validatedData
 
-    // Generate a custom SVG chart instead of using DALL-E
+    // Generate a custom SVG chart (not an OpenAI image)
     const svgChart = generateTradingChartSVG({
       stockSymbol,
       patternName,

@@ -117,7 +117,7 @@ Write JSON only:
   },
   "narrativeSummary": "1-2 paragraph executive summary tying profile, focus, and SWOT into an encouraging forward-looking close.",
   "highlightsBullets": ["5-8 short win bullets"],
-  "coverArtPrompt": "DALL-E prompt (max 900 chars): elegant magazine cover, abstract growth motifs, cohesive palette, NO text in image",
+  "coverArtPrompt": "gpt-image-2 prompt (max 900 chars): elegant magazine cover, abstract growth motifs, cohesive palette, NO text in image",
   "moduleHighlights": [{ "moduleId", "moduleLabel", "usageCount", "conclusions": ["refined takeaways"] }]
 }
 

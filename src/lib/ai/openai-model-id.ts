@@ -3,7 +3,7 @@
  * `gpt-5.6-luna`. Override with env **`OPENAI_MODEL`**.
  *
  * Spoken chat (mic / TTS) uses **`gpt-realtime-2.1`**.
- * Progress-report covers use **`gpt-image-2`**.
+ * All image generation and edits use **`gpt-image-2`**.
  * Embeddings stay on the embedding models.
  *
  * If the API returns **`model_not_found`**, this key is tied to your OpenAI **Project** (the id in the
