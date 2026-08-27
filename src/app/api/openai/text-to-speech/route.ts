@@ -1,126 +1,85 @@
 import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import { createClient } from '@/lib/supabase/server'
 import { env } from '@/lib/env'
+import { logAIUsage } from '@/lib/ai/usage-logger'
+import { resolveOpenAIRealtimeModelId } from '@/lib/ai/openai-model-id'
+import { synthesizeSpeechWithRealtime } from '@/lib/voice/realtime-tts'
+
+export const maxDuration = 60
 
 export async function POST(request: NextRequest) {
+  const started = Date.now()
+  const apiKey = env.OPENAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim()
+
+  if (!apiKey) {
+    console.error('OpenAI API key is not configured')
+    return NextResponse.json({ error: 'OpenAI API key is not configured' }, { status: 500 })
+  }
+
+  let userId: string | null = null
   try {
-    // Get API key from environment (use env object for consistency)
-    const apiKey = env.OPENAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim()
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    userId = user?.id ?? null
+  } catch {
+    /* speech can still run with the server API key */
+  }
 
-    if (!apiKey) {
-      console.error('OpenAI API key is not configured')
-      return NextResponse.json({ error: 'OpenAI API key is not configured' }, { status: 500 })
-    }
-
+  try {
     const body = await request.json()
-    const { text, voice = 'alloy', prompt } = body
+    const { text, voice = 'marin' } = body as { text?: unknown; voice?: string }
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'Text is required and must be a string' }, { status: 400 })
     }
 
-    // Validate voice option (OpenAI TTS supports: alloy, echo, fable, onyx, nova, shimmer)
-    const validVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']
-    const selectedVoice = validVoices.includes(voice) ? voice : 'alloy'
-
-    // Optional prompt for advanced speech control (accent, emotional range, intonation, impressions, speed, tone, whispering)
-    // Example: "Speak with a warm, enthusiastic tone at a moderate pace"
-    const speechPrompt = prompt && typeof prompt === 'string' ? prompt : undefined
-
-    // Initialize OpenAI client
-    const openai = new OpenAI({
-      apiKey: apiKey,
+    const wav = await synthesizeSpeechWithRealtime({
+      text,
+      voice: typeof voice === 'string' ? voice : 'marin',
+      userId: userId ?? undefined,
     })
 
-    console.log('Calling OpenAI TTS API:', {
-      voice: selectedVoice,
-      textLength: text.length,
-      hasApiKey: !!apiKey,
-      hasPrompt: !!speechPrompt,
+    await logAIUsage({
+      userId,
+      module: 'chat',
+      action: 'realtime_tts',
+      route: '/api/openai/text-to-speech',
+      model: resolveOpenAIRealtimeModelId(),
+      provider: 'openai',
+      latencyMs: Date.now() - started,
+      description: 'Realtime text-to-speech',
     })
 
-    // Call OpenAI TTS API
-    // Try gpt-4o-mini-tts first, fallback to tts-1 if not available
-    const speechOptions: any = {
-      model: 'gpt-4o-mini-tts',
-      voice: selectedVoice as any,
-      input: text,
-    }
-
-    // Add prompt for advanced speech control if provided
-    if (speechPrompt) {
-      speechOptions.prompt = speechPrompt
-    }
-
-    let mp3
-    try {
-      mp3 = await openai.audio.speech.create(speechOptions)
-    } catch (error: any) {
-      // If gpt-4o-mini-tts is not available, try tts-1 as fallback
-      if (error?.status === 403 || error?.message?.includes('does not have access to model')) {
-        console.log('gpt-4o-mini-tts not available, trying tts-1 fallback')
-        speechOptions.model = 'tts-1'
-        // Remove prompt if using tts-1 (not supported)
-        delete speechOptions.prompt
-        mp3 = await openai.audio.speech.create(speechOptions)
-      } else {
-        throw error
-      }
-    }
-
-    // Convert the response to a buffer
-    const buffer = Buffer.from(await mp3.arrayBuffer())
-
-    // Return the audio as a response
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(wav), {
       headers: {
-        'Content-Type': 'audio/mpeg',
-        'Content-Disposition': 'inline; filename="speech.mp3"',
+        'Content-Type': 'audio/wav',
+        'Content-Disposition': 'inline; filename="speech.wav"',
       },
     })
-  } catch (error: any) {
-    // Enhanced error logging
-    const apiKey = env.OPENAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim()
-    const errorDetails: any = {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      hasApiKey: !!apiKey,
-      apiKeyLength: apiKey?.length || 0,
-    }
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Error in OpenAI Realtime TTS:', errorMessage)
 
-    // Handle OpenAI API errors specifically
-    if (error?.status) {
-      errorDetails.openaiStatus = error.status
-      errorDetails.openaiStatusText = error.statusText
-      errorDetails.openaiError = error.error
-      errorDetails.openaiMessage = error.message
-    }
-
-    // Handle OpenAI SDK errors
-    if (error?.response) {
-      errorDetails.openaiResponse = {
-        status: error.response.status,
-        statusText: error.response.statusText,
-        data: error.response.data,
-      }
-    }
-
-    console.error('Error in OpenAI TTS API:', errorDetails)
-
-    // Return more specific error information
-    const errorMessage =
-      error?.message ||
-      error?.error?.message ||
-      (error instanceof Error ? error.message : 'Unknown error')
-    const statusCode = error?.status || error?.response?.status || 500
+    await logAIUsage({
+      userId,
+      module: 'chat',
+      action: 'realtime_tts',
+      route: '/api/openai/text-to-speech',
+      model: resolveOpenAIRealtimeModelId(),
+      provider: 'openai',
+      status: 'error',
+      latencyMs: Date.now() - started,
+      error: errorMessage,
+    })
 
     return NextResponse.json(
       {
         error: 'Failed to generate speech',
         details: errorMessage,
-        ...(process.env.NODE_ENV === 'development' && { debug: errorDetails }),
       },
-      { status: statusCode >= 400 && statusCode < 600 ? statusCode : 500 }
+      { status: 500 }
     )
   }
 }

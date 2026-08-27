@@ -3,12 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 import { env } from '@/lib/env'
 import OpenAI from 'openai'
 import { toOpenAiImageFile } from '@/lib/fitness/prepare-image-for-openai'
+import { resolveOpenAIImageModelId } from '@/lib/ai/openai-model-id'
 
 // Image generation can take a while; allow a generous timeout.
 export const runtime = 'nodejs'
 export const maxDuration = 300
-
-const IMAGE_MODEL = 'gpt-image-1.5'
 const BUCKET = 'body-photos'
 const ALLOWED_TIMEFRAMES = [3, 6, 9, 12]
 
@@ -288,9 +287,10 @@ Keep it natural and realistic for the timeframe (no exaggerated or cartoonish bo
 
     let b64: string | undefined
     let lastEditError: string | null = null
+    const imageModel = resolveOpenAIImageModelId()
     try {
       const result = await openai.images.edit({
-        model: IMAGE_MODEL,
+        model: imageModel,
         image: referenceFile,
         prompt,
         size: '1024x1536',
@@ -313,7 +313,7 @@ Keep it natural and realistic for the timeframe (no exaggerated or cartoonish bo
           if (!raw) continue
           const altFile = await toOpenAiImageFile(raw, `reference-${p.id}.png`)
           const result = await openai.images.edit({
-            model: IMAGE_MODEL,
+            model: imageModel,
             image: altFile,
             prompt,
             size: '1024x1536',

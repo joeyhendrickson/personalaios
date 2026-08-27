@@ -257,7 +257,7 @@ export default function AiUsageReceiptPage() {
               <Label htmlFor="mdl">Model</Label>
               <Input
                 id="mdl"
-                placeholder="e.g. gpt-5-mini"
+                placeholder="e.g. gpt-5.6-luna"
                 value={model}
                 onChange={(e) => {
                   setOffset(0)

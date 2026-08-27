@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { generateText } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { env } from '@/lib/env'
-import { resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
+import { resolveOpenAIFallbackModelId, resolveOpenAIModelId } from '@/lib/ai/openai-model-id'
 import {
   getIntakeCap,
   getIntakeQuestionContext,
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Dream Catcher AI model is unavailable',
-          details: `Set OPENAI_MODEL in your environment to a model your API key can use (e.g. gpt-4o-mini). Current model: ${resolveOpenAIModelId()}`,
+          details: `Set OPENAI_MODEL in your environment to a model your API key can use (e.g. gpt-5.6-luna). Current model: ${resolveOpenAIModelId()}`,
         },
         { status: 500 }
       )
@@ -275,7 +275,7 @@ RESPONSE FORMAT (JSON only):
   // Use AI to generate response (with fallback model if primary is unavailable)
   let aiResponse: string
   const primaryModel = resolveOpenAIModelId()
-  const fallbackModel = 'gpt-4o-mini'
+  const fallbackModel = resolveOpenAIFallbackModelId()
 
   async function callModel(modelId: string) {
     const result = await generateText({
