@@ -170,7 +170,7 @@ export default function ActiveProjectsWidget({ goals }: ActiveProjectsWidgetProp
               <p className="text-sm text-gray-500 mt-2">Analyzing your projects...</p>
             </div>
           ) : strategicRecommendation ? (
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border border-blue-200">
+            <div className="bg-gradient-to-r from-[hsl(var(--brand-gold-50))] to-[hsl(var(--brand-gold-100))] rounded-lg p-4 border border-blue-200">
               <div className="flex items-start space-x-3">
                 <div className="bg-blue-400 rounded-full p-2 flex-shrink-0">
                   <TrendingUp className="h-4 w-4 text-white" />

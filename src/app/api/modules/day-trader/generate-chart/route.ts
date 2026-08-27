@@ -116,7 +116,7 @@ function generateTradingChartSVG({
     .map((level) => {
       const price = parseFloat(level.replace('$', ''))
       const y = yScale(price)
-      return `<line x1="${margin.left}" y1="${y}" x2="${width - margin.right}" y2="${y}" stroke="#6366f1" stroke-width="2" stroke-dasharray="5,5" opacity="0.7"/>`
+      return `<line x1="${margin.left}" y1="${y}" x2="${width - margin.right}" y2="${y}" stroke="#C4A035" stroke-width="2" stroke-dasharray="5,5" opacity="0.7"/>`
     })
     .join('')
 

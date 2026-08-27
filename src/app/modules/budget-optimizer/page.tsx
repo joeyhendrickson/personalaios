@@ -2936,7 +2936,7 @@ export default function BudgetOptimizerModule() {
           <div className="space-y-6">
             {/* Summary Section */}
             {(connections.length > 0 || manualAccounts.length > 0) && (
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200 p-6">
+              <div className="bg-gradient-to-r from-[hsl(var(--brand-gold-50))] to-[hsl(var(--brand-gold-100))] rounded-lg border border-blue-200 p-6">
                 <h2 className="text-xl font-semibold mb-4 flex items-center">
                   <BarChart3 className="h-5 w-5 mr-2" />
                   Summary
@@ -3863,7 +3863,7 @@ export default function BudgetOptimizerModule() {
             {/* Net Income Summary */}
             {expectedIncome.filter((inc) => inc.is_active).length > 0 &&
               expectedExpenses.filter((exp) => exp.is_active).length > 0 && (
-                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200 p-6">
+                <div className="bg-gradient-to-r from-[hsl(var(--brand-gold-50))] to-[hsl(var(--brand-gold-100))] rounded-lg border border-blue-200 p-6">
                   <h2 className="text-xl font-semibold mb-4">Budget Summary</h2>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-white rounded-lg p-4 border border-gray-200">
@@ -3893,7 +3893,7 @@ export default function BudgetOptimizerModule() {
               )}
 
             {/* Growth and Improvement Section */}
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200 p-6">
+            <div className="bg-gradient-to-r from-[hsl(var(--brand-gold-50))] to-[hsl(var(--brand-gold-100))] rounded-lg border border-[hsl(var(--brand-gold-200))] p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold flex items-center">
                   <Target className="h-5 w-5 mr-2 text-purple-600" />

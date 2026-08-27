@@ -517,7 +517,7 @@ export default function RelationshipManagerPage() {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                      <div className="w-12 h-12 bg-gold rounded-full flex items-center justify-center text-gold-foreground font-bold text-lg">
                         {relationship.name.charAt(0).toUpperCase()}
                       </div>
                       <div>

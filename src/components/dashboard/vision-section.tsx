@@ -100,7 +100,7 @@ export function VisionSection() {
 
   if (loading) {
     return (
-      <div className="vision-section mb-8 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 p-5">
+      <div className="vision-section mb-8 rounded-xl border border-[hsl(var(--brand-gold-200))] bg-gradient-to-r from-[hsl(var(--brand-gold-50))] to-[hsl(var(--brand-gold-100))] p-5">
         <div className="vision-section-muted flex items-center text-sm">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           Loading your vision...
@@ -112,11 +112,11 @@ export function VisionSection() {
   const hasVision = !!data && data.vision_statement.trim().length > 0
 
   return (
-    <div className="vision-section mb-8 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 p-5 shadow-sm">
+    <div className="vision-section mb-8 rounded-xl border border-[hsl(var(--brand-gold-200))] bg-gradient-to-r from-[hsl(var(--brand-gold-50))] via-white to-[hsl(var(--brand-gold-100))] p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-2">
           <div className="vision-section-icon-wrap rounded-lg bg-white/70 p-2">
-            <Eye className="vision-section-icon h-5 w-5 text-purple-600" />
+            <Eye className="vision-section-icon h-5 w-5 text-gold" />
           </div>
           <div>
             <h2 className="vision-section-title text-base font-bold text-gray-900">My Vision</h2>
@@ -128,7 +128,7 @@ export function VisionSection() {
         {!isEditing && (
           <button
             onClick={startEdit}
-            className="vision-edit-btn inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-purple-700 transition-colors hover:text-purple-900"
+            className="vision-edit-btn inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-gold transition-colors hover:text-[hsl(var(--brand-gold-700))]"
           >
             <Pencil className="h-4 w-4" />
             <span className="hidden sm:inline">Edit</span>
@@ -176,14 +176,14 @@ export function VisionSection() {
             rows={4}
             maxLength={2000}
             placeholder="Describe the life and future you're working toward, in your own words..."
-            className="vision-textarea w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-purple-500"
+            className="vision-textarea w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-[hsl(var(--primary))]"
             autoFocus
           />
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               onClick={save}
               disabled={saving || draft.trim().length === 0}
-              className="vision-primary-btn inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
+              className="vision-primary-btn inline-flex items-center gap-1.5 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-gold-foreground transition-colors hover:bg-[hsl(var(--brand-gold-700))] disabled:opacity-50"
             >
               {saving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -204,7 +204,7 @@ export function VisionSection() {
               <button
                 onClick={suggest}
                 disabled={suggesting}
-                className="vision-text-btn inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-purple-700 transition-colors hover:bg-white/60 disabled:opacity-50"
+                className="vision-text-btn inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gold transition-colors hover:bg-white/60 disabled:opacity-50"
                 title="Generate a vision aligned to your current goals"
               >
                 {suggesting ? (
@@ -230,7 +230,7 @@ export function VisionSection() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={startEdit}
-              className="vision-primary-btn inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700"
+              className="vision-primary-btn inline-flex items-center gap-1.5 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-gold-foreground transition-colors hover:bg-[hsl(var(--brand-gold-700))]"
             >
               <Pencil className="h-4 w-4" />
               <span>Write my vision</span>
@@ -239,7 +239,7 @@ export function VisionSection() {
               <button
                 onClick={suggest}
                 disabled={suggesting}
-                className="vision-secondary-btn inline-flex items-center gap-1.5 rounded-lg border border-purple-300 bg-white px-4 py-2 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-50 disabled:opacity-50"
+                className="vision-secondary-btn inline-flex items-center gap-1.5 rounded-lg border border-[hsl(var(--brand-gold-200))] bg-white px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-[hsl(var(--brand-gold-50))] disabled:opacity-50"
               >
                 {suggesting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

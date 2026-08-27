@@ -249,7 +249,7 @@ export default function AnalyticsDashboardPage() {
 
               {/* AI Insights Section */}
               {aiInsights && (
-                <div className="bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-8 shadow-lg">
+                <div className="bg-gradient-to-br from-[hsl(var(--brand-gold-50))] to-[hsl(var(--brand-gold-100))] border border-[hsl(var(--brand-gold-200))] rounded-lg p-8 shadow-lg">
                   <div className="flex items-center mb-6">
                     <Brain className="h-8 w-8 text-purple-600 mr-3" />
                     <div>

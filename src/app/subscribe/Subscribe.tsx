@@ -39,7 +39,7 @@ export default function Subscribe() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-[hsl(var(--brand-gold-50))] to-[hsl(var(--brand-gold-100))] flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="text-center">
@@ -90,7 +90,7 @@ export default function Subscribe() {
   const currentPlan = plans[selectedPlan]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-[hsl(var(--brand-gold-50))] to-[hsl(var(--brand-gold-100))] py-12 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Back Button */}
         <Button variant="ghost" onClick={() => router.push('/dashboard')} className="mb-6">

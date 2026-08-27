@@ -64,9 +64,9 @@ export default function CoachSetupOffer({
 
   if (alreadyBooked || bookingComplete) {
     return (
-      <Card className="border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+      <Card className="border-[hsl(var(--brand-gold-200))] bg-gradient-to-br from-[hsl(var(--brand-gold-50))] via-white to-[hsl(var(--brand-gold-100))]">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-indigo-900">
+          <CardTitle className="flex items-center gap-2 text-gold">
             <Check className="h-5 w-5 text-green-600" />
             Coach session booked
           </CardTitle>
@@ -81,19 +81,21 @@ export default function CoachSetupOffer({
   }
 
   return (
-    <Card className="border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-purple-50 overflow-hidden">
+    <Card className="border-[hsl(var(--brand-gold-200))] bg-gradient-to-br from-[hsl(var(--brand-gold-50))] via-white to-[hsl(var(--brand-gold-100))] overflow-hidden">
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1">
-            <CardTitle className="flex items-center gap-2 text-indigo-950">
-              <Sparkles className="h-5 w-5 text-indigo-600" />
+            <CardTitle className="flex items-center gap-2 text-gold">
+              <Sparkles className="h-5 w-5 text-gold" />
               {COACH_SETUP_TITLE}
             </CardTitle>
-            <CardDescription className="text-indigo-800/80">{COACH_SETUP_SUBTITLE}</CardDescription>
+            <CardDescription className="text-[hsl(var(--brand-gold-700))]">
+              {COACH_SETUP_SUBTITLE}
+            </CardDescription>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-3xl font-bold text-indigo-700">{COACH_SETUP_PRICE_DISPLAY}</p>
-            <p className="text-xs text-indigo-600">one-time</p>
+            <p className="text-3xl font-bold text-gold">{COACH_SETUP_PRICE_DISPLAY}</p>
+            <p className="text-xs text-gold">one-time</p>
           </div>
         </div>
       </CardHeader>
@@ -101,13 +103,13 @@ export default function CoachSetupOffer({
         <ul className="grid sm:grid-cols-2 gap-2 text-sm text-gray-700">
           {COACH_SETUP_INCLUDES.map((item) => (
             <li key={item} className="flex items-start gap-2">
-              <Check className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
+              <Check className="h-4 w-4 text-gold shrink-0 mt-0.5" />
               <span>{item}</span>
             </li>
           ))}
         </ul>
 
-        <div className="flex items-center gap-2 text-sm text-indigo-800 bg-indigo-100/60 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 text-sm text-[hsl(var(--brand-gold-700))] bg-[hsl(var(--brand-gold-50))] rounded-lg px-3 py-2">
           <Video className="h-4 w-4 shrink-0" />
           <span>Private video or phone call — up to 1 hour with a Lifestacks coach</span>
         </div>
@@ -115,7 +117,7 @@ export default function CoachSetupOffer({
         <Button
           type="button"
           variant="outline"
-          className="w-full border-indigo-300 text-indigo-900 hover:bg-indigo-50"
+          className="w-full border-[hsl(var(--brand-gold-200))] text-gold hover:bg-[hsl(var(--brand-gold-50))]"
           onClick={() => setExpanded((v) => !v)}
         >
           {expanded ? (
@@ -132,7 +134,7 @@ export default function CoachSetupOffer({
         </Button>
 
         {expanded && (
-          <div className="border border-indigo-100 rounded-lg bg-white p-4 space-y-4">
+          <div className="border border-[hsl(var(--brand-gold-200))] rounded-lg bg-white p-4 space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label htmlFor="coach-name">Full name</Label>
@@ -198,9 +200,7 @@ export default function CoachSetupOffer({
             <div className="border-t pt-4">
               <div className="flex justify-between items-center mb-3">
                 <span className="font-medium">Total</span>
-                <span className="text-xl font-bold text-indigo-700">
-                  {COACH_SETUP_PRICE_DISPLAY}
-                </span>
+                <span className="text-xl font-bold text-gold">{COACH_SETUP_PRICE_DISPLAY}</span>
               </div>
 
               {formValid ? (
@@ -245,7 +245,7 @@ export default function CoachSetupOffer({
 
             <p className="text-xs text-gray-500 text-center">
               Questions? Email{' '}
-              <a href={`mailto:${COACH_SETUP_CONTACT_EMAIL}`} className="text-indigo-600 underline">
+              <a href={`mailto:${COACH_SETUP_CONTACT_EMAIL}`} className="text-gold underline">
                 {COACH_SETUP_CONTACT_EMAIL}
               </a>
             </p>
