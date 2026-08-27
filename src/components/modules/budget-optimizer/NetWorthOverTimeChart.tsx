@@ -81,8 +81,8 @@ export function NetWorthOverTimeChart(props: {
         <AreaChart data={chartData} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
           <defs>
             <linearGradient id="nwFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#6366f1" stopOpacity={0.35} />
-              <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+              <stop offset="0%" stopColor="#C4A035" stopOpacity={0.35} />
+              <stop offset="100%" stopColor="#C4A035" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
@@ -120,11 +120,11 @@ export function NetWorthOverTimeChart(props: {
           <Area
             type="monotone"
             dataKey="netWorth"
-            stroke="#4f46e5"
+            stroke="#C4A035"
             strokeWidth={2}
             fill="url(#nwFill)"
             dot={false}
-            activeDot={{ r: 4, fill: '#4f46e5' }}
+            activeDot={{ r: 4, fill: '#C4A035' }}
           />
         </AreaChart>
       </ResponsiveContainer>

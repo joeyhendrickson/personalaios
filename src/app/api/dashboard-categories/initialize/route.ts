@@ -54,7 +54,7 @@ export async function POST() {
         user_id: user.id,
         name: 'Projects',
         description: "Tracking my progress on big ideas and things I'm doing to reach my goals",
-        color: '#8B5CF6',
+        color: '#C4A035',
         icon_name: 'FolderOpen',
         sort_order: 3,
         is_default: true,

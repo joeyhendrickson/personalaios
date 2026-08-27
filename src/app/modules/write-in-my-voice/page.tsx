@@ -200,18 +200,18 @@ export default function WriteInMyVoiceModule() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-violet-50 to-white">
-        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[hsl(var(--brand-gold-50))] to-white">
+        <Loader2 className="h-8 w-8 animate-spin text-gold" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-violet-50 via-white to-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-[hsl(var(--brand-gold-50))] via-white to-neutral-50">
       <div className="mx-auto max-w-4xl px-4 py-8">
         <Link
           href="/modules"
-          className="mb-6 inline-flex items-center gap-2 text-sm text-gray-600 hover:text-violet-700"
+          className="mb-6 inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gold"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Stacks
@@ -219,8 +219,8 @@ export default function WriteInMyVoiceModule() {
 
         <div className="mb-8">
           <div className="mb-2 flex items-center gap-3">
-            <div className="rounded-xl bg-violet-100 p-3">
-              <PenTool className="h-8 w-8 text-violet-700" />
+            <div className="rounded-xl bg-[hsl(var(--brand-gold-100))] p-3">
+              <PenTool className="h-8 w-8 text-gold" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Write In My Voice</h1>
@@ -233,9 +233,9 @@ export default function WriteInMyVoiceModule() {
         </div>
 
         {/* Step 1: Upload samples */}
-        <section className="mb-8 rounded-2xl border border-violet-100 bg-white p-6 shadow-sm">
+        <section className="mb-8 rounded-2xl border border-[hsl(var(--brand-gold-200))] bg-white p-6 shadow-sm">
           <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-gray-900">
-            <Upload className="h-5 w-5 text-violet-600" />
+            <Upload className="h-5 w-5 text-gold" />
             1. Upload Your Writing
           </h2>
           <p className="mb-4 text-sm text-gray-600">
@@ -259,7 +259,7 @@ export default function WriteInMyVoiceModule() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-gold-foreground hover:bg-[hsl(var(--brand-gold-700))] disabled:opacity-50"
             >
               {uploading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -307,9 +307,9 @@ export default function WriteInMyVoiceModule() {
         </section>
 
         {/* Step 2: Analyze voice */}
-        <section className="mb-8 rounded-2xl border border-violet-100 bg-white p-6 shadow-sm">
+        <section className="mb-8 rounded-2xl border border-[hsl(var(--brand-gold-200))] bg-white p-6 shadow-sm">
           <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-gray-900">
-            <Sparkles className="h-5 w-5 text-violet-600" />
+            <Sparkles className="h-5 w-5 text-gold" />
             2. Analyze Your Voice
           </h2>
           <p className="mb-4 text-sm text-gray-600">
@@ -321,7 +321,7 @@ export default function WriteInMyVoiceModule() {
             type="button"
             onClick={handleAnalyze}
             disabled={!canAnalyze || analyzing}
-            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-gold-foreground hover:bg-[hsl(var(--brand-gold-700))] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {analyzing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -332,14 +332,12 @@ export default function WriteInMyVoiceModule() {
           </button>
 
           {hasProfile && profile && (
-            <div className="mt-4 rounded-lg bg-violet-50 p-4 text-sm">
-              <div className="mb-2 flex items-center gap-2 font-medium text-violet-900">
+            <div className="mt-4 rounded-lg bg-[hsl(var(--brand-gold-50))] p-4 text-sm">
+              <div className="mb-2 flex items-center gap-2 font-medium text-black">
                 <CheckCircle className="h-4 w-4" />
                 Voice profile ready
                 {confidence != null && (
-                  <span className="text-violet-600">
-                    ({Math.round(confidence * 100)}% confidence)
-                  </span>
+                  <span className="text-gold">({Math.round(confidence * 100)}% confidence)</span>
                 )}
               </div>
               <p>
@@ -362,9 +360,9 @@ export default function WriteInMyVoiceModule() {
         </section>
 
         {/* Step 3: Generate */}
-        <section className="mb-8 rounded-2xl border border-violet-100 bg-white p-6 shadow-sm">
+        <section className="mb-8 rounded-2xl border border-[hsl(var(--brand-gold-200))] bg-white p-6 shadow-sm">
           <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-gray-900">
-            <PenTool className="h-5 w-5 text-violet-600" />
+            <PenTool className="h-5 w-5 text-gold" />
             3. Write In Your Voice
           </h2>
           <p className="mb-4 text-sm text-gray-600">
@@ -381,7 +379,7 @@ export default function WriteInMyVoiceModule() {
                 onClick={() => setMaterialType(t)}
                 className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
                   materialType === t
-                    ? 'bg-violet-600 text-white'
+                    ? 'bg-gold text-gold-foreground'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -396,14 +394,14 @@ export default function WriteInMyVoiceModule() {
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Describe what you want to write — topic, audience, key points..."
             rows={4}
-            className="mb-4 w-full rounded-lg border border-gray-200 px-4 py-3 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+            className="mb-4 w-full rounded-lg border border-gray-200 px-4 py-3 text-sm focus:border-gold focus:outline-none focus:ring-2 focus:ring-[hsl(var(--brand-gold-100))]"
           />
 
           <button
             type="button"
             onClick={handleGenerate}
             disabled={!hasProfile || !prompt.trim() || generating}
-            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-gold-foreground hover:bg-[hsl(var(--brand-gold-700))] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {generating ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -414,7 +412,7 @@ export default function WriteInMyVoiceModule() {
           </button>
 
           {generatedContent && (
-            <div className="mt-6 rounded-lg border border-violet-200 bg-violet-50/50 p-4">
+            <div className="mt-6 rounded-lg border border-[hsl(var(--brand-gold-200))] bg-[hsl(var(--brand-gold-50))] p-4">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="font-semibold text-gray-900">
                   {generatedContent.title || MATERIAL_LABELS[materialType]}
@@ -428,7 +426,7 @@ export default function WriteInMyVoiceModule() {
                         : generatedContent.content
                     )
                   }
-                  className="inline-flex items-center gap-1 text-sm text-violet-700 hover:text-violet-900"
+                  className="inline-flex items-center gap-1 text-sm text-gold hover:text-black"
                 >
                   {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   {copied ? 'Copied' : 'Copy'}
@@ -454,7 +452,7 @@ export default function WriteInMyVoiceModule() {
               {drafts.map((d) => (
                 <li
                   key={d.id}
-                  className="cursor-pointer rounded-lg border border-gray-100 p-4 hover:border-violet-200"
+                  className="cursor-pointer rounded-lg border border-gray-100 p-4 hover:border-[hsl(var(--brand-gold-200))]"
                   onClick={() => setGeneratedContent(d)}
                 >
                   <div className="flex items-center justify-between text-sm">

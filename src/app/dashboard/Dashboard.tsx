@@ -2072,7 +2072,7 @@ export default function Dashboard() {
             {sectionVisibility.priorities && (
               <CascadingSection
                 title={t('section.priorities')}
-                icon={<Brain className="h-6 w-6 text-purple-500" />}
+                icon={<Brain className="h-6 w-6 text-gold" />}
                 isExpanded={expandedSections.priorities}
                 onToggle={() => toggleSectionExpansion('priorities')}
                 t={t}
@@ -2391,7 +2391,7 @@ export default function Dashboard() {
                           <div className="col-span-2 mb-4">
                             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                               <div className="flex items-center mb-3">
-                                <Star className="h-5 w-5 text-purple-600 mr-2 shrink-0" />
+                                <Star className="h-5 w-5 text-gold mr-2 shrink-0" />
                                 <h4 className="font-semibold text-gray-900">
                                   Recommended Goals from Budget Master
                                 </h4>
@@ -2646,17 +2646,17 @@ export default function Dashboard() {
                             quick_money: '#DC2626',
                             save_money: '#059669',
                             health: '#F59E0B',
-                            network_expansion: '#8B5CF6',
+                            network_expansion: '#C4A035',
                             business_growth: '#10B981',
                             fires: '#EF4444',
-                            good_living: '#EC4899',
-                            big_vision: '#7C3AED',
+                            good_living: '#C4A035',
+                            big_vision: '#111111',
                             job: '#3B82F6',
                             organization: '#6B7280',
                             tech_issues: '#F97316',
                             business_launch: '#059669',
                             future_planning: '#0EA5E9',
-                            innovation: '#8B5CF6',
+                            innovation: '#C4A035',
                             other: '#6B7280',
                           }
                           return (
@@ -2746,17 +2746,17 @@ export default function Dashboard() {
                               quick_money: '#DC2626',
                               save_money: '#059669',
                               health: '#F59E0B',
-                              network_expansion: '#8B5CF6',
+                              network_expansion: '#C4A035',
                               business_growth: '#10B981',
                               fires: '#EF4444',
-                              good_living: '#EC4899',
-                              big_vision: '#7C3AED',
+                              good_living: '#C4A035',
+                              big_vision: '#111111',
                               job: '#3B82F6',
                               organization: '#6B7280',
                               tech_issues: '#F97316',
                               business_launch: '#059669',
                               future_planning: '#0EA5E9',
-                              innovation: '#8B5CF6',
+                              innovation: '#C4A035',
                               other: '#6B7280',
                             }
                             return (
@@ -3004,7 +3004,7 @@ export default function Dashboard() {
             <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg shadow-lg">
               <div className="p-6 pb-4">
                 <h2 className="font-semibold tracking-tight flex items-center text-xl">
-                  <Brain className="h-6 w-6 mr-2 text-purple-500" />
+                  <Brain className="h-6 w-6 mr-2 text-gold" />
                   {t('aiAdvisor.title')}
                 </h2>
                 <p className="text-sm text-gray-600">{t('aiAdvisor.description')}</p>
@@ -3180,7 +3180,7 @@ export default function Dashboard() {
             {sectionVisibility.categories && (
               <CascadingSection
                 title={t('section.categoryProgress')}
-                icon={<PieChart className="h-6 w-6 text-indigo-500" />}
+                icon={<PieChart className="h-6 w-6 text-gold" />}
                 isExpanded={expandedSections.categories}
                 onToggle={() => toggleSectionExpansion('categories')}
                 t={t}

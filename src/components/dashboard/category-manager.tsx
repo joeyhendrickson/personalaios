@@ -124,21 +124,21 @@ const iconOptions = [
 
 const colorOptions = [
   '#3B82F6', // Blue
-  '#10B981', // Emerald
-  '#8B5CF6', // Violet
+  '#111111', // Black
+  '#C4A035', // Gold
   '#F59E0B', // Amber
   '#EF4444', // Red
   '#06B6D4', // Cyan
   '#84CC16', // Lime
   '#F97316', // Orange
-  '#EC4899', // Pink
-  '#6366F1', // Indigo
+  '#D4A017', // Gold deep
+  '#1A1A1A', // Charcoal
   '#14B8A6', // Teal
-  '#A855F7', // Purple
+  '#B8860B', // Dark gold
   '#EAB308', // Yellow
   '#DC2626', // Red-600
   '#059669', // Emerald-600
-  '#7C3AED', // Violet-600
+  '#C9A227', // Brand gold
   '#D97706', // Amber-600
   '#0891B2', // Cyan-600
   '#65A30D', // Lime-600

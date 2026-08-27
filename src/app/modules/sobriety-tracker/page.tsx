@@ -304,9 +304,9 @@ export default function SobrietyTrackerPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-emerald-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[hsl(var(--brand-gold-50))] flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-10 w-10 animate-spin text-emerald-700 mx-auto mb-3" />
+          <Loader2 className="h-10 w-10 animate-spin text-gold mx-auto mb-3" />
           <p className="text-slate-600">Loading Sobriety Tracker...</p>
         </div>
       </div>
@@ -315,7 +315,7 @@ export default function SobrietyTrackerPage() {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-emerald-50 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[hsl(var(--brand-gold-50))] flex items-center justify-center p-6">
         <p className="text-slate-600">Could not load Sobriety Tracker.</p>
       </div>
     )
@@ -326,19 +326,19 @@ export default function SobrietyTrackerPage() {
     data.recentRumination || drinkDays.some((l) => l.log_date >= addDays(data.today, -2))
 
   return (
-    <div className="sobriety-tracker-module min-h-screen bg-gradient-to-b from-emerald-50 via-teal-50 to-slate-50">
-      <div className="bg-white border-b border-emerald-100">
+    <div className="sobriety-tracker-module min-h-screen bg-gradient-to-b from-[hsl(var(--brand-gold-50))] via-white to-neutral-50">
+      <div className="bg-white border-b border-[hsl(var(--brand-gold-200))]">
         <div className="container mx-auto px-6 py-6">
           <div className="flex items-center gap-4">
             <Link href="/modules">
-              <button className="inline-flex items-center gap-2 text-sm font-medium h-9 rounded-md px-3 hover:bg-emerald-50">
+              <button className="inline-flex items-center gap-2 text-sm font-medium h-9 rounded-md px-3 hover:bg-[hsl(var(--brand-gold-50))]">
                 <ArrowLeft className="h-4 w-4" />
                 Back to Stacks
               </button>
             </Link>
             <div>
               <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <Shield className="h-8 w-8 text-emerald-700" />
+                <Shield className="h-8 w-8 text-gold" />
                 Sobriety Tracker
               </h1>
               <p className="text-sm text-slate-600">
@@ -351,7 +351,7 @@ export default function SobrietyTrackerPage() {
 
       <div className="container mx-auto px-6 py-8 max-w-5xl space-y-6">
         {toast && (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          <div className="rounded-lg border border-[hsl(var(--brand-gold-200))] bg-[hsl(var(--brand-gold-50))] px-4 py-3 text-sm text-black">
             {toast}
           </div>
         )}
@@ -407,12 +407,12 @@ export default function SobrietyTrackerPage() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
-            <Flame className="h-6 w-6 text-emerald-600 mx-auto mb-1" />
+            <Flame className="h-6 w-6 text-gold mx-auto mb-1" />
             <p className="text-2xl font-bold">{data.streak}</p>
             <p className="text-xs text-slate-500">Sober streak</p>
           </div>
           <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
-            <Calendar className="h-6 w-6 text-emerald-600 mx-auto mb-1" />
+            <Calendar className="h-6 w-6 text-gold mx-auto mb-1" />
             <p className="text-2xl font-bold">{data.soberDays}</p>
             <p className="text-xs text-slate-500">Sober days logged</p>
           </div>
@@ -422,7 +422,7 @@ export default function SobrietyTrackerPage() {
             <p className="text-xs text-slate-500">Points from sober days</p>
           </div>
           <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
-            <DollarSign className="h-6 w-6 text-emerald-600 mx-auto mb-1" />
+            <DollarSign className="h-6 w-6 text-gold mx-auto mb-1" />
             <p className="text-2xl font-bold">{formatUsd(data.savings.savedToDate)}</p>
             <p className="text-xs text-slate-500">Estimated saved</p>
           </div>
@@ -436,7 +436,7 @@ export default function SobrietyTrackerPage() {
                 onClick={() => setTab(item.id)}
                 className={`px-4 py-3 text-sm font-medium border-b-2 ${
                   tab === item.id
-                    ? 'border-emerald-600 text-emerald-800'
+                    ? 'border-gold text-[hsl(var(--brand-gold-700))]'
                     : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
@@ -465,7 +465,7 @@ export default function SobrietyTrackerPage() {
               <button
                 disabled={saving}
                 onClick={() => submitDay(false)}
-                className="flex-1 rounded-lg bg-emerald-700 text-white py-3 font-medium hover:bg-emerald-800 disabled:opacity-60"
+                className="flex-1 rounded-lg bg-black text-white border border-gold py-3 font-medium hover:bg-neutral-800 disabled:opacity-60"
               >
                 I did not drink
               </button>
@@ -571,7 +571,7 @@ export default function SobrietyTrackerPage() {
                                 <button
                                   disabled={saving || !draft.content.trim()}
                                   onClick={() => saveDecision(log.log_date, offset)}
-                                  className="rounded-md bg-emerald-700 text-white px-3 py-1.5 text-sm disabled:opacity-50"
+                                  className="rounded-md bg-black text-white px-3 py-1.5 text-sm disabled:opacity-50"
                                 >
                                   Save
                                 </button>
@@ -594,7 +594,7 @@ export default function SobrietyTrackerPage() {
                     className="flex items-center justify-between text-sm border-b border-slate-100 py-2"
                   >
                     <span>{log.log_date}</span>
-                    <span className={log.drank ? 'text-amber-800' : 'text-emerald-700'}>
+                    <span className={log.drank ? 'text-amber-800' : 'text-gold'}>
                       {log.drank
                         ? `${log.drink_count} drink(s)`
                         : `Sober · +${log.points_awarded || data.pointsPerSoberDay} pts`}
@@ -617,7 +617,10 @@ export default function SobrietyTrackerPage() {
               first and second day after each drinking log. Numbers are shown as recorded — no
               verdict is forced. A dip after drinking is common; let the data speak.
             </p>
-            <Link href={FITNESS_STATS_HREF} className="text-sm text-emerald-800 underline">
+            <Link
+              href={FITNESS_STATS_HREF}
+              className="text-sm text-[hsl(var(--brand-gold-700))] underline"
+            >
               Open Fitness Tracker Stats
             </Link>
             {data.afterDrink.length === 0 ? (
@@ -705,7 +708,7 @@ export default function SobrietyTrackerPage() {
             <button
               onClick={saveProfile}
               disabled={saving}
-              className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm disabled:opacity-50"
+              className="rounded-md bg-black text-white px-4 py-2 text-sm disabled:opacity-50"
             >
               Save as my baseline
             </button>
@@ -722,7 +725,7 @@ export default function SobrietyTrackerPage() {
           <section className="space-y-4">
             <div className="bg-white rounded-xl border border-slate-200 p-6">
               <h2 className="text-xl font-semibold flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-emerald-700" />
+                <BookOpen className="h-5 w-5 text-gold" />
                 Twelve recovery principles
               </h2>
               <p className="text-sm text-slate-600 mt-2">{AA_DISCLAIMER}</p>
@@ -736,7 +739,7 @@ export default function SobrietyTrackerPage() {
                   {step.number}. {step.title}
                 </h3>
                 <p className="text-sm text-slate-700 mt-2">{step.summary}</p>
-                <p className="text-sm text-emerald-800 mt-2">
+                <p className="text-sm text-[hsl(var(--brand-gold-700))] mt-2">
                   <span className="font-medium">Practice: </span>
                   {step.practice}
                 </p>
@@ -788,7 +791,7 @@ export default function SobrietyTrackerPage() {
         {tab === 'places' && (
           <section className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
             <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Brain className="h-5 w-5 text-emerald-700" />
+              <Brain className="h-5 w-5 text-gold" />
               Budget Master place analysis
             </h2>
             <p className="text-sm text-slate-600">
@@ -800,7 +803,7 @@ export default function SobrietyTrackerPage() {
               <button
                 onClick={runAnalysis}
                 disabled={analyzing}
-                className="rounded-md bg-emerald-700 text-white px-4 py-2 text-sm disabled:opacity-50 inline-flex items-center gap-2"
+                className="rounded-md bg-black text-white px-4 py-2 text-sm disabled:opacity-50 inline-flex items-center gap-2"
               >
                 {analyzing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -811,7 +814,7 @@ export default function SobrietyTrackerPage() {
               </button>
               <Link
                 href={BUDGET_TRANSACTIONS_HREF}
-                className="text-sm text-emerald-800 underline self-center"
+                className="text-sm text-[hsl(var(--brand-gold-700))] underline self-center"
               >
                 Open Transactions
               </Link>
@@ -883,7 +886,7 @@ export default function SobrietyTrackerPage() {
                     </span>
                     <button
                       onClick={() => toggleHighlight(place)}
-                      className="text-emerald-800 underline"
+                      className="text-[hsl(var(--brand-gold-700))] underline"
                     >
                       {place.highlighted ? 'Remove highlight' : 'Highlight'}
                     </button>

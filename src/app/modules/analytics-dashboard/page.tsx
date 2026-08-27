@@ -284,7 +284,7 @@ export default function AnalyticsDashboardPage() {
                               cx="64"
                               cy="64"
                               r="56"
-                              stroke="#9333EA"
+                              stroke="#C4A035"
                               strokeWidth="12"
                               fill="none"
                               strokeDasharray={`${(aiInsights.productivityScore / 100) * 351.86} 351.86`}
