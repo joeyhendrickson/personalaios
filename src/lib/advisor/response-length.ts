@@ -116,7 +116,7 @@ export function buildAdvisorLengthInstructions(
 - Lead with the concrete fact (number, date, status). Do not speculate or pull unrelated modules unless they asked for causes or a plan.
 - Do not ask the user to log data that already appears in MODULE CONTEXT.
 - If data is truly missing after checking installed modules, say so in one sentence and optionally point to where to add it.
-- Do not offer dashboard proposal cards or long follow-up questionnaires unless they asked.
+- Do not offer dashboard add-checkmarks or long follow-up questionnaires unless they asked.
 - If you omit useful context for brevity, end with: "Would you like more detail?"`
   }
 

@@ -1768,9 +1768,13 @@ export default function Dashboard() {
       <TodayAtAGlance onProfile={setShellProfile} />
 
       <div id="workspace" className="container mx-auto px-6 pb-24">
-        <h2 className="mb-6 text-2xl font-bold text-[#1f2933]">Your workspace</h2>
-        {/* Vision statement (from Dream Catcher; editable & AI-updatable) */}
-        <VisionSection />
+        <h2 className="mb-4 text-right text-2xl font-bold tracking-tight text-gold">
+          {t('dashboard.myDashboard')}
+        </h2>
+
+        <div className="mb-8">
+          <Leaderboard currentUserId={user?.id} />
+        </div>
 
         {/* Main Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -2068,10 +2072,8 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Leaderboard */}
-        <div className="mb-8">
-          <Leaderboard currentUserId={user?.id} />
-        </div>
+        {/* Vision statement (from Dream Catcher; editable & AI-updatable) */}
+        <VisionSection />
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Main Content - Left Column */}
