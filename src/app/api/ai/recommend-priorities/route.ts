@@ -186,7 +186,7 @@ DASHBOARD OVERVIEW:
 - Education Items: ${education.length} learning items
 - Recent Accomplishments: ${accomplishments.length} recent wins
 - Points Earned: ${pointsHistory.length} recent point activities
-- Installed Life Hacks: ${installedModules.length} active modules
+- Installed Stacks: ${installedModules.length} active modules
 
 GOALS (in priority order):
 ${goals.map((goal, i) => `${i + 1}. ${goal.title} (${goal.goal_type}) - Target: ${goal.target_value} ${goal.target_unit || ''} - Current: ${goal.current_value} - Priority: ${goal.priority_level}/5`).join('\n')}

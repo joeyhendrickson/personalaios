@@ -394,7 +394,7 @@ INSTRUCTIONS:
 AVAILABLE LIFE HACKS TO RECOMMEND (Only recommend modules from this list that are NOT already installed — use the exact title shown):
 ${formatLifeHacksForCoachPrompt(installedModuleIds(userData.activeModules))}
 
-IMPORTANT: Only recommend Life Hacks from the list above. Do not invent modules. Check the ACTIVE MODULES list before recommending. Never recommend "Life Coach" (the user is already here).
+IMPORTANT: Only recommend Stacks from the list above. Do not invent modules. Check the ACTIVE MODULES list before recommending. Never recommend "Life Coach" (the user is already here).
 
 Format your response as JSON with this structure:
 {

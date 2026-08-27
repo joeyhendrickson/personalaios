@@ -333,7 +333,7 @@ export default function SobrietyTrackerPage() {
             <Link href="/modules">
               <button className="inline-flex items-center gap-2 text-sm font-medium h-9 rounded-md px-3 hover:bg-emerald-50">
                 <ArrowLeft className="h-4 w-4" />
-                Back to Life Hacks
+                Back to Stacks
               </button>
             </Link>
             <div>

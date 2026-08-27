@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useLanguage } from '@/contexts/language-context'
 import {
-  ArrowLeft,
   Plus,
   TrendingUp,
   DollarSign,
@@ -37,8 +36,8 @@ import {
   Gift,
 } from 'lucide-react'
 import RatingStars from '@/components/rating-stars'
-import { LanguageToggle } from '@/components/ui/language-toggle'
 import { localizeModule } from '@/lib/i18n/module-catalog'
+import { AppShell } from '@/components/layout/app-shell'
 
 interface Module {
   id: string
@@ -970,109 +969,290 @@ export default function ModulesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600">{t('modules.loading')}</p>
+      <AppShell active="stacks">
+        <div className="min-h-screen bg-[#f3f4f6] flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin h-12 w-12 border-4 border-emerald-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-600">{t('modules.loading')}</p>
+          </div>
         </div>
-      </div>
+      </AppShell>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 life-hacks-page">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+    <AppShell active="stacks">
+      <div className="min-h-screen bg-[#f3f4f6] life-hacks-page">
+        {/* Header */}
+        <div className="px-4 pb-2 pt-8 sm:px-8">
+          <h1 className="text-3xl font-bold text-[#1f2933] sm:text-4xl">{t('modules.title')}</h1>
+          <p className="mt-1 text-sm text-gray-600">{t('modules.subtitle')}</p>
+        </div>
+
+        {/* Filters */}
         <div className="container mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
-              <Link href="/dashboard" className="self-start">
-                <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-accent-foreground h-9 rounded-md px-3 hover:bg-gray-100">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  {t('modules.backToDashboard')}
-                </button>
-              </Link>
-              <div>
-                <h1 className="text-3xl font-bold text-black">{t('modules.title')}</h1>
-                <p className="text-sm text-gray-600">{t('modules.subtitle')}</p>
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              {/* Search */}
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <input
+                    type="text"
+                    placeholder={t('modules.searchPlaceholder')}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Category Filter */}
+              <div className="flex items-center space-x-2">
+                <Filter className="h-4 w-4 text-gray-400" />
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {translateCategory(category)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Complexity Filter */}
+              <div className="flex items-center space-x-2">
+                <select
+                  value={selectedComplexity}
+                  onChange={(e) => setSelectedComplexity(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="All">{t('modules.complexity.all')}</option>
+                  <option value="beginner">{t('modules.complexity.beginner')}</option>
+                  <option value="intermediate">{t('modules.complexity.intermediate')}</option>
+                  <option value="advanced">{t('modules.complexity.advanced')}</option>
+                </select>
               </div>
             </div>
-            <LanguageToggle />
           </div>
-        </div>
-      </div>
 
-      {/* Filters */}
-      <div className="container mx-auto px-6 py-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <input
-                  type="text"
-                  placeholder={t('modules.searchPlaceholder')}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+          {/* Active Stacks Section */}
+          {!isSearching && activeModules.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <CheckCircle className="h-6 w-6 mr-2 text-green-600" />
+                  {t('modules.activeSection')} ({activeModules.length})
+                </h2>
+                <p className="text-sm text-gray-500">{t('modules.activeSectionHint')}</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {activeModules.map((module) => {
+                  const installedModule = getInstalledModule(module.id)
+                  return (
+                    <div
+                      key={module.id}
+                      className="life-hack-card life-hack-card-active bg-green-50 border-2 border-green-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="life-hack-card-icon p-2 bg-green-100 rounded-lg text-green-600">
+                            {module.icon}
+                          </div>
+                          <div>
+                            <h3 className="life-hack-card-title text-lg font-semibold text-gray-900">
+                              {module.title}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              {translateCategory(module.category)}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="life-hack-badge-active px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 border border-green-200">
+                          {t('common.active')}
+                        </span>
+                      </div>
+
+                      <p className="text-gray-600 mb-4">{module.description}</p>
+
+                      <div className="flex items-center justify-between mb-4">
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${getComplexityColor(module.complexity)}`}
+                        >
+                          {translateComplexity(module.complexity)}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {t('modules.lastUsed')}{' '}
+                          {installedModule
+                            ? new Date(installedModule.last_accessed).toLocaleDateString()
+                            : t('modules.never')}
+                        </span>
+                      </div>
+
+                      <div className="flex space-x-2">
+                        <Link
+                          href={`/modules/${module.id}`}
+                          onClick={() => handleModuleAccess(module.id)}
+                        >
+                          <button className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium">
+                            {t('modules.open')}
+                          </button>
+                        </Link>
+                        <button
+                          onClick={() => handleUninstallModule(module.id)}
+                          disabled={actionLoading === module.id}
+                          className="px-3 py-2 border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors text-sm font-medium disabled:opacity-50"
+                        >
+                          {actionLoading === module.id ? (
+                            <div className="animate-spin h-4 w-4 border-2 border-red-600 border-t-transparent rounded-full" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
+          )}
 
-            {/* Category Filter */}
-            <div className="flex items-center space-x-2">
-              <Filter className="h-4 w-4 text-gray-400" />
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {translateCategory(category)}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Business Hacks Section (temporarily hidden from user visibility) */}
+          {false && businessApps.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <Briefcase className="h-6 w-6 mr-2 text-black" />
+                  Business Hacks ({businessApps.length})
+                </h2>
+                <p className="text-sm text-gray-500">Tools for business and content creation</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {businessApps.map((app) => {
+                  const getIconComponent = (iconName: string) => {
+                    switch (iconName) {
+                      case 'Music':
+                        return <Music className="h-8 w-8" />
+                      case 'BookOpen':
+                        return <BookOpen className="h-8 w-8" />
+                      case 'FileText':
+                        return <FileText className="h-8 w-8" />
+                      case 'AlertTriangle':
+                        return <AlertTriangle className="h-8 w-8" />
+                      case 'PenTool':
+                        return <PenTool className="h-8 w-8" />
+                      default:
+                        return <Briefcase className="h-8 w-8" />
+                    }
+                  }
 
-            {/* Complexity Filter */}
-            <div className="flex items-center space-x-2">
-              <select
-                value={selectedComplexity}
-                onChange={(e) => setSelectedComplexity(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="All">{t('modules.complexity.all')}</option>
-                <option value="beginner">{t('modules.complexity.beginner')}</option>
-                <option value="intermediate">{t('modules.complexity.intermediate')}</option>
-                <option value="advanced">{t('modules.complexity.advanced')}</option>
-              </select>
-            </div>
-          </div>
-        </div>
+                  const getAppPath = (appName: string) => {
+                    switch (appName) {
+                      case 'Co-Writer':
+                        return '/business-hacks/co-writer'
+                      case 'Ghost Writer':
+                        return '/business-hacks/ghost-writer'
+                      case 'Project Plan Builder':
+                        return '/business-hacks/project-plan-builder'
+                      case 'RAID Monitoring Tool':
+                        return '/business-hacks/raid-monitoring'
+                      case 'Post Creator':
+                        return '/business-hacks/post-creator'
+                      default:
+                        return '/business-hacks'
+                    }
+                  }
 
-        {/* Active Life Hacks Section */}
-        {!isSearching && activeModules.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                <CheckCircle className="h-6 w-6 mr-2 text-green-600" />
-                {t('modules.activeSection')} ({activeModules.length})
-              </h2>
-              <p className="text-sm text-gray-500">{t('modules.activeSectionHint')}</p>
+                  return (
+                    <div
+                      key={app.id}
+                      className="bg-gray-50 border-2 border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-gray-100 rounded-lg text-black">
+                            {getIconComponent(app.icon)}
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900">{app.name}</h3>
+                            <p className="text-sm text-gray-500">Business Tool</p>
+                          </div>
+                        </div>
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-black border border-gray-200">
+                          Installed
+                        </span>
+                      </div>
+
+                      <p className="text-gray-600 mb-4">{app.description}</p>
+
+                      <div className="flex space-x-2">
+                        <Link href={getAppPath(app.name)} className="flex-1">
+                          <button className="w-full bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors text-sm font-medium">
+                            Install
+                          </button>
+                        </Link>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {activeModules.map((module) => {
-                const installedModule = getInstalledModule(module.id)
-                return (
+          )}
+
+          {/* Search Results — relevance-ranked across all (active + inactive) life hacks */}
+          {isSearching && (
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <Search className="h-6 w-6 mr-2 text-blue-600" />
+                  {t('modules.searchResults')} ({searchResults.length})
+                </h2>
+                <p className="text-sm text-gray-500">{t('modules.searchResultsHint')}</p>
+              </div>
+              {searchResults.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {searchResults.map((module) => renderSearchCard(module))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 mb-4">
+                    <Search className="h-12 w-12 mx-auto" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    {t('modules.noResults')}
+                  </h3>
+                  <p className="text-gray-500">{t('modules.noSearchResultsHint')}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Available Stacks Section */}
+          {!isSearching && (
+            <>
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                    <Plus className="h-6 w-6 mr-2 text-blue-600" />
+                    {t('modules.availableSection')} ({filteredModules.length})
+                  </h2>
+                  <p className="text-sm text-gray-500">{t('modules.availableSectionHint')}</p>
+                </div>
+              </div>
+
+              {/* Modules Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredModules.map((module) => (
                   <div
                     key={module.id}
-                    className="life-hack-card life-hack-card-active bg-green-50 border-2 border-green-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
+                    className="life-hack-card bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center space-x-3">
-                        <div className="life-hack-card-icon p-2 bg-green-100 rounded-lg text-green-600">
+                        <div className="life-hack-card-icon p-2 bg-blue-50 rounded-lg text-blue-600">
                           {module.icon}
                         </div>
                         <div>
@@ -1084,8 +1264,10 @@ export default function ModulesPage() {
                           </p>
                         </div>
                       </div>
-                      <span className="life-hack-badge-active px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 border border-green-200">
-                        {t('common.active')}
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(module.status)}`}
+                      >
+                        {translateStatus(module.status)}
                       </span>
                     </div>
 
@@ -1098,256 +1280,66 @@ export default function ModulesPage() {
                         {translateComplexity(module.complexity)}
                       </span>
                       <span className="text-xs text-gray-500">
-                        {t('modules.lastUsed')}{' '}
-                        {installedModule
-                          ? new Date(installedModule.last_accessed).toLocaleDateString()
-                          : t('modules.never')}
+                        {t('modules.featureCount', { count: module.features.length })}
                       </span>
                     </div>
 
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">
+                        {t('modules.features')}
+                      </h4>
+                      <div className="flex flex-wrap gap-1">
+                        {module.features.map((feature, index) => (
+                          <span
+                            key={index}
+                            className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded"
+                          >
+                            {feature}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="flex space-x-2">
-                      <Link
-                        href={`/modules/${module.id}`}
-                        onClick={() => handleModuleAccess(module.id)}
-                      >
-                        <button className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium">
-                          {t('modules.open')}
-                        </button>
-                      </Link>
                       <button
-                        onClick={() => handleUninstallModule(module.id)}
+                        onClick={() => handleInstallModule(module.id)}
                         disabled={actionLoading === module.id}
-                        className="px-3 py-2 border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors text-sm font-medium disabled:opacity-50"
+                        className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
                       >
                         {actionLoading === module.id ? (
-                          <div className="animate-spin h-4 w-4 border-2 border-red-600 border-t-transparent rounded-full" />
+                          <div className="flex items-center justify-center">
+                            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                            {t('modules.installing')}
+                          </div>
                         ) : (
-                          <Trash2 className="h-4 w-4" />
+                          t('modules.install')
                         )}
                       </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Business Hacks Section (temporarily hidden from user visibility) */}
-        {false && businessApps.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                <Briefcase className="h-6 w-6 mr-2 text-black" />
-                Business Hacks ({businessApps.length})
-              </h2>
-              <p className="text-sm text-gray-500">Tools for business and content creation</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {businessApps.map((app) => {
-                const getIconComponent = (iconName: string) => {
-                  switch (iconName) {
-                    case 'Music':
-                      return <Music className="h-8 w-8" />
-                    case 'BookOpen':
-                      return <BookOpen className="h-8 w-8" />
-                    case 'FileText':
-                      return <FileText className="h-8 w-8" />
-                    case 'AlertTriangle':
-                      return <AlertTriangle className="h-8 w-8" />
-                    case 'PenTool':
-                      return <PenTool className="h-8 w-8" />
-                    default:
-                      return <Briefcase className="h-8 w-8" />
-                  }
-                }
-
-                const getAppPath = (appName: string) => {
-                  switch (appName) {
-                    case 'Co-Writer':
-                      return '/business-hacks/co-writer'
-                    case 'Ghost Writer':
-                      return '/business-hacks/ghost-writer'
-                    case 'Project Plan Builder':
-                      return '/business-hacks/project-plan-builder'
-                    case 'RAID Monitoring Tool':
-                      return '/business-hacks/raid-monitoring'
-                    case 'Post Creator':
-                      return '/business-hacks/post-creator'
-                    default:
-                      return '/business-hacks'
-                  }
-                }
-
-                return (
-                  <div
-                    key={app.id}
-                    className="bg-gray-50 border-2 border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-gray-100 rounded-lg text-black">
-                          {getIconComponent(app.icon)}
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900">{app.name}</h3>
-                          <p className="text-sm text-gray-500">Business Tool</p>
-                        </div>
-                      </div>
-                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-black border border-gray-200">
-                        Installed
-                      </span>
-                    </div>
-
-                    <p className="text-gray-600 mb-4">{app.description}</p>
-
-                    <div className="flex space-x-2">
-                      <Link href={getAppPath(app.name)} className="flex-1">
-                        <button className="w-full bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors text-sm font-medium">
-                          Install
+                      {module.status === 'premium' && (
+                        <button className="px-3 py-2 border border-purple-300 text-purple-600 rounded-md hover:bg-purple-50 transition-colors text-sm font-medium">
+                          <Star className="h-4 w-4" />
                         </button>
-                      </Link>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Search Results — relevance-ranked across all (active + inactive) life hacks */}
-        {isSearching && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                <Search className="h-6 w-6 mr-2 text-blue-600" />
-                {t('modules.searchResults')} ({searchResults.length})
-              </h2>
-              <p className="text-sm text-gray-500">{t('modules.searchResultsHint')}</p>
-            </div>
-            {searchResults.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {searchResults.map((module) => renderSearchCard(module))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <div className="text-gray-400 mb-4">
-                  <Search className="h-12 w-12 mx-auto" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">{t('modules.noResults')}</h3>
-                <p className="text-gray-500">{t('modules.noSearchResultsHint')}</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Available Life Hacks Section */}
-        {!isSearching && (
-          <>
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                  <Plus className="h-6 w-6 mr-2 text-blue-600" />
-                  {t('modules.availableSection')} ({filteredModules.length})
-                </h2>
-                <p className="text-sm text-gray-500">{t('modules.availableSectionHint')}</p>
-              </div>
-            </div>
-
-            {/* Modules Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredModules.map((module) => (
-                <div
-                  key={module.id}
-                  className="life-hack-card bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="life-hack-card-icon p-2 bg-blue-50 rounded-lg text-blue-600">
-                        {module.icon}
-                      </div>
-                      <div>
-                        <h3 className="life-hack-card-title text-lg font-semibold text-gray-900">
-                          {module.title}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {translateCategory(module.category)}
-                        </p>
-                      </div>
-                    </div>
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(module.status)}`}
-                    >
-                      {translateStatus(module.status)}
-                    </span>
-                  </div>
-
-                  <p className="text-gray-600 mb-4">{module.description}</p>
-
-                  <div className="flex items-center justify-between mb-4">
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${getComplexityColor(module.complexity)}`}
-                    >
-                      {translateComplexity(module.complexity)}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {t('modules.featureCount', { count: module.features.length })}
-                    </span>
-                  </div>
-
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">
-                      {t('modules.features')}
-                    </h4>
-                    <div className="flex flex-wrap gap-1">
-                      {module.features.map((feature, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded"
-                        >
-                          {feature}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleInstallModule(module.id)}
-                      disabled={actionLoading === module.id}
-                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
-                    >
-                      {actionLoading === module.id ? (
-                        <div className="flex items-center justify-center">
-                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-                          {t('modules.installing')}
-                        </div>
-                      ) : (
-                        t('modules.install')
                       )}
-                    </button>
-                    {module.status === 'premium' && (
-                      <button className="px-3 py-2 border border-purple-300 text-purple-600 rounded-md hover:bg-purple-50 transition-colors text-sm font-medium">
-                        <Star className="h-4 w-4" />
-                      </button>
-                    )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-
-            {filteredModules.length === 0 && (
-              <div className="text-center py-12">
-                <div className="text-gray-400 mb-4">
-                  <Search className="h-12 w-12 mx-auto" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">{t('modules.noResults')}</h3>
-                <p className="text-gray-500">{t('modules.noResultsHint')}</p>
+                ))}
               </div>
-            )}
-          </>
-        )}
+
+              {filteredModules.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 mb-4">
+                    <Search className="h-12 w-12 mx-auto" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    {t('modules.noResults')}
+                  </h3>
+                  <p className="text-gray-500">{t('modules.noResultsHint')}</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

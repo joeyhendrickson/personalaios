@@ -11,6 +11,6 @@ export const siteMetadata = {
   name: 'Life Stacks',
   title: 'Life Stacks — Stack your life, powered by AI',
   description:
-    'Your goals, habits, and Life Hacks — stacked. AI-powered productivity, coaching, and personal growth.',
+    'Your goals, habits, and Stacks — stacked. AI-powered productivity, coaching, and personal growth.',
   tagline: 'Stack your life, powered by AI.',
 } as const

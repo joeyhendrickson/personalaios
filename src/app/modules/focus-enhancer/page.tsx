@@ -410,7 +410,7 @@ What's the first app you'd like to talk about?`,
           <Link href="/modules">
             <Button variant="outline" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Life Hacks
+              Back to Stacks
             </Button>
           </Link>
           <Link href="/dashboard">

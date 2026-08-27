@@ -24,7 +24,7 @@ export default function RewardsSelfCareModulePage() {
             <Link href="/modules">
               <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors h-9 rounded-md px-3 hover:bg-gray-100">
                 <ArrowLeft className="h-4 w-4" />
-                Life Hacks
+                Stacks
               </button>
             </Link>
             <div>

@@ -20,7 +20,6 @@ import {
   Pause,
   X,
   Trash2,
-  FileSpreadsheet,
   Brain,
   ChevronDown,
   ChevronUp,
@@ -28,23 +27,14 @@ import {
   Eye,
   EyeOff,
   Lightbulb,
-  Bug,
   Trophy,
   GraduationCap,
-  RefreshCw,
-  Menu,
-  LogOut,
-  User,
-  Receipt,
 } from 'lucide-react'
-import Link from 'next/link'
 import { openLifestacksAdvisor } from '@/lib/voice/advisor-events'
 import { useAuth } from '@/contexts/auth-context'
 import { useLanguage } from '@/contexts/language-context'
 import { LanguageToggle } from '@/components/ui/language-toggle'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
-import { WakeWordToggle } from '@/components/chat/wake-word-toggle'
-import { useChatContext } from '@/components/chat/chat-context'
 import { Slider } from '@/components/ui/slider'
 import { AccomplishmentsHistory } from '@/components/accomplishments/accomplishments-history'
 import ManualPriorityForm from '@/components/priorities/manual-priority-form'
@@ -70,12 +60,13 @@ import TrialStatusBanner from '@/components/trial/trial-status-banner'
 import { VisionSection } from '@/components/dashboard/vision-section'
 import { TranslatedText } from '@/components/i18n/translated-text'
 import { useActivityTracking } from '@/hooks/use-activity-tracking'
-import { useAdminAuth } from '@/hooks/use-admin-auth'
 import { useGuardedAsync } from '@/hooks/use-guarded-async'
 import { parseIntFromForm } from '@/lib/form/numeric-input'
 import { parseApiErrorResponse } from '@/lib/fetch/parse-api-error'
 import { ExpandableDescription } from '@/components/ui/expandable-description'
 import { NextStepWelcome } from '@/components/dream-catcher/next-step-welcome'
+import { AppShell } from '@/components/layout/app-shell'
+import { TodayAtAGlance } from '@/components/dashboard/today-at-a-glance'
 
 // Type definitions
 
@@ -225,6 +216,7 @@ interface CascadingSectionProps {
   onToggle: () => void
   children: React.ReactNode
   className?: string
+  id?: string
   t: (key: string, params?: Record<string, any>) => string
 }
 
@@ -235,11 +227,13 @@ const CascadingSection = ({
   onToggle,
   children,
   className = '',
+  id,
   t,
 }: CascadingSectionProps) => {
   return (
     <div
-      className={`dashboard-cascade-section bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg ${className}`}
+      id={id}
+      className={`dashboard-cascade-section bg-white/70 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg ${id ? 'scroll-mt-20' : ''} ${className}`}
     >
       {/* Title Row - Double Click to Toggle */}
       <div
@@ -337,14 +331,12 @@ const ProgressRing = ({
 }
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
   const { logActivity } = useActivityTracking()
-  const { isAdmin } = useAdminAuth()
   const addTaskGuard = useGuardedAsync()
   const addGoalGuard = useGuardedAsync()
   const updateProjectGuard = useGuardedAsync()
   const { t, language } = useLanguage()
-  const { wakeWordEnabled, setWakeWordEnabled, wakeWordSupported } = useChatContext()
   const searchParams = useSearchParams()
   const router = useRouter()
   // Gate brand-new users (empty dashboard, never onboarded) into Dream Catcher
@@ -417,7 +409,6 @@ export default function Dashboard() {
     timestamp: string
   } | null>(null)
   const [strategicLoading, setStrategicLoading] = useState(false)
-  const [refreshingAiContext, setRefreshingAiContext] = useState(false)
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({})
   const [currentDayName, setCurrentDayName] = useState<string>('')
   const [isClient, setIsClient] = useState(false)
@@ -480,8 +471,12 @@ export default function Dashboard() {
   const [showAccomplishmentsHistory, setShowAccomplishmentsHistory] = useState(false)
   const [showManualPriorityForm, setShowManualPriorityForm] = useState(false)
   const [showConversationalPriorityInput, setShowConversationalPriorityInput] = useState(false)
-  const [navMenuOpen, setNavMenuOpen] = useState(false)
   const [showLifePlanWelcome, setShowLifePlanWelcome] = useState(false)
+  const [shellProfile, setShellProfile] = useState<{
+    firstName: string
+    avatarUrl: string | null
+    greeting: 'morning' | 'afternoon' | 'evening'
+  } | null>(null)
   const [newGoal, setNewGoal] = useState({
     title: '',
     description: '',
@@ -507,6 +502,34 @@ export default function Dashboard() {
       fetchStrategicRecommendations()
     }
   }, [user])
+
+  useEffect(() => {
+    const refresh = () => {
+      void fetchDashboardData()
+    }
+    window.addEventListener('dashboard-refreshed', refresh)
+    window.addEventListener('tasks-refreshed', refresh)
+    return () => {
+      window.removeEventListener('dashboard-refreshed', refresh)
+      window.removeEventListener('tasks-refreshed', refresh)
+    }
+  }, [])
+
+  useEffect(() => {
+    const applyHash = () => {
+      if (typeof window === 'undefined') return
+      if (window.location.hash === '#tasks') {
+        setExpandedSections((prev) => ({ ...prev, tasks: true }))
+        setSectionVisibility((prev) => ({ ...prev, tasks: true }))
+        requestAnimationFrame(() => {
+          document.getElementById('tasks')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        })
+      }
+    }
+    applyHash()
+    window.addEventListener('hashchange', applyHash)
+    return () => window.removeEventListener('hashchange', applyHash)
+  }, [])
 
   useEffect(() => {
     if (user) {
@@ -1723,149 +1746,21 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3 sm:px-6 sm:py-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-4">
-                <div className="lifestacks-logo">
-                  <img src="/LifeStacks-logo.png" alt="Life Stacks" />
-                </div>
-                <div>{user && <p className="text-xs text-gray-500">Welcome, {user.email}</p>}</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <button
-                  onClick={() => setNavMenuOpen(!navMenuOpen)}
-                  className="inline-flex items-center justify-center p-2 rounded-md border border-gray-300 bg-white hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400"
-                  aria-label="Open menu"
-                  aria-expanded={navMenuOpen}
-                >
-                  <Menu className="h-6 w-6 text-gray-700" />
-                </button>
-
-                {/* Hamburger dropdown menu */}
-                {navMenuOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setNavMenuOpen(false)}
-                      aria-hidden="true"
-                    />
-                    <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-gray-200 bg-white shadow-lg z-50 py-1">
-                      <Link href="/modules" onClick={() => setNavMenuOpen(false)}>
-                        <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                          <Plus className="h-4 w-4 text-gray-500" />
-                          {t('nav.modules')}
-                        </span>
-                      </Link>
-                      <Link href="/bug-report" onClick={() => setNavMenuOpen(false)}>
-                        <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-700 hover:bg-red-50">
-                          <Bug className="h-4 w-4" />
-                          Report Bug
-                        </span>
-                      </Link>
-                      <Link href="/import" onClick={() => setNavMenuOpen(false)}>
-                        <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                          <FileSpreadsheet className="h-4 w-4 text-gray-500" />
-                          {t('nav.import')}
-                        </span>
-                      </Link>
-                      <Link href="/profile" onClick={() => setNavMenuOpen(false)}>
-                        <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                          <User className="h-4 w-4 text-gray-500" />
-                          {t('nav.profile')}
-                        </span>
-                      </Link>
-                      <div
-                        className="border-t border-gray-100 px-4 py-2.5"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <WakeWordToggle
-                          enabled={wakeWordEnabled}
-                          supported={wakeWordSupported}
-                          onChange={setWakeWordEnabled}
-                          compact
-                        />
-                      </div>
-                      <Link href="/dashboard/ai-usage" onClick={() => setNavMenuOpen(false)}>
-                        <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                          <Receipt className="h-4 w-4 text-gray-500" />
-                          AI usage
-                        </span>
-                      </Link>
-                      {isAdmin && (
-                        <Link href="/admin" onClick={() => setNavMenuOpen(false)}>
-                          <span className="flex items-center gap-3 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50">
-                            <Brain className="h-4 w-4" />
-                            Admin
-                          </span>
-                        </Link>
-                      )}
-                      <button
-                        onClick={async () => {
-                          setNavMenuOpen(false)
-                          setRefreshingAiContext(true)
-                          try {
-                            const res = await fetch('/api/ai/context-cache/refresh', {
-                              method: 'POST',
-                            })
-                            const data = await res.json()
-                            if (data.success) {
-                              await fetchStrategicRecommendations()
-                              alert(
-                                `AI context refreshed in ${Math.round(data.durationMs / 1000)}s`
-                              )
-                            } else {
-                              alert(data.error || 'Refresh failed')
-                            }
-                          } catch {
-                            alert('Failed to refresh AI context')
-                          } finally {
-                            setRefreshingAiContext(false)
-                          }
-                        }}
-                        disabled={refreshingAiContext}
-                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        <RefreshCw
-                          className={`h-4 w-4 ${refreshingAiContext ? 'animate-spin' : ''}`}
-                        />
-                        {refreshingAiContext ? 'Updating...' : 'Update AI Context'}
-                      </button>
-                      <button
-                        onClick={async () => {
-                          setNavMenuOpen(false)
-                          try {
-                            await signOut()
-                          } catch (error) {
-                            console.error('Error signing out:', error)
-                            alert('Error signing out. Please try again.')
-                          }
-                        }}
-                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-700 hover:bg-red-50"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        {t('nav.signOut')}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <AppShell
+      active="home"
+      firstName={shellProfile?.firstName}
+      avatarUrl={shellProfile?.avatarUrl}
+      greeting={shellProfile?.greeting}
+    >
       {/* Trial Status Banner */}
       {trialUser && <TrialStatusBanner email={trialUser.email} />}
 
       {showLifePlanWelcome && <NextStepWelcome onDismiss={() => setShowLifePlanWelcome(false)} />}
 
-      <div className="container mx-auto px-6 pt-8 pb-24">
+      <TodayAtAGlance onProfile={setShellProfile} />
+
+      <div id="workspace" className="container mx-auto px-6 pb-24">
+        <h2 className="mb-6 text-2xl font-bold text-[#1f2933]">Your workspace</h2>
         {/* Vision statement (from Dream Catcher; editable & AI-updatable) */}
         <VisionSection />
 
@@ -2989,6 +2884,7 @@ export default function Dashboard() {
             {/* Tasks Section */}
             {sectionVisibility.tasks && (
               <CascadingSection
+                id="tasks"
                 title={t('section.tasks')}
                 icon={<CheckCircle className="h-6 w-6 text-green-500" />}
                 isExpanded={expandedSections.tasks}
@@ -4800,6 +4696,6 @@ export default function Dashboard() {
           {t('nav.privacyPolicy')}
         </a>
       </footer>
-    </div>
+    </AppShell>
   )
 }

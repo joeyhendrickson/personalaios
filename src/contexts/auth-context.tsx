@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { User, type AuthChangeEvent, type Session } from '@supabase/supabase-js'
 import { createClientIfConfigured } from '@/lib/supabase/client'
+import { publicAuthErrorMessage } from '@/lib/supabase/auth-error'
 
 interface AuthContextType {
   user: User | null
@@ -79,12 +80,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase])
 
   const signIn = async (email: string, password: string) => {
-    if (!supabase) throw new Error('Supabase client not available')
+    if (!supabase) throw new Error(publicAuthErrorMessage('Supabase client not available'))
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
-    if (error) throw error
+    if (error) throw new Error(publicAuthErrorMessage(error))
   }
 
   const signUp = async (email: string, password: string) => {

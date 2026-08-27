@@ -167,7 +167,7 @@ export default function GratitudeJournalModule() {
               <Link href="/modules">
                 <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-9 rounded-md px-3 hover:bg-gray-100">
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Life Hacks
+                  Back to Stacks
                 </button>
               </Link>
               <div>

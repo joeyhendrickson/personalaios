@@ -382,7 +382,7 @@ export default function HabitMasterPage() {
               <Link href="/modules">
                 <Button variant="outline" size="sm">
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Life Hacks
+                  Back to Stacks
                 </Button>
               </Link>
               <div>
