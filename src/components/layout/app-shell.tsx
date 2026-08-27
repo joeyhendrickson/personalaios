@@ -132,16 +132,13 @@ export function AppShell({
     <div className="flex h-full flex-col bg-[#1a1d23] text-white">
       <div className="px-5 pt-6 pb-5">
         <Link href="/dashboard" className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-black/40 p-1">
-            <Image
-              src="/LifeStacks-logo.png"
-              alt="LifeStacks"
-              width={40}
-              height={40}
-              className="app-shell-logo-white h-8 w-8 object-contain"
-              style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
-            />
-          </span>
+          <Image
+            src="/LifeStacks-mark-on-dark.png"
+            alt="LifeStacks"
+            width={40}
+            height={40}
+            className="h-10 w-10 object-contain"
+          />
           <span className="text-lg font-semibold tracking-tight">LifeStacks</span>
         </Link>
       </div>
@@ -294,12 +291,11 @@ export function AppShell({
       <div className="sticky top-0 z-30 flex items-center justify-between bg-[#1a1d23] px-4 py-3 text-white lg:hidden">
         <Link href="/dashboard" className="flex items-center gap-2">
           <Image
-            src="/LifeStacks-logo.png"
+            src="/LifeStacks-mark-on-dark.png"
             alt=""
             width={32}
             height={32}
-            className="app-shell-logo-white h-8 w-8 object-contain"
-            style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
+            className="h-8 w-8 object-contain"
           />
           <span className="font-semibold">LifeStacks</span>
         </Link>

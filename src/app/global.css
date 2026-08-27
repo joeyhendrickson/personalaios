@@ -120,13 +120,6 @@ body {
   filter: invert(1);
 }
 
-/* AppShell chrome is always charcoal. The PNG is black-on-white RGB (no
- * alpha), so invert the stacked mark to white and screen away the canvas. */
-.app-shell-logo-white {
-  filter: invert(1);
-  mix-blend-mode: screen;
-}
-
 /* ---------------------------------------------------------------------------
  * Dark-mode remaps for hardcoded utility classes.
  * Much of the app uses literal light colors (bg-white, text-gray-900, light
