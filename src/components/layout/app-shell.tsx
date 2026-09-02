@@ -19,6 +19,7 @@ import {
   Receipt,
   RefreshCw,
   Settings,
+  Shield,
   Users,
   X,
 } from 'lucide-react'
@@ -29,6 +30,7 @@ import { useAdminAuth } from '@/hooks/use-admin-auth'
 import { WakeWordToggle } from '@/components/chat/wake-word-toggle'
 import { LanguageToggle } from '@/components/ui/language-toggle'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { isKnownAdminEmail } from '@/lib/admin-access'
 import { cn } from '@/lib/utils'
 
 export type AppShellActive =
@@ -40,12 +42,14 @@ export type AppShellActive =
   | 'insights'
   | 'connections'
   | 'settings'
+  | 'admin'
 
 const NAV: Array<{
   id: AppShellActive
   href?: string
   icon: typeof Home
   labelKey: string
+  adminOnly?: boolean
 }> = [
   { id: 'home', href: '/dashboard', icon: Home, labelKey: 'nav.home' },
   { id: 'stacks', href: '/modules', icon: Layers, labelKey: 'nav.modules' },
@@ -65,6 +69,7 @@ const NAV: Array<{
     labelKey: 'nav.connections',
   },
   { id: 'settings', href: '/profile', icon: Settings, labelKey: 'nav.settings' },
+  { id: 'admin', href: '/admin', icon: Shield, labelKey: 'nav.admin', adminOnly: true },
 ]
 
 function greetingKey(greeting?: 'morning' | 'afternoon' | 'evening') {
@@ -106,6 +111,8 @@ export function AppShell({
     (user?.user_metadata?.avatar_url as string | undefined) ||
     (user?.user_metadata?.picture as string | undefined) ||
     null
+  const showAdminNav = isAdmin || isKnownAdminEmail(user?.email)
+  const navItems = NAV.filter((item) => !item.adminOnly || showAdminNav)
 
   useEffect(() => {
     setMobileOpen(false)
@@ -168,7 +175,7 @@ export function AppShell({
       </div>
 
       <nav className="flex-1 space-y-1 px-3">
-        {NAV.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon
           const isActive = item.id === active
           return (
@@ -224,15 +231,6 @@ export function AppShell({
               <Receipt className="h-4 w-4" />
               AI usage
             </Link>
-            {isAdmin && (
-              <Link
-                href="/admin"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-emerald-200 hover:bg-white/5"
-              >
-                <Hexagon className="h-4 w-4" />
-                Admin
-              </Link>
-            )}
             <button
               type="button"
               disabled={refreshingAiContext}

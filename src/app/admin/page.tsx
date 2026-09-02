@@ -29,6 +29,7 @@ import {
 import { AccessCodesManager } from '@/components/admin/access-codes-manager'
 import { AiUsageAdminPanel } from '@/components/admin/ai-usage-admin-panel'
 import { AdvisorRagAdminPanel } from '@/components/admin/advisor-rag-admin-panel'
+import { AppShell } from '@/components/layout/app-shell'
 
 interface DashboardData {
   total_users: number
@@ -536,1157 +537,1175 @@ export default function AdminDashboard() {
 
   if (loading || userLoading || adminLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading admin dashboard...</p>
+      <AppShell active="admin">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Loading admin dashboard...</p>
+          </div>
         </div>
-      </div>
+      </AppShell>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+      <AppShell active="admin">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {error}
+            </div>
+            <Button onClick={() => router.push('/dashboard')} variant="outline">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
           </div>
-          <Button onClick={() => router.push('/dashboard')} variant="outline">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
         </div>
-      </div>
+      </AppShell>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <Button onClick={() => router.push('/dashboard')} variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="text-sm text-gray-600">Life Stacks Analytics</p>
+    <AppShell active="admin">
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div className="flex items-center space-x-4">
+                <Button onClick={() => router.push('/dashboard')} variant="outline" size="sm">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Dashboard
+                </Button>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+                  <p className="text-sm text-gray-600">Life Stacks Analytics</p>
+                </div>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={fetchDashboardData} variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-              <Button onClick={() => router.push('/admin/billing')} variant="outline" size="sm">
-                <DollarSign className="h-4 w-4 mr-2" />
-                Platform Costs
-              </Button>
-              <Button
-                onClick={() => {
-                  setRawDataOpen(!rawDataOpen)
-                  if (!rawDataOpen && !rawData) {
-                    fetchRawData()
-                  }
-                }}
-                variant={rawDataOpen ? 'default' : 'outline'}
-                size="sm"
-              >
-                <Database className="h-4 w-4 mr-2" />
-                Raw Data
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-          <Card className="p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Users className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Users</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {dashboardData?.total_users || 0}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Activity className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Today</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {dashboardData?.active_users_today || 0}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <Bug className="h-6 w-6 text-red-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Bug Reports</p>
-                <p className="text-2xl font-bold text-gray-900">{bugReports.length}</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Users className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Trials</p>
-                <p className="text-2xl font-bold text-gray-900">{trialStats?.active || 0}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {trialStats?.pendingNotifications || 0} need notification
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Target className="h-6 w-6 text-purple-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Points</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {dashboardData?.total_points_earned || 0}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <CheckCircle className="h-6 w-6 text-orange-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Points Today</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {dashboardData?.total_points_today || 0}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-emerald-100 rounded-lg">
-                <DollarSign className="h-6 w-6 text-emerald-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  ${paymentStats?.totalRevenue.toFixed(2) || '0.00'}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">{paymentStats?.total || 0} payments</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-teal-100 rounded-lg">
-                <CreditCard className="h-6 w-6 text-teal-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">This Month</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  ${paymentStats?.thisMonthRevenue.toFixed(2) || '0.00'}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {paymentStats?.thisMonth || 0} payments
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Access Codes Manager */}
-        <div className="mb-8">
-          <AccessCodesManager />
-        </div>
-
-        <AiUsageAdminPanel />
-
-        <AdvisorRagAdminPanel />
-
-        <Card className="p-6 mb-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <CalendarDays className="h-5 w-5 mr-2 text-yellow-600" />
-                Workshop Registrations
-              </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Lifestacks Workshop payments and registrant details
-              </p>
-            </div>
-            {workshopStats && (
-              <div className="flex flex-wrap gap-4 text-sm">
-                <span className="text-gray-600">
-                  Total: <strong>{workshopStats.total}</strong>
-                </span>
-                <span className="text-emerald-700">
-                  Revenue: <strong>${workshopStats.totalRevenue.toFixed(2)}</strong>
-                </span>
-                <span className="text-amber-700">
-                  ID Pending: <strong>{workshopStats.idPendingCount}</strong>
-                </span>
-                <span className="text-blue-700">
-                  On-site stay: <strong>{workshopStats.onSiteStayCount}</strong>
-                </span>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            {workshopRegistrations.length > 0 ? (
-              workshopRegistrations.map((registration) => (
-                <div
-                  key={registration.id}
-                  className="p-4 bg-amber-50 rounded-lg border border-amber-200"
+              <div className="flex gap-2">
+                <Button onClick={fetchDashboardData} variant="outline" size="sm">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+                <Button onClick={() => router.push('/admin/billing')} variant="outline" size="sm">
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Platform Costs
+                </Button>
+                <Button
+                  onClick={() => {
+                    setRawDataOpen(!rawDataOpen)
+                    if (!rawDataOpen && !rawData) {
+                      fetchRawData()
+                    }
+                  }}
+                  variant={rawDataOpen ? 'default' : 'outline'}
+                  size="sm"
                 >
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-gray-900">{registration.full_name}</p>
-                        <Badge
-                          variant="outline"
-                          className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300"
-                        >
-                          workshop
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${
-                            registration.id_verified
-                              ? 'bg-green-100 text-green-700 border-green-300'
-                              : 'bg-orange-100 text-orange-700 border-orange-300'
-                          }`}
-                        >
-                          {registration.id_verified ? 'ID verified' : 'ID pending'}
-                        </Badge>
-                        {registration.on_site_stay && (
-                          <Badge
-                            variant="outline"
-                            className="text-xs bg-blue-100 text-blue-700 border-blue-300"
-                          >
-                            On-site stay
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-700">{registration.email}</p>
-                      {registration.phone && (
-                        <p className="text-sm text-gray-600 flex items-center gap-1">
-                          <Phone className="h-3.5 w-3.5" />
-                          {registration.phone}
-                        </p>
-                      )}
-                      <p className="text-xs text-gray-500">
-                        PayPal Order: {registration.paypal_order_id}
-                      </p>
-                      <p className="text-xs text-gray-500 flex items-center gap-1">
-                        <MapPin className="h-3.5 w-3.5" />
-                        Registered {formatDate(registration.created_at)}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col items-start lg:items-end gap-2">
-                      <p className="text-lg font-bold text-emerald-700">
-                        ${parseFloat(String(registration.amount)).toFixed(2)}{' '}
-                        {registration.currency}
-                      </p>
-                      <Button
-                        size="sm"
-                        variant={registration.id_verified ? 'outline' : 'default'}
-                        disabled={updatingRegistrationId === registration.id}
-                        onClick={() =>
-                          markWorkshopIdVerified(registration.id, !registration.id_verified)
-                        }
-                      >
-                        {updatingRegistrationId === registration.id
-                          ? 'Saving...'
-                          : registration.id_verified
-                            ? 'Mark ID Pending'
-                            : 'Mark ID Verified'}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-500 text-center py-6">No workshop registrations yet</p>
-            )}
+                  <Database className="h-4 w-4 mr-2" />
+                  Raw Data
+                </Button>
+              </div>
+            </div>
           </div>
-        </Card>
+        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Bug Reports */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <Bug className="h-5 w-5 mr-2 text-red-500" />
-              Bug Reports
-            </h3>
-            <div className="space-y-3">
-              {bugReports.length > 0 ? (
-                bugReports.slice(0, 5).map((bug) => (
-                  <div
-                    key={bug.id}
-                    className={`p-3 rounded-lg border ${
-                      bug.priority === 'critical'
-                        ? 'bg-red-50 border-red-200'
-                        : bug.priority === 'high'
-                          ? 'bg-orange-50 border-orange-200'
-                          : bug.priority === 'medium'
-                            ? 'bg-yellow-50 border-yellow-200'
-                            : 'bg-gray-50 border-gray-200'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${
-                            bug.type === 'bug'
-                              ? 'bg-red-100 text-red-700 border-red-300'
-                              : 'bg-blue-100 text-blue-700 border-blue-300'
-                          }`}
-                        >
-                          {bug.type}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${
-                            bug.priority === 'critical'
-                              ? 'bg-red-100 text-red-700 border-red-300'
-                              : bug.priority === 'high'
-                                ? 'bg-orange-100 text-orange-700 border-orange-300'
-                                : bug.priority === 'medium'
-                                  ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
-                                  : 'bg-gray-100 text-gray-700 border-gray-300'
-                          }`}
-                        >
-                          {bug.priority}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${
-                            bug.status === 'open'
-                              ? 'bg-green-100 text-green-700 border-green-300'
-                              : bug.status === 'in_progress'
-                                ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                : bug.status === 'completed'
-                                  ? 'bg-gray-100 text-gray-700 border-gray-300'
-                                  : 'bg-red-100 text-red-700 border-red-300'
-                          }`}
-                        >
-                          {bug.status}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm mb-1">{bug.title}</p>
-                      <p className="text-xs text-gray-600 mb-2 line-clamp-2">{bug.description}</p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-gray-500">{bug.user_email}</p>
-                        <p className="text-xs text-gray-500">{formatDate(bug.created_at)}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center py-4">No bug reports</p>
-              )}
-            </div>
-          </Card>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Stats Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Users className="h-6 w-6 text-blue-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Users</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {dashboardData?.total_users || 0}
+                  </p>
+                </div>
+              </div>
+            </Card>
 
-          {/* User Reported Challenges */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <Activity className="h-5 w-5 mr-2 text-blue-500" />
-              User Challenges
-            </h3>
-            <div className="space-y-3">
-              {userChallenges.length > 0 ? (
-                userChallenges.slice(0, 8).map((c) => (
-                  <div key={c.id} className="p-3 rounded-lg border bg-blue-50 border-blue-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant="outline" className="text-xs bg-white border-blue-300">
-                        {c.severity}
-                      </Badge>
-                      <span className="text-xs text-gray-500">{formatDate(c.created_at)}</span>
-                    </div>
-                    <p className="text-sm text-gray-900 line-clamp-3">{c.message}</p>
-                    {Array.isArray(c.tags) && c.tags.length > 0 && (
-                      <p className="text-xs text-gray-600 mt-2">Tags: {c.tags.join(', ')}</p>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center py-4">No user challenges logged</p>
-              )}
-            </div>
-          </Card>
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Activity className="h-6 w-6 text-green-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Active Today</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {dashboardData?.active_users_today || 0}
+                  </p>
+                </div>
+              </div>
+            </Card>
 
-          {/* Trial Subscriptions */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
-              <span className="flex items-center">
-                <Users className="h-5 w-5 mr-2 text-green-500" />
-                Trial
-              </span>
-              {trialStats && (
-                <div className="flex items-center space-x-4 text-sm">
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <Bug className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Bug Reports</p>
+                  <p className="text-2xl font-bold text-gray-900">{bugReports.length}</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Users className="h-6 w-6 text-green-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Active Trials</p>
+                  <p className="text-2xl font-bold text-gray-900">{trialStats?.active || 0}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {trialStats?.pendingNotifications || 0} need notification
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Target className="h-6 w-6 text-purple-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Points</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {dashboardData?.total_points_earned || 0}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <CheckCircle className="h-6 w-6 text-orange-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Points Today</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {dashboardData?.total_points_today || 0}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-emerald-100 rounded-lg">
+                  <DollarSign className="h-6 w-6 text-emerald-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    ${paymentStats?.totalRevenue.toFixed(2) || '0.00'}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">{paymentStats?.total || 0} payments</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-teal-100 rounded-lg">
+                  <CreditCard className="h-6 w-6 text-teal-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">This Month</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    ${paymentStats?.thisMonthRevenue.toFixed(2) || '0.00'}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {paymentStats?.thisMonth || 0} payments
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Access Codes Manager */}
+          <div className="mb-8">
+            <AccessCodesManager />
+          </div>
+
+          <AiUsageAdminPanel />
+
+          <AdvisorRagAdminPanel />
+
+          <Card className="p-6 mb-8">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <CalendarDays className="h-5 w-5 mr-2 text-yellow-600" />
+                  Workshop Registrations
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Lifestacks Workshop payments and registrant details
+                </p>
+              </div>
+              {workshopStats && (
+                <div className="flex flex-wrap gap-4 text-sm">
                   <span className="text-gray-600">
-                    Active: <strong>{trialStats.active}</strong>
+                    Total: <strong>{workshopStats.total}</strong>
                   </span>
-                  <span className="text-orange-600">
-                    Near Expiry: <strong>{trialStats.pendingNotifications}</strong>
+                  <span className="text-emerald-700">
+                    Revenue: <strong>${workshopStats.totalRevenue.toFixed(2)}</strong>
                   </span>
-                  <span className="text-green-600">
-                    Converted: <strong>{trialStats.converted}</strong>
+                  <span className="text-amber-700">
+                    ID Pending: <strong>{workshopStats.idPendingCount}</strong>
+                  </span>
+                  <span className="text-blue-700">
+                    On-site stay: <strong>{workshopStats.onSiteStayCount}</strong>
                   </span>
                 </div>
               )}
-            </h3>
+            </div>
+
             <div className="space-y-3">
-              {trials.length > 0 ? (
-                trials.slice(0, 10).map((trial) => (
+              {workshopRegistrations.length > 0 ? (
+                workshopRegistrations.map((registration) => (
                   <div
-                    key={trial.id}
-                    className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                    key={registration.id}
+                    className="p-4 bg-amber-50 rounded-lg border border-amber-200"
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="font-medium text-gray-900 text-sm">
-                          {trial.email}
-                          {trial.name && <span className="text-gray-500 ml-2">({trial.name})</span>}
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-gray-900">{registration.full_name}</p>
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300"
+                          >
+                            workshop
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${
+                              registration.id_verified
+                                ? 'bg-green-100 text-green-700 border-green-300'
+                                : 'bg-orange-100 text-orange-700 border-orange-300'
+                            }`}
+                          >
+                            {registration.id_verified ? 'ID verified' : 'ID pending'}
+                          </Badge>
+                          {registration.on_site_stay && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-blue-100 text-blue-700 border-blue-300"
+                            >
+                              On-site stay
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-700">{registration.email}</p>
+                        {registration.phone && (
+                          <p className="text-sm text-gray-600 flex items-center gap-1">
+                            <Phone className="h-3.5 w-3.5" />
+                            {registration.phone}
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          PayPal Order: {registration.paypal_order_id}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Created: {formatDate(trial.created_at)}
+                        <p className="text-xs text-gray-500 flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5" />
+                          Registered {formatDate(registration.created_at)}
                         </p>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${
-                            trial.status === 'active'
-                              ? 'bg-green-100 text-green-700 border-green-300'
-                              : trial.status === 'expired'
+
+                      <div className="flex flex-col items-start lg:items-end gap-2">
+                        <p className="text-lg font-bold text-emerald-700">
+                          ${parseFloat(String(registration.amount)).toFixed(2)}{' '}
+                          {registration.currency}
+                        </p>
+                        <Button
+                          size="sm"
+                          variant={registration.id_verified ? 'outline' : 'default'}
+                          disabled={updatingRegistrationId === registration.id}
+                          onClick={() =>
+                            markWorkshopIdVerified(registration.id, !registration.id_verified)
+                          }
+                        >
+                          {updatingRegistrationId === registration.id
+                            ? 'Saving...'
+                            : registration.id_verified
+                              ? 'Mark ID Pending'
+                              : 'Mark ID Verified'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-6">No workshop registrations yet</p>
+              )}
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Bug Reports */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Bug className="h-5 w-5 mr-2 text-red-500" />
+                Bug Reports
+              </h3>
+              <div className="space-y-3">
+                {bugReports.length > 0 ? (
+                  bugReports.slice(0, 5).map((bug) => (
+                    <div
+                      key={bug.id}
+                      className={`p-3 rounded-lg border ${
+                        bug.priority === 'critical'
+                          ? 'bg-red-50 border-red-200'
+                          : bug.priority === 'high'
+                            ? 'bg-orange-50 border-orange-200'
+                            : bug.priority === 'medium'
+                              ? 'bg-yellow-50 border-yellow-200'
+                              : 'bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${
+                              bug.type === 'bug'
                                 ? 'bg-red-100 text-red-700 border-red-300'
-                                : trial.status === 'converted'
+                                : 'bg-blue-100 text-blue-700 border-blue-300'
+                            }`}
+                          >
+                            {bug.type}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${
+                              bug.priority === 'critical'
+                                ? 'bg-red-100 text-red-700 border-red-300'
+                                : bug.priority === 'high'
+                                  ? 'bg-orange-100 text-orange-700 border-orange-300'
+                                  : bug.priority === 'medium'
+                                    ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                                    : 'bg-gray-100 text-gray-700 border-gray-300'
+                            }`}
+                          >
+                            {bug.priority}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${
+                              bug.status === 'open'
+                                ? 'bg-green-100 text-green-700 border-green-300'
+                                : bug.status === 'in_progress'
                                   ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                  : 'bg-gray-100 text-gray-700 border-gray-300'
-                          }`}
-                        >
-                          {trial.status}
-                        </Badge>
-                        {!trial.isExpired && trial.daysRemaining <= 2 && (
-                          <Badge
-                            variant="outline"
-                            className="text-xs bg-orange-100 text-orange-700 border-orange-300"
+                                  : bug.status === 'completed'
+                                    ? 'bg-gray-100 text-gray-700 border-gray-300'
+                                    : 'bg-red-100 text-red-700 border-red-300'
+                            }`}
                           >
-                            {trial.daysRemaining}d left
+                            {bug.status}
                           </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mt-3">
-                      <div>
-                        <p className="text-xs text-gray-500">Trial Period</p>
-                        <p className="text-xs font-medium text-gray-900">
-                          {new Date(trial.trial_start).toLocaleDateString()} -{' '}
-                          {new Date(trial.trial_end).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Will Convert To</p>
-                        <p className="text-xs font-medium text-gray-900">
-                          ${trial.conversion_price}/mo ({trial.will_convert_to})
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <p className="text-xs font-semibold text-gray-700 mb-2">
-                        Email Notifications:
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="flex items-center space-x-2">
-                          {trial.notificationStatus.expiryNotificationSent ? (
-                            <>
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              <span className="text-xs text-green-700">48h notice sent</span>
-                            </>
-                          ) : trial.notificationStatus.needsExpiryNotification ? (
-                            <>
-                              <AlertTriangle className="h-4 w-4 text-orange-500" />
-                              <span className="text-xs text-orange-700">Needs 48h notice</span>
-                            </>
-                          ) : (
-                            <span className="text-xs text-gray-500">No 48h notice yet</span>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {trial.notificationStatus.expiredNotificationSent ? (
-                            <>
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                              <span className="text-xs text-green-700">Expiry notice sent</span>
-                            </>
-                          ) : trial.notificationStatus.needsExpiredNotification ? (
-                            <>
-                              <AlertTriangle className="h-4 w-4 text-red-500" />
-                              <span className="text-xs text-red-700">Needs expiry notice</span>
-                            </>
-                          ) : (
-                            <span className="text-xs text-gray-500">No expiry notice yet</span>
-                          )}
                         </div>
                       </div>
-                      {trial.expiry_notification_sent_at && (
-                        <p className="text-xs text-gray-500 mt-2">
-                          48h notice sent: {formatDate(trial.expiry_notification_sent_at)}
-                        </p>
-                      )}
-                      {trial.expired_notification_sent_at && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Expiry notice sent: {formatDate(trial.expired_notification_sent_at)}
-                        </p>
-                      )}
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm mb-1">{bug.title}</p>
+                        <p className="text-xs text-gray-600 mb-2 line-clamp-2">{bug.description}</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-gray-500">{bug.user_email}</p>
+                          <p className="text-xs text-gray-500">{formatDate(bug.created_at)}</p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center py-4">No trial subscriptions</p>
-              )}
-            </div>
-          </Card>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No bug reports</p>
+                )}
+              </div>
+            </Card>
 
-          {/* Standard Subscriptions */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
-              <span className="flex items-center">
-                <CreditCard className="h-5 w-5 mr-2 text-blue-500" />
-                Standard
-              </span>
-              {standardStats && (
-                <div className="flex items-center space-x-4 text-sm">
-                  <span className="text-gray-600">
-                    Total: <strong>{standardStats.total}</strong>
-                  </span>
-                  <span className="text-green-600">
-                    Active: <strong>{standardStats.active}</strong>
-                  </span>
-                  <span className="text-orange-600">
-                    Grace: <strong>{standardStats.gracePeriod}</strong>
-                  </span>
-                </div>
-              )}
-            </h3>
-            <div className="space-y-3">
-              {standardSubscriptions.length > 0 ? (
-                standardSubscriptions.slice(0, 10).map((sub) => (
-                  <div
-                    key={sub.id}
-                    className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="font-medium text-gray-900 text-sm">{sub.name}</p>
-                        <p className="text-xs text-gray-500">{sub.email}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Created: {formatDate(sub.created_at)}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${
-                            sub.status === 'active'
-                              ? 'bg-green-100 text-green-700 border-green-300'
-                              : sub.status === 'grace_period'
-                                ? 'bg-orange-100 text-orange-700 border-orange-300'
-                                : sub.status === 'cancelled'
-                                  ? 'bg-red-100 text-red-700 border-red-300'
-                                  : 'bg-gray-100 text-gray-700 border-gray-300'
-                          }`}
-                        >
-                          {sub.status === 'grace_period' ? 'Grace Period' : sub.status}
+            {/* User Reported Challenges */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Activity className="h-5 w-5 mr-2 text-blue-500" />
+                User Challenges
+              </h3>
+              <div className="space-y-3">
+                {userChallenges.length > 0 ? (
+                  userChallenges.slice(0, 8).map((c) => (
+                    <div key={c.id} className="p-3 rounded-lg border bg-blue-50 border-blue-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <Badge variant="outline" className="text-xs bg-white border-blue-300">
+                          {c.severity}
                         </Badge>
-                        {sub.isGracePeriod && (
+                        <span className="text-xs text-gray-500">{formatDate(c.created_at)}</span>
+                      </div>
+                      <p className="text-sm text-gray-900 line-clamp-3">{c.message}</p>
+                      {Array.isArray(c.tags) && c.tags.length > 0 && (
+                        <p className="text-xs text-gray-600 mt-2">Tags: {c.tags.join(', ')}</p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No user challenges logged</p>
+                )}
+              </div>
+            </Card>
+
+            {/* Trial Subscriptions */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+                <span className="flex items-center">
+                  <Users className="h-5 w-5 mr-2 text-green-500" />
+                  Trial
+                </span>
+                {trialStats && (
+                  <div className="flex items-center space-x-4 text-sm">
+                    <span className="text-gray-600">
+                      Active: <strong>{trialStats.active}</strong>
+                    </span>
+                    <span className="text-orange-600">
+                      Near Expiry: <strong>{trialStats.pendingNotifications}</strong>
+                    </span>
+                    <span className="text-green-600">
+                      Converted: <strong>{trialStats.converted}</strong>
+                    </span>
+                  </div>
+                )}
+              </h3>
+              <div className="space-y-3">
+                {trials.length > 0 ? (
+                  trials.slice(0, 10).map((trial) => (
+                    <div
+                      key={trial.id}
+                      className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">
+                            {trial.email}
+                            {trial.name && (
+                              <span className="text-gray-500 ml-2">({trial.name})</span>
+                            )}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Created: {formatDate(trial.created_at)}
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
                           <Badge
                             variant="outline"
-                            className="text-xs bg-orange-100 text-orange-700 border-orange-300"
+                            className={`text-xs ${
+                              trial.status === 'active'
+                                ? 'bg-green-100 text-green-700 border-green-300'
+                                : trial.status === 'expired'
+                                  ? 'bg-red-100 text-red-700 border-red-300'
+                                  : trial.status === 'converted'
+                                    ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                    : 'bg-gray-100 text-gray-700 border-gray-300'
+                            }`}
                           >
-                            {sub.graceDaysRemaining}d left
+                            {trial.status}
                           </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mt-3">
-                      <div>
-                        <p className="text-xs text-gray-500">Active Since</p>
-                        <p className="text-xs font-medium text-gray-900">{sub.daysActive} days</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Current Period</p>
-                        <p className="text-xs font-medium text-gray-900">
-                          {new Date(sub.current_period_start).toLocaleDateString()} -{' '}
-                          {new Date(sub.current_period_end).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                    {sub.payment_failed_at && (
-                      <div className="mt-3 pt-3 border-t border-gray-200">
-                        <div className="flex items-center space-x-2">
-                          <AlertTriangle className="h-4 w-4 text-red-500" />
-                          <span className="text-xs text-red-700">
-                            Payment failed: {formatDate(sub.payment_failed_at)}
-                          </span>
+                          {!trial.isExpired && trial.daysRemaining <= 2 && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-orange-100 text-orange-700 border-orange-300"
+                            >
+                              {trial.daysRemaining}d left
+                            </Badge>
+                          )}
                         </div>
-                        {sub.grace_period_end && (
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mt-3">
+                        <div>
+                          <p className="text-xs text-gray-500">Trial Period</p>
+                          <p className="text-xs font-medium text-gray-900">
+                            {new Date(trial.trial_start).toLocaleDateString()} -{' '}
+                            {new Date(trial.trial_end).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Will Convert To</p>
+                          <p className="text-xs font-medium text-gray-900">
+                            ${trial.conversion_price}/mo ({trial.will_convert_to})
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <p className="text-xs font-semibold text-gray-700 mb-2">
+                          Email Notifications:
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex items-center space-x-2">
+                            {trial.notificationStatus.expiryNotificationSent ? (
+                              <>
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                                <span className="text-xs text-green-700">48h notice sent</span>
+                              </>
+                            ) : trial.notificationStatus.needsExpiryNotification ? (
+                              <>
+                                <AlertTriangle className="h-4 w-4 text-orange-500" />
+                                <span className="text-xs text-orange-700">Needs 48h notice</span>
+                              </>
+                            ) : (
+                              <span className="text-xs text-gray-500">No 48h notice yet</span>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {trial.notificationStatus.expiredNotificationSent ? (
+                              <>
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                                <span className="text-xs text-green-700">Expiry notice sent</span>
+                              </>
+                            ) : trial.notificationStatus.needsExpiredNotification ? (
+                              <>
+                                <AlertTriangle className="h-4 w-4 text-red-500" />
+                                <span className="text-xs text-red-700">Needs expiry notice</span>
+                              </>
+                            ) : (
+                              <span className="text-xs text-gray-500">No expiry notice yet</span>
+                            )}
+                          </div>
+                        </div>
+                        {trial.expiry_notification_sent_at && (
+                          <p className="text-xs text-gray-500 mt-2">
+                            48h notice sent: {formatDate(trial.expiry_notification_sent_at)}
+                          </p>
+                        )}
+                        {trial.expired_notification_sent_at && (
                           <p className="text-xs text-gray-500 mt-1">
-                            Grace period ends: {formatDate(sub.grace_period_end)}
+                            Expiry notice sent: {formatDate(trial.expired_notification_sent_at)}
                           </p>
                         )}
                       </div>
-                    )}
-                    {sub.paypal_subscription_id && (
-                      <p className="text-xs text-gray-400 mt-2 font-mono">
-                        PayPal ID: {sub.paypal_subscription_id.substring(0, 20)}...
-                      </p>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center py-4">No standard subscriptions</p>
-              )}
-            </div>
-          </Card>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No trial subscriptions</p>
+                )}
+              </div>
+            </Card>
 
-          {/* Premium Users */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
-              <span className="flex items-center">
-                <Users className="h-5 w-5 mr-2 text-yellow-600" />
-                Premium
-              </span>
-              {premiumStats && (
-                <div className="flex items-center space-x-4 text-sm">
-                  <span className="text-gray-600">
-                    Total: <strong>{premiumStats.total}</strong>
-                  </span>
-                  <span className="text-green-600">
-                    Active: <strong>{premiumStats.active}</strong>
-                  </span>
-                  <span className="text-blue-600">
-                    With Activity: <strong>{premiumStats.withActivity}</strong>
-                  </span>
-                </div>
-              )}
-            </h3>
-            <div className="space-y-3">
-              {premiumUsers.length > 0 ? (
-                premiumUsers.slice(0, 10).map((user) => (
-                  <div
-                    key={user.id}
-                    className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="font-medium text-gray-900 text-sm">{user.name}</p>
-                        <p className="text-xs text-gray-500">{user.email}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Joined: {formatDate(user.created_at)}
-                        </p>
+            {/* Standard Subscriptions */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+                <span className="flex items-center">
+                  <CreditCard className="h-5 w-5 mr-2 text-blue-500" />
+                  Standard
+                </span>
+                {standardStats && (
+                  <div className="flex items-center space-x-4 text-sm">
+                    <span className="text-gray-600">
+                      Total: <strong>{standardStats.total}</strong>
+                    </span>
+                    <span className="text-green-600">
+                      Active: <strong>{standardStats.active}</strong>
+                    </span>
+                    <span className="text-orange-600">
+                      Grace: <strong>{standardStats.gracePeriod}</strong>
+                    </span>
+                  </div>
+                )}
+              </h3>
+              <div className="space-y-3">
+                {standardSubscriptions.length > 0 ? (
+                  standardSubscriptions.slice(0, 10).map((sub) => (
+                    <div
+                      key={sub.id}
+                      className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">{sub.name}</p>
+                          <p className="text-xs text-gray-500">{sub.email}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Created: {formatDate(sub.created_at)}
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${
+                              sub.status === 'active'
+                                ? 'bg-green-100 text-green-700 border-green-300'
+                                : sub.status === 'grace_period'
+                                  ? 'bg-orange-100 text-orange-700 border-orange-300'
+                                  : sub.status === 'cancelled'
+                                    ? 'bg-red-100 text-red-700 border-red-300'
+                                    : 'bg-gray-100 text-gray-700 border-gray-300'
+                            }`}
+                          >
+                            {sub.status === 'grace_period' ? 'Grace Period' : sub.status}
+                          </Badge>
+                          {sub.isGracePeriod && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-orange-100 text-orange-700 border-orange-300"
+                            >
+                              {sub.graceDaysRemaining}d left
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge
-                          variant="outline"
-                          className="text-xs bg-yellow-100 text-yellow-800 border-yellow-400"
-                        >
-                          Premium
-                        </Badge>
-                        {user.total_visits > 0 && (
+                      <div className="grid grid-cols-2 gap-4 mt-3">
+                        <div>
+                          <p className="text-xs text-gray-500">Active Since</p>
+                          <p className="text-xs font-medium text-gray-900">{sub.daysActive} days</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Current Period</p>
+                          <p className="text-xs font-medium text-gray-900">
+                            {new Date(sub.current_period_start).toLocaleDateString()} -{' '}
+                            {new Date(sub.current_period_end).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      {sub.payment_failed_at && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <div className="flex items-center space-x-2">
+                            <AlertTriangle className="h-4 w-4 text-red-500" />
+                            <span className="text-xs text-red-700">
+                              Payment failed: {formatDate(sub.payment_failed_at)}
+                            </span>
+                          </div>
+                          {sub.grace_period_end && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Grace period ends: {formatDate(sub.grace_period_end)}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {sub.paypal_subscription_id && (
+                        <p className="text-xs text-gray-400 mt-2 font-mono">
+                          PayPal ID: {sub.paypal_subscription_id.substring(0, 20)}...
+                        </p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No standard subscriptions</p>
+                )}
+              </div>
+            </Card>
+
+            {/* Premium Users */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+                <span className="flex items-center">
+                  <Users className="h-5 w-5 mr-2 text-yellow-600" />
+                  Premium
+                </span>
+                {premiumStats && (
+                  <div className="flex items-center space-x-4 text-sm">
+                    <span className="text-gray-600">
+                      Total: <strong>{premiumStats.total}</strong>
+                    </span>
+                    <span className="text-green-600">
+                      Active: <strong>{premiumStats.active}</strong>
+                    </span>
+                    <span className="text-blue-600">
+                      With Activity: <strong>{premiumStats.withActivity}</strong>
+                    </span>
+                  </div>
+                )}
+              </h3>
+              <div className="space-y-3">
+                {premiumUsers.length > 0 ? (
+                  premiumUsers.slice(0, 10).map((user) => (
+                    <div
+                      key={user.id}
+                      className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">{user.name}</p>
+                          <p className="text-xs text-gray-500">{user.email}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Joined: {formatDate(user.created_at)}
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-yellow-100 text-yellow-800 border-yellow-400"
+                          >
+                            Premium
+                          </Badge>
+                          {user.total_visits > 0 && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-green-100 text-green-700 border-green-300"
+                            >
+                              Active
+                            </Badge>
+                          )}
+                          <button
+                            onClick={() => {
+                              console.log(
+                                '🔧 Toggle clicked for user:',
+                                user.id,
+                                'current access_enabled:',
+                                user.access_enabled,
+                                'type:',
+                                typeof user.access_enabled
+                              )
+                              toggleUserAccess(user.id, user.access_enabled !== false)
+                            }}
+                            className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                              user.access_enabled !== false
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                : 'bg-red-100 text-red-700 hover:bg-red-200'
+                            }`}
+                            title={
+                              user.access_enabled !== false ? 'Disable access' : 'Enable access'
+                            }
+                          >
+                            <Power className="h-3 w-3" />
+                            <span>{user.access_enabled !== false ? 'ON' : 'OFF'}</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 mt-3">
+                        <div>
+                          <p className="text-xs text-gray-500">Total Points</p>
+                          <p className="text-xs font-medium text-gray-900">{user.total_points}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Visits</p>
+                          <p className="text-xs font-medium text-gray-900">{user.total_visits}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Time Spent</p>
+                          <p className="text-xs font-medium text-gray-900">
+                            {formatTime(user.total_time_spent)}
+                          </p>
+                        </div>
+                      </div>
+                      {user.last_activity && (
+                        <p className="text-xs text-gray-400 mt-2">
+                          Last activity: {formatDate(user.last_activity)}
+                        </p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No premium users</p>
+                )}
+              </div>
+            </Card>
+
+            {/* Payments */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+                <span className="flex items-center">
+                  <DollarSign className="h-5 w-5 mr-2 text-emerald-500" />
+                  Recent Payments
+                </span>
+                {paymentStats && (
+                  <div className="flex items-center space-x-4 text-sm">
+                    <span className="text-gray-600">
+                      Total: <strong>${paymentStats.totalRevenue.toFixed(2)}</strong>
+                    </span>
+                    <span className="text-blue-600">
+                      Basic: <strong>{paymentStats.basicPlanCount}</strong>
+                    </span>
+                    <span className="text-purple-600">
+                      Premium: <strong>{paymentStats.premiumPlanCount}</strong>
+                    </span>
+                    <span className="text-yellow-700">
+                      Workshop: <strong>{paymentStats.workshopCount || 0}</strong>
+                    </span>
+                  </div>
+                )}
+              </h3>
+              <div className="space-y-3">
+                {payments.length > 0 ? (
+                  payments.slice(0, 10).map((payment) => (
+                    <div
+                      key={payment.id}
+                      className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">
+                            {payment.plan_type === 'workshop' || payment.plan_type === 'coach_setup'
+                              ? payment.payment_details?.registration?.name || payment.user_email
+                              : payment.user_email || 'Email not provided'}
+                          </p>
+                          {(payment.plan_type === 'workshop' ||
+                            payment.plan_type === 'coach_setup') &&
+                            payment.user_email && (
+                              <p className="text-xs text-gray-600">{payment.user_email}</p>
+                            )}
+                          <p className="text-xs text-gray-500 mt-1">
+                            PayPal Order: {payment.paypal_order_id}
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${
+                              payment.plan_type === 'basic'
+                                ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                : payment.plan_type === 'workshop'
+                                  ? 'bg-yellow-100 text-yellow-800 border-yellow-300'
+                                  : payment.plan_type === 'coach_setup'
+                                    ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
+                                    : 'bg-purple-100 text-purple-700 border-purple-300'
+                            }`}
+                          >
+                            {payment.plan_type}
+                          </Badge>
                           <Badge
                             variant="outline"
                             className="text-xs bg-green-100 text-green-700 border-green-300"
                           >
-                            Active
+                            {payment.status}
                           </Badge>
-                        )}
-                        <button
-                          onClick={() => {
-                            console.log(
-                              '🔧 Toggle clicked for user:',
-                              user.id,
-                              'current access_enabled:',
-                              user.access_enabled,
-                              'type:',
-                              typeof user.access_enabled
-                            )
-                            toggleUserAccess(user.id, user.access_enabled !== false)
-                          }}
-                          className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                            user.access_enabled !== false
-                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                              : 'bg-red-100 text-red-700 hover:bg-red-200'
-                          }`}
-                          title={user.access_enabled !== false ? 'Disable access' : 'Enable access'}
-                        >
-                          <Power className="h-3 w-3" />
-                          <span>{user.access_enabled !== false ? 'ON' : 'OFF'}</span>
-                        </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mt-3">
+                        <div>
+                          <p className="text-xs text-gray-500">Amount</p>
+                          <p className="text-sm font-bold text-emerald-600">
+                            ${parseFloat(String(payment.amount)).toFixed(2)} {payment.currency}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Payment Date</p>
+                          <p className="text-xs font-medium text-gray-900">
+                            {formatDate(payment.created_at)}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-4 mt-3">
-                      <div>
-                        <p className="text-xs text-gray-500">Total Points</p>
-                        <p className="text-xs font-medium text-gray-900">{user.total_points}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Visits</p>
-                        <p className="text-xs font-medium text-gray-900">{user.total_visits}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Time Spent</p>
-                        <p className="text-xs font-medium text-gray-900">
-                          {formatTime(user.total_time_spent)}
-                        </p>
-                      </div>
-                    </div>
-                    {user.last_activity && (
-                      <p className="text-xs text-gray-400 mt-2">
-                        Last activity: {formatDate(user.last_activity)}
-                      </p>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center py-4">No premium users</p>
-              )}
-            </div>
-          </Card>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No payments yet</p>
+                )}
+              </div>
+            </Card>
 
-          {/* Payments */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
-              <span className="flex items-center">
-                <DollarSign className="h-5 w-5 mr-2 text-emerald-500" />
-                Recent Payments
-              </span>
-              {paymentStats && (
-                <div className="flex items-center space-x-4 text-sm">
-                  <span className="text-gray-600">
-                    Total: <strong>${paymentStats.totalRevenue.toFixed(2)}</strong>
-                  </span>
-                  <span className="text-blue-600">
-                    Basic: <strong>{paymentStats.basicPlanCount}</strong>
-                  </span>
-                  <span className="text-purple-600">
-                    Premium: <strong>{paymentStats.premiumPlanCount}</strong>
-                  </span>
-                  <span className="text-yellow-700">
-                    Workshop: <strong>{paymentStats.workshopCount || 0}</strong>
-                  </span>
-                </div>
-              )}
-            </h3>
-            <div className="space-y-3">
-              {payments.length > 0 ? (
-                payments.slice(0, 10).map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="font-medium text-gray-900 text-sm">
-                          {payment.plan_type === 'workshop' || payment.plan_type === 'coach_setup'
-                            ? payment.payment_details?.registration?.name || payment.user_email
-                            : payment.user_email || 'Email not provided'}
-                        </p>
-                        {(payment.plan_type === 'workshop' ||
-                          payment.plan_type === 'coach_setup') &&
-                          payment.user_email && (
-                            <p className="text-xs text-gray-600">{payment.user_email}</p>
-                          )}
-                        <p className="text-xs text-gray-500 mt-1">
-                          PayPal Order: {payment.paypal_order_id}
-                        </p>
+            {/* Top Active Users */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Top Active Users (by time spent)
+              </h3>
+              <div className="space-y-4">
+                {dashboardData?.top_active_users && dashboardData.top_active_users.length > 0 ? (
+                  dashboardData.top_active_users.slice(0, 5).map((user, index) => (
+                    <div
+                      key={user.email}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-sm font-medium text-blue-600">{index + 1}</span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{user.name}</p>
+                          <p className="text-xs text-gray-500">{user.email}</p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {user.total_visits} visits • {formatTime(user.total_time_spent)} spent
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${
-                            payment.plan_type === 'basic'
-                              ? 'bg-blue-100 text-blue-700 border-blue-300'
-                              : payment.plan_type === 'workshop'
-                                ? 'bg-yellow-100 text-yellow-800 border-yellow-300'
-                                : payment.plan_type === 'coach_setup'
-                                  ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
-                                  : 'bg-purple-100 text-purple-700 border-purple-300'
-                          }`}
-                        >
-                          {payment.plan_type}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className="text-xs bg-green-100 text-green-700 border-green-300"
-                        >
-                          {payment.status}
-                        </Badge>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-gray-900">
+                          {user.total_points} points
+                        </p>
+                        <p className="text-xs text-gray-600">{user.today_points} today</p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 mt-3">
-                      <div>
-                        <p className="text-xs text-gray-500">Amount</p>
-                        <p className="text-sm font-bold text-emerald-600">
-                          ${parseFloat(String(payment.amount)).toFixed(2)} {payment.currency}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Payment Date</p>
-                        <p className="text-xs font-medium text-gray-900">
-                          {formatDate(payment.created_at)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center py-4">No payments yet</p>
-              )}
-            </div>
-          </Card>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No user data available</p>
+                )}
+              </div>
+            </Card>
 
-          {/* Top Active Users */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Top Active Users (by time spent)
-            </h3>
-            <div className="space-y-4">
-              {dashboardData?.top_active_users && dashboardData.top_active_users.length > 0 ? (
-                dashboardData.top_active_users.slice(0, 5).map((user, index) => (
-                  <div
-                    key={user.email}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-blue-600">{index + 1}</span>
+            {/* Recent Activity */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+              <div className="space-y-3">
+                {recentActivity && recentActivity.length > 0 ? (
+                  recentActivity.slice(0, 8).map((activity) => (
+                    <div
+                      key={activity.id}
+                      className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded"
+                    >
+                      <div className={`p-1 rounded ${getActivityColor(activity.activity_type)}`}>
+                        {getActivityIcon(activity.activity_type)}
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{user.name}</p>
-                        <p className="text-xs text-gray-500">{user.email}</p>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {user.total_visits} visits • {formatTime(user.total_time_spent)} spent
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {activity.auth?.users?.email ||
+                            `User ${activity.user_id?.substring(0, 8)}`}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          {activity.activity_type.replace('_', ' ')}
                         </p>
                       </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">{formatDate(activity.created_at)}</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">
-                        {user.total_points} points
-                      </p>
-                      <p className="text-xs text-gray-600">{user.today_points} today</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center py-4">No user data available</p>
-              )}
-            </div>
-          </Card>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No recent activity</p>
+                )}
+              </div>
+            </Card>
+          </div>
 
-          {/* Recent Activity */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-            <div className="space-y-3">
-              {recentActivity && recentActivity.length > 0 ? (
-                recentActivity.slice(0, 8).map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded"
-                  >
-                    <div className={`p-1 rounded ${getActivityColor(activity.activity_type)}`}>
-                      {getActivityIcon(activity.activity_type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {activity.auth?.users?.email || `User ${activity.user_id?.substring(0, 8)}`}
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        {activity.activity_type.replace('_', ' ')}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">{formatDate(activity.created_at)}</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center py-4">No recent activity</p>
-              )}
+          {/* User Details Table */}
+          <Card className="p-6 mt-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">All Users</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      User
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Visits
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Time Spent
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total Points
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Today&apos;s Points
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Last Visit
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {users && users.length > 0 ? (
+                    users.map((user) => (
+                      <tr key={user.user_id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                            <p className="text-xs text-gray-500">{user.email}</p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              Joined {formatDate(user.created_at)}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${
+                              user.type === 'ADMIN'
+                                ? 'bg-red-100 text-red-700 border-red-300'
+                                : user.type === 'TRIAL'
+                                  ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                  : user.type === 'STANDARD'
+                                    ? 'bg-green-100 text-green-700 border-green-300'
+                                    : 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                            }`}
+                          >
+                            {user.type}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-900">{user.total_visits}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-900">
+                            {formatTime(user.total_time_spent)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex space-x-2">
+                            <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                              {user.total_points} total
+                            </Badge>
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                              {user.weekly_points} this week
+                            </Badge>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex space-x-2">
+                            <Badge variant="outline" className="bg-orange-50 text-orange-700">
+                              {user.today_points} today
+                            </Badge>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {user.last_visit ? formatDate(user.last_visit) : 'Never'}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                        No users found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </Card>
         </div>
 
-        {/* User Details Table */}
-        <Card className="p-6 mt-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">All Users</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Visits
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Time Spent
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total Points
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Today&apos;s Points
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Visit
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {users && users.length > 0 ? (
-                  users.map((user) => (
-                    <tr key={user.user_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                          <p className="text-xs text-gray-500">{user.email}</p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            Joined {formatDate(user.created_at)}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${
-                            user.type === 'ADMIN'
-                              ? 'bg-red-100 text-red-700 border-red-300'
-                              : user.type === 'TRIAL'
-                                ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                : user.type === 'STANDARD'
-                                  ? 'bg-green-100 text-green-700 border-green-300'
-                                  : 'bg-yellow-100 text-yellow-700 border-yellow-300'
-                          }`}
-                        >
-                          {user.type}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-900">{user.total_visits}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-900">
-                          {formatTime(user.total_time_spent)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex space-x-2">
-                          <Badge variant="outline" className="bg-purple-50 text-purple-700">
-                            {user.total_points} total
-                          </Badge>
-                          <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                            {user.weekly_points} this week
-                          </Badge>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex space-x-2">
-                          <Badge variant="outline" className="bg-orange-50 text-orange-700">
-                            {user.today_points} today
-                          </Badge>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.last_visit ? formatDate(user.last_visit) : 'Never'}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                      No users found
-                    </td>
-                  </tr>
+        {/* Raw Data Section */}
+        {rawDataOpen && (
+          <div className="mt-8">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Table className="h-5 w-5" />
+                  Raw Data Catalog
+                </CardTitle>
+                <p className="text-sm text-gray-600">
+                  Complete data structure reference for all tables and user classifications
+                </p>
+                {rawData?._metadata && (
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <strong>Last Updated:</strong>{' '}
+                        {new Date(rawData._metadata.last_updated).toLocaleString()}
+                      </div>
+                      <div>
+                        <strong>Next Refresh:</strong>{' '}
+                        {new Date(rawData._metadata.next_refresh).toLocaleString()}
+                      </div>
+                      <div>
+                        <strong>Total Tables:</strong> {rawData._metadata.total_tables}
+                      </div>
+                      <div>
+                        <strong>Version:</strong> {rawData._metadata.version}
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center mt-2">
+                      <p className="text-xs text-gray-600">
+                        🔄 Auto-refreshes every 3 days via Vercel cron job
+                      </p>
+                      <Button
+                        onClick={fetchRawData}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                      >
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Refresh Now
+                      </Button>
+                    </div>
+                  </div>
                 )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      </div>
-
-      {/* Raw Data Section */}
-      {rawDataOpen && (
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Table className="h-5 w-5" />
-                Raw Data Catalog
-              </CardTitle>
-              <p className="text-sm text-gray-600">
-                Complete data structure reference for all tables and user classifications
-              </p>
-              {rawData?._metadata && (
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <strong>Last Updated:</strong>{' '}
-                      {new Date(rawData._metadata.last_updated).toLocaleString()}
-                    </div>
-                    <div>
-                      <strong>Next Refresh:</strong>{' '}
-                      {new Date(rawData._metadata.next_refresh).toLocaleString()}
-                    </div>
-                    <div>
-                      <strong>Total Tables:</strong> {rawData._metadata.total_tables}
-                    </div>
-                    <div>
-                      <strong>Version:</strong> {rawData._metadata.version}
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <p className="text-xs text-gray-600">
-                      🔄 Auto-refreshes every 3 days via Vercel cron job
-                    </p>
-                    <Button onClick={fetchRawData} variant="outline" size="sm" className="text-xs">
-                      <RefreshCw className="h-3 w-3 mr-1" />
-                      Refresh Now
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardHeader>
-            <CardContent>
-              {rawData ? (
-                <div className="space-y-6">
-                  {Object.entries(rawData)
-                    .filter(([tableName]) => tableName !== '_metadata')
-                    .map(([tableName, tableData]: [string, any]) => (
-                      <div key={tableName} className="border rounded-lg p-4">
-                        <h3 className="text-lg font-semibold mb-2 capitalize">
-                          {tableName.replace(/_/g, ' ')}
-                        </h3>
-                        {tableData.error ? (
-                          <div className="text-red-600 bg-red-50 p-3 rounded">
-                            <strong>Error:</strong> {tableData.error}
-                            {tableData.details && (
-                              <div className="text-sm mt-1">
-                                Details: {JSON.stringify(tableData.details)}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            <div className="flex gap-4 text-sm">
-                              <span>
-                                <strong>Records:</strong> {tableData.count || 0}
-                              </span>
-                              {tableData.summary && (
-                                <div className="flex gap-2">
-                                  {Object.entries(tableData.summary).map(
-                                    ([type, count]: [string, any]) => (
-                                      <Badge key={`${tableName}-${type}`} variant="outline">
-                                        {type}: {count}
-                                      </Badge>
-                                    )
-                                  )}
+              </CardHeader>
+              <CardContent>
+                {rawData ? (
+                  <div className="space-y-6">
+                    {Object.entries(rawData)
+                      .filter(([tableName]) => tableName !== '_metadata')
+                      .map(([tableName, tableData]: [string, any]) => (
+                        <div key={tableName} className="border rounded-lg p-4">
+                          <h3 className="text-lg font-semibold mb-2 capitalize">
+                            {tableName.replace(/_/g, ' ')}
+                          </h3>
+                          {tableData.error ? (
+                            <div className="text-red-600 bg-red-50 p-3 rounded">
+                              <strong>Error:</strong> {tableData.error}
+                              {tableData.details && (
+                                <div className="text-sm mt-1">
+                                  Details: {JSON.stringify(tableData.details)}
                                 </div>
                               )}
                             </div>
-
-                            {tableData.description && (
-                              <p className="text-sm text-gray-600">{tableData.description}</p>
-                            )}
-
-                            {tableData.columns && (
-                              <div>
-                                <h4 className="font-medium text-sm mb-1">Columns:</h4>
-                                <div className="flex flex-wrap gap-1">
-                                  {tableData.columns.map((column: string, idx: number) => (
-                                    <Badge
-                                      key={`${tableName}-${column}-${idx}`}
-                                      variant="secondary"
-                                      className="text-xs"
-                                    >
-                                      {column}
-                                    </Badge>
-                                  ))}
-                                </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="flex gap-4 text-sm">
+                                <span>
+                                  <strong>Records:</strong> {tableData.count || 0}
+                                </span>
+                                {tableData.summary && (
+                                  <div className="flex gap-2">
+                                    {Object.entries(tableData.summary).map(
+                                      ([type, count]: [string, any]) => (
+                                        <Badge key={`${tableName}-${type}`} variant="outline">
+                                          {type}: {count}
+                                        </Badge>
+                                      )
+                                    )}
+                                  </div>
+                                )}
                               </div>
-                            )}
 
-                            {tableData.sample_data && tableData.sample_data.length > 0 && (
-                              <div>
-                                <h4 className="font-medium text-sm mb-2">Sample Data:</h4>
-                                <div className="bg-gray-50 p-3 rounded text-xs overflow-auto max-h-40">
-                                  <pre>{JSON.stringify(tableData.sample_data, null, 2)}</pre>
-                                </div>
-                              </div>
-                            )}
+                              {tableData.description && (
+                                <p className="text-sm text-gray-600">{tableData.description}</p>
+                              )}
 
-                            {tableData.users && (
-                              <div>
-                                <h4 className="font-medium text-sm mb-2">User Classifications:</h4>
-                                <div className="bg-gray-50 p-3 rounded text-xs overflow-auto max-h-40">
-                                  <pre>{JSON.stringify(tableData.users, null, 2)}</pre>
+                              {tableData.columns && (
+                                <div>
+                                  <h4 className="font-medium text-sm mb-1">Columns:</h4>
+                                  <div className="flex flex-wrap gap-1">
+                                    {tableData.columns.map((column: string, idx: number) => (
+                                      <Badge
+                                        key={`${tableName}-${column}-${idx}`}
+                                        variant="secondary"
+                                        className="text-xs"
+                                      >
+                                        {column}
+                                      </Badge>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Database className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600">Loading raw data...</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </div>
+                              )}
+
+                              {tableData.sample_data && tableData.sample_data.length > 0 && (
+                                <div>
+                                  <h4 className="font-medium text-sm mb-2">Sample Data:</h4>
+                                  <div className="bg-gray-50 p-3 rounded text-xs overflow-auto max-h-40">
+                                    <pre>{JSON.stringify(tableData.sample_data, null, 2)}</pre>
+                                  </div>
+                                </div>
+                              )}
+
+                              {tableData.users && (
+                                <div>
+                                  <h4 className="font-medium text-sm mb-2">
+                                    User Classifications:
+                                  </h4>
+                                  <div className="bg-gray-50 p-3 rounded text-xs overflow-auto max-h-40">
+                                    <pre>{JSON.stringify(tableData.users, null, 2)}</pre>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Database className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                    <p className="text-gray-600">Loading raw data...</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+    </AppShell>
   )
 }

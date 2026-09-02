@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { isKnownAdminEmail } from '@/lib/admin-access'
 
 interface AdminUser {
   id: string
@@ -56,8 +57,8 @@ export function useAdminAuth() {
     checkAdminStatus()
   }, [user])
 
-  const isAdmin = adminUser !== null && adminUser.is_active
-  const isSuperAdmin = adminUser?.role === 'super_admin'
+  const isAdmin = (adminUser !== null && adminUser.is_active) || isKnownAdminEmail(user?.email)
+  const isSuperAdmin = adminUser?.role === 'super_admin' || isKnownAdminEmail(user?.email)
 
   return {
     adminUser,
