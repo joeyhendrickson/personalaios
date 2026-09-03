@@ -16,6 +16,7 @@ import {
   formatTaskIdeasForPrompt,
   reconcilePlanWithIntake,
 } from '@/lib/dream-catcher/plan-projects'
+import { normalizeOnboardingPlan } from '@/lib/dream-catcher/normalize-onboarding-plan'
 
 const goalItemSchema = z.object({ type: z.literal('create_goal') }).merge(createGoalPayloadSchema)
 const projectItemSchema = z
@@ -357,11 +358,12 @@ export function buildFallbackPlan(input: DreamCatcherAssessmentInput): Onboardin
     })
   }
 
-  return clampOnboardingPlan({
+  const clamped = clampOnboardingPlan({
     summary: 'Life Plan generated from your Dream Catcher session.',
     life_plan_summary: input.lifePlanSummary,
     items,
   })
+  return normalizeOnboardingPlan(clamped) ?? clamped
 }
 
 function formatAssessmentBlock(input: DreamCatcherAssessmentInput): string {
@@ -502,7 +504,8 @@ Return ONLY valid JSON (no markdown):
     if (!linksValid || goalTitles.size === 0) return buildFallbackPlan(input)
 
     const reconciled = reconcilePlanWithIntake(plan, input)
-    return clampOnboardingPlan(reconciled)
+    const clamped = clampOnboardingPlan(reconciled)
+    return normalizeOnboardingPlan(clamped) ?? buildFallbackPlan(input)
   } catch {
     return buildFallbackPlan(input)
   }

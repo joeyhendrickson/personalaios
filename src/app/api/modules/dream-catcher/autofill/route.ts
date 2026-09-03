@@ -4,9 +4,9 @@ import { commitOnboardingPlan } from '@/lib/dream-catcher/commit-onboarding-plan
 import {
   assessmentDataToPlanInput,
   generateOnboardingPlan,
-  onboardingPlanSchema,
   type OnboardingPlan,
 } from '@/lib/dream-catcher/generate-onboarding-plan'
+import { normalizeOnboardingPlan } from '@/lib/dream-catcher/normalize-onboarding-plan'
 import {
   saveDreamCatcherSession,
   type DreamCatcherConversationMessage,
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     let plan: OnboardingPlan
     if (prebuiltPlan) {
-      plan = onboardingPlanSchema.parse(prebuiltPlan)
+      plan = normalizeOnboardingPlan(prebuiltPlan) ?? (await generateOnboardingPlan(planInput))
     } else {
       plan = await generateOnboardingPlan(planInput)
     }
@@ -113,12 +113,19 @@ export async function POST(request: NextRequest) {
       { onConflict: 'user_id' }
     )
 
-    await supabase.from('activity_logs').insert({
+    const { error: activityLogError } = await supabase.from('user_activity_logs').insert({
       user_id: user.id,
       activity_type: 'dream_catcher_autofill',
-      description: `Dream Catcher Life Plan: ${counts.goals_added} goals, ${counts.projects_added} projects, ${counts.tasks_added} tasks, ${counts.habits_added} habits, ${counts.education_added} education, ${counts.fitness_goals_added} fitness, ${counts.ruminations_added} ruminations, ${counts.gratitude_added} gratitude, ${counts.relationships_added} relationships`,
-      metadata: { ...counts, is_new_user, iam_present_starters_added: iamPresent.sessions_created },
+      activity_data: {
+        description: `Dream Catcher Life Plan: ${counts.goals_added} goals, ${counts.projects_added} projects, ${counts.tasks_added} tasks, ${counts.habits_added} habits, ${counts.education_added} education, ${counts.fitness_goals_added} fitness, ${counts.ruminations_added} ruminations, ${counts.gratitude_added} gratitude, ${counts.relationships_added} relationships`,
+        ...counts,
+        is_new_user,
+        iam_present_starters_added: iamPresent.sessions_created,
+      },
     })
+    if (activityLogError) {
+      console.warn('[DreamCatcher] autofill activity log failed:', activityLogError.message)
+    }
 
     const hasErrors = errors.length > 0
 

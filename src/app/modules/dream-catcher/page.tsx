@@ -1147,7 +1147,11 @@ function DreamCatcherModuleContent() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to set up dashboard')
+        const detail =
+          typeof errorData.details === 'string' && errorData.details.trim()
+            ? `: ${errorData.details}`
+            : ''
+        throw new Error(`${errorData.error || 'Failed to set up dashboard'}${detail}`)
       }
 
       // Taking the next step is arriving at the dashboard — skip the success alert.
