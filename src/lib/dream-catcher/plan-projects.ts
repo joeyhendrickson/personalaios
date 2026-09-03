@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { taskCategorySchema } from '@/lib/assistant/proposal-schemas'
 import { DREAM_CATCHER_LIMITS } from '@/lib/dream-catcher/plan-limits'
 import type {
   DreamCatcherAssessmentInput,
@@ -33,6 +34,19 @@ function sanitizeCategory(category?: string): string {
     .replace(/[^a-z]+/g, '_')
     .replace(/^_+|_+$/g, '')
   return c.length ? c : 'other'
+}
+
+export { sanitizeCategory as sanitizeProjectCategory }
+
+export function sanitizeTaskCategory(category?: string) {
+  if (!category) return 'other' as const
+  const c = category
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  const parsed = taskCategorySchema.safeParse(c)
+  return parsed.success ? parsed.data : ('other' as const)
 }
 
 /** True when a project title is essentially the same as (or a wrapper around) a goal title. */
@@ -264,7 +278,7 @@ function taskItemsFromIdeas(
         task.description ||
         `Tactical step for "${projectTitle}" — captured from your Dream Catcher intake.`,
       project_title: projectTitle,
-      category: (task.category as 'other') || 'other',
+      category: sanitizeTaskCategory(task.category),
       points_value: 5,
     })
   }
