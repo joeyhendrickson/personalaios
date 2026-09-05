@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   BarChart3,
@@ -30,6 +29,7 @@ import { useAdminAuth } from '@/hooks/use-admin-auth'
 import { WakeWordToggle } from '@/components/chat/wake-word-toggle'
 import { LanguageToggle } from '@/components/ui/language-toggle'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { StacksIcon } from '@/components/ui/stacks-icon'
 import { isKnownAdminEmail } from '@/lib/admin-access'
 import { cn } from '@/lib/utils'
 
@@ -139,13 +139,7 @@ export function AppShell({
     <div className="flex h-full flex-col bg-[#1a1d23] text-white">
       <div className="px-5 pt-6 pb-5">
         <Link href="/dashboard" className="flex items-center gap-3">
-          <Image
-            src="/LifeStacks-logo.png"
-            alt="LifeStacks"
-            width={40}
-            height={40}
-            className="h-10 w-10 rounded-lg bg-black/40 object-contain p-1"
-          />
+          <StacksIcon size="md" />
           <span className="text-lg font-semibold tracking-tight">LifeStacks</span>
         </Link>
       </div>
@@ -288,13 +282,7 @@ export function AppShell({
 
       <div className="sticky top-0 z-30 flex items-center justify-between gap-2 bg-[#1a1d23] px-3 py-3 text-white lg:hidden">
         <Link href="/dashboard" className="flex min-w-0 items-center gap-2">
-          <Image
-            src="/LifeStacks-logo.png"
-            alt=""
-            width={32}
-            height={32}
-            className="h-8 w-8 shrink-0 rounded object-contain invert"
-          />
+          <StacksIcon size="sm" />
           <span className="truncate font-semibold max-[380px]:hidden">LifeStacks</span>
         </Link>
         <div className="flex shrink-0 items-center gap-1.5">
